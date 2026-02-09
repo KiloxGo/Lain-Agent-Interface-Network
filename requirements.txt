@@ -1,0 +1,4 @@
+openai
+requests
+pyaudio
+python-dotenv
