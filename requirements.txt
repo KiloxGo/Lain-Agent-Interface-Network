@@ -2,3 +2,6 @@ openai
 requests
 pyaudio
 python-dotenv
+fastapi
+uvicorn
+websockets

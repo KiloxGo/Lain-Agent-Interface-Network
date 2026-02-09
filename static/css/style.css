@@ -1,0 +1,64 @@
+/* static/css/style.css */
+body {
+    margin: 0;
+    background-color: #000;
+    overflow: hidden;
+    color: #fff;
+    font-family: "Courier New", Courier, monospace;
+}
+
+#canvas-container {
+    width: 100vw;
+    height: 100vh;
+    display: block;
+}
+
+#ui-layer {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.status-text {
+    font-size: 18px;
+    color: #00ff00;
+    text-shadow: 0 0 5px #00ff00;
+    margin-bottom: 5px;
+}
+
+.caption-text {
+    font-size: 14px;
+    color: #aaa;
+    max-width: 80vw;
+    line-height: 1.4;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 5px;
+}
+
+#talk-btn {
+    position: absolute;
+    bottom: 50px;
+    right: 50px;
+    padding: 15px 30px;
+    font-size: 20px;
+    font-family: "Courier New", Courier, monospace;
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #00ff00;
+    color: #00ff00;
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.2s;
+    text-transform: uppercase;
+}
+
+#talk-btn:hover {
+    background: #00ff00;
+    color: #000;
+    box-shadow: 0 0 15px #00ff00;
+}
+
+#talk-btn:active {
+    transform: scale(0.95);
+}

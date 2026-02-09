@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>L.A.I.N. Terminal</title>
+
+    <link rel="stylesheet" href="/static/css/style.css" />
+
+    <!-- External scripts (Pixi + Live2D) are loaded dynamically in main.js with local fallbacks. -->
+  </head>
+  <body>
+    <div id="ui-layer">
+      <div id="status" class="status-text">SYSTEM OFFLINE</div>
+      <div id="caption" class="caption-text">
+        Initializing Wired Protocol...
+      </div>
+    </div>
+
+    <button id="talk-btn" disabled>CONNECTING...</button>
+
+    <canvas id="screen"></canvas>
+
+    <script src="/static/js/main.js"></script>
+  </body>
+</html>
