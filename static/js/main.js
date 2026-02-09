@@ -3,6 +3,8 @@ let lainModel;
 let ws;
 let audioContext;
 let analyser;
+let mouthLevel = 0;
+let modelBaseSize;
 
 const MODEL_PATH = "/static/models/lain/lain01_04.model.json";
 const WS_URL = "ws://" + location.host + "/ws";
@@ -11,10 +13,17 @@ const statusEl = document.getElementById("status");
 const captionEl = document.getElementById("caption");
 const talkBtn = document.getElementById("talk-btn");
 
+const setTalkButton = (label, disabled) => {
+  talkBtn.textContent = label;
+  talkBtn.disabled = disabled;
+};
+
 async function initLive2D() {
   if (!PIXI?.live2d?.Live2DModel?.from) {
     updateStatus("LIVE2D RUNTIME NOT LOADED");
-    console.error("Live2D runtime missing; check script order/CDN reachability.");
+    console.error(
+      "Live2D runtime missing; check script order/CDN reachability.",
+    );
     return;
   }
 
@@ -44,13 +53,24 @@ async function initLive2D() {
 
 function resizeModel() {
   if (!lainModel) return;
-  const scaleX = (window.innerWidth * 0.5) / lainModel.width;
-  const scaleY = (window.innerHeight * 0.8) / lainModel.height;
-  const scale = Math.min(scaleX, scaleY);
+  if (!app || !app.renderer) return;
 
-  lainModel.scale.set(scale);
-  lainModel.x = (window.innerWidth - lainModel.width * scale) / 2;
-  lainModel.y = (window.innerHeight - lainModel.height) / 2 + 50;
+  const screenW = app.renderer.width;
+  const screenH = app.renderer.height;
+
+  lainModel.scale.set(1, 1);
+
+  const originalW = lainModel.width;
+  const originalH = lainModel.height;
+
+  const scaleByHeight = (screenH * 0.97) / originalH;
+  const scaleByWidth = (screenW * 0.98) / originalW;
+  const targetScale = Math.min(scaleByHeight, scaleByWidth);
+
+  lainModel.scale.set(targetScale, targetScale);
+
+  lainModel.x = (screenW - lainModel.width) / 2;
+  lainModel.y = (screenH - lainModel.height) * 0.995;
 }
 
 function initWebSocket() {
@@ -58,11 +78,12 @@ function initWebSocket() {
 
   ws.onopen = () => {
     updateStatus("LINK ESTABLISHED");
-    talkBtn.disabled = false;
+    captionEl.innerText = "";
+    setTalkButton("Start Talking", false);
   };
   ws.onclose = () => {
     updateStatus("LINK LOST");
-    talkBtn.disabled = true;
+    setTalkButton("Connecting...", true);
   };
 
   ws.onmessage = async (event) => {
@@ -78,8 +99,10 @@ function handleServerMessage(data) {
     captionEl.innerText = data.content;
   } else if (data.type === "audio") {
     updateStatus("SPEAKING...");
-    // server sends base64 in `content`
     playAudioWithLipSync("data:audio/mp3;base64," + data.content);
+  } else if (data.type === "reset") {
+    updateStatus("IDLE");
+    setTalkButton("Start Talking", false);
   }
 }
 
@@ -88,43 +111,83 @@ function playAudioWithLipSync(audioSrc) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
   }
 
+  // 若因自动播放策略被挂起，尝试恢复
+  if (audioContext.state === "suspended") {
+    audioContext.resume();
+  }
+
   const audio = new Audio(audioSrc);
+  window.currentAudio = audio;
 
   if (!analyser) {
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 256;
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.7;
   }
 
   const source = audioContext.createMediaElementSource(audio);
   source.connect(analyser);
   analyser.connect(audioContext.destination);
 
-  audio.play();
-
   audio.onended = () => {
     updateStatus("IDLE");
+    setTalkButton("Start Talking", false);
     app.ticker.remove(lipSyncTicker);
-    if (lainModel)
-      lainModel.internalModel.coreModel.setParamFloat("PARAM_MOUTH_OPEN_Y", 0);
+    if (lainModel) {
+      try {
+        lainModel.internalModel.coreModel.setParamFloat(
+          "PARAM_MOUTH_OPEN_Y",
+          0,
+        );
+      } catch (e) {}
+    }
   };
+
+  audio.onerror = () => {
+    updateStatus("AUDIO ERROR");
+    setTalkButton("Start Talking", false);
+    app.ticker.remove(lipSyncTicker);
+  };
+
   app.ticker.add(lipSyncTicker);
 
-  window.currentAudio = audio;
+  audio.play().catch((e) => {
+    console.error("Play failed:", e);
+    updateStatus("PLAYBACK FAILED");
+    setTalkButton("Start Talking", false);
+    app.ticker.remove(lipSyncTicker);
+  });
 }
 
-const dataArray = new Uint8Array(128);
+const dataArray = new Uint8Array(1024);
 const lipSyncTicker = () => {
   if (!window.currentAudio || window.currentAudio.paused) return;
 
-  analyser.getByteFrequencyData(dataArray);
-
-  let sum = 0;
+  // 用时域 RMS + 峰值做能量，减少频域漂移
+  analyser.getByteTimeDomainData(dataArray);
+  let sumSq = 0;
+  let peak = 0;
   for (let i = 0; i < dataArray.length; i++) {
-    sum += dataArray[i];
+    const centered = dataArray[i] - 128;
+    sumSq += centered * centered;
+    const abs = Math.abs(centered);
+    if (abs > peak) peak = abs;
   }
-  const average = sum / dataArray.length;
+  const rms = Math.sqrt(sumSq / dataArray.length) / 128; // 0~1
+  const peakNorm = peak / 128; // 0~1
+  const energy = rms * 0.7 + peakNorm * 0.3;
 
-  const mouthValue = Math.min(average * 0.03, 1.0);
+  // 噪声门与平滑，避免静音时张嘴
+  const gate = 0.005;
+  const target = energy > gate ? (energy - gate) * 4.0 : 0; // 提升灵敏度
+
+  // 攻击/释放平滑
+  const attack = 0.6;
+  const release = 0.25;
+  const alpha = target > mouthLevel ? attack : release;
+  mouthLevel = mouthLevel * (1 - alpha) + target * alpha;
+
+  const mouthValue = Math.min(mouthLevel, 1.0);
 
   if (lainModel) {
     try {
@@ -143,7 +206,7 @@ function updateStatus(text) {
 talkBtn.addEventListener("click", () => {
   if (ws && ws.readyState === WebSocket.OPEN) {
     updateStatus("RECORDING...");
-    // backend expects the plain string "start_interaction"
+    setTalkButton("Recording...", true);
     ws.send("start_interaction");
 
     if (audioContext && audioContext.state === "suspended") {
@@ -152,7 +215,6 @@ talkBtn.addEventListener("click", () => {
   }
 });
 
-// --- Script loader with local fallback then CDN ---
 function loadScript(url) {
   return new Promise((resolve, reject) => {
     const s = document.createElement("script");
@@ -180,11 +242,17 @@ async function loadWithFallbacks(candidates, label) {
 async function bootstrap() {
   try {
     await loadWithFallbacks(
-      ["/static/js/vendor/pixi.min.js", "https://cdn.jsdelivr.net/npm/pixi.js@7.x/dist/pixi.min.js"],
+      [
+        "/static/js/vendor/pixi.min.js",
+        "https://cdn.jsdelivr.net/npm/pixi.js@7.x/dist/pixi.min.js",
+      ],
       "PixiJS",
     );
     const live2dOk = await loadWithFallbacks(
-      ["/static/js/vendor/live2d.min.js", "https://cdn.jsdelivr.net/gh/dizhenry/Live2D_v2/live2d.min.js"],
+      [
+        "/static/js/vendor/live2d.min.js",
+        "https://cdn.jsdelivr.net/gh/dizhenry/Live2D_v2/live2d.min.js",
+      ],
       "Live2D Cubism2 runtime",
     ).then(
       () => true,
@@ -210,7 +278,7 @@ async function bootstrap() {
     updateStatus("LIVE2D DEPENDENCIES UNAVAILABLE");
     console.error(error);
   } finally {
-    initWebSocket(); // websocket can still work without Live2D
+    initWebSocket();
   }
 }
 
