@@ -1,0 +1,66 @@
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use std::env;
+
+pub struct LlmClient {
+    client: Client,
+    api_key: String,
+    base_url: String,
+    model: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Serialize)]
+struct ChatRequest {
+    model: String,
+    messages: Vec<ChatMessage>,
+    stream: bool,
+}
+
+#[derive(Deserialize)]
+struct ChatResponse {
+    choices: Vec<Choice>,
+}
+
+#[derive(Deserialize)]
+struct Choice {
+    message: ChatMessage,
+}
+
+impl LlmClient {
+    pub fn new() -> Self {
+        let api_key = env::var("DEEPSEEK_API_KEY").expect("DEEPSEEL_API_KEY not set in .env");
+
+        Self {
+            client: Client::new(),
+            api_key,
+            base_url: "https://api.deepseek.com/v1".to_string(),
+            model: "deepseek-chat".to_string(),
+        }
+    }
+    pub async fn chat(&self, messages: Vec<ChatMessage>) -> Result<String, reqwest::Error> {
+        let request = ChatRequest {
+            model: self.model.clone(),
+            messages,
+            stream: false,
+        };
+        let url = format!("{}/chat/completions", self.base_url);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .json(&request)
+            .send()
+            .await?
+            .json::<ChatResponse>()
+            .await?;
+
+        Ok(response.choices[0].message.content.clone())
+    }
+}
