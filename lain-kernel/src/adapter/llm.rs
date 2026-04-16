@@ -7,6 +7,7 @@ pub struct LlmClient {
     api_key: String,
     base_url: String,
     model: String,
+    system_prompt: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -33,20 +34,28 @@ struct Choice {
 }
 
 impl LlmClient {
-    pub fn new() -> Self {
-        let api_key = env::var("DEEPSEEK_API_KEY").expect("DEEPSEEL_API_KEY not set in .env");
+    pub fn new(system_prompt: &str) -> Self {
+        let api_key = env::var("DEEPSEEK_API_KEY").expect("DEEPSEEK_API_KEY not set in .env");
 
         Self {
             client: Client::new(),
             api_key,
             base_url: "https://api.deepseek.com/v1".to_string(),
             model: "deepseek-chat".to_string(),
+            system_prompt: system_prompt.to_string(),
         }
     }
+
     pub async fn chat(&self, messages: Vec<ChatMessage>) -> Result<String, reqwest::Error> {
+        let mut all_messages = vec![ChatMessage {
+            role: "system".to_string(),
+            content: self.system_prompt.clone(),
+        }];
+        all_messages.extend(messages);
+
         let request = ChatRequest {
             model: self.model.clone(),
-            messages,
+            messages: all_messages,
             stream: false,
         };
         let url = format!("{}/chat/completions", self.base_url);
