@@ -1,5 +1,6 @@
 mod adapter;
 mod config;
+mod memory;
 
 use adapter::llm::{ChatMessage, LlmClient};
 use axum::{
@@ -11,7 +12,7 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use serde::Serialize;
+use serde::{Serialize, de::value};
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -29,17 +30,14 @@ async fn health() -> Json<HealthResponse> {
     })
 }
 
-async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
 async fn handle_socket(mut socket: WebSocket, state: AppState) {
     let client = LlmClient::new(&state.system_prompt);
     let mut msgs = Vec::new();
-    
+
     while let Some(Ok(Message::Text(text))) = socket.recv().await {
         msgs.push(ChatMessage {
             role: "user".to_string(),
@@ -48,16 +46,32 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
 
         match client.chat(msgs.clone()).await {
             Ok(reply) => {
+                let memories = memory::extract_memory(&reply);
+                for (key, value) in memories {
+                    let _ = memory::update_profile(&key, &value).await;
+                }
+
+                let clean_reply = memory::strip_memory_tags(&reply);
+
                 msgs.push(ChatMessage {
                     role: "assistant".to_string(),
-                    content: reply.clone(),
+                    content: clean_reply.clone(),
                 });
                 let msg_count = msgs.len();
                 if msg_count > 10 {
                     let new_msgs = msgs.split_off(msg_count - 10);
                     msgs = new_msgs;
                 }
-                let _ = socket.send(Message::Text(reply.into())).await;
+
+                let _ = socket.send(Message::Text(clean_reply.into())).await;
+
+                let user_text = text.to_string();
+                let lain_text = reply.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = crate::memory::log_exchange(&user_text, &lain_text).await {
+                        eprintln!("记忆写入失败:{}", e);
+                    }
+                });
             }
             Err(e) => {
                 let error_msg = format!("...Noise...{}", e);

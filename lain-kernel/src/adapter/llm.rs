@@ -2,6 +2,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::env;
 
+use crate::memory;
+
 pub struct LlmClient {
     client: Client,
     api_key: String,
@@ -47,9 +49,17 @@ impl LlmClient {
     }
 
     pub async fn chat(&self, messages: Vec<ChatMessage>) -> Result<String, reqwest::Error> {
+        let profile = memory::load_profile().await.unwrap_or_default();
+
+        let system_content = if profile.is_empty() {
+            self.system_prompt.clone()
+        } else {
+            format!("{}\n\n##User Context\n{}", self.system_prompt, profile)
+        };
+
         let mut all_messages = vec![ChatMessage {
             role: "system".to_string(),
-            content: self.system_prompt.clone(),
+            content: system_content,
         }];
         all_messages.extend(messages);
 
