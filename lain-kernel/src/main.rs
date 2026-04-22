@@ -12,7 +12,7 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use serde::{Serialize, de::value};
+use serde::Serialize;
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -39,6 +39,55 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
     let mut msgs = Vec::new();
 
     while let Some(Ok(Message::Text(text))) = socket.recv().await {
+        let is_history_query = text.contains("之前")
+            || text.contains("上次")
+            || text.contains("我说过")
+            || text.contains("记得");
+
+        if is_history_query {
+            let keyword = text
+                .replace("之前", "")
+                .replace("上次", "")
+                .replace("我说过", "")
+                .replace("记得", "")
+                .replace("什么", "")
+                .trim()
+                .to_string();
+
+            if !keyword.is_empty() {
+                let memories = memory::search_history(&keyword, 3).await;
+                if !memories.is_empty() {
+                    let context = format!(
+                        "[Wired Archive] Related records found:\n{}",
+                        memories.join("\n---\n")
+                    );
+                    msgs.push(ChatMessage {
+                        role: "system".to_string(),
+                        content: context,
+                    });
+                }
+            }
+        }
+
+        let is_history_query = text.contains("之前")
+            || text.contains("上次")
+            || text.contains("我说过")
+            || text.contains("记得");
+
+        if !is_history_query {
+            let related = memory::search_related(&text, 2).await;
+            if !related.is_empty() {
+                let recall = format!(
+                    "[Wired Echo] Related transmissions detected in archive:\n{}",
+                    related.join("\n---\n")
+                );
+                msgs.push(ChatMessage {
+                    role: "system".to_string(),
+                    content: recall,
+                });
+            }
+        }
+
         msgs.push(ChatMessage {
             role: "user".to_string(),
             content: text.to_string(),
@@ -51,12 +100,17 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                     let _ = memory::update_profile(&key, &value).await;
                 }
 
-                let clean_reply = memory::strip_memory_tags(&reply);
+                if let Some(raw_topic) = memory::extract_topic(&reply) {
+                    let _ = memory::log_to_topic(&raw_topic, &text, &reply).await;
+                }
+
+                let clean_reply = memory::strip_all_tags(&reply);
 
                 msgs.push(ChatMessage {
                     role: "assistant".to_string(),
                     content: clean_reply.clone(),
                 });
+
                 let msg_count = msgs.len();
                 if msg_count > 10 {
                     let new_msgs = msgs.split_off(msg_count - 10);
@@ -89,6 +143,13 @@ async fn main() {
     let state = AppState {
         system_prompt: config.system_prompt,
     };
+
+    let llm = adapter::llm::LlmClient::new(&state.system_prompt);
+    tokio::spawn(async move {
+        if let Err(e) = memory::consolidate_topics(&llm).await {
+            eprintln!("Topic consolidation failed: {}", e);
+        }
+    });
 
     let app = Router::new()
         .route("/api/health", get(health))
