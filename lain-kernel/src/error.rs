@@ -6,7 +6,7 @@ use axum::{
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::{config::ConfigError, provider::ModelError};
+use crate::{config::ConfigError, provider::ModelError, storage::StorageError};
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -20,6 +20,8 @@ pub enum AppError {
     },
     #[error(transparent)]
     Provider(#[from] ModelError),
+    #[error(transparent)]
+    Storage(#[from] StorageError),
     #[error("service is not ready: {0}")]
     NotReady(String),
     #[error("WebSocket origin is not allowed")]
@@ -38,6 +40,7 @@ impl AppError {
             Self::Config(_) => "config_invalid",
             Self::Io { .. } => "io_error",
             Self::Provider(error) => error.code(),
+            Self::Storage(_) => "storage_error",
             Self::NotReady(_) => "service_not_ready",
             Self::ForbiddenOrigin => "forbidden_origin",
             Self::ShutdownTimeout(_) => "shutdown_timeout",
@@ -49,6 +52,7 @@ impl AppError {
             Self::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Io { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Provider(_) => StatusCode::BAD_GATEWAY,
+            Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::NotReady(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::ForbiddenOrigin => StatusCode::FORBIDDEN,
             Self::ShutdownTimeout(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -69,6 +73,7 @@ impl IntoResponse for AppError {
             Self::Config(_) => "service configuration is invalid".to_string(),
             Self::Io { .. } => "internal I/O operation failed".to_string(),
             Self::Provider(_) => "provider request failed".to_string(),
+            Self::Storage(_) => "persistent storage operation failed".to_string(),
             Self::NotReady(failures) => format!("service is not ready: {failures}"),
             Self::ForbiddenOrigin => "WebSocket origin is not allowed".to_string(),
             Self::ShutdownTimeout(seconds) => {

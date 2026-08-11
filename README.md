@@ -9,9 +9,9 @@
 - 后端：Rust 2024、Tokio、Axum，默认监听 `127.0.0.1:3000`。
 - 前端：React 19、TypeScript、Vite。
 - 模型：provider-neutral `ModelProvider` 事件流；默认路由到 DeepSeek V4 Flash，显式复杂推理可路由到 V4 Pro。
-- 存储：当前为 `~/.lain/memory/` 下的 Markdown/JSON 文件（可通过 `LAIN_DATA_DIR` 覆盖）；目标方案是 SQLite + FTS5。
+- 存储：`~/.lain/state/lain.db` 下的 SQLite WAL 保存 session、message、run 与事件；旧 Markdown 记忆暂时保留为兼容读取和迁移入口（根目录可通过 `LAIN_DATA_DIR` 覆盖）。
 - 工具：当前仅有由模型文本标签触发的实验性记忆行为，尚无受约束的结构化工具层。
-- 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、tool-call delta 与 JSON mode 已有离线契约测试。
+- 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、SQLite 事务/迁移/并发 seq、协议 DTO 与 Markdown 迁移已有离线契约测试。
 
 完整现状、目标架构、ADR 和 209 项实施任务见 [TECHNICAL_IMPLEMENTATION_PLAN.md](TECHNICAL_IMPLEMENTATION_PLAN.md)。
 
@@ -36,12 +36,20 @@ npm ci
 npm run dev
 ```
 
-默认访问 Vite 输出的本地地址。`/api/health` 只表示进程存活，`/api/ready` 检查 identity、数据目录和 provider；`/api/provider` 返回不含 Secret 的能力诊断。前端使用 `/ws/stream` 增量事件并支持 Stop；旧版裸文本 `/ws` 仍返回单个完整文本 frame。
+默认访问 Vite 输出的本地地址。`/api/health` 只表示进程存活，`/api/ready` 检查 identity、SQLite、数据目录和 provider；`/api/provider` 返回不含 Secret 的能力诊断。前端使用 `/v1/ws`：协商版本后订阅默认 session，按 seq 重放持久事件并支持刷新恢复、退避重连和 Stop。`/ws/stream` 与裸文本 `/ws` 暂时作为弃用兼容入口。
 
 只输出 provider 配置、readiness 与能力，不发起模型调用：
 
 ```powershell
 cargo run -- --diagnose-provider
+```
+
+旧版 `memory/sessions/*.md` 可以先 dry-run，再幂等导入当前 SQLite；导出不会修改数据库：
+
+```powershell
+cargo run --bin lain-data -- import-markdown "$env:LAIN_DATA_DIR\memory\sessions" --dry-run
+cargo run --bin lain-data -- import-markdown "$env:LAIN_DATA_DIR\memory\sessions"
+cargo run --bin lain-data -- export-markdown ".\session-export.md"
 ```
 
 ## 本地质量检查
@@ -77,7 +85,7 @@ evals/           可版本化的人格与记忆评测样例
 ## 配置与数据
 
 - 不要提交 `.env`、API Key、聊天记录或真实用户资料。
-- `LAIN_SYSTEM_PROMPT` 与 `LAIN_DATA_DIR` 可配置；相对路径会以启动目录为基准解析成绝对路径。默认值仍适合从 `lain-kernel` 目录启动。
+- `LAIN_SYSTEM_PROMPT` 与 `LAIN_DATA_DIR` 可配置；相对路径会以启动目录为基准解析成绝对路径。SQLite 位于 `<LAIN_DATA_DIR>/state/lain.db`，不要在 WAL 活跃时只复制主数据库文件。默认值仍适合从 `lain-kernel` 目录启动。
 - `LAIN_BIND_ADDR`、provider 地址、Flash/Pro 模型、超时、消息大小和关机超时均可通过 `.env.example` 中的变量覆盖；配置与诊断输出会隐藏 API Key。
 - 评测样例必须使用合成数据，不得复制真实会话。
 - 当前仓库尚未选定开源许可证；代码和角色相关素材的授权边界见 [docs/IP_AND_ASSET_POLICY.md](docs/IP_AND_ASSET_POLICY.md)。

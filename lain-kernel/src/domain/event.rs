@@ -1,0 +1,69 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use ts_rs::TS;
+
+pub const PROTOCOL_VERSION: u16 = 1;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct EventEnvelope {
+    pub v: u16,
+    pub event_id: String,
+    pub instance_id: String,
+    pub session_id: Option<String>,
+    pub run_id: Option<String>,
+    pub seq: Option<i64>,
+    #[serde(rename = "type")]
+    pub event_type: String,
+    pub ts: String,
+    pub payload: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data")]
+pub enum PersistedEvent {
+    #[serde(rename = "message.accepted")]
+    MessageAccepted {
+        message_id: String,
+        client_message_id: String,
+        content: String,
+    },
+    #[serde(rename = "run.queued")]
+    RunQueued { trigger_message_id: String },
+    #[serde(rename = "run.started")]
+    RunStarted { provider: String, model: String },
+    #[serde(rename = "text.completed")]
+    TextCompleted { message_id: String, content: String },
+    #[serde(rename = "run.completed")]
+    RunCompleted {
+        message_id: String,
+        finish_reason: String,
+        usage: Option<Value>,
+    },
+    #[serde(rename = "run.cancelled")]
+    RunCancelled,
+    #[serde(rename = "run.failed")]
+    RunFailed { code: String },
+}
+
+impl PersistedEvent {
+    pub const fn event_type(&self) -> &'static str {
+        match self {
+            Self::MessageAccepted { .. } => "message.accepted",
+            Self::RunQueued { .. } => "run.queued",
+            Self::RunStarted { .. } => "run.started",
+            Self::TextCompleted { .. } => "text.completed",
+            Self::RunCompleted { .. } => "run.completed",
+            Self::RunCancelled => "run.cancelled",
+            Self::RunFailed { .. } => "run.failed",
+        }
+    }
+
+    pub fn payload(&self) -> serde_json::Result<Value> {
+        let value = serde_json::to_value(self)?;
+        Ok(value
+            .get("data")
+            .cloned()
+            .unwrap_or_else(|| Value::Object(Default::default())))
+    }
+}

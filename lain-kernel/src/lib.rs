@@ -1,8 +1,13 @@
 pub mod app;
 pub mod config;
+pub mod domain;
 pub mod error;
 pub mod memory;
+pub mod migration;
+pub mod protocol;
 pub mod provider;
+pub mod storage;
+pub mod transport;
 
 use app::{AppState, build_router};
 use config::Config;

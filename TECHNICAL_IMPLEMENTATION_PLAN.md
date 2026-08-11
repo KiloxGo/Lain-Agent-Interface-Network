@@ -2281,30 +2281,30 @@ Playwright：
 
 目标：断线可恢复、消息幂等、run 可审计。
 
-- [ ] P3-001 引入 sqlx SQLite 和 migrations。
-- [ ] P3-002 创建 instances/users/sessions 表。
-- [ ] P3-003 创建 messages/runs/events 表。
-- [ ] P3-004 创建 context_plans、durable_jobs 基础表。
-- [ ] P3-005 配置 WAL/foreign keys/synchronous/busy timeout。
-- [ ] P3-006 实现 append event + session seq 原子函数。
-- [ ] P3-007 实现 client_message_id 唯一约束。
-- [ ] P3-008 实现用户输入事务。
-- [ ] P3-009 实现回复完成事务。
-- [ ] P3-010 实现 RunStateMachine 和迁移测试。
-- [ ] P3-011 定义协议 v1 command/event DTO。
-- [ ] P3-012 实现 client/server hello 和版本协商。
-- [ ] P3-013 实现 session.subscribe 和 after_seq replay。
-- [ ] P3-014 实现 session.snapshot fallback。
-- [ ] P3-015 实现 bounded outbound queue 和 slow consumer。
-- [ ] P3-016 实现 heartbeat/ping/pong/close handling。
-- [ ] P3-017 WebSocket 校验 Origin 和 frame size。
-- [ ] P3-018 使用类型生成同步 Rust → TypeScript。
-- [ ] P3-019 前端 connectionStore/reconnect/backoff。
-- [ ] P3-020 前端 event reducer、seq gap 和 duplicate handling。
-- [ ] P3-021 页面刷新恢复 active session 和 incomplete run。
-- [ ] P3-022 将旧 Markdown 会话只读导入为 migration 工具。
-- [ ] P3-023 保留 Markdown export。
-- [ ] P3-024 完成数据库和协议 contract tests。
+- [x] P3-001 引入 sqlx SQLite 和 migrations。
+- [x] P3-002 创建 instances/users/sessions 表。
+- [x] P3-003 创建 messages/runs/events 表。
+- [x] P3-004 创建 context_plans、durable_jobs 基础表。
+- [x] P3-005 配置 WAL/foreign keys/synchronous/busy timeout。
+- [x] P3-006 实现 append event + session seq 原子函数。
+- [x] P3-007 实现 client_message_id 唯一约束。
+- [x] P3-008 实现用户输入事务。
+- [x] P3-009 实现回复完成事务。
+- [x] P3-010 实现 RunStateMachine 和迁移测试。
+- [x] P3-011 定义协议 v1 command/event DTO。
+- [x] P3-012 实现 client/server hello 和版本协商。
+- [x] P3-013 实现 session.subscribe 和 after_seq replay。
+- [x] P3-014 实现 session.snapshot fallback。
+- [x] P3-015 实现 bounded outbound queue 和 slow consumer。
+- [x] P3-016 实现 heartbeat/ping/pong/close handling。
+- [x] P3-017 WebSocket 校验 Origin 和 frame size。
+- [x] P3-018 使用类型生成同步 Rust → TypeScript。
+- [x] P3-019 前端 connectionStore/reconnect/backoff。
+- [x] P3-020 前端 event reducer、seq gap 和 duplicate handling。
+- [x] P3-021 页面刷新恢复 active session 和 incomplete run。
+- [x] P3-022 将旧 Markdown 会话只读导入为 migration 工具。
+- [x] P3-023 保留 Markdown export。
+- [x] P3-024 完成数据库和协议 contract tests。
 
 完成门：刷新页面不丢会话；重复发送不重复生成；run.completed 后进程崩溃仍可恢复回复。
 

@@ -13,3 +13,8 @@ ADR 用于记录难以逆转、跨模块或影响数据/协议兼容性的技术
 
 使用 `NNNN-short-title.md`，编号只增不改。每个 ADR 至少包含：背景、决策、备选方案、影响、安全/隐私、迁移与回滚、验证方式。
 
+## 已接受决策
+
+- [ADR-0001：Kernel application boundary](0001-kernel-application-boundary.md)
+- [ADR-0002：Provider stream and P2 wire](0002-provider-stream-and-p2-wire.md)
+- [ADR-0003：SQLite 事件存储与 session 协议 v1](0003-sqlite-event-store-and-session-v1.md)

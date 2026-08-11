@@ -32,6 +32,7 @@ use crate::{
         RouteKind, SharedProvider, TokenUsage, ToolChoice, deepseek::DeepSeekProvider,
         provider_diagnostics as build_provider_diagnostics,
     },
+    storage::Storage,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -68,6 +69,7 @@ pub struct AppState {
     pub readiness: ReadinessState,
     pub provider: Option<SharedProvider>,
     pub system_prompt: Option<Arc<str>>,
+    pub storage: Option<Storage>,
     pub router: ModelRouter,
     pub tasks: TaskTracker,
     pub shutdown: CancellationToken,
@@ -75,7 +77,7 @@ pub struct AppState {
 
 impl AppState {
     pub async fn initialize(config: Config) -> Self {
-        let mut checks = Vec::with_capacity(3);
+        let mut checks = Vec::with_capacity(4);
 
         let memory_configured = memory::configure_data_dir(config.data_dir.clone());
         match memory_configured {
@@ -107,6 +109,26 @@ impl AppState {
                 });
             }
         }
+
+        let storage = match Storage::initialize(&config.data_dir).await {
+            Ok(storage) => {
+                checks.push(ReadinessCheck {
+                    name: "storage",
+                    ready: true,
+                    detail: "SQLite event store initialized".to_string(),
+                });
+                Some(storage)
+            }
+            Err(error) => {
+                tracing::error!(error = %error, "persistent storage initialization failed");
+                checks.push(ReadinessCheck {
+                    name: "storage",
+                    ready: false,
+                    detail: "SQLite event store is unavailable".to_string(),
+                });
+                None
+            }
+        };
 
         let system_prompt = match tokio::fs::read_to_string(&config.system_prompt_path).await {
             Ok(prompt) if !prompt.trim().is_empty() => {
@@ -181,6 +203,7 @@ impl AppState {
             readiness: ReadinessState::from_checks(checks),
             provider,
             system_prompt,
+            storage,
             router,
             tasks: TaskTracker::new(),
             shutdown: CancellationToken::new(),
@@ -228,8 +251,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/ws", get(ws_handler).route_layer(websocket_origin.clone()))
         .route(
             "/ws/stream",
-            get(stream_ws_handler).route_layer(websocket_origin),
+            get(stream_ws_handler).route_layer(websocket_origin.clone()),
         )
+        .route("/v1/ws", get(v1_ws_handler).route_layer(websocket_origin))
         .with_state(state)
         .layer(DefaultBodyLimit::max(1024 * 1024))
         .layer(cors)
@@ -295,6 +319,14 @@ async fn stream_ws_handler(
     State(state): State<AppState>,
 ) -> Result<Response, AppError> {
     upgrade_websocket(headers, ws, state, WireMode::Events).await
+}
+
+async fn v1_ws_handler(
+    headers: HeaderMap,
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+) -> Result<Response, AppError> {
+    crate::transport::v1::upgrade(headers, ws, state).await
 }
 
 async fn upgrade_websocket(
@@ -727,7 +759,7 @@ fn is_cancel_message(frame: &str) -> bool {
     )
 }
 
-fn classify_route(text: &str) -> RouteKind {
+pub(crate) fn classify_route(text: &str) -> RouteKind {
     let lower = text.to_lowercase();
     if lower.contains("deep reasoning")
         || lower.contains("use pro")
@@ -856,12 +888,12 @@ async fn send_wire(socket: &mut WebSocket, event: &StreamServerEvent<'_>) -> boo
 }
 
 #[derive(Debug, Default)]
-struct VisibleTextFilter {
+pub(crate) struct VisibleTextFilter {
     pending: String,
 }
 
 impl VisibleTextFilter {
-    fn push(&mut self, delta: &str) -> String {
+    pub(crate) fn push(&mut self, delta: &str) -> String {
         const TAGS: [(&str, &str); 2] = [("<memory>", "</memory>"), ("<topic>", "</topic>")];
         self.pending.push_str(delta);
         let mut visible = String::new();
@@ -897,7 +929,7 @@ impl VisibleTextFilter {
         visible
     }
 
-    fn finish(self) -> String {
+    pub(crate) fn finish(self) -> String {
         if self.pending.starts_with("<memory>") || self.pending.starts_with("<topic>") {
             String::new()
         } else {
@@ -949,6 +981,7 @@ mod tests {
             readiness: ReadinessState::from_checks(checks),
             provider: None,
             system_prompt: None,
+            storage: None,
             router: ModelRouter::new("flash".to_string(), "pro".to_string()),
             tasks: TaskTracker::new(),
             shutdown: CancellationToken::new(),

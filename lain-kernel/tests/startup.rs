@@ -61,8 +61,17 @@ async fn health_starts_without_provider_key_while_readiness_fails() {
     );
     let body: serde_json::Value = ready_response.json().await.expect("readiness JSON");
     assert_eq!(body["status"], "not_ready");
-    assert_eq!(body["checks"][2]["name"], "provider");
-    assert_eq!(body["checks"][2]["ready"], false);
+    let checks = body["checks"].as_array().expect("readiness checks");
+    let provider = checks
+        .iter()
+        .find(|check| check["name"] == "provider")
+        .expect("provider readiness check");
+    let storage = checks
+        .iter()
+        .find(|check| check["name"] == "storage")
+        .expect("storage readiness check");
+    assert_eq!(provider["ready"], false);
+    assert_eq!(storage["ready"], true);
 
     child.kill().await.expect("kernel process should stop");
     child.wait().await.expect("kernel process should be reaped");
