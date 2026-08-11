@@ -202,9 +202,8 @@ mod tests {
             .iter()
             .map(|(key, value)| ((*key).to_string(), (*value).to_string()))
             .collect();
-        Config::from_source(Path::new("C:/synthetic/lain-kernel"), |name| {
-            values.get(name).cloned()
-        })
+        let fixture_root = std::env::temp_dir().join("lain-kernel-config-tests");
+        Config::from_source(&fixture_root, |name| values.get(name).cloned())
     }
 
     #[test]
