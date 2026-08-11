@@ -2229,26 +2229,26 @@ Playwright：
 
 目标：拆出可测试应用层，移除 panic/fire-and-forget 启动模式。
 
-- [ ] P1-001 新建 lib.rs，把 main.rs 缩成 composition root。
-- [ ] P1-002 新建 app.rs，定义 AppState 的依赖，而不是只有 system_prompt。
-- [ ] P1-003 新建 error.rs，定义 AppError、stable error codes 和 HTTP/WS 映射。
-- [ ] P1-004 消除生产路径 unwrap/expect；测试中可保留说明明确的 expect。
-- [ ] P1-005 重写 Config：明确 config path、env overlay、validation、redacted debug。
-- [ ] P1-006 prompt/identity 路径解析为绝对路径；缺失时 readiness 失败，不静默回退。
-- [ ] P1-007 API key 缺失不阻止 health server 启动。
+- [x] P1-001 新建 lib.rs，把 main.rs 缩成 composition root。
+- [x] P1-002 新建 app.rs，定义 AppState 的依赖，而不是只有 system_prompt。
+- [x] P1-003 新建 error.rs，定义 AppError、stable error codes 和 HTTP/WS 映射。
+- [x] P1-004 消除生产路径 unwrap/expect；测试中可保留说明明确的 expect。
+- [x] P1-005 重写 Config：明确 config path、env overlay、validation、redacted debug。
+- [x] P1-006 prompt/identity 路径解析为绝对路径；缺失时 readiness 失败，不静默回退。
+- [x] P1-007 API key 缺失不阻止 health server 启动。
 - [x] P1-008 默认 bind 从 0.0.0.0 改为 127.0.0.1。
-- [ ] P1-009 初始化 tracing_subscriber，替换 eprintln/println。
-- [ ] P1-010 添加 request/connection/run correlation ID。
-- [ ] P1-011 引入 CancellationToken 和 TaskTracker。
-- [ ] P1-012 实现 graceful shutdown 和 shutdown timeout。
-- [ ] P1-013 后台 topic consolidation 从启动路径移除。
-- [ ] P1-014 为 background task 错误建立统一 supervisor/reporting。
-- [ ] P1-015 /api/health 与 /api/ready 分离。
-- [ ] P1-016 配置 tower-http TraceLayer、body limit 和显式 CORS policy。
-- [ ] P1-017 删除或实际使用无用依赖，保持 Cargo features 最小。
-- [ ] P1-018 添加 config、startup、shutdown 集成测试。
-- [ ] P1-019 保持旧 /ws 裸文本兼容，标记 deprecated。
-- [ ] P1-020 验证 P0 golden cases无非预期变化。
+- [x] P1-009 初始化 tracing_subscriber，替换 eprintln/println。
+- [x] P1-010 添加 request/connection/run correlation ID。
+- [x] P1-011 引入 CancellationToken 和 TaskTracker。
+- [x] P1-012 实现 graceful shutdown 和 shutdown timeout。
+- [x] P1-013 后台 topic consolidation 从启动路径移除。
+- [x] P1-014 为 background task 错误建立统一 supervisor/reporting。
+- [x] P1-015 /api/health 与 /api/ready 分离。
+- [x] P1-016 配置 tower-http TraceLayer、body limit 和显式 CORS policy。
+- [x] P1-017 删除或实际使用无用依赖，保持 Cargo features 最小。
+- [x] P1-018 添加 config、startup、shutdown 集成测试。
+- [x] P1-019 保持旧 /ws 裸文本兼容，标记 deprecated。
+- [x] P1-020 验证 P0 golden cases无非预期变化。
 
 完成门：无生产 panic；无无主 tokio task；health 不依赖 provider；旧 UI 仍可聊天。
 

@@ -1,13 +1,44 @@
 use chrono::Local;
-use dirs::home_dir;
 use regex::Regex;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use tokio::fs::{self, OpenOptions};
 use tokio::io::AsyncWriteExt;
 
+static DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+pub fn configure_data_dir(path: PathBuf) -> std::io::Result<()> {
+    if let Some(configured) = DATA_DIR.get() {
+        if configured == &path {
+            return Ok(());
+        }
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!(
+                "memory data directory already configured as {}",
+                configured.display()
+            ),
+        ));
+    }
+    DATA_DIR.set(path).map_err(|path| {
+        std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!(
+                "failed to configure memory data directory: {}",
+                path.display()
+            ),
+        )
+    })
+}
+
 fn lain_dir() -> PathBuf {
-    home_dir().expect("无法获取 HOME 目录").join(".lain")
+    DATA_DIR.get().cloned().unwrap_or_else(|| {
+        dirs::home_dir()
+            .map(|home| home.join(".lain"))
+            .or_else(|| std::env::current_dir().ok().map(|cwd| cwd.join(".lain")))
+            .unwrap_or_else(|| PathBuf::from(".lain"))
+    })
 }
 
 fn memory_dir() -> PathBuf {
@@ -84,12 +115,11 @@ pub async fn update_profile(key: &str, value: &str) -> std::io::Result<()> {
     Ok(())
 }
 
-pub async fn load_profile() -> Option<String> {
-    let path = profile_path();
-    if path.exists() {
-        fs::read_to_string(&path).await.ok()
-    } else {
-        None
+pub async fn load_profile() -> std::io::Result<Option<String>> {
+    match fs::read_to_string(profile_path()).await {
+        Ok(profile) => Ok(Some(profile)),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error),
     }
 }
 
@@ -224,7 +254,9 @@ pub async fn search_related(query: &str, limit: usize) -> Vec<String> {
 }
 
 pub fn extract_memory(text: &str) -> Vec<(String, String)> {
-    let re = Regex::new(r"<memory>(.*?)</memory>").unwrap();
+    let Ok(re) = Regex::new(r"<memory>(.*?)</memory>") else {
+        return Vec::new();
+    };
     let mut memories = Vec::new();
 
     for cap in re.captures_iter(text) {
@@ -239,7 +271,7 @@ pub fn extract_memory(text: &str) -> Vec<(String, String)> {
 }
 
 pub fn extract_topic(text: &str) -> Option<String> {
-    let re = Regex::new(r"<topic>(.*?)</topic>").unwrap();
+    let re = Regex::new(r"<topic>(.*?)</topic>").ok()?;
     re.captures(text).map(|cap| cap[1].trim().to_string())
 }
 
@@ -288,8 +320,9 @@ pub async fn log_to_topic(
 }
 
 pub fn strip_all_tags(text: &str) -> String {
-    let re = Regex::new(r"<(memory|topic)>.*?</(memory|topic)>").unwrap();
-    re.replace_all(text, "").to_string().trim().to_string()
+    Regex::new(r"<(memory|topic)>.*?</(memory|topic)>")
+        .map(|re| re.replace_all(text, "").to_string().trim().to_string())
+        .unwrap_or_else(|_| text.trim().to_string())
 }
 
 pub async fn consolidate_topics(llm: &crate::adapter::llm::LlmClient) -> std::io::Result<()> {
@@ -367,7 +400,7 @@ async fn merge_topic_file(from: &str, to: &str) -> std::io::Result<()> {
 
         fs::remove_file(&from_path).await?;
 
-        println!("Merged topic '{}' into '{}'", from, to);
+        tracing::info!(from, to, "merged memory topic");
     }
 
     Ok(())

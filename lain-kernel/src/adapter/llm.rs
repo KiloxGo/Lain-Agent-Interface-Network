@@ -1,7 +1,8 @@
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
-use std::env;
+use thiserror::Error;
 
+use crate::config::ProviderConfig;
 use crate::memory;
 
 pub struct LlmClient {
@@ -42,22 +43,63 @@ struct Choice {
     message: ChatMessage,
 }
 
-impl LlmClient {
-    pub fn new(system_prompt: &str) -> Self {
-        let api_key = env::var("DEEPSEEK_API_KEY").expect("DEEPSEEK_API_KEY not set in .env");
+#[derive(Debug, Error)]
+pub enum LlmError {
+    #[error("provider client initialization failed: {0}")]
+    ClientBuild(#[source] reqwest::Error),
+    #[error("provider request failed: {0}")]
+    Request(#[source] reqwest::Error),
+    #[error("provider returned HTTP {status}: {message}")]
+    Http { status: StatusCode, message: String },
+    #[error("provider response decoding failed: {0}")]
+    Decode(#[source] reqwest::Error),
+    #[error("provider response did not contain a choice")]
+    MissingChoice,
+    #[error("profile loading failed: {0}")]
+    ProfileLoad(#[source] std::io::Error),
+}
 
-        Self {
-            client: Client::new(),
-            api_key,
-            base_url: env::var("DEEPSEEK_BASE_URL")
-                .unwrap_or_else(|_| "https://api.deepseek.com".to_string()),
-            model: env::var("DEEPSEEK_MODEL").unwrap_or_else(|_| "deepseek-v4-flash".to_string()),
-            system_prompt: system_prompt.to_string(),
+impl LlmError {
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::ClientBuild(_) => "provider_client_init_failed",
+            Self::Request(_) => "provider_request_failed",
+            Self::Http { .. } => "provider_http_error",
+            Self::Decode(_) => "provider_decode_failed",
+            Self::MissingChoice => "provider_missing_choice",
+            Self::ProfileLoad(_) => "profile_load_failed",
         }
     }
+}
 
-    pub async fn chat(&self, messages: Vec<ChatMessage>) -> Result<String, reqwest::Error> {
-        let profile = memory::load_profile().await.unwrap_or_default();
+impl LlmClient {
+    pub fn new(provider: &ProviderConfig, system_prompt: String) -> Result<Self, LlmError> {
+        let api_key = provider
+            .api_key()
+            .ok_or_else(|| LlmError::Http {
+                status: StatusCode::SERVICE_UNAVAILABLE,
+                message: "provider API key is not configured".to_string(),
+            })?
+            .to_string();
+        let client = Client::builder()
+            .timeout(provider.request_timeout)
+            .build()
+            .map_err(LlmError::ClientBuild)?;
+
+        Ok(Self {
+            client,
+            api_key,
+            base_url: provider.base_url.clone(),
+            model: provider.model.clone(),
+            system_prompt: system_prompt.to_string(),
+        })
+    }
+
+    pub async fn chat(&self, messages: Vec<ChatMessage>) -> Result<String, LlmError> {
+        let profile = memory::load_profile()
+            .await
+            .map_err(LlmError::ProfileLoad)?
+            .unwrap_or_else(String::new);
 
         let system_content = if profile.is_empty() {
             self.system_prompt.clone()
@@ -87,10 +129,31 @@ impl LlmClient {
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&request)
             .send()
-            .await?
-            .json::<ChatResponse>()
-            .await?;
+            .await
+            .map_err(LlmError::Request)?;
 
-        Ok(response.choices[0].message.content.clone())
+        let status = response.status();
+        if !status.is_success() {
+            let message = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "provider error body unavailable".to_string());
+            return Err(LlmError::Http {
+                status,
+                message: message.chars().take(800).collect(),
+            });
+        }
+
+        let response = response
+            .json::<ChatResponse>()
+            .await
+            .map_err(LlmError::Decode)?;
+
+        response
+            .choices
+            .into_iter()
+            .next()
+            .map(|choice| choice.message.content)
+            .ok_or(LlmError::MissingChoice)
     }
 }

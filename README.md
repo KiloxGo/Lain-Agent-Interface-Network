@@ -9,7 +9,7 @@
 - 后端：Rust 2024、Tokio、Axum，默认监听 `127.0.0.1:3000`。
 - 前端：React 19、TypeScript、Vite。
 - 模型：当前默认使用 DeepSeek V4 Flash Chat Completions（关闭 thinking 以保持现有非推理交互），尚无 provider 抽象或流式输出。
-- 存储：当前为 `lain-kernel/memory/` 下的 Markdown/JSON 文件；目标方案是 SQLite + FTS5。
+- 存储：当前为 `~/.lain/memory/` 下的 Markdown/JSON 文件（可通过 `LAIN_DATA_DIR` 覆盖）；目标方案是 SQLite + FTS5。
 - 工具：当前仅有由模型文本标签触发的实验性记忆行为，尚无受约束的结构化工具层。
 - 测试：已建立静态检查与评测样例骨架；运行时、协议和记忆测试仍按实施清单推进。
 
@@ -17,14 +17,14 @@
 
 ## 快速启动
 
-需要 Rust 1.89.0、Node.js 24.1.0，以及有效的 DeepSeek API Key。
+需要 Rust 1.89.0 和 Node.js 24.1.0。没有 DeepSeek API Key 时后端也会启动，便于诊断，但不会进入 ready 状态或接受对话。
 
 后端：
 
 ```powershell
 Set-Location lain-kernel
 Copy-Item ..\.env.example .env
-# 编辑 .env，填入 DEEPSEEK_API_KEY
+# 要启用对话，请编辑 .env 并填入 DEEPSEEK_API_KEY
 cargo run
 ```
 
@@ -36,7 +36,7 @@ npm ci
 npm run dev
 ```
 
-默认访问 Vite 输出的本地地址；健康检查为 `http://127.0.0.1:3000/api/health`，WebSocket 为 `ws://127.0.0.1:3000/ws`。
+默认访问 Vite 输出的本地地址。`/api/health` 只表示进程存活，`/api/ready` 检查 identity、数据目录和 provider；旧版裸文本 WebSocket `ws://127.0.0.1:3000/ws` 仍兼容，但已通过握手响应的 `Deprecation: true` 标记为待替换协议。
 
 ## 本地质量检查
 
@@ -71,7 +71,8 @@ evals/           可版本化的人格与记忆评测样例
 ## 配置与数据
 
 - 不要提交 `.env`、API Key、聊天记录或真实用户资料。
-- 当前后端依赖启动目录解析 `prompts/lain_system.md` 与 `memory/`，因此请从 `lain-kernel` 目录启动。
+- `LAIN_SYSTEM_PROMPT` 与 `LAIN_DATA_DIR` 可配置；相对路径会以启动目录为基准解析成绝对路径。默认值仍适合从 `lain-kernel` 目录启动。
+- `LAIN_BIND_ADDR`、provider 地址/模型/超时、消息大小和关机超时均可通过 `.env.example` 中的变量覆盖；配置日志会隐藏 API Key。
 - 评测样例必须使用合成数据，不得复制真实会话。
 - 当前仓库尚未选定开源许可证；代码和角色相关素材的授权边界见 [docs/IP_AND_ASSET_POLICY.md](docs/IP_AND_ASSET_POLICY.md)。
 
