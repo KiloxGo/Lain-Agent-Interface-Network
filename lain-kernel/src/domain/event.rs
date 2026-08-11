@@ -44,6 +44,20 @@ pub enum PersistedEvent {
     RunCancelled,
     #[serde(rename = "run.failed")]
     RunFailed { code: String },
+    #[serde(rename = "identity.activated")]
+    IdentityActivated {
+        version: String,
+        content_hash: String,
+    },
+    #[serde(rename = "context.compiled")]
+    ContextCompiled {
+        plan_id: String,
+        prompt_hash: String,
+        identity_version: String,
+        estimated_tokens: u32,
+        estimated: bool,
+        dropped_items: usize,
+    },
 }
 
 impl PersistedEvent {
@@ -56,6 +70,8 @@ impl PersistedEvent {
             Self::RunCompleted { .. } => "run.completed",
             Self::RunCancelled => "run.cancelled",
             Self::RunFailed { .. } => "run.failed",
+            Self::IdentityActivated { .. } => "identity.activated",
+            Self::ContextCompiled { .. } => "context.compiled",
         }
     }
 

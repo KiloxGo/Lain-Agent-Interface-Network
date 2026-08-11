@@ -26,6 +26,7 @@ use tower_http::{
 use crate::{
     config::Config,
     error::AppError,
+    identity::IdentityKernel,
     memory,
     provider::{
         FinishReason, ModelError, ModelEvent, ModelMessage, ModelRequest, ModelRouter, Role,
@@ -69,6 +70,7 @@ pub struct AppState {
     pub readiness: ReadinessState,
     pub provider: Option<SharedProvider>,
     pub system_prompt: Option<Arc<str>>,
+    pub identity: Option<Arc<IdentityKernel>>,
     pub storage: Option<Storage>,
     pub router: ModelRouter,
     pub tasks: TaskTracker,
@@ -77,7 +79,7 @@ pub struct AppState {
 
 impl AppState {
     pub async fn initialize(config: Config) -> Self {
-        let mut checks = Vec::with_capacity(4);
+        let mut checks = Vec::with_capacity(5);
 
         let memory_configured = memory::configure_data_dir(config.data_dir.clone());
         match memory_configured {
@@ -133,7 +135,7 @@ impl AppState {
         let system_prompt = match tokio::fs::read_to_string(&config.system_prompt_path).await {
             Ok(prompt) if !prompt.trim().is_empty() => {
                 checks.push(ReadinessCheck {
-                    name: "identity",
+                    name: "legacy_prompt",
                     ready: true,
                     detail: "system prompt loaded".to_string(),
                 });
@@ -141,7 +143,7 @@ impl AppState {
             }
             Ok(_) => {
                 checks.push(ReadinessCheck {
-                    name: "identity",
+                    name: "legacy_prompt",
                     ready: false,
                     detail: "system prompt is empty".to_string(),
                 });
@@ -154,9 +156,66 @@ impl AppState {
                     "system prompt is unavailable"
                 );
                 checks.push(ReadinessCheck {
-                    name: "identity",
+                    name: "legacy_prompt",
                     ready: false,
                     detail: "system prompt is unavailable".to_string(),
+                });
+                None
+            }
+        };
+
+        let identity = match IdentityKernel::load(&config.identity_dir).await {
+            Ok(identity) => {
+                let identity = Arc::new(identity);
+                let activation = match &storage {
+                    Some(storage) => Some(storage.activate_identity(&identity).await),
+                    None => {
+                        checks.push(ReadinessCheck {
+                            name: "identity",
+                            ready: false,
+                            detail: "identity cannot be activated without storage".to_string(),
+                        });
+                        None
+                    }
+                };
+                match activation {
+                    Some(Ok(_)) => {
+                        checks.push(ReadinessCheck {
+                            name: "identity",
+                            ready: true,
+                            detail: format!(
+                                "identity {} validated and activated",
+                                identity.version()
+                            ),
+                        });
+                        Some(identity)
+                    }
+                    Some(Err(error)) => {
+                        tracing::error!(
+                            error = %error,
+                            identity_dir = %config.identity_dir.display(),
+                            "identity activation failed"
+                        );
+                        checks.push(ReadinessCheck {
+                            name: "identity",
+                            ready: false,
+                            detail: "identity activation failed".to_string(),
+                        });
+                        None
+                    }
+                    None => None,
+                }
+            }
+            Err(error) => {
+                tracing::error!(
+                    error = %error,
+                    identity_dir = %config.identity_dir.display(),
+                    "identity validation failed"
+                );
+                checks.push(ReadinessCheck {
+                    name: "identity",
+                    ready: false,
+                    detail: "identity validation failed".to_string(),
                 });
                 None
             }
@@ -203,6 +262,7 @@ impl AppState {
             readiness: ReadinessState::from_checks(checks),
             provider,
             system_prompt,
+            identity,
             storage,
             router,
             tasks: TaskTracker::new(),
@@ -973,6 +1033,7 @@ mod tests {
             config: Arc::new(Config {
                 bind_addr: SocketAddr::from(([127, 0, 0, 1], 0)),
                 system_prompt_path: PathBuf::from("synthetic-prompt"),
+                identity_dir: PathBuf::from("synthetic-identity"),
                 data_dir: PathBuf::from("synthetic-data"),
                 provider: ProviderConfig::for_test(),
                 shutdown_timeout: Duration::from_secs(1),
@@ -981,6 +1042,7 @@ mod tests {
             readiness: ReadinessState::from_checks(checks),
             provider: None,
             system_prompt: None,
+            identity: None,
             storage: None,
             router: ModelRouter::new("flash".to_string(), "pro".to_string()),
             tasks: TaskTracker::new(),

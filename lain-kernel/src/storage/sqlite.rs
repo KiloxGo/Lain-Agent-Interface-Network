@@ -12,9 +12,13 @@ use thiserror::Error;
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::domain::{
-    event::{EventEnvelope, PROTOCOL_VERSION, PersistedEvent},
-    run::RunState,
+use crate::{
+    context::{ContextPlan, RelationshipState, SelfState},
+    domain::{
+        event::{EventEnvelope, PROTOCOL_VERSION, PersistedEvent},
+        run::RunState,
+    },
+    identity::IdentityKernel,
 };
 
 static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
@@ -35,6 +39,8 @@ pub enum StorageError {
     InvalidRunTransition { from: String, to: &'static str },
     #[error("stored run state is invalid: {0}")]
     InvalidStoredRunState(String),
+    #[error("identity version {version} already exists with a different content hash")]
+    IdentityVersionConflict { version: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -486,7 +492,7 @@ impl Storage {
         let rows = sqlx::query(
             "SELECT id, session_id, run_id, role, content, status, created_at, client_message_id FROM (\
                  SELECT id, session_id, run_id, role, content, status, created_at, client_message_id \
-                 FROM messages WHERE session_id = ? AND status = 'complete' AND role IN ('user', 'assistant') \
+                 FROM messages WHERE session_id = ? AND status = 'complete' AND role IN ('user', 'assistant', 'tool') \
                  ORDER BY created_at DESC, id DESC LIMIT ?\
              ) ORDER BY created_at ASC, id ASC",
         )
@@ -544,6 +550,211 @@ impl Storage {
                 to: RunState::Completed.as_str(),
             }),
         }
+    }
+
+    pub async fn activate_identity(
+        &self,
+        identity: &IdentityKernel,
+    ) -> Result<Option<EventEnvelope>, StorageError> {
+        let mut tx = self.pool.begin().await?;
+        let timestamp = now();
+        let manifest_json = serde_json::to_string(&identity.manifest_json())?;
+        sqlx::query(
+            "INSERT INTO identity_versions(version, manifest_json, content_hash, created_at) \
+             VALUES (?, ?, ?, ?) ON CONFLICT(version) DO NOTHING",
+        )
+        .bind(identity.version())
+        .bind(manifest_json)
+        .bind(identity.content_hash())
+        .bind(&timestamp)
+        .execute(&mut *tx)
+        .await?;
+        let stored_hash: String =
+            sqlx::query_scalar("SELECT content_hash FROM identity_versions WHERE version = ?")
+                .bind(identity.version())
+                .fetch_one(&mut *tx)
+                .await?;
+        if stored_hash != identity.content_hash() {
+            return Err(StorageError::IdentityVersionConflict {
+                version: identity.version().to_string(),
+            });
+        }
+        let active_version: String =
+            sqlx::query_scalar("SELECT identity_version FROM instances WHERE id = ?")
+                .bind(&self.scope.instance_id)
+                .fetch_one(&mut *tx)
+                .await?;
+        if active_version == identity.version() {
+            tx.commit().await?;
+            return Ok(None);
+        }
+        sqlx::query("UPDATE instances SET identity_version = ?, updated_at = ? WHERE id = ?")
+            .bind(identity.version())
+            .bind(&timestamp)
+            .bind(&self.scope.instance_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("UPDATE identity_versions SET activated_at = ? WHERE version = ?")
+            .bind(&timestamp)
+            .bind(identity.version())
+            .execute(&mut *tx)
+            .await?;
+        let event = append_event(
+            &mut tx,
+            &self.scope.instance_id,
+            &self.scope.session_id,
+            None,
+            &PersistedEvent::IdentityActivated {
+                version: identity.version().to_string(),
+                content_hash: identity.content_hash().to_string(),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(Some(event))
+    }
+
+    pub async fn save_context_plan(
+        &self,
+        plan: &ContextPlan,
+    ) -> Result<EventEnvelope, StorageError> {
+        let mut tx = self.pool.begin().await?;
+        let selected = serde_json::to_string(&plan.selected_items)?;
+        let dropped = serde_json::to_string(&plan.dropped_items)?;
+        sqlx::query(
+            "INSERT INTO context_plans(id, run_id, identity_version, compiler_version, prompt_hash, \
+             selected_items_json, dropped_items_json, estimated_tokens, created_at, stable_prefix_hash, estimated) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&plan.id)
+        .bind(&plan.run_id)
+        .bind(&plan.identity_version)
+        .bind(&plan.compiler_version)
+        .bind(&plan.prompt_hash)
+        .bind(selected)
+        .bind(dropped)
+        .bind(i64::from(plan.estimated_tokens))
+        .bind(now())
+        .bind(&plan.stable_prefix_hash)
+        .bind(i64::from(plan.estimated))
+        .execute(&mut *tx)
+        .await?;
+        let updated =
+            sqlx::query("UPDATE runs SET context_plan_id = ?, identity_version = ? WHERE id = ?")
+                .bind(&plan.id)
+                .bind(&plan.identity_version)
+                .bind(&plan.run_id)
+                .execute(&mut *tx)
+                .await?;
+        if updated.rows_affected() != 1 {
+            return Err(StorageError::RunNotFound(plan.run_id.clone()));
+        }
+        let session_id: String = sqlx::query_scalar("SELECT session_id FROM runs WHERE id = ?")
+            .bind(&plan.run_id)
+            .fetch_one(&mut *tx)
+            .await?;
+        let event = append_event(
+            &mut tx,
+            &self.scope.instance_id,
+            &session_id,
+            Some(&plan.run_id),
+            &PersistedEvent::ContextCompiled {
+                plan_id: plan.id.clone(),
+                prompt_hash: plan.prompt_hash.clone(),
+                identity_version: plan.identity_version.clone(),
+                estimated_tokens: plan.estimated_tokens,
+                estimated: plan.estimated,
+                dropped_items: plan.dropped_items.len(),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(event)
+    }
+
+    pub async fn load_context_plan(
+        &self,
+        run_id: &str,
+    ) -> Result<Option<ContextPlan>, StorageError> {
+        let row = sqlx::query(
+            "SELECT id, run_id, identity_version, compiler_version, prompt_hash, stable_prefix_hash, \
+             estimated_tokens, estimated, selected_items_json, dropped_items_json \
+             FROM context_plans WHERE run_id = ?",
+        )
+        .bind(run_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(|row| {
+            Ok(ContextPlan {
+                id: row.get("id"),
+                run_id: row.get("run_id"),
+                identity_version: row.get("identity_version"),
+                compiler_version: row.get("compiler_version"),
+                prompt_hash: row.get("prompt_hash"),
+                stable_prefix_hash: row.get("stable_prefix_hash"),
+                estimated_tokens: u32::try_from(row.get::<i64, _>("estimated_tokens"))
+                    .unwrap_or(u32::MAX),
+                estimated: row.get::<i64, _>("estimated") != 0,
+                selected_items: serde_json::from_str(&row.get::<String, _>("selected_items_json"))?,
+                dropped_items: serde_json::from_str(&row.get::<String, _>("dropped_items_json"))?,
+            })
+        })
+        .transpose()
+    }
+
+    pub async fn latest_self_state(&self) -> Result<Option<SelfState>, StorageError> {
+        self.latest_state("self").await
+    }
+
+    pub async fn latest_relationship_state(
+        &self,
+    ) -> Result<Option<RelationshipState>, StorageError> {
+        self.latest_state("relationship").await
+    }
+
+    async fn latest_state<T: serde::de::DeserializeOwned>(
+        &self,
+        state_type: &str,
+    ) -> Result<Option<T>, StorageError> {
+        let state: Option<String> = sqlx::query_scalar(
+            "SELECT state_json FROM state_snapshots WHERE instance_id = ? AND state_type = ? \
+             ORDER BY version DESC, created_at DESC LIMIT 1",
+        )
+        .bind(&self.scope.instance_id)
+        .bind(state_type)
+        .fetch_optional(&self.pool)
+        .await?;
+        state
+            .map(|value| serde_json::from_str(&value).map_err(StorageError::from))
+            .transpose()
+    }
+
+    #[cfg(test)]
+    async fn save_state<T: serde::Serialize>(
+        &self,
+        state_type: &str,
+        state: &T,
+    ) -> Result<(), StorageError> {
+        let version: i64 = sqlx::query_scalar(
+            "SELECT COALESCE(MAX(version), 0) + 1 FROM state_snapshots WHERE instance_id = ? AND state_type = ?",
+        )
+        .bind(&self.scope.instance_id)
+        .bind(state_type)
+        .fetch_one(&self.pool)
+        .await?;
+        sqlx::query(
+            "INSERT INTO state_snapshots(id, instance_id, state_type, state_json, version, created_at) \
+             VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(new_id())
+        .bind(&self.scope.instance_id)
+        .bind(state_type)
+        .bind(serde_json::to_string(state)?)
+        .bind(version)
+        .bind(now())
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     async fn recover_interrupted_runs(&self) -> Result<(), StorageError> {
@@ -1117,5 +1328,124 @@ mod tests {
             Some("run.failed")
         );
         assert_eq!(events.last().and_then(|event| event.seq), Some(3));
+    }
+
+    #[tokio::test]
+    async fn identity_activation_and_context_plan_are_versioned_and_replayable() {
+        use crate::context::{
+            Affect, CompileInput, ContextBudget, ContextCompiler, RelationshipState, SelfState,
+        };
+
+        let storage = Storage::in_memory().await.expect("initialize database");
+        let identity = std::sync::Arc::new(
+            IdentityKernel::load(
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("identity/v1"),
+            )
+            .await
+            .expect("identity"),
+        );
+        assert!(
+            storage
+                .activate_identity(&identity)
+                .await
+                .expect("activate")
+                .is_some()
+        );
+        assert!(
+            storage
+                .activate_identity(&identity)
+                .await
+                .expect("activate idempotently")
+                .is_none()
+        );
+        let session_id = storage.scope().session_id.clone();
+        let accepted = storage
+            .accept_user_input(
+                &session_id,
+                "context-plan-1",
+                "compile this",
+                "deepseek",
+                "synthetic-model",
+                identity.version(),
+            )
+            .await
+            .expect("accept input");
+        storage
+            .start_run(&accepted.run.id)
+            .await
+            .expect("start run");
+        let now = Utc::now();
+        let compiled = ContextCompiler::new(identity)
+            .compile(CompileInput {
+                run_id: accepted.run.id.clone(),
+                mode: "task".to_string(),
+                current_message: accepted.message,
+                recent_messages: storage
+                    .recent_messages(&session_id, 40)
+                    .await
+                    .expect("recent"),
+                self_state: Some(SelfState {
+                    affect: Affect::Calm,
+                    activation: 0.2,
+                    closeness_expression: 0.1,
+                    uncertainty: 0.0,
+                    active_intents: Vec::new(),
+                    expires_at: now + chrono::Duration::minutes(5),
+                }),
+                relationship_state: RelationshipState::default(),
+                memory_evidence: Vec::new(),
+                now,
+                budget: ContextBudget::for_model(1_000_000, 4_096),
+            })
+            .expect("compile");
+        storage
+            .save_context_plan(&compiled.plan)
+            .await
+            .expect("save plan");
+        assert_eq!(
+            storage
+                .load_context_plan(&accepted.run.id)
+                .await
+                .expect("load plan"),
+            Some(compiled.plan)
+        );
+    }
+
+    #[tokio::test]
+    async fn typed_state_snapshots_round_trip() {
+        use crate::context::{Affect, RelationshipState, SelfState};
+
+        let storage = Storage::in_memory().await.expect("initialize database");
+        let self_state = SelfState {
+            affect: Affect::Warm,
+            activation: 0.4,
+            closeness_expression: 0.3,
+            uncertainty: 0.1,
+            active_intents: vec!["intent-1".to_string()],
+            expires_at: Utc::now() + chrono::Duration::minutes(5),
+        };
+        let relationship = RelationshipState {
+            familiarity: 0.2,
+            ..RelationshipState::default()
+        };
+        storage
+            .save_state("self", &self_state)
+            .await
+            .expect("save self state");
+        storage
+            .save_state("relationship", &relationship)
+            .await
+            .expect("save relationship state");
+        assert_eq!(
+            storage.latest_self_state().await.expect("load self"),
+            Some(self_state)
+        );
+        assert_eq!(
+            storage
+                .latest_relationship_state()
+                .await
+                .expect("load relationship"),
+            Some(relationship)
+        );
     }
 }

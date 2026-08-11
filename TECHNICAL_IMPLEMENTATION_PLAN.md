@@ -2312,28 +2312,28 @@ Playwright：
 
 目标：人格与动态个性化上下文解耦，prompt 可版本化和回放。
 
-- [ ] P4-001 创建 identity/manifest.toml 和版本目录约定。
-- [ ] P4-002 将现有 lain_system.md 拆为 canon/voice/behavior/boundaries。
-- [ ] P4-003 把 few-shot 转成 examples.jsonl。
-- [ ] P4-004 定义 IdentityManifest/IdentityBlock domain types。
-- [ ] P4-005 实现文件 hash、schema 和兼容版本校验。
-- [ ] P4-006 创建 identity_versions 表和 activation event。
-- [ ] P4-007 定义 ContextBudget 和每区块默认值。
-- [ ] P4-008 定义 ContextItem/ContextPlan。
-- [ ] P4-009 实现并行 context source load。
-- [ ] P4-010 实现稳定 prefix ordering。
-- [ ] P4-011 实现 token estimate/provider tokenizer adapter。
-- [ ] P4-012 实现 deterministic truncation 和 drop reasons。
-- [ ] P4-013 实现 recent turn pair selection。
-- [ ] P4-014 实现 tool call/result 成对保留。
-- [ ] P4-015 保存 context plan、prompt hash 和版本。
-- [ ] P4-016 实现相同 snapshot 的 replay/debug command。
-- [ ] P4-017 定义 SelfState schema 和 TTL。
-- [ ] P4-018 定义 RelationshipState schema，先只读默认值。
-- [ ] P4-019 扩充 persona suite 至至少 50 cases。
-- [ ] P4-020 为 identity upgrade 生成自动 diff 报告。
-- [ ] P4-021 验证稳定 prefix 的 provider cache hit。
-- [ ] P4-022 达成 Context compile p95 目标。
+- [x] P4-001 创建 identity/manifest.toml 和版本目录约定。
+- [x] P4-002 将现有 lain_system.md 拆为 canon/voice/behavior/boundaries。
+- [x] P4-003 把 few-shot 转成 examples.jsonl。
+- [x] P4-004 定义 IdentityManifest/IdentityBlock domain types。
+- [x] P4-005 实现文件 hash、schema 和兼容版本校验。
+- [x] P4-006 创建 identity_versions 表和 activation event。
+- [x] P4-007 定义 ContextBudget 和每区块默认值。
+- [x] P4-008 定义 ContextItem/ContextPlan。
+- [x] P4-009 实现并行 context source load。
+- [x] P4-010 实现稳定 prefix ordering。
+- [x] P4-011 实现 token estimate/provider tokenizer adapter。
+- [x] P4-012 实现 deterministic truncation 和 drop reasons。
+- [x] P4-013 实现 recent turn pair selection。
+- [x] P4-014 实现 tool call/result 成对保留。
+- [x] P4-015 保存 context plan、prompt hash 和版本。
+- [x] P4-016 实现相同 snapshot 的 replay/debug command。
+- [x] P4-017 定义 SelfState schema 和 TTL。
+- [x] P4-018 定义 RelationshipState schema，先只读默认值。
+- [x] P4-019 扩充 persona suite 至至少 50 cases。
+- [x] P4-020 为 identity upgrade 生成自动 diff 报告。
+- [x] P4-021 验证稳定 prefix 的 provider cache hit。
+- [x] P4-022 达成 Context compile p95 目标。
 
 完成门：每个回复可追溯到 identity/context 版本；普通对话不再直接拼接整个 profile.md。
 

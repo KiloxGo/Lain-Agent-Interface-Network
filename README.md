@@ -1,6 +1,6 @@
 # Lain Agent Interface Network
 
-一个处于早期原型阶段的本地优先、人格化对话 Agent。当前仓库已经具备 Rust/Axum 后端、React/Vite 前端、WebSocket 对话入口、DeepSeek 适配器，以及基于 Markdown 文件的实验性记忆；它还不是完整的通用 agent harness。项目目前由 KiloxGo 维护并保持私有。
+一个处于早期原型阶段的本地优先、人格化对话 Agent。当前仓库已经具备 Rust/Axum 后端、React/Vite 前端、可恢复的 WebSocket session 协议、DeepSeek 适配器、版本化 Identity Kernel 和确定性 Context Compiler；它还不是完整的通用 agent harness。项目目前由 KiloxGo 维护并保持私有。
 
 项目目标不是复刻某个角色的台词，而是在可验证的性能、可靠性和安全边界内，构建可长期演化、可个性化的 harness：稳定身份、上下文组装、分层记忆、模型路由、工具策略、事件协议和评测闭环。
 
@@ -10,6 +10,7 @@
 - 前端：React 19、TypeScript、Vite。
 - 模型：provider-neutral `ModelProvider` 事件流；默认路由到 DeepSeek V4 Flash，显式复杂推理可路由到 V4 Pro。
 - 存储：`~/.lain/state/lain.db` 下的 SQLite WAL 保存 session、message、run 与事件；旧 Markdown 记忆暂时保留为兼容读取和迁移入口（根目录可通过 `LAIN_DATA_DIR` 覆盖）。
+- 身份与上下文：`identity/v1` 资产启动时校验 manifest/schema/hash；每个 v1 run 在模型调用前保存 identity version、ContextPlan、prompt hash、预算选择与 drop reason。
 - 工具：当前仅有由模型文本标签触发的实验性记忆行为，尚无受约束的结构化工具层。
 - 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、SQLite 事务/迁移/并发 seq、协议 DTO 与 Markdown 迁移已有离线契约测试。
 
@@ -50,6 +51,8 @@ cargo run -- --diagnose-provider
 cargo run --bin lain-data -- import-markdown "$env:LAIN_DATA_DIR\memory\sessions" --dry-run
 cargo run --bin lain-data -- import-markdown "$env:LAIN_DATA_DIR\memory\sessions"
 cargo run --bin lain-data -- export-markdown ".\session-export.md"
+cargo run --bin lain-data -- show-context-plan "<run-id>"
+cargo run --bin lain-data -- identity-diff identity/v1 identity/v1
 ```
 
 ## 本地质量检查
@@ -85,7 +88,7 @@ evals/           可版本化的人格与记忆评测样例
 ## 配置与数据
 
 - 不要提交 `.env`、API Key、聊天记录或真实用户资料。
-- `LAIN_SYSTEM_PROMPT` 与 `LAIN_DATA_DIR` 可配置；相对路径会以启动目录为基准解析成绝对路径。SQLite 位于 `<LAIN_DATA_DIR>/state/lain.db`，不要在 WAL 活跃时只复制主数据库文件。默认值仍适合从 `lain-kernel` 目录启动。
+- `LAIN_IDENTITY_DIR`、`LAIN_SYSTEM_PROMPT` 与 `LAIN_DATA_DIR` 可配置；相对路径会以启动目录为基准解析成绝对路径。SQLite 位于 `<LAIN_DATA_DIR>/state/lain.db`，不要在 WAL 活跃时只复制主数据库文件。默认值仍适合从 `lain-kernel` 目录启动。
 - `LAIN_BIND_ADDR`、provider 地址、Flash/Pro 模型、超时、消息大小和关机超时均可通过 `.env.example` 中的变量覆盖；配置与诊断输出会隐藏 API Key。
 - 评测样例必须使用合成数据，不得复制真实会话。
 - 当前仓库尚未选定开源许可证；代码和角色相关素材的授权边界见 [docs/IP_AND_ASSET_POLICY.md](docs/IP_AND_ASSET_POLICY.md)。

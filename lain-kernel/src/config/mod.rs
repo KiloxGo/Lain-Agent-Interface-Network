@@ -8,6 +8,7 @@ use std::{
 use thiserror::Error;
 
 const DEFAULT_BIND_ADDR: &str = "127.0.0.1:3000";
+const DEFAULT_IDENTITY_DIR: &str = "identity/v1";
 const DEFAULT_BASE_URL: &str = "https://api.deepseek.com";
 const DEFAULT_MODEL: &str = "deepseek-v4-flash";
 const DEFAULT_PRO_MODEL: &str = "deepseek-v4-pro";
@@ -77,6 +78,7 @@ impl fmt::Debug for ProviderConfig {
 pub struct Config {
     pub bind_addr: SocketAddr,
     pub system_prompt_path: PathBuf,
+    pub identity_dir: PathBuf,
     pub data_dir: PathBuf,
     pub provider: ProviderConfig,
     pub shutdown_timeout: Duration,
@@ -120,6 +122,10 @@ impl Config {
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("prompts/lain_system.md"));
         let system_prompt_path = absolute_path(current_dir, prompt_value);
+        let identity_value = get("LAIN_IDENTITY_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(DEFAULT_IDENTITY_DIR));
+        let identity_dir = absolute_path(current_dir, identity_value);
 
         let data_value = get("LAIN_DATA_DIR")
             .map(PathBuf::from)
@@ -173,6 +179,7 @@ impl Config {
         Ok(Self {
             bind_addr,
             system_prompt_path,
+            identity_dir,
             data_dir,
             provider: ProviderConfig {
                 api_key: get("DEEPSEEK_API_KEY").filter(|value| !value.trim().is_empty()),
@@ -264,6 +271,7 @@ mod tests {
             "127.0.0.1:3000".parse().expect("valid address")
         );
         assert!(config.system_prompt_path.is_absolute());
+        assert!(config.identity_dir.is_absolute());
         assert!(config.data_dir.is_absolute());
         assert!(!config.provider.is_configured());
     }

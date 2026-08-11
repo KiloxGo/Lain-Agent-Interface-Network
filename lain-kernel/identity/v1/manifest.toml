@@ -1,0 +1,37 @@
+identity_id = "lain-interface"
+version = "1.0.0"
+language = "zh-CN"
+created_at = "2026-08-11T00:00:00Z"
+compatible_compiler_version = "1"
+examples_schema_version = 1
+changelog = "Initial repository-owned identity split from the P2 monolithic prompt."
+
+[[blocks]]
+id = "canon"
+kind = "canon"
+path = "canon.md"
+sha256 = "6bab20f669576ad8de3e7b79249c3bc6ae405d6ecc36b00cc89490e23741ba26"
+
+[[blocks]]
+id = "boundaries"
+kind = "boundaries"
+path = "boundaries.md"
+sha256 = "c96aa740685fda992d9772f534f2e109d3e54ce452ffd91aaf004a7b3ae2f360"
+
+[[blocks]]
+id = "voice"
+kind = "voice"
+path = "voice.md"
+sha256 = "278ad64133c12833a0c04e0cbf7f2954a8169c8e40c17fa750522bc80b15b7ac"
+
+[[blocks]]
+id = "behavior"
+kind = "behavior"
+path = "behavior.md"
+sha256 = "6ae8ab369b3379ec7418cb27bb9322a3ddcdee23a66c622fe193708d36e00544"
+
+[[blocks]]
+id = "examples"
+kind = "examples"
+path = "examples.jsonl"
+sha256 = "3f244340d493afa89e06a02ac6e56e195b067a380d2f6e97c459e29cf45ef2ec"

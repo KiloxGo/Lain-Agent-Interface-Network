@@ -1,7 +1,9 @@
 pub mod app;
 pub mod config;
+pub mod context;
 pub mod domain;
 pub mod error;
+pub mod identity;
 pub mod memory;
 pub mod migration;
 pub mod protocol;
@@ -133,6 +135,7 @@ mod tests {
         let config = Config {
             bind_addr: SocketAddr::from(([127, 0, 0, 1], 0)),
             system_prompt_path: prompt_path,
+            identity_dir: fixture.path().join("identity"),
             data_dir: fixture.path().join("data"),
             provider: ProviderConfig::for_test(),
             shutdown_timeout: Duration::from_secs(1),

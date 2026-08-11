@@ -8,6 +8,7 @@ use axum::{
     http::{HeaderMap, HeaderValue},
     response::{IntoResponse, Response},
 };
+use chrono::Utc;
 use futures_util::{SinkExt, StreamExt, stream::SplitStream};
 use serde::Serialize;
 use serde_json::json;
@@ -16,13 +17,12 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     app::{AppState, VisibleTextFilter, classify_route},
+    context::{CompileInput, ContextBudget, ContextCompiler, RelationshipState},
     domain::event::PROTOCOL_VERSION,
     error::AppError,
     memory,
     protocol::{ClientCommand, ErrorEvent, PongEvent, ServerHello, SnapshotEvent, transient_event},
-    provider::{
-        FinishReason, ModelEvent, ModelMessage, ModelRequest, Role, TokenUsage, ToolChoice,
-    },
+    provider::{FinishReason, ModelEvent, ModelRequest, RouteKind, TokenUsage, ToolChoice},
     storage::{CompletionUsage, RunRecord, Storage, StorageError},
 };
 
@@ -44,7 +44,7 @@ pub async fn upgrade(
 ) -> Result<Response, AppError> {
     if !state.readiness.is_ready()
         || state.provider.is_none()
-        || state.system_prompt.is_none()
+        || state.identity.is_none()
         || state.storage.is_none()
     {
         let failures = state
@@ -231,6 +231,15 @@ async fn handle_socket(socket: WebSocket, state: AppState, connection_id: String
                 }
                 let route_kind = classify_route(&text);
                 let route = state.router.route(route_kind);
+                let Some(identity) = state.identity.as_ref() else {
+                    if send_json(&outbound, &ErrorEvent::new("identity_unavailable", true))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                };
                 let accepted = match storage
                     .accept_user_input(
                         &session_id,
@@ -238,7 +247,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, connection_id: String
                         &text,
                         "deepseek",
                         &route.model,
-                        "legacy-prompt-v1",
+                        identity.version(),
                     )
                     .await
                 {
@@ -309,48 +318,100 @@ async fn execute_run(
     let Some(provider) = state.provider.clone() else {
         return fail_run(storage, outbound, &run, "provider_unavailable").await;
     };
-    let Some(system_prompt) = state.system_prompt.clone() else {
+    let Some(identity) = state.identity.clone() else {
         return fail_run(storage, outbound, &run, "identity_unavailable").await;
     };
-    let recent = match storage.recent_messages(&run.session_id, 40).await {
+    let (recent_result, self_state_result, relationship_result) = tokio::join!(
+        storage.recent_messages(&run.session_id, 80),
+        storage.latest_self_state(),
+        storage.latest_relationship_state(),
+    );
+    let recent = match recent_result {
         Ok(messages) => messages,
         Err(error) => {
             tracing::error!(run_id = run.id, error = %error, "recent message loading failed");
             return fail_run(storage, outbound, &run, "storage_error").await;
         }
     };
-    let profile = match memory::load_profile().await {
-        Ok(profile) => profile.unwrap_or_default(),
+    let self_state = match self_state_result {
+        Ok(state) => state,
         Err(error) => {
-            tracing::warn!(run_id = run.id, error = %error, "profile loading failed");
-            String::new()
+            tracing::warn!(
+                run_id = run.id,
+                source = "self_state",
+                error = %error,
+                "optional context source degraded"
+            );
+            None
         }
     };
-    let system_content = if profile.is_empty() {
-        system_prompt.to_string()
-    } else {
-        format!("{system_prompt}\n\n##User Context\n{profile}")
+    let relationship = match relationship_result {
+        Ok(state) => state.unwrap_or_default(),
+        Err(error) => {
+            tracing::warn!(
+                run_id = run.id,
+                source = "relationship_state",
+                error = %error,
+                "optional context source degraded"
+            );
+            RelationshipState::default()
+        }
     };
-    let mut messages = vec![ModelMessage {
-        role: Role::System,
-        content: system_content,
-    }];
-    messages.extend(recent.into_iter().filter_map(|message| {
-        let role = match message.role.as_str() {
-            "user" => Role::User,
-            "assistant" => Role::Assistant,
-            _ => return None,
-        };
-        Some(ModelMessage {
-            role,
-            content: message.content,
-        })
-    }));
+    let Some(current_message) = recent
+        .iter()
+        .find(|message| message.id == run.trigger_message_id)
+        .cloned()
+    else {
+        tracing::error!(
+            run_id = run.id,
+            "trigger message missing from recent context"
+        );
+        return fail_run(storage, outbound, &run, "storage_error").await;
+    };
     let route = state.router.route(route_kind);
+    let capabilities = provider.capabilities();
+    let budget = ContextBudget::for_model(
+        capabilities.context_window,
+        state.config.provider.max_output_tokens,
+    );
+    let mode = match route_kind {
+        RouteKind::Chat => "chat",
+        RouteKind::ComplexTask => "task",
+        RouteKind::Maintenance => "maintenance",
+    };
+    let compiled = match ContextCompiler::new(identity).compile(CompileInput {
+        run_id: run.id.clone(),
+        mode: mode.to_string(),
+        current_message,
+        recent_messages: recent,
+        self_state,
+        relationship_state: relationship,
+        memory_evidence: Vec::new(),
+        now: Utc::now(),
+        budget,
+    }) {
+        Ok(compiled) => compiled,
+        Err(error) => {
+            tracing::error!(run_id = run.id, error = %error, "context compilation failed");
+            return fail_run(storage, outbound, &run, "context_compile_failed").await;
+        }
+    };
+    let context_event = match storage.save_context_plan(&compiled.plan).await {
+        Ok(event) => event,
+        Err(error) => {
+            tracing::error!(run_id = run.id, error = %error, "context plan persistence failed");
+            return fail_run(storage, outbound, &run, "storage_error").await;
+        }
+    };
+    let context_plan_id = compiled.plan.id.clone();
+    let prompt_hash = compiled.plan.prompt_hash.clone();
+    if send_json(outbound, &context_event).await.is_err() {
+        // The provider call still completes so committed runs do not depend on a live client.
+    }
     let request = ModelRequest {
         request_id: run.id.clone(),
         model: route.model,
-        messages,
+        messages: compiled.messages,
         tools: Vec::new(),
         tool_choice: ToolChoice::None,
         temperature: None,
@@ -359,7 +420,11 @@ async fn execute_run(
         response_format: route.response_format,
         thinking_mode: route.thinking_mode,
         timeout: state.config.provider.request_timeout,
-        metadata: BTreeMap::from([("route".to_string(), format!("{route_kind:?}"))]),
+        metadata: BTreeMap::from([
+            ("route".to_string(), format!("{route_kind:?}")),
+            ("context_plan_id".to_string(), context_plan_id),
+            ("prompt_hash".to_string(), prompt_hash),
+        ]),
     };
     let cancellation = state.shutdown.child_token();
     let stream_result = provider.stream(request, cancellation.clone()).await;
