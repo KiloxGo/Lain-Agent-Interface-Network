@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-11T03:18:04.938Z",
+  "modelRequested": "deepseek-v4-flash",
+  "modelObserved": [
+    "deepseek-v4-flash"
+  ],
+  "promptSha256": "f33a8e668091b415fc06824b66b1badef01ba9b807d3259284dab280f2f090ad",
+  "callsUsed": 20,
+  "cases": 20,
+  "judgeMode": "manual-review-required",
+  "passed": null,
+  "failed": null,
+  "passRate": null,
+  "nonStreamingLatencyMs": {
+    "p50": 1199.36,
+    "p95": 2704.53,
+    "min": 704.91,
+    "max": 2777.52
+  },
+  "generationUsage": {
+    "promptTokens": 26258,
+    "completionTokens": 1430,
+    "totalTokens": 27688,
+    "promptCacheHitTokens": 24320,
+    "promptCacheMissTokens": 1938
+  },
+  "caveats": [
+    "The current provider is non-streaming, so user-visible TTFT equals the complete-message latency.",
+    "Judgments were intentionally skipped; the generated responses require manual review."
+  ]
+}

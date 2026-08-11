@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-11T03:12:39.791Z",
+  "modelRequested": "deepseek-v4-flash",
+  "modelObserved": [
+    "deepseek-v4-flash"
+  ],
+  "promptSha256": "1deff8ddd2338daa92c40a1d8ac4b1cd23839262152768fa21490c3896d9b390",
+  "callsUsed": 24,
+  "cases": 20,
+  "passed": 5,
+  "failed": 15,
+  "passRate": 0.25,
+  "nonStreamingLatencyMs": {
+    "p50": 1464.66,
+    "p95": 2676.6,
+    "min": 1187.34,
+    "max": 16526.17
+  },
+  "generationUsage": {
+    "promptTokens": 21618,
+    "completionTokens": 1191,
+    "totalTokens": 22809,
+    "promptCacheHitTokens": 19456,
+    "promptCacheMissTokens": 2162
+  },
+  "caveats": [
+    "The current provider is non-streaming, so user-visible TTFT equals the complete-message latency.",
+    "The judge uses the same provider family and is a regression signal, not human ground truth."
+  ]
+}

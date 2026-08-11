@@ -23,6 +23,13 @@ struct ChatRequest {
     model: String,
     messages: Vec<ChatMessage>,
     stream: bool,
+    thinking: ThinkingConfig,
+}
+
+#[derive(Serialize)]
+struct ThinkingConfig {
+    #[serde(rename = "type")]
+    kind: String,
 }
 
 #[derive(Deserialize)]
@@ -42,8 +49,9 @@ impl LlmClient {
         Self {
             client: Client::new(),
             api_key,
-            base_url: "https://api.deepseek.com/v1".to_string(),
-            model: "deepseek-chat".to_string(),
+            base_url: env::var("DEEPSEEK_BASE_URL")
+                .unwrap_or_else(|_| "https://api.deepseek.com".to_string()),
+            model: env::var("DEEPSEEK_MODEL").unwrap_or_else(|_| "deepseek-v4-flash".to_string()),
             system_prompt: system_prompt.to_string(),
         }
     }
@@ -67,6 +75,9 @@ impl LlmClient {
             model: self.model.clone(),
             messages: all_messages,
             stream: false,
+            thinking: ThinkingConfig {
+                kind: "disabled".to_string(),
+            },
         };
         let url = format!("{}/chat/completions", self.base_url);
 

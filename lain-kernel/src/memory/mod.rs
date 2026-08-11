@@ -1,7 +1,6 @@
 use chrono::Local;
 use dirs::home_dir;
 use regex::Regex;
-use serde_json;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::fs::{self, OpenOptions};
@@ -80,7 +79,7 @@ pub async fn update_profile(key: &str, value: &str) -> std::io::Result<()> {
     } else {
         content.push_str(&format!("- {}: {}\n", key, value));
     }
-    fs::write(&path, content).await;
+    fs::write(&path, content).await?;
     let _ = update_index().await;
     Ok(())
 }
@@ -106,18 +105,15 @@ pub async fn update_index() -> std::io::Result<()> {
 
     if let Ok(mut entries) = fs::read_dir(&sessions_path).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
-            if let Ok(metadata) = entry.metadata().await {
-                if metadata.is_file() {
-                    if let Some(name) = entry.file_name().to_str() {
-                        if name.ends_with(".md") {
-                            let content =
-                                fs::read_to_string(entry.path()).await.unwrap_or_default();
-                            let exchanges = content.matches("---").count() as u32;
-                            sessions.push((name.to_string(), exchanges));
-                            total_exchanges += exchanges;
-                        }
-                    }
-                }
+            if let Ok(metadata) = entry.metadata().await
+                && metadata.is_file()
+                && let Some(name) = entry.file_name().to_str()
+                && name.ends_with(".md")
+            {
+                let content = fs::read_to_string(entry.path()).await.unwrap_or_default();
+                let exchanges = content.matches("---").count() as u32;
+                sessions.push((name.to_string(), exchanges));
+                total_exchanges += exchanges;
             }
         }
     }
@@ -163,10 +159,10 @@ pub async fn search_history(keyword: &str, limit: usize) -> Vec<String> {
         let mut files: Vec<_> = Vec::new();
 
         while let Ok(Some(entry)) = entries.next_entry().await {
-            if let Ok(metadata) = entry.metadata().await {
-                if metadata.is_file() {
-                    files.push(entry.path());
-                }
+            if let Ok(metadata) = entry.metadata().await
+                && metadata.is_file()
+            {
+                files.push(entry.path());
             }
         }
 
@@ -302,11 +298,11 @@ pub async fn consolidate_topics(llm: &crate::adapter::llm::LlmClient) -> std::io
     let mut topics = Vec::new();
     if let Ok(mut entries) = fs::read_dir(&topics_dir).await {
         while let Ok(Some(entry)) = entries.next_entry().await {
-            if let Some(name) = entry.file_name().to_str() {
-                if name.ends_with(".md") {
-                    let topic = name.trim_end_matches(".md").to_string();
-                    topics.push(topic);
-                }
+            if let Some(name) = entry.file_name().to_str()
+                && name.ends_with(".md")
+            {
+                let topic = name.trim_end_matches(".md").to_string();
+                topics.push(topic);
             }
         }
     }
