@@ -322,6 +322,15 @@ async fn read_text(path: &Path) -> Result<String, IdentityError> {
             path: path.to_path_buf(),
             source,
         })
+        .map(canonicalize_line_endings)
+}
+
+fn canonicalize_line_endings(text: String) -> String {
+    if text.contains('\r') {
+        text.replace("\r\n", "\n").replace('\r', "\n")
+    } else {
+        text
+    }
 }
 
 fn parse_examples(content: &str) -> Result<Vec<IdentityExample>, IdentityError> {
@@ -432,5 +441,12 @@ mod tests {
     fn unsafe_paths_are_rejected() {
         assert!(safe_join(Path::new("identity"), Path::new("../secret")).is_err());
         assert!(safe_join(Path::new("identity"), Path::new("canon.md")).is_ok());
+    }
+
+    #[test]
+    fn identity_hash_input_is_stable_across_line_endings() {
+        let lf = canonicalize_line_endings("canon one\ncanon two\n".to_string());
+        let crlf = canonicalize_line_endings("canon one\r\ncanon two\r\n".to_string());
+        assert_eq!(sha256_hex(lf.as_bytes()), sha256_hex(crlf.as_bytes()));
     }
 }

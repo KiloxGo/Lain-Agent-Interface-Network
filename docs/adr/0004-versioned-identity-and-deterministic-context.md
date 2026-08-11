@@ -22,7 +22,7 @@ P2 的普通 WebSocket 路径把单体 `lain_system.md` 与整份 `profile.md` �
 4. behavior；
 5. examples。
 
-启动时必须完整读取并验证 manifest、相对路径、block 非空、文件 hash、examples JSONL schema 和 ID 唯一性。校验失败时 identity readiness 失败，不允许 `/v1/ws` 接收 run。相同语义版本不得对应不同 content hash；成功切换版本时，SQLite 事务更新 active instance 并写 `identity.activated`。仓库内资产是项目自有的通用化 interface 描述，不包含或分发第三方角色素材。
+启动时必须完整读取并验证 manifest、相对路径、block 非空、文件 hash、examples JSONL schema 和 ID 唯一性。文本 hash 输入先统一为 LF，避免 Git 在 Windows checkout 时把 CRLF 表现差异误判成身份内容变化。校验失败时 identity readiness 失败，不允许 `/v1/ws` 接收 run。相同语义版本不得对应不同 content hash；成功切换版本时，SQLite 事务更新 active instance 并写 `identity.activated`。仓库内资产是项目自有的通用化 interface 描述，不包含或分发第三方角色素材。
 
 稳定的首个 system message 只包含 harness contract 与 canon/boundaries/voice/behavior。examples 按 mode 确定性选择，动态 self/relationship/memory 不进入稳定前缀。DeepSeek 默认启用基于相同输入前缀的上下文缓存，且缓存是 best-effort；此排序既提高复用概率，也不把 cache hit 当正确性依赖。参考官方 [Context Caching](https://api-docs.deepseek.com/guides/kv_cache) 与 [Models & Pricing](https://api-docs.deepseek.com/quick_start/pricing)。
 

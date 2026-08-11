@@ -11,7 +11,7 @@ P4 完成门通过：`/v1/ws` 的每个回复在 provider 请求前均持久化 
 
 ## 自动化验证
 
-- `cargo test --all-targets --all-features --locked`：64 项通过。
+- `cargo test --all-targets --all-features --locked`：65 项通过。
 - `cargo clippy --all-targets --all-features --locked -- -D warnings`：通过。
 - `cargo fmt --all -- --check`：通过。
 - `npm run lint`：通过。
