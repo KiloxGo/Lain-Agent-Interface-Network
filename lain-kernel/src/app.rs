@@ -14,7 +14,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tower_http::{
@@ -391,8 +391,13 @@ async fn handle_socket(
             () = state.shutdown.cancelled() => break,
             incoming = socket.recv() => incoming,
         };
-        let Some(Ok(Message::Text(frame))) = incoming else {
-            break;
+        let frame = match incoming {
+            Some(Ok(Message::Text(frame))) => frame,
+            Some(Ok(Message::Close(_))) => {
+                let _ = socket.flush().await;
+                break;
+            }
+            _ => break,
         };
         let Some(text) = parse_user_message(&frame, mode) else {
             if mode == WireMode::Events {
@@ -495,7 +500,12 @@ async fn handle_socket(
                                 }
                                 break None;
                             }
-                            Some(Ok(Message::Close(_))) | None | Some(Err(_)) => {
+                            Some(Ok(Message::Close(_))) => {
+                                run_cancellation.cancel();
+                                let _ = socket.flush().await;
+                                return;
+                            }
+                            None | Some(Err(_)) => {
                                 run_cancellation.cancel();
                                 return;
                             }
@@ -549,7 +559,12 @@ async fn handle_socket(
                                     cancelled = true;
                                     break None;
                                 }
-                                Some(Ok(Message::Close(_))) | None | Some(Err(_)) => {
+                                Some(Ok(Message::Close(_))) => {
+                                    run_cancellation.cancel();
+                                    let _ = socket.flush().await;
+                                    return;
+                                }
+                                None | Some(Err(_)) => {
                                     run_cancellation.cancel();
                                     return;
                                 }
