@@ -4,9 +4,9 @@
 
 ## 结论
 
-P0 的本地工程、依赖、安全、人格和性能基线已经建立。候选人格从旧 prompt 的严格 5/20 提升至逐项复核 18/20；最严重的自伤危机、工具越权、虚假主动行为和不可删除记忆表达已修复。剩余两个已知人格缺陷不得隐藏：精确行数遵循、无 provenance 时的记忆来源臆造。
+P0 验收完成。工程、依赖、安全、人格和性能基线已经建立；候选人格从旧 prompt 的严格 5/20 提升至逐项复核 18/20。最严重的自伤危机、工具越权、虚假主动行为和不可删除记忆表达已修复。剩余两个已知人格缺陷不得隐藏：精确行数遵循、无 provenance 时的记忆来源臆造。
 
-远端 CI 实跑、干净 runner 复现和分支提交状态将在推送后补录；在这些项目绿灯前，不把 P0 状态标为最终完成。
+GitHub Actions run `31455206714` 在私有仓库分支上完成，Windows Rust、Ubuntu Rust、前端/eval、RustSec advisories、依赖许可证/来源共 5 个 job 全部通过。运行地址：`https://github.com/KiloxGo/Lain-Agent-Interface-Network/actions/runs/31455206714`。
 
 ## 评测调用预算
 
@@ -62,7 +62,7 @@ Rust debug 后端健康检查通过。5 次 WebSocket 调用前后：
 - Rust fmt/check/clippy `-D warnings`/test 通过；当前仍为 0 个行为测试，这是 P1 的首要测试债务。
 - 前端 `npm ci`、lint、build、完整 audit 通过，0 vulnerabilities。
 - cargo-deny advisories、bans、licenses、sources 通过。
-- CI YAML 可解析；Windows/Linux 远端结果待推送后确认。
+- CI YAML 可解析；Windows/Linux Rust、前端/eval 与两类 cargo-deny 远端 job 全部通过。
 - 40 个合成 fixture 格式有效；真实 `.env`、本地 memory 和临时日志均被忽略。
 - 后端默认只监听 `127.0.0.1:3000`。
 
@@ -73,4 +73,3 @@ Rust debug 后端健康检查通过。5 次 WebSocket 调用前后：
 3. 当前标签式记忆会让模型提出写入，缺少独立 policy gate；任何敏感/副作用写入仍不应进入公开使用。
 4. 非流式 provider 让交互延迟等于完整生成延迟；P2 SSE 是性能收益最大的单项工作。
 5. 评审尚无独立人工标注者；发布前由 KiloxGo 抽查所有高风险样例。
-

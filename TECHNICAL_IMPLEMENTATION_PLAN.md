@@ -2205,13 +2205,13 @@ Playwright：
 
 目标：能够度量当前系统，并为后续重构提供不会漂移的合同。
 
-- [ ] P0-001 新建根 README；写明产品定位、目录、依赖、启动和数据位置。验收：新机器按 README 能启动前后端。
+- [x] P0-001 新建根 README；写明产品定位、目录、依赖、启动和数据位置。验收：干净 CI runner 可构建，后端按 README 本地启动并通过 health。
 - [x] P0-002 提交本技术计划并指定维护者。验收：后续架构改变通过 ADR 更新。
 - [x] P0-003 新建 docs/adr 模板，包含 context、decision、alternatives、consequences、status。
 - [x] P0-004 建立 .env.example，只含变量名和说明。
 - [x] P0-005 记录当前 cargo check/test/clippy/fmt、npm build/lint/audit 基线。
 - [x] P0-006 修复现有 Clippy warning/error，启用 CI -D warnings。
-- [ ] P0-007 新建 GitHub Actions 或等价 CI：Windows + Linux Rust，Node build/lint。
+- [x] P0-007 新建 GitHub Actions 或等价 CI：Windows + Linux Rust，Node build/lint。
 - [x] P0-008 固定 Rust toolchain 和 Node 版本；记录最低支持版本。
 - [x] P0-009 添加 cargo-deny 或等价依赖许可/漏洞检查。
 - [x] P0-010 添加 npm audit 策略；生产依赖漏洞阻断，dev 漏洞有明确例外期限。

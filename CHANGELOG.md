@@ -21,3 +21,4 @@
 - 将已停用的 `deepseek-chat` 默认模型迁移到 `deepseek-v4-flash`，使用官方基础地址并显式关闭 thinking；允许通过环境变量覆盖模型和地址。
 - 重写系统提示词的优先级和边界：安全、诚实、任务完成、隐私与用户控制优先于人格氛围；保留克制的 Lain interface 风格。
 - 建立 49 次受控 DeepSeek 调用的人格、token、延迟、RSS 与文件存储 P0 在线基线，并保留旧 prompt 的失败结果。
+- 完成私有 GitHub 分支的 Windows/Linux/前端/eval/依赖策略远端 CI 验收。
