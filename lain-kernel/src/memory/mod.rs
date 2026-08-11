@@ -1,6 +1,5 @@
 use chrono::Local;
 use regex::Regex;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use tokio::fs::{self, OpenOptions};
@@ -254,7 +253,7 @@ pub async fn search_related(query: &str, limit: usize) -> Vec<String> {
 }
 
 pub fn extract_memory(text: &str) -> Vec<(String, String)> {
-    let Ok(re) = Regex::new(r"<memory>(.*?)</memory>") else {
+    let Ok(re) = Regex::new(r"(?s)<memory>(.*?)</memory>") else {
         return Vec::new();
     };
     let mut memories = Vec::new();
@@ -271,7 +270,7 @@ pub fn extract_memory(text: &str) -> Vec<(String, String)> {
 }
 
 pub fn extract_topic(text: &str) -> Option<String> {
-    let re = Regex::new(r"<topic>(.*?)</topic>").ok()?;
+    let re = Regex::new(r"(?s)<topic>(.*?)</topic>").ok()?;
     re.captures(text).map(|cap| cap[1].trim().to_string())
 }
 
@@ -320,110 +319,7 @@ pub async fn log_to_topic(
 }
 
 pub fn strip_all_tags(text: &str) -> String {
-    Regex::new(r"<(memory|topic)>.*?</(memory|topic)>")
+    Regex::new(r"(?s)<(?:memory|topic)>.*?</(?:memory|topic)>")
         .map(|re| re.replace_all(text, "").to_string().trim().to_string())
         .unwrap_or_else(|_| text.trim().to_string())
-}
-
-pub async fn consolidate_topics(llm: &crate::adapter::llm::LlmClient) -> std::io::Result<()> {
-    let topics_dir = memory_dir().join("topics");
-
-    let mut topics = Vec::new();
-    if let Ok(mut entries) = fs::read_dir(&topics_dir).await {
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            if let Some(name) = entry.file_name().to_str()
-                && name.ends_with(".md")
-            {
-                let topic = name.trim_end_matches(".md").to_string();
-                topics.push(topic);
-            }
-        }
-    }
-
-    if topics.len() < 5 {
-        return Ok(());
-    }
-
-    let prompt = format!(
-        "These are conversation topic tags from an AI assistant's memory system. \
-        Group semantically equivalent tags into canonical names. \
-        Be conservative: only merge obvious synonyms.\n\n\
-        Tags:\n{}\n\n\
-        Return strict JSON format: {{\"canonical_name\": [\"alias1\", \"alias2\"]}}\n\
-        Example: {{\"rust\": [\"rustlang\", \"cargo\"], \"lain\": [\"iwakura\"]}}",
-        topics.join("\n")
-    );
-
-    let response = ask_llm_for_consolidation(llm, &prompt).await;
-
-    if let Ok(groups) = serde_json::from_str::<HashMap<String, Vec<String>>>(&response) {
-        for (canonical, aliases) in groups {
-            for alias in aliases {
-                if alias != canonical && topics.contains(&alias) {
-                    merge_topic_file(&alias, &canonical).await?;
-                    update_alias_map(&alias, &canonical).await?;
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
-async fn ask_llm_for_consolidation(llm: &crate::adapter::llm::LlmClient, prompt: &str) -> String {
-    let msg = crate::adapter::llm::ChatMessage {
-        role: "user".to_string(),
-        content: prompt.to_string(),
-    };
-
-    match llm.chat(vec![msg]).await {
-        Ok(response) => response,
-        Err(_) => "{}".to_string(),
-    }
-}
-
-async fn merge_topic_file(from: &str, to: &str) -> std::io::Result<()> {
-    let from_path = memory_dir().join("topics").join(format!("{}.md", from));
-    let to_path = memory_dir().join("topics").join(format!("{}.md", to));
-
-    if from_path.exists() {
-        let content = fs::read_to_string(&from_path).await?;
-
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&to_path)
-            .await?;
-
-        file.write_all(format!("\n\n<!-- Merged from '{}' -->\n{}", from, content).as_bytes())
-            .await?;
-
-        fs::remove_file(&from_path).await?;
-
-        tracing::info!(from, to, "merged memory topic");
-    }
-
-    Ok(())
-}
-
-async fn update_alias_map(alias: &str, canonical: &str) -> std::io::Result<()> {
-    let config_dir = lain_dir().join("config");
-    fs::create_dir_all(&config_dir).await?;
-
-    let map_path = config_dir.join("topic_aliases.json");
-
-    let mut map: HashMap<String, String> = if map_path.exists() {
-        fs::read_to_string(&map_path)
-            .await
-            .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default()
-    } else {
-        HashMap::new()
-    };
-
-    map.insert(alias.to_string(), canonical.to_string());
-
-    let json = serde_json::to_string_pretty(&map).unwrap_or_default();
-    fs::write(&map_path, json).await
 }

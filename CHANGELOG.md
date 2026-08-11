@@ -12,6 +12,8 @@
 - 人格与记忆最小评测数据集及格式校验器。
 - 可测试的 Kernel 应用层、结构化配置/错误、存活与就绪探针、请求关联 ID。
 - 受跟踪后台任务、取消传播、限时优雅停机、请求/消息大小限制和显式本地 CORS。
+- Provider-neutral 模型请求/事件/错误接口、DeepSeek SSE adapter、代码模型路由与可脚本化 MockProvider。
+- 增量 WebSocket UI、运行中取消、token/cache usage 日志和脱敏 provider capability 诊断。
 
 ### Changed
 
@@ -25,3 +27,4 @@
 - 建立 49 次受控 DeepSeek 调用的人格、token、延迟、RSS 与文件存储 P0 在线基线，并保留旧 prompt 的失败结果。
 - 完成私有 GitHub 分支的 Windows/Linux/前端/eval/依赖策略远端 CI 验收。
 - 保持旧 `/ws` 裸文本协议兼容，同时以标准 `Deprecation` 响应头标记迁移边界。
+- 将业务层从 DeepSeek DTO 解耦；普通聊天改为单请求流式消费，部分输出后断流不自动重试。

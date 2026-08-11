@@ -1,8 +1,8 @@
-pub mod adapter;
 pub mod app;
 pub mod config;
 pub mod error;
 pub mod memory;
+pub mod provider;
 
 use app::{AppState, build_router};
 use config::Config;

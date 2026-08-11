@@ -17,7 +17,7 @@
 | WebSocket 冒充、重放、乱序 | 错误操作或状态破坏 | 本地绑定；P1 在 upgrade 前校验浏览器 Origin 并限制 frame/message；版本化 ID、序号、幂等留在 P3 |
 | 路径穿越/任意文件写入 | 主机数据受损 | 不让模型提供原始路径；存储层生成 ID 和规范路径；原子写/事务 |
 | 恶意或异常模型输出 | UI 注入、解析失败 | 前端按文本渲染；事件 schema 严格校验；未知事件安全忽略并记录 |
-| 资源耗尽 | 延迟与费用失控 | P1 建立 provider/关机超时、body/frame/message 上限与取消传播；并发、队列和速率限制继续按后续阶段实现 |
+| 资源耗尽 | 延迟与费用失控 | P2 增加模型全流超时、客户端中途取消、输出前有限重试、body/frame/message 上限；并发、队列和速率限制继续按后续阶段实现 |
 | 供应链依赖风险 | 构建或运行时被攻破 | lockfile、固定工具链、最小 CI 权限、生产审计、cargo-deny 策略 |
 | 删除不完整 | 用户无法控制数据 | P1 建立可验证的级联删除、导出和 tombstone/审计策略 |
 
@@ -40,4 +40,4 @@
 
 ## 待验证
 
-P1/P2 必须补充：协议 fuzz/property tests、跨 scope 泄露测试、迁移回滚测试、日志脱敏测试、取消与超时测试、恶意 tool arguments 测试。任何远程访问设计需要独立威胁模型和认证 ADR。
+已覆盖 provider 取消、超时、任意 SSE/Unicode 分块、部分断流和未执行 tool-call delta。后续仍须补充：协议 fuzz/property tests、跨 scope 泄露、迁移回滚、日志脱敏和恶意 tool arguments 测试。任何远程访问设计需要独立威胁模型和认证 ADR。

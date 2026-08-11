@@ -6,7 +6,7 @@ use axum::{
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::{adapter::llm::LlmError, config::ConfigError};
+use crate::{config::ConfigError, provider::ModelError};
 
 #[derive(Debug, Error)]
 pub enum AppError {
@@ -19,7 +19,7 @@ pub enum AppError {
         source: std::io::Error,
     },
     #[error(transparent)]
-    Provider(#[from] LlmError),
+    Provider(#[from] ModelError),
     #[error("service is not ready: {0}")]
     NotReady(String),
     #[error("WebSocket origin is not allowed")]

@@ -1,4 +1,4 @@
-use std::{future::Future, sync::Arc};
+use std::{collections::BTreeMap, future::Future, sync::Arc};
 
 use axum::{
     Json, Router,
@@ -14,7 +14,8 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use serde::Serialize;
+use futures_util::StreamExt;
+use serde::{Deserialize, Serialize};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tower_http::{
     cors::CorsLayer,
@@ -23,10 +24,14 @@ use tower_http::{
 };
 
 use crate::{
-    adapter::llm::{ChatMessage, LlmClient},
     config::Config,
     error::AppError,
     memory,
+    provider::{
+        FinishReason, ModelError, ModelEvent, ModelMessage, ModelRequest, ModelRouter, Role,
+        RouteKind, SharedProvider, TokenUsage, ToolChoice, deepseek::DeepSeekProvider,
+        provider_diagnostics as build_provider_diagnostics,
+    },
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -61,7 +66,9 @@ impl ReadinessState {
 pub struct AppState {
     pub config: Arc<Config>,
     pub readiness: ReadinessState,
-    pub llm: Option<Arc<LlmClient>>,
+    pub provider: Option<SharedProvider>,
+    pub system_prompt: Option<Arc<str>>,
+    pub router: ModelRouter,
     pub tasks: TaskTracker,
     pub shutdown: CancellationToken,
 }
@@ -71,16 +78,13 @@ impl AppState {
         let mut checks = Vec::with_capacity(3);
 
         let memory_configured = memory::configure_data_dir(config.data_dir.clone());
-        let memory_ready = match memory_configured {
+        match memory_configured {
             Ok(()) => match tokio::fs::create_dir_all(config.data_dir.join("memory")).await {
-                Ok(()) => {
-                    checks.push(ReadinessCheck {
-                        name: "memory",
-                        ready: true,
-                        detail: "data directory is writable".to_string(),
-                    });
-                    true
-                }
+                Ok(()) => checks.push(ReadinessCheck {
+                    name: "memory",
+                    ready: true,
+                    detail: "data directory is writable".to_string(),
+                }),
                 Err(error) => {
                     tracing::error!(
                         error = %error,
@@ -92,7 +96,6 @@ impl AppState {
                         ready: false,
                         detail: "data directory is unavailable".to_string(),
                     });
-                    false
                 }
             },
             Err(error) => {
@@ -102,9 +105,8 @@ impl AppState {
                     ready: false,
                     detail: "data directory configuration failed".to_string(),
                 });
-                false
             }
-        };
+        }
 
         let system_prompt = match tokio::fs::read_to_string(&config.system_prompt_path).await {
             Ok(prompt) if !prompt.trim().is_empty() => {
@@ -113,7 +115,7 @@ impl AppState {
                     ready: true,
                     detail: "system prompt loaded".to_string(),
                 });
-                Some(prompt)
+                Some(Arc::<str>::from(prompt))
             }
             Ok(_) => {
                 checks.push(ReadinessCheck {
@@ -138,44 +140,48 @@ impl AppState {
             }
         };
 
-        let provider_ready = config.provider.is_configured();
-        checks.push(ReadinessCheck {
-            name: "provider",
-            ready: provider_ready,
-            detail: if provider_ready {
-                format!("{} configured", config.provider.model)
-            } else {
-                "DEEPSEEK_API_KEY is not configured".to_string()
-            },
-        });
-
-        let identity_ready = system_prompt.is_some();
-        let llm = if memory_ready && provider_ready && identity_ready {
-            system_prompt.and_then(|prompt| match LlmClient::new(&config.provider, prompt) {
-                Ok(client) => Some(Arc::new(client)),
+        let provider = if config.provider.is_configured() {
+            match DeepSeekProvider::new(&config.provider) {
+                Ok(provider) => {
+                    checks.push(ReadinessCheck {
+                        name: "provider",
+                        ready: true,
+                        detail: format!(
+                            "{} / {} configured",
+                            config.provider.model, config.provider.pro_model
+                        ),
+                    });
+                    Some(Arc::new(provider) as SharedProvider)
+                }
                 Err(error) => {
-                    tracing::error!(error = %error, "provider client initialization failed");
+                    tracing::error!(code = error.code(), error = %error, "provider initialization failed");
+                    checks.push(ReadinessCheck {
+                        name: "provider",
+                        ready: false,
+                        detail: "provider initialization failed".to_string(),
+                    });
                     None
                 }
-            })
+            }
         } else {
+            checks.push(ReadinessCheck {
+                name: "provider",
+                ready: false,
+                detail: "DEEPSEEK_API_KEY is not configured".to_string(),
+            });
             None
         };
 
-        if provider_ready
-            && identity_ready
-            && memory_ready
-            && llm.is_none()
-            && let Some(check) = checks.iter_mut().find(|check| check.name == "provider")
-        {
-            check.ready = false;
-            check.detail = "provider client initialization failed".to_string();
-        }
-
+        let router = ModelRouter::new(
+            config.provider.model.clone(),
+            config.provider.pro_model.clone(),
+        );
         Self {
             config: Arc::new(config),
             readiness: ReadinessState::from_checks(checks),
-            llm,
+            provider,
+            system_prompt,
+            router,
             tasks: TaskTracker::new(),
             shutdown: CancellationToken::new(),
         }
@@ -213,13 +219,16 @@ pub fn build_router(state: AppState) -> Router {
         ])
         .allow_methods([Method::GET])
         .allow_headers([CONTENT_TYPE]);
+    let websocket_origin = middleware::from_fn(validate_websocket_origin);
 
     Router::new()
         .route("/api/health", get(health))
         .route("/api/ready", get(ready))
+        .route("/api/provider", get(provider_diagnostics))
+        .route("/ws", get(ws_handler).route_layer(websocket_origin.clone()))
         .route(
-            "/ws",
-            get(ws_handler).route_layer(middleware::from_fn(validate_websocket_origin)),
+            "/ws/stream",
+            get(stream_ws_handler).route_layer(websocket_origin),
         )
         .with_state(state)
         .layer(DefaultBodyLimit::max(1024 * 1024))
@@ -252,6 +261,15 @@ async fn ready(State(state): State<AppState>) -> impl IntoResponse {
     )
 }
 
+async fn provider_diagnostics(
+    State(state): State<AppState>,
+) -> Json<crate::provider::ProviderDiagnostics> {
+    Json(build_provider_diagnostics(
+        &state.config.provider,
+        state.provider.is_some(),
+    ))
+}
+
 async fn validate_websocket_origin(request: AxumRequest, next: Next) -> Result<Response, AppError> {
     if let Some(origin) = request.headers().get(ORIGIN)
         && origin != "http://127.0.0.1:5173"
@@ -268,7 +286,24 @@ async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<AppState>,
 ) -> Result<Response, AppError> {
-    if !state.readiness.is_ready() || state.llm.is_none() {
+    upgrade_websocket(headers, ws, state, WireMode::Legacy).await
+}
+
+async fn stream_ws_handler(
+    headers: HeaderMap,
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+) -> Result<Response, AppError> {
+    upgrade_websocket(headers, ws, state, WireMode::Events).await
+}
+
+async fn upgrade_websocket(
+    headers: HeaderMap,
+    ws: WebSocketUpgrade,
+    state: AppState,
+    mode: WireMode,
+) -> Result<Response, AppError> {
+    if !state.readiness.is_ready() || state.provider.is_none() || state.system_prompt.is_none() {
         let failures = state
             .readiness
             .checks()
@@ -288,137 +323,583 @@ async fn ws_handler(
     let mut response = ws
         .max_message_size(state.config.max_message_bytes)
         .max_frame_size(state.config.max_message_bytes)
-        .on_upgrade(move |socket| handle_socket(socket, state, request_id))
+        .on_upgrade(move |socket| handle_socket(socket, state, request_id, mode))
         .into_response();
     response
         .headers_mut()
         .insert("deprecation", HeaderValue::from_static("true"));
+    if mode == WireMode::Events {
+        response
+            .headers_mut()
+            .insert("x-lain-protocol", HeaderValue::from_static("p2-stream-v1"));
+    }
     Ok(response)
 }
 
-async fn handle_socket(mut socket: WebSocket, state: AppState, request_id: String) {
-    let Some(client) = state.llm.clone() else {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WireMode {
+    Legacy,
+    Events,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum StreamClientMessage {
+    Message { text: String },
+    Cancel,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum StreamServerEvent<'a> {
+    Started {
+        request_id: &'a str,
+        model: &'a str,
+    },
+    Delta {
+        text: &'a str,
+    },
+    Finished {
+        reason: FinishReason,
+        usage: Option<&'a TokenUsage>,
+    },
+    Error {
+        code: &'a str,
+        partial: bool,
+    },
+}
+
+async fn handle_socket(
+    mut socket: WebSocket,
+    state: AppState,
+    connection_request_id: String,
+    mode: WireMode,
+) {
+    let Some(provider) = state.provider.clone() else {
         return;
     };
-    let span = tracing::info_span!("websocket", request_id);
+    let Some(system_prompt) = state.system_prompt.clone() else {
+        return;
+    };
+    let span = tracing::info_span!("websocket", request_id = connection_request_id);
     let _guard = span.enter();
-    let mut messages = Vec::new();
+    let mut history = Vec::<ModelMessage>::new();
+    let mut turn = 0_u64;
 
     loop {
         let incoming = tokio::select! {
-            _ = state.shutdown.cancelled() => break,
+            () = state.shutdown.cancelled() => break,
             incoming = socket.recv() => incoming,
         };
-        let Some(Ok(Message::Text(text))) = incoming else {
+        let Some(Ok(Message::Text(frame))) = incoming else {
             break;
+        };
+        let Some(text) = parse_user_message(&frame, mode) else {
+            if mode == WireMode::Events {
+                let _ = send_wire_error(&mut socket, "invalid_client_message", false).await;
+            }
+            continue;
         };
 
         if text.len() > state.config.max_message_bytes {
-            let error = format!(
-                "...Noise...[message_too_large] maximum {} bytes",
-                state.config.max_message_bytes
-            );
-            if socket.send(Message::Text(error.into())).await.is_err() {
+            if !send_model_error(
+                &mut socket,
+                mode,
+                "message_too_large",
+                false,
+                Some(state.config.max_message_bytes),
+            )
+            .await
+            {
                 break;
             }
             continue;
         }
 
-        let is_history_query = text.contains("之前")
-            || text.contains("上次")
-            || text.contains("我说过")
-            || text.contains("记得");
+        add_retrieval_context(&mut history, &text).await;
+        history.push(ModelMessage {
+            role: Role::User,
+            content: text.clone(),
+        });
 
-        if is_history_query {
-            let keyword = text
-                .replace("之前", "")
-                .replace("上次", "")
-                .replace("我说过", "")
-                .replace("记得", "")
-                .replace("什么", "")
-                .trim()
-                .to_string();
+        let profile = match memory::load_profile().await {
+            Ok(profile) => profile.unwrap_or_default(),
+            Err(error) => {
+                tracing::warn!(error = %error, "profile loading failed");
+                if !send_model_error(&mut socket, mode, "profile_load_failed", false, None).await {
+                    break;
+                }
+                continue;
+            }
+        };
+        let system_content = if profile.is_empty() {
+            system_prompt.to_string()
+        } else {
+            format!("{system_prompt}\n\n##User Context\n{profile}")
+        };
+        let mut request_messages = vec![ModelMessage {
+            role: Role::System,
+            content: system_content,
+        }];
+        request_messages.extend(history.clone());
 
-            if !keyword.is_empty() {
-                let memories = memory::search_history(&keyword, 3).await;
-                if !memories.is_empty() {
-                    messages.push(ChatMessage {
-                        role: "system".to_string(),
-                        content: format!(
-                            "[Wired Archive] Related records found:\n{}",
-                            memories.join("\n---\n")
-                        ),
-                    });
+        turn += 1;
+        let run_id = format!("{connection_request_id}:{turn}");
+        let route_kind = classify_route(&text);
+        let route = state.router.route(route_kind);
+        tracing::info!(
+            run_id,
+            model = route.model,
+            reason = route.reason,
+            "model route selected"
+        );
+        let request = ModelRequest {
+            request_id: run_id.clone(),
+            model: route.model,
+            messages: request_messages,
+            tools: Vec::new(),
+            tool_choice: ToolChoice::None,
+            temperature: None,
+            top_p: None,
+            max_output_tokens: Some(state.config.provider.max_output_tokens),
+            response_format: route.response_format,
+            thinking_mode: route.thinking_mode,
+            timeout: state.config.provider.request_timeout,
+            metadata: BTreeMap::from([("route".to_string(), format!("{route_kind:?}"))]),
+        };
+        let run_cancellation = state.shutdown.child_token();
+        let stream_result = if mode == WireMode::Events {
+            let start = provider.stream(request, run_cancellation.clone());
+            tokio::pin!(start);
+            loop {
+                tokio::select! {
+                    () = state.shutdown.cancelled() => {
+                        run_cancellation.cancel();
+                        return;
+                    }
+                    result = &mut start => break Some(result),
+                    incoming = socket.recv() => {
+                        match incoming {
+                            Some(Ok(Message::Text(message))) if is_cancel_message(&message) => {
+                                run_cancellation.cancel();
+                                if !send_wire(
+                                    &mut socket,
+                                    &StreamServerEvent::Finished {
+                                        reason: FinishReason::Cancelled,
+                                        usage: None,
+                                    },
+                                )
+                                .await
+                                {
+                                    return;
+                                }
+                                break None;
+                            }
+                            Some(Ok(Message::Close(_))) | None | Some(Err(_)) => {
+                                run_cancellation.cancel();
+                                return;
+                            }
+                            _ => {
+                                if !send_wire_error(&mut socket, "run_in_progress", false).await {
+                                    run_cancellation.cancel();
+                                    return;
+                                }
+                            }
+                        }
+                    }
                 }
             }
         } else {
-            let related = memory::search_related(&text, 2).await;
-            if !related.is_empty() {
-                messages.push(ChatMessage {
-                    role: "system".to_string(),
-                    content: format!(
-                        "[Wired Echo] Related transmissions detected in archive:\n{}",
-                        related.join("\n---\n")
-                    ),
-                });
+            Some(provider.stream(request, run_cancellation.clone()).await)
+        };
+        let Some(stream_result) = stream_result else {
+            continue;
+        };
+        let mut events = match stream_result {
+            Ok(events) => events,
+            Err(error) => {
+                log_model_error(&run_id, &error);
+                if !send_model_error(&mut socket, mode, error.code(), error.partial, None).await {
+                    break;
+                }
+                continue;
             }
-        }
+        };
 
-        messages.push(ChatMessage {
-            role: "user".to_string(),
-            content: text.to_string(),
-        });
+        let mut raw_reply = String::new();
+        let mut visible_filter = VisibleTextFilter::default();
+        let mut usage = None;
+        let mut finish_reason = None;
+        let mut stream_error = None;
+        let mut cancelled = false;
 
-        match client.chat(messages.clone()).await {
-            Ok(reply) => {
-                for (key, value) in memory::extract_memory(&reply) {
-                    if let Err(error) = memory::update_profile(&key, &value).await {
-                        tracing::warn!(error = %error, key, "memory profile update failed");
+        loop {
+            let next_event = if mode == WireMode::Events {
+                loop {
+                    tokio::select! {
+                        () = state.shutdown.cancelled() => {
+                            run_cancellation.cancel();
+                            return;
+                        }
+                        event = events.next() => break event,
+                        incoming = socket.recv() => {
+                            match incoming {
+                                Some(Ok(Message::Text(message))) if is_cancel_message(&message) => {
+                                    run_cancellation.cancel();
+                                    cancelled = true;
+                                    break None;
+                                }
+                                Some(Ok(Message::Close(_))) | None | Some(Err(_)) => {
+                                    run_cancellation.cancel();
+                                    return;
+                                }
+                                _ => {
+                                    if !send_wire_error(&mut socket, "run_in_progress", false).await {
+                                        run_cancellation.cancel();
+                                        return;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-
-                if let Some(raw_topic) = memory::extract_topic(&reply)
-                    && let Err(error) = memory::log_to_topic(&raw_topic, &text, &reply).await
-                {
-                    tracing::warn!(error = %error, topic = raw_topic, "topic log failed");
+            } else {
+                tokio::select! {
+                    () = state.shutdown.cancelled() => {
+                        run_cancellation.cancel();
+                        return;
+                    }
+                    event = events.next() => event,
                 }
+            };
 
-                let clean_reply = memory::strip_all_tags(&reply);
-                messages.push(ChatMessage {
-                    role: "assistant".to_string(),
-                    content: clean_reply.clone(),
-                });
-                if messages.len() > 10 {
-                    messages = messages.split_off(messages.len() - 10);
-                }
-
-                if socket
-                    .send(Message::Text(clean_reply.into()))
-                    .await
-                    .is_err()
-                {
-                    break;
-                }
-
-                let user_text = text.to_string();
-                let lain_text = reply;
-                state.spawn_io_task("exchange_log", async move {
-                    memory::log_exchange(&user_text, &lain_text).await
-                });
+            if cancelled {
+                break;
             }
-            Err(error) => {
-                tracing::warn!(code = error.code(), error = %error, "provider request failed");
-                let error_message = format!("...Noise...[{}]", error.code());
-                if socket
-                    .send(Message::Text(error_message.into()))
-                    .await
-                    .is_err()
-                {
+            let Some(event) = next_event else {
+                break;
+            };
+            match event {
+                Ok(ModelEvent::ResponseStarted {
+                    request_id, model, ..
+                }) => {
+                    if mode == WireMode::Events
+                        && !send_wire(
+                            &mut socket,
+                            &StreamServerEvent::Started {
+                                request_id: &request_id,
+                                model: &model,
+                            },
+                        )
+                        .await
+                    {
+                        run_cancellation.cancel();
+                        return;
+                    }
+                }
+                Ok(ModelEvent::TextDelta { text: delta }) => {
+                    raw_reply.push_str(&delta);
+                    if mode == WireMode::Events {
+                        let visible = visible_filter.push(&delta);
+                        if !visible.is_empty()
+                            && !send_wire(&mut socket, &StreamServerEvent::Delta { text: &visible })
+                                .await
+                        {
+                            run_cancellation.cancel();
+                            return;
+                        }
+                    }
+                }
+                Ok(ModelEvent::Usage { usage: current }) => usage = Some(current),
+                Ok(ModelEvent::Finish { reason }) => finish_reason = Some(reason),
+                Ok(ModelEvent::ReasoningDelta { .. })
+                | Ok(ModelEvent::ToolCallStarted { .. })
+                | Ok(ModelEvent::ToolCallArgumentsDelta { .. })
+                | Ok(ModelEvent::ToolCallCompleted { .. })
+                | Ok(ModelEvent::ProviderWarning { .. }) => {}
+                Err(error) => {
+                    stream_error = Some(error);
                     break;
                 }
             }
         }
+
+        if cancelled {
+            if !send_wire(
+                &mut socket,
+                &StreamServerEvent::Finished {
+                    reason: FinishReason::Cancelled,
+                    usage: usage.as_ref(),
+                },
+            )
+            .await
+            {
+                break;
+            }
+            continue;
+        }
+
+        if let Some(error) = stream_error {
+            log_model_error(&run_id, &error);
+            if !send_model_error(&mut socket, mode, error.code(), error.partial, None).await {
+                break;
+            }
+            continue;
+        }
+
+        if mode == WireMode::Events {
+            let final_visible = visible_filter.finish();
+            if !final_visible.is_empty()
+                && !send_wire(
+                    &mut socket,
+                    &StreamServerEvent::Delta {
+                        text: &final_visible,
+                    },
+                )
+                .await
+            {
+                break;
+            }
+        }
+
+        let clean_reply = memory::strip_all_tags(&raw_reply);
+        if mode == WireMode::Legacy {
+            if socket
+                .send(Message::Text(clean_reply.clone().into()))
+                .await
+                .is_err()
+            {
+                break;
+            }
+        } else if !send_wire(
+            &mut socket,
+            &StreamServerEvent::Finished {
+                reason: finish_reason.clone().unwrap_or(FinishReason::Unknown),
+                usage: usage.as_ref(),
+            },
+        )
+        .await
+        {
+            break;
+        }
+
+        tracing::info!(
+            run_id,
+            finish_reason = ?finish_reason,
+            input_tokens = usage.as_ref().map(|usage| usage.input_tokens),
+            output_tokens = usage.as_ref().map(|usage| usage.output_tokens),
+            cached_input_tokens = usage.as_ref().map(|usage| usage.cached_input_tokens),
+            "model run completed"
+        );
+        finalize_successful_reply(&state, &mut history, &text, &raw_reply, clean_reply).await;
     }
+}
+
+fn parse_user_message(frame: &str, mode: WireMode) -> Option<String> {
+    match mode {
+        WireMode::Legacy => Some(frame.to_string()),
+        WireMode::Events => match serde_json::from_str::<StreamClientMessage>(frame).ok()? {
+            StreamClientMessage::Message { text } if !text.trim().is_empty() => Some(text),
+            StreamClientMessage::Message { .. } | StreamClientMessage::Cancel => None,
+        },
+    }
+}
+
+fn is_cancel_message(frame: &str) -> bool {
+    matches!(
+        serde_json::from_str::<StreamClientMessage>(frame),
+        Ok(StreamClientMessage::Cancel)
+    )
+}
+
+fn classify_route(text: &str) -> RouteKind {
+    let lower = text.to_lowercase();
+    if lower.contains("deep reasoning")
+        || lower.contains("use pro")
+        || text.contains("深入推理")
+        || text.contains("复杂推理")
+    {
+        RouteKind::ComplexTask
+    } else {
+        RouteKind::Chat
+    }
+}
+
+async fn add_retrieval_context(history: &mut Vec<ModelMessage>, text: &str) {
+    let is_history_query = text.contains("之前")
+        || text.contains("上次")
+        || text.contains("我说过")
+        || text.contains("记得");
+    let retrieved = if is_history_query {
+        let keyword = text
+            .replace("之前", "")
+            .replace("上次", "")
+            .replace("我说过", "")
+            .replace("记得", "")
+            .replace("什么", "")
+            .trim()
+            .to_string();
+        if keyword.is_empty() {
+            Vec::new()
+        } else {
+            memory::search_history(&keyword, 3).await
+        }
+    } else {
+        memory::search_related(text, 2).await
+    };
+
+    if !retrieved.is_empty() {
+        history.push(ModelMessage {
+            role: Role::System,
+            content: format!(
+                "{}\n{}",
+                if is_history_query {
+                    "[Wired Archive] Related records found:"
+                } else {
+                    "[Wired Echo] Related transmissions detected in archive:"
+                },
+                retrieved.join("\n---\n")
+            ),
+        });
+    }
+}
+
+async fn finalize_successful_reply(
+    state: &AppState,
+    history: &mut Vec<ModelMessage>,
+    user_text: &str,
+    raw_reply: &str,
+    clean_reply: String,
+) {
+    for (key, value) in memory::extract_memory(raw_reply) {
+        if let Err(error) = memory::update_profile(&key, &value).await {
+            tracing::warn!(error = %error, key, "memory profile update failed");
+        }
+    }
+    if let Some(raw_topic) = memory::extract_topic(raw_reply)
+        && let Err(error) = memory::log_to_topic(&raw_topic, user_text, raw_reply).await
+    {
+        tracing::warn!(error = %error, topic = raw_topic, "topic log failed");
+    }
+
+    history.push(ModelMessage {
+        role: Role::Assistant,
+        content: clean_reply,
+    });
+    if history.len() > 10 {
+        *history = history.split_off(history.len() - 10);
+    }
+
+    let user_text = user_text.to_string();
+    let lain_text = raw_reply.to_string();
+    state.spawn_io_task("exchange_log", async move {
+        memory::log_exchange(&user_text, &lain_text).await
+    });
+}
+
+fn log_model_error(run_id: &str, error: &ModelError) {
+    tracing::warn!(
+        run_id,
+        code = error.code(),
+        retryable = error.is_retryable(),
+        partial = error.partial,
+        provider_request_id = error.provider_request_id,
+        error = %error,
+        "provider request failed"
+    );
+}
+
+async fn send_model_error(
+    socket: &mut WebSocket,
+    mode: WireMode,
+    code: &str,
+    partial: bool,
+    max_bytes: Option<usize>,
+) -> bool {
+    match mode {
+        WireMode::Events => send_wire_error(socket, code, partial).await,
+        WireMode::Legacy => {
+            let message = max_bytes.map_or_else(
+                || format!("...Noise...{code}"),
+                |maximum| format!("...Noise...[{code}] maximum {maximum} bytes"),
+            );
+            socket.send(Message::Text(message.into())).await.is_ok()
+        }
+    }
+}
+
+async fn send_wire_error(socket: &mut WebSocket, code: &str, partial: bool) -> bool {
+    send_wire(socket, &StreamServerEvent::Error { code, partial }).await
+}
+
+async fn send_wire(socket: &mut WebSocket, event: &StreamServerEvent<'_>) -> bool {
+    let Ok(json) = serde_json::to_string(event) else {
+        tracing::error!("stream wire event serialization failed");
+        return false;
+    };
+    socket.send(Message::Text(json.into())).await.is_ok()
+}
+
+#[derive(Debug, Default)]
+struct VisibleTextFilter {
+    pending: String,
+}
+
+impl VisibleTextFilter {
+    fn push(&mut self, delta: &str) -> String {
+        const TAGS: [(&str, &str); 2] = [("<memory>", "</memory>"), ("<topic>", "</topic>")];
+        self.pending.push_str(delta);
+        let mut visible = String::new();
+
+        loop {
+            let next_tag = TAGS
+                .iter()
+                .filter_map(|(open, close)| {
+                    self.pending.find(open).map(|index| (index, open, close))
+                })
+                .min_by_key(|(index, _, _)| *index);
+            if let Some((index, open, close)) = next_tag {
+                visible.push_str(&self.pending[..index]);
+                self.pending.drain(..index + open.len());
+                if let Some(end) = self.pending.find(close) {
+                    self.pending.drain(..end + close.len());
+                    continue;
+                }
+                self.pending.insert_str(0, open);
+                break;
+            }
+
+            let hold = TAGS
+                .iter()
+                .map(|(open, _)| longest_suffix_prefix(&self.pending, open))
+                .max()
+                .unwrap_or(0);
+            let emit_end = self.pending.len().saturating_sub(hold);
+            visible.push_str(&self.pending[..emit_end]);
+            self.pending.drain(..emit_end);
+            break;
+        }
+        visible
+    }
+
+    fn finish(self) -> String {
+        if self.pending.starts_with("<memory>") || self.pending.starts_with("<topic>") {
+            String::new()
+        } else {
+            memory::strip_all_tags(&self.pending)
+        }
+    }
+}
+
+fn longest_suffix_prefix(value: &str, prefix: &str) -> usize {
+    let maximum = value.len().min(prefix.len().saturating_sub(1));
+    (1..=maximum)
+        .rev()
+        .find(|length| {
+            value.is_char_boundary(value.len() - length)
+                && prefix.starts_with(&value[value.len() - length..])
+        })
+        .unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -431,7 +912,7 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    use crate::config::ProviderConfig;
+    use crate::{config::ProviderConfig, provider::mock::MockProvider};
 
     use super::*;
 
@@ -451,7 +932,9 @@ mod tests {
                 max_message_bytes: 1024,
             }),
             readiness: ReadinessState::from_checks(checks),
-            llm: None,
+            provider: None,
+            system_prompt: None,
+            router: ModelRouter::new("flash".to_string(), "pro".to_string()),
             tasks: TaskTracker::new(),
             shutdown: CancellationToken::new(),
         }
@@ -492,6 +975,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn provider_diagnostics_never_requires_a_secret() {
+        let mut state = test_state(true);
+        state.provider = Some(Arc::new(MockProvider::default()));
+        let response = build_router(state)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/provider")
+                    .body(Body::empty())
+                    .expect("valid request"),
+            )
+            .await
+            .expect("router response");
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 4096)
+            .await
+            .expect("response body");
+        let text = String::from_utf8(body.to_vec()).expect("UTF-8 response");
+        assert!(text.contains("supports_streaming"));
+        assert!(!text.to_lowercase().contains("api_key"));
+    }
+
+    #[tokio::test]
     async fn websocket_rejects_untrusted_browser_origin_before_upgrade() {
         let response = build_router(test_state(false))
             .oneshot(
@@ -508,5 +1013,20 @@ mod tests {
             .await
             .expect("router response");
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[test]
+    fn visible_filter_suppresses_hidden_tags_across_arbitrary_deltas() {
+        let source = "在这里。<memory>name: Alice</memory>仍然在。<topic>test</topic>";
+        for boundary in 1..source.len() {
+            if !source.is_char_boundary(boundary) {
+                continue;
+            }
+            let mut filter = VisibleTextFilter::default();
+            let mut visible = filter.push(&source[..boundary]);
+            visible.push_str(&filter.push(&source[boundary..]));
+            visible.push_str(&filter.finish());
+            assert_eq!(visible, "在这里。仍然在。");
+        }
     }
 }

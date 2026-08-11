@@ -122,7 +122,7 @@ L.A.I.N. 是一个单实例、长期存在、模型可替换的个性化人格�
 
 ### 2.4 当前紧急兼容性问题
 
-当前 adapter 使用 deepseek-chat。DeepSeek 官方在 2026-07-24 停用旧模型名，当前正式模型名为 deepseek-v4-flash 和 deepseek-v4-pro。Provider 重构前也应先把模型名改为配置项，并在启动时调用或缓存 /models 能力检查。
+P0 adapter 曾使用 deepseek-chat；P2 已迁移为 provider-neutral stream，并将当前正式模型 deepseek-v4-flash / deepseek-v4-pro 配置化。能力诊断来自显式 adapter 声明，后续可再增加 `/models` 缓存探测。
 
 ---
 
@@ -2256,24 +2256,24 @@ Playwright：
 
 目标：模型可替换，DeepSeek v4 可用，错误、取消和 usage 可观测。
 
-- [ ] P2-001 定义 provider-neutral Role、ModelMessage、ModelRequest。
-- [ ] P2-002 定义 ProviderCapabilities。
-- [ ] P2-003 定义 ModelEvent 和 boxed stream。
-- [ ] P2-004 定义 ModelError 分类和 retryability。
-- [ ] P2-005 实现 DeepSeekProvider，配置 deepseek-v4-flash/pro。
-- [ ] P2-006 请求先检查 HTTP status，再解析成功/错误 body。
-- [ ] P2-007 实现 SSE decoder，覆盖任意 chunk boundary。
-- [ ] P2-008 支持 text delta、finish reason、usage 和 request id。
-- [ ] P2-009 支持 tool call delta，但先不执行工具。
-- [ ] P2-010 支持 JSON output maintenance request。
-- [ ] P2-011 实现 timeout、cancel、重试和 jitter。
-- [ ] P2-012 部分输出后断流标记 incomplete，不自动从头重试。
-- [ ] P2-013 记录 cached/input/output tokens。
-- [ ] P2-014 实现代码规则 ModelRouter。
-- [ ] P2-015 增加 MockProvider，支持脚本化 event 序列。
-- [ ] P2-016 完成 17.3 的 provider contract tests。
-- [ ] P2-017 前端显示真实流式文本，不等待完整 response。
-- [ ] P2-018 建立 provider capability/readiness 诊断命令。
+- [x] P2-001 定义 provider-neutral Role、ModelMessage、ModelRequest。
+- [x] P2-002 定义 ProviderCapabilities。
+- [x] P2-003 定义 ModelEvent 和 boxed stream。
+- [x] P2-004 定义 ModelError 分类和 retryability。
+- [x] P2-005 实现 DeepSeekProvider，配置 deepseek-v4-flash/pro。
+- [x] P2-006 请求先检查 HTTP status，再解析成功/错误 body。
+- [x] P2-007 实现 SSE decoder，覆盖任意 chunk boundary。
+- [x] P2-008 支持 text delta、finish reason、usage 和 request id。
+- [x] P2-009 支持 tool call delta，但先不执行工具。
+- [x] P2-010 支持 JSON output maintenance request。
+- [x] P2-011 实现 timeout、cancel、重试和 jitter。
+- [x] P2-012 部分输出后断流标记 incomplete，不自动从头重试。
+- [x] P2-013 记录 cached/input/output tokens。
+- [x] P2-014 实现代码规则 ModelRouter。
+- [x] P2-015 增加 MockProvider，支持脚本化 event 序列。
+- [x] P2-016 完成 17.3 的 provider contract tests。
+- [x] P2-017 前端显示真实流式文本，不等待完整 response。
+- [x] P2-018 建立 provider capability/readiness 诊断命令。
 
 完成门：普通聊天只发一次模型请求；可中途取消；所有官方错误有稳定映射；旧 model 名不再写死。
 

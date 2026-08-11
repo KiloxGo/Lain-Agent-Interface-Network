@@ -16,6 +16,18 @@ async fn main() -> ExitCode {
         }
     };
 
+    if std::env::args_os().any(|argument| argument == "--diagnose-provider") {
+        let diagnostics = lain_kernel::provider::provider_diagnostics(
+            &config.provider,
+            config.provider.is_configured(),
+        );
+        if let Err(error) = serde_json::to_writer_pretty(std::io::stdout().lock(), &diagnostics) {
+            tracing::error!(error = %error, "provider diagnostics serialization failed");
+            return ExitCode::FAILURE;
+        }
+        return ExitCode::SUCCESS;
+    }
+
     match lain_kernel::run(config).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
