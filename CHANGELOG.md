@@ -14,6 +14,9 @@
 - 受跟踪后台任务、取消传播、限时优雅停机、请求/消息大小限制和显式本地 CORS。
 - Provider-neutral 模型请求/事件/错误接口、DeepSeek SSE adapter、代码模型路由与可脚本化 MockProvider。
 - 增量 WebSocket UI、运行中取消、token/cache usage 日志和脱敏 provider capability 诊断。
+- 有来源的 Memory v1：候选/事实/关系表、耐久抽取 worker、确定性敏感策略、版本替换、FTS5 检索和 ContextPlan 注入。
+- 本地记忆控制面：pending 确认/拒绝、来源查看、pin、never-recall、dispute 和 retract。
+- DeepSeek Harness 官方架构参考调研与 Memory v1 ADR。
 
 ### Changed
 

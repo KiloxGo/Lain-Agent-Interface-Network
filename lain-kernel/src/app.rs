@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, future::Future, sync::Arc};
 use axum::{
     Json, Router,
     extract::{
-        DefaultBodyLimit, Request as AxumRequest, State, WebSocketUpgrade, ws::Message,
+        DefaultBodyLimit, Path, Request as AxumRequest, State, WebSocketUpgrade, ws::Message,
         ws::WebSocket,
     },
     http::{
@@ -12,7 +12,7 @@ use axum::{
     },
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{delete, get, patch, post},
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
@@ -257,7 +257,7 @@ impl AppState {
             config.provider.model.clone(),
             config.provider.pro_model.clone(),
         );
-        Self {
+        let state = Self {
             config: Arc::new(config),
             readiness: ReadinessState::from_checks(checks),
             provider,
@@ -267,7 +267,37 @@ impl AppState {
             router,
             tasks: TaskTracker::new(),
             shutdown: CancellationToken::new(),
+        };
+        state.start_memory_worker();
+        state
+    }
+
+    fn start_memory_worker(&self) {
+        if !self.config.memory.extraction_enabled {
+            tracing::info!("memory extraction worker disabled by configuration");
+            return;
         }
+        let (Some(storage), Some(provider)) = (self.storage.clone(), self.provider.clone()) else {
+            tracing::warn!(
+                "memory extraction worker requested but storage or provider is unavailable"
+            );
+            return;
+        };
+        let router = self.router.clone();
+        let provider_config = self.config.provider.clone();
+        let memory_config = self.config.memory.clone();
+        let shutdown = self.shutdown.clone();
+        self.tasks.spawn(async move {
+            memory::worker::run(
+                storage,
+                provider,
+                router,
+                provider_config,
+                memory_config,
+                shutdown,
+            )
+            .await;
+        });
     }
 
     fn spawn_io_task<F>(&self, task_name: &'static str, future: F)
@@ -300,7 +330,7 @@ pub fn build_router(state: AppState) -> Router {
             HeaderValue::from_static("http://127.0.0.1:5173"),
             HeaderValue::from_static("http://localhost:5173"),
         ])
-        .allow_methods([Method::GET])
+        .allow_methods([Method::GET, Method::PATCH, Method::POST, Method::DELETE])
         .allow_headers([CONTENT_TYPE]);
     let websocket_origin = middleware::from_fn(validate_websocket_origin);
 
@@ -308,6 +338,24 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/health", get(health))
         .route("/api/ready", get(ready))
         .route("/api/provider", get(provider_diagnostics))
+        .route(
+            "/api/memory",
+            get(memory_overview).route_layer(websocket_origin.clone()),
+        )
+        .route(
+            "/api/memory/{item_id}",
+            patch(update_memory_item)
+                .delete(retract_memory_item)
+                .route_layer(websocket_origin.clone()),
+        )
+        .route(
+            "/api/memory/pending/{candidate_id}/confirm",
+            post(confirm_memory_candidate).route_layer(websocket_origin.clone()),
+        )
+        .route(
+            "/api/memory/pending/{candidate_id}",
+            delete(reject_memory_candidate).route_layer(websocket_origin.clone()),
+        )
         .route("/ws", get(ws_handler).route_layer(websocket_origin.clone()))
         .route(
             "/ws/stream",
@@ -352,6 +400,87 @@ async fn provider_diagnostics(
         &state.config.provider,
         state.provider.is_some(),
     ))
+}
+
+#[derive(Debug, Serialize)]
+struct MemoryOverview {
+    items: Vec<memory::types::MemoryItemView>,
+    pending: Vec<memory::types::PendingMemoryView>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MemoryItemUpdate {
+    pinned: Option<bool>,
+    never_recall: Option<bool>,
+    status: Option<String>,
+}
+
+async fn memory_overview(State(state): State<AppState>) -> Result<Json<MemoryOverview>, AppError> {
+    let storage = state
+        .storage
+        .ok_or_else(|| AppError::NotReady("storage is unavailable".to_string()))?;
+    let (items, pending) = tokio::try_join!(
+        storage.list_memory_items(false),
+        storage.list_pending_memory()
+    )?;
+    Ok(Json(MemoryOverview { items, pending }))
+}
+
+async fn update_memory_item(
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
+    Json(update): Json<MemoryItemUpdate>,
+) -> Result<Json<memory::types::MemoryItemView>, AppError> {
+    let storage = state
+        .storage
+        .ok_or_else(|| AppError::NotReady("storage is unavailable".to_string()))?;
+    Ok(Json(
+        storage
+            .update_memory_item(
+                &item_id,
+                update.pinned,
+                update.never_recall,
+                update.status.as_deref(),
+            )
+            .await?,
+    ))
+}
+
+async fn retract_memory_item(
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
+) -> Result<Json<memory::types::MemoryItemView>, AppError> {
+    let storage = state
+        .storage
+        .ok_or_else(|| AppError::NotReady("storage is unavailable".to_string()))?;
+    Ok(Json(
+        storage
+            .update_memory_item(&item_id, None, None, Some("retracted"))
+            .await?,
+    ))
+}
+
+async fn confirm_memory_candidate(
+    State(state): State<AppState>,
+    Path(candidate_id): Path<String>,
+) -> Result<StatusCode, AppError> {
+    let storage = state
+        .storage
+        .ok_or_else(|| AppError::NotReady("storage is unavailable".to_string()))?;
+    storage.confirm_memory_candidate(&candidate_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn reject_memory_candidate(
+    State(state): State<AppState>,
+    Path(candidate_id): Path<String>,
+) -> Result<StatusCode, AppError> {
+    let storage = state
+        .storage
+        .ok_or_else(|| AppError::NotReady("storage is unavailable".to_string()))?;
+    storage.reject_memory_candidate(&candidate_id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn validate_websocket_origin(request: AxumRequest, next: Next) -> Result<Response, AppError> {
@@ -1019,7 +1148,10 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    use crate::{config::ProviderConfig, provider::mock::MockProvider};
+    use crate::{
+        config::{MemoryConfig, ProviderConfig},
+        provider::mock::MockProvider,
+    };
 
     use super::*;
 
@@ -1038,6 +1170,12 @@ mod tests {
                 provider: ProviderConfig::for_test(),
                 shutdown_timeout: Duration::from_secs(1),
                 max_message_bytes: 1024,
+                memory: MemoryConfig {
+                    extraction_enabled: false,
+                    poll_interval: Duration::from_secs(1),
+                    lease_duration: Duration::from_secs(30),
+                    max_candidates_per_message: 8,
+                },
             }),
             readiness: ReadinessState::from_checks(checks),
             provider: None,
@@ -1048,6 +1186,40 @@ mod tests {
             tasks: TaskTracker::new(),
             shutdown: CancellationToken::new(),
         }
+    }
+
+    #[tokio::test]
+    async fn memory_api_is_local_origin_scoped_and_returns_empty_overview() {
+        let mut state = test_state(true);
+        state.storage = Some(Storage::in_memory().await.expect("storage"));
+        let response = build_router(state.clone())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/memory")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 16 * 1024)
+            .await
+            .expect("body");
+        let value: serde_json::Value = serde_json::from_slice(&body).expect("JSON");
+        assert_eq!(value["items"], serde_json::json!([]));
+        assert_eq!(value["pending"], serde_json::json!([]));
+
+        let forbidden = build_router(state)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/memory")
+                    .header(ORIGIN, "https://untrusted.example")
+                    .body(Body::empty())
+                    .expect("request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(forbidden.status(), StatusCode::FORBIDDEN);
     }
 
     #[tokio::test]

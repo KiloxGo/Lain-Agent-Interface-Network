@@ -321,10 +321,11 @@ async fn execute_run(
     let Some(identity) = state.identity.clone() else {
         return fail_run(storage, outbound, &run, "identity_unavailable").await;
     };
-    let (recent_result, self_state_result, relationship_result) = tokio::join!(
+    let (recent_result, self_state_result, relationship_result, memory_result) = tokio::join!(
         storage.recent_messages(&run.session_id, 80),
         storage.latest_self_state(),
         storage.latest_relationship_state(),
+        storage.retrieve_memory_for_message(&run.session_id, &run.trigger_message_id, 12),
     );
     let recent = match recent_result {
         Ok(messages) => messages,
@@ -357,6 +358,18 @@ async fn execute_run(
             RelationshipState::default()
         }
     };
+    let memory_evidence = match memory_result {
+        Ok(evidence) => evidence,
+        Err(error) => {
+            tracing::warn!(
+                run_id = run.id,
+                source = "memory_evidence",
+                error = %error,
+                "optional context source degraded"
+            );
+            Vec::new()
+        }
+    };
     let Some(current_message) = recent
         .iter()
         .find(|message| message.id == run.trigger_message_id)
@@ -386,7 +399,7 @@ async fn execute_run(
         recent_messages: recent,
         self_state,
         relationship_state: relationship,
-        memory_evidence: Vec::new(),
+        memory_evidence,
         now: Utc::now(),
         budget,
     }) {

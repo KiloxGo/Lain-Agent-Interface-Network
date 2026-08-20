@@ -15,6 +15,9 @@ const DEFAULT_PRO_MODEL: &str = "deepseek-v4-pro";
 const DEFAULT_MAX_OUTPUT_TOKENS: u32 = 4096;
 const DEFAULT_SHUTDOWN_TIMEOUT_SECS: u64 = 10;
 const DEFAULT_MAX_MESSAGE_BYTES: usize = 64 * 1024;
+const DEFAULT_MEMORY_POLL_SECS: u64 = 2;
+const DEFAULT_MEMORY_LEASE_SECS: u64 = 60;
+const DEFAULT_MEMORY_MAX_CANDIDATES: usize = 8;
 
 #[derive(Clone)]
 pub struct ProviderConfig {
@@ -83,6 +86,15 @@ pub struct Config {
     pub provider: ProviderConfig,
     pub shutdown_timeout: Duration,
     pub max_message_bytes: usize,
+    pub memory: MemoryConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct MemoryConfig {
+    pub extraction_enabled: bool,
+    pub poll_interval: Duration,
+    pub lease_duration: Duration,
+    pub max_candidates_per_message: usize,
 }
 
 #[derive(Debug, Error)]
@@ -95,6 +107,8 @@ pub enum ConfigError {
     InvalidUrl { name: &'static str, value: String },
     #[error("{name} must be a positive integer, got {value}")]
     InvalidPositiveInteger { name: &'static str, value: String },
+    #[error("{name} must be true or false, got {value}")]
+    InvalidBoolean { name: &'static str, value: String },
     #[error("{name} cannot be empty")]
     EmptyModel { name: &'static str },
 }
@@ -175,6 +189,26 @@ impl Config {
             get("LAIN_MAX_MESSAGE_BYTES"),
             DEFAULT_MAX_MESSAGE_BYTES,
         )?;
+        let memory_extraction_enabled = parse_bool(
+            "LAIN_MEMORY_EXTRACTION_ENABLED",
+            get("LAIN_MEMORY_EXTRACTION_ENABLED"),
+            false,
+        )?;
+        let memory_poll_secs = parse_positive_u64(
+            "LAIN_MEMORY_POLL_SECS",
+            get("LAIN_MEMORY_POLL_SECS"),
+            DEFAULT_MEMORY_POLL_SECS,
+        )?;
+        let memory_lease_secs = parse_positive_u64(
+            "LAIN_MEMORY_LEASE_SECS",
+            get("LAIN_MEMORY_LEASE_SECS"),
+            DEFAULT_MEMORY_LEASE_SECS,
+        )?;
+        let memory_max_candidates = parse_positive_usize(
+            "LAIN_MEMORY_MAX_CANDIDATES",
+            get("LAIN_MEMORY_MAX_CANDIDATES"),
+            DEFAULT_MEMORY_MAX_CANDIDATES,
+        )?;
 
         Ok(Self {
             bind_addr,
@@ -191,6 +225,12 @@ impl Config {
             },
             shutdown_timeout: Duration::from_secs(shutdown_timeout_secs),
             max_message_bytes,
+            memory: MemoryConfig {
+                extraction_enabled: memory_extraction_enabled,
+                poll_interval: Duration::from_secs(memory_poll_secs),
+                lease_duration: Duration::from_secs(memory_lease_secs),
+                max_candidates_per_message: memory_max_candidates,
+            },
         })
     }
 }
@@ -248,6 +288,21 @@ fn parse_positive_u32(
         .ok_or(ConfigError::InvalidPositiveInteger { name, value })
 }
 
+fn parse_bool(
+    name: &'static str,
+    value: Option<String>,
+    default: bool,
+) -> Result<bool, ConfigError> {
+    let Some(value) = value else {
+        return Ok(default);
+    };
+    match value.trim().to_ascii_lowercase().as_str() {
+        "true" | "1" | "yes" | "on" => Ok(true),
+        "false" | "0" | "no" | "off" => Ok(false),
+        _ => Err(ConfigError::InvalidBoolean { name, value }),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -274,6 +329,7 @@ mod tests {
         assert!(config.identity_dir.is_absolute());
         assert!(config.data_dir.is_absolute());
         assert!(!config.provider.is_configured());
+        assert!(!config.memory.extraction_enabled);
     }
 
     #[test]
@@ -297,5 +353,15 @@ mod tests {
         let error = config_from(&[("DEEPSEEK_BASE_URL", "file:///tmp/provider")])
             .expect_err("non-http URL must fail");
         assert!(matches!(error, ConfigError::InvalidUrl { .. }));
+    }
+
+    #[test]
+    fn memory_worker_is_explicitly_opt_in() {
+        let enabled =
+            config_from(&[("LAIN_MEMORY_EXTRACTION_ENABLED", "true")]).expect("valid config");
+        assert!(enabled.memory.extraction_enabled);
+        let error = config_from(&[("LAIN_MEMORY_EXTRACTION_ENABLED", "sometimes")])
+            .expect_err("invalid boolean must fail");
+        assert!(matches!(error, ConfigError::InvalidBoolean { .. }));
     }
 }

@@ -52,6 +52,13 @@ impl AppError {
             Self::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Io { .. } => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Provider(_) => StatusCode::BAD_GATEWAY,
+            Self::Storage(
+                StorageError::MemoryCandidateNotFound(_) | StorageError::MemoryItemNotFound(_),
+            ) => StatusCode::NOT_FOUND,
+            Self::Storage(
+                StorageError::InvalidMemoryCandidateStatus { .. }
+                | StorageError::InvalidMemoryItemStatus(_),
+            ) => StatusCode::CONFLICT,
             Self::Storage(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::NotReady(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::ForbiddenOrigin => StatusCode::FORBIDDEN,

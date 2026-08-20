@@ -140,6 +140,12 @@ mod tests {
             provider: ProviderConfig::for_test(),
             shutdown_timeout: Duration::from_secs(1),
             max_message_bytes: 1024,
+            memory: crate::config::MemoryConfig {
+                extraction_enabled: false,
+                poll_interval: Duration::from_secs(1),
+                lease_duration: Duration::from_secs(30),
+                max_candidates_per_message: 8,
+            },
         };
 
         run_until(config, async {})

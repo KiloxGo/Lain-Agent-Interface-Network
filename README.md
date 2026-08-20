@@ -10,6 +10,7 @@
 - 前端：React 19、TypeScript、Vite。
 - 模型：provider-neutral `ModelProvider` 事件流；默认路由到 DeepSeek V4 Flash，显式复杂推理可路由到 V4 Pro。
 - 存储：`~/.lain/state/lain.db` 下的 SQLite WAL 保存 session、message、run 与事件；旧 Markdown 记忆暂时保留为兼容读取和迁移入口（根目录可通过 `LAIN_DATA_DIR` 覆盖）。
+- 记忆：Memory v1 将模型抽取先写为候选，由 Rust 策略校验证据、敏感度和指令污染；只有已提交 item 会通过有来源的 FTS5 evidence 进入 Context Compiler。
 - 身份与上下文：`identity/v1` 资产启动时校验 manifest/schema/hash；每个 v1 run 在模型调用前保存 identity version、ContextPlan、prompt hash、预算选择与 drop reason。
 - 工具：当前仅有由模型文本标签触发的实验性记忆行为，尚无受约束的结构化工具层。
 - 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、SQLite 事务/迁移/并发 seq、协议 DTO 与 Markdown 迁移已有离线契约测试。
@@ -38,6 +39,8 @@ npm run dev
 ```
 
 默认访问 Vite 输出的本地地址。`/api/health` 只表示进程存活，`/api/ready` 检查 identity、SQLite、数据目录和 provider；`/api/provider` 返回不含 Secret 的能力诊断。前端使用 `/v1/ws`：协商版本后订阅默认 session，按 seq 重放持久事件并支持刷新恢复、退避重连和 Stop。`/ws/stream` 与裸文本 `/ws` 暂时作为弃用兼容入口。
+
+Memory extractor 默认关闭，避免在不知情时产生额外 provider 调用。设置 `LAIN_MEMORY_EXTRACTION_ENABLED=true` 后，每个成功回复会异步消费一个 `memory_extract` job；失败只重试后台 job，不阻塞主对话。前端 Memory 面板通过本地 `/api/memory` 查看来源并确认、拒绝、pin、never-recall、dispute 或 retract。
 
 只输出 provider 配置、readiness 与能力，不发起模型调用：
 

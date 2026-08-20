@@ -58,6 +58,27 @@ pub enum PersistedEvent {
         estimated: bool,
         dropped_items: usize,
     },
+    #[serde(rename = "memory.candidate_evaluated")]
+    MemoryCandidateEvaluated {
+        candidate_id: String,
+        source_message_id: String,
+        status: String,
+        reason: String,
+    },
+    #[serde(rename = "memory.item_committed")]
+    MemoryItemCommitted {
+        item_id: String,
+        candidate_id: String,
+        version: i64,
+        supersedes_id: Option<String>,
+    },
+    #[serde(rename = "memory.item_status_changed")]
+    MemoryItemStatusChanged {
+        item_id: String,
+        status: String,
+        pinned: bool,
+        never_recall: bool,
+    },
 }
 
 impl PersistedEvent {
@@ -72,6 +93,9 @@ impl PersistedEvent {
             Self::RunFailed { .. } => "run.failed",
             Self::IdentityActivated { .. } => "identity.activated",
             Self::ContextCompiled { .. } => "context.compiled",
+            Self::MemoryCandidateEvaluated { .. } => "memory.candidate_evaluated",
+            Self::MemoryItemCommitted { .. } => "memory.item_committed",
+            Self::MemoryItemStatusChanged { .. } => "memory.item_status_changed",
         }
     }
 

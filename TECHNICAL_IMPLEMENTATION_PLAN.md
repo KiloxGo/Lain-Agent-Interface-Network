@@ -2341,24 +2341,24 @@ Playwright：
 
 目标：替换标签式记忆，提供有来源、可更新、可评测的个性化。
 
-- [ ] P5-001 创建 memory_candidates/memory_items/memory_links 表。
-- [ ] P5-002 定义 memory type/status/sensitivity domain enums。
-- [ ] P5-003 创建 durable job repository 和 worker lease。
-- [ ] P5-004 对话完成事务中入队 memory_extract。
-- [ ] P5-005 编写独立 extractor prompt/schema/version。
-- [ ] P5-006 使用 JSON output 解析 candidates。
-- [ ] P5-007 实现 source/evidence 验证。
-- [ ] P5-008 实现 instruction-like memory 拒绝规则。
-- [ ] P5-009 实现敏感信息分类和确认策略。
-- [ ] P5-010 实现 auto-commit/pending/reject 状态机。
-- [ ] P5-011 实现 supersede/dispute/retract。
-- [ ] P5-012 实现 valid_from/valid_to 时间版本。
-- [ ] P5-013 实现 FTS5 trigram projection。
-- [ ] P5-014 实现 structured/FTS/recency candidate retrieval。
+- [x] P5-001 创建 memory_candidates/memory_items/memory_links 表。
+- [x] P5-002 定义 memory type/status/sensitivity domain enums。
+- [x] P5-003 创建 durable job repository 和 worker lease。
+- [x] P5-004 对话完成事务中入队 memory_extract。
+- [x] P5-005 编写独立 extractor prompt/schema/version。
+- [x] P5-006 使用 JSON output 解析 candidates。
+- [x] P5-007 实现 source/evidence 验证。
+- [x] P5-008 实现 instruction-like memory 拒绝规则。
+- [x] P5-009 实现敏感信息分类和确认策略。
+- [x] P5-010 实现 auto-commit/pending/reject 状态机。
+- [x] P5-011 实现 supersede/dispute/retract。
+- [x] P5-012 实现 valid_from/valid_to 时间版本。
+- [x] P5-013 实现 FTS5 trigram projection。
+- [x] P5-014 实现 structured/FTS/recency candidate retrieval。
 - [ ] P5-015 实现 temporal query expansion。
-- [ ] P5-016 实现 RRF + bounded boosts。
-- [ ] P5-017 实现去重和 token-capped evidence rendering。
-- [ ] P5-018 ContextCompiler 注入带来源的 memory evidence。
+- [x] P5-016 实现 RRF + bounded boosts。
+- [x] P5-017 实现去重和 token-capped evidence rendering。
+- [x] P5-018 ContextCompiler 注入带来源的 memory evidence。
 - [ ] P5-019 创建 VectorIndex trait。
 - [ ] P5-020 评估并 feature-gate sqlite-vec。
 - [ ] P5-021 创建 EmbeddingProvider、hash 和 namespace。
@@ -2368,7 +2368,7 @@ Playwright：
 - [ ] P5-025 实现 open_loops 和 shared_symbols。
 - [ ] P5-026 实现 bounded RelationshipDelta candidate。
 - [ ] P5-027 前端 memory 列表、来源、编辑、retract。
-- [ ] P5-028 实现 never_recall 和 pinned。
+- [x] P5-028 实现 never_recall 和 pinned。
 - [ ] P5-029 导入旧 profile/session/topic Markdown。
 - [ ] P5-030 删除主回复中的 memory/topic hidden tags。
 - [ ] P5-031 扩充 memory suite，跑 LongMemEval 小规模适配。

@@ -19,3 +19,4 @@ ADR 用于记录难以逆转、跨模块或影响数据/协议兼容性的技术
 - [ADR-0002：Provider stream and P2 wire](0002-provider-stream-and-p2-wire.md)
 - [ADR-0003：SQLite 事件存储与 session 协议 v1](0003-sqlite-event-store-and-session-v1.md)
 - [ADR-0004：版本化 Identity Kernel 与确定性 Context Compiler](0004-versioned-identity-and-deterministic-context.md)
+- [ADR-0005：有来源、可确认、可重建检索的 Memory v1](0005-provenanced-memory-v1.md)
