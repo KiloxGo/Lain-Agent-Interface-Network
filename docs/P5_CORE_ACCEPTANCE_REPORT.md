@@ -28,6 +28,7 @@
 | Frontend lint | 通过 |
 | Frontend production build | 通过，主 JS 200.83 kB / gzip 63.36 kB |
 | Eval fixture validation | persona 50 + memory 20，合计 70 cases 通过 schema/unique 校验 |
+| Dependency policy | npm production audit 0 漏洞；Rust bans/licenses/sources 通过 |
 | Memory retrieval latency | 250 items、100 queries，本机 p95 2.3875 ms；门槛 < 50 ms |
 | False-personalization smoke | 无关 lexical query 返回空；superseded/expired/never-recall 不注入 |
 
@@ -70,3 +71,5 @@
 - 备份加密、完整删除和 restore 语义（P8）。
 
 因此当前可以合并/部署为默认关闭的 Memory v1 core，但不能宣称 P5 全阶段完成。
+
+首次远端 CI 的 Windows/Linux Rust、frontend/eval 和 bans/licenses/sources job 均通过；advisory job 因运行期间新收录的 `RUSTSEC-2026-0258` 失败。其影响 `h2 0.4.13`，已将 lockfile 精确升级至修复版 `0.4.16` 并触发复验。
