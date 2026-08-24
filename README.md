@@ -38,6 +38,15 @@ npm ci
 npm run dev
 ```
 
+终端 CLI（另开终端，复用已运行的 kernel）：
+
+```powershell
+node cli/lain.mjs
+node cli/lain.mjs -p "介绍一下你自己"
+```
+
+可用 `LAIN_WS_URL` 覆盖默认的 `ws://127.0.0.1:3000/v1/ws`。首版 CLI 支持流式回复、`/help`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。
+
 默认访问 Vite 输出的本地地址。`/api/health` 只表示进程存活，`/api/ready` 检查 identity、SQLite、数据目录和 provider；`/api/provider` 返回不含 Secret 的能力诊断。前端使用 `/v1/ws`：协商版本后订阅默认 session，按 seq 重放持久事件并支持刷新恢复、退避重连和 Stop。`/ws/stream` 与裸文本 `/ws` 暂时作为弃用兼容入口。
 
 Memory extractor 默认关闭，避免在不知情时产生额外 provider 调用。设置 `LAIN_MEMORY_EXTRACTION_ENABLED=true` 后，每个成功回复会异步消费一个 `memory_extract` job；失败只重试后台 job，不阻塞主对话。前端 Memory 面板通过本地 `/api/memory` 查看来源并确认、拒绝、pin、never-recall、dispute 或 retract。
@@ -74,6 +83,7 @@ npm audit --omit=dev
 
 Set-Location ..
 node evals/validate.mjs
+node --test cli/lain.test.mjs
 ```
 
 CI 在 Windows 与 Linux 验证 Rust，在 Linux 验证前端、评测数据格式与依赖策略。
@@ -83,6 +93,7 @@ CI 在 Windows 与 Linux 验证 Rust，在 Linux 验证前端、评测数据格�
 ```text
 lain-kernel/     Rust 后端与系统提示词
 frontend/        React Web UI
+cli/             无额外依赖的终端客户端
 docs/            ADR、威胁模型、基线和知识产权策略
 evals/           可版本化的人格与记忆评测样例
 .github/         CI 与协作模板

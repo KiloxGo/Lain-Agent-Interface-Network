@@ -59,6 +59,8 @@ jobs:
       - name: Build frontend
         run: npm run build
         working-directory: frontend
+      - name: Test terminal CLI
+        run: node --test cli/lain.test.mjs
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
         working-directory: frontend
