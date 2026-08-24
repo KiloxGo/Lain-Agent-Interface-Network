@@ -1005,6 +1005,10 @@ impl Storage {
         let Some(fts_query) = memory_fts_query(query) else {
             return Ok(Vec::new());
         };
+        let current_time = now();
+        let as_of = memory_as_of(query);
+        let historical = i64::from(as_of.is_some());
+        let as_of = as_of.as_deref().unwrap_or(&current_time);
         let rows = sqlx::query(
             "SELECT m.id, m.memory_type, m.scope, m.subject, m.predicate, m.value, \
                     m.version, m.importance, m.pinned, m.valid_from, m.valid_to, \
@@ -1012,19 +1016,27 @@ impl Storage {
                     (SELECT group_concat(DISTINCT event_id) FROM memory_links l \
                      WHERE l.memory_id = m.id AND l.event_id IS NOT NULL) AS source_event_ids \
              FROM memory_items_fts JOIN memory_items m ON m.id = memory_items_fts.memory_id \
-             WHERE memory_items_fts MATCH ? AND m.user_id = ? AND m.status = 'active' \
+             WHERE memory_items_fts MATCH ? AND m.user_id = ? \
                AND m.never_recall = 0 \
                AND (m.scope != 'session' OR m.session_id = ?) \
-               AND (m.valid_from IS NULL OR m.valid_from <= ?) \
-               AND (m.valid_to IS NULL OR m.valid_to > ?) \
+               AND ((? = 0 AND m.status = 'active' \
+                     AND (m.valid_from IS NULL OR m.valid_from <= ?) \
+                     AND (m.valid_to IS NULL OR m.valid_to > ?)) \
+                    OR (? = 1 AND m.status IN ('active', 'superseded') \
+                        AND COALESCE(m.valid_from, m.created_at) <= ? \
+                        AND (m.valid_to IS NULL OR m.valid_to > ?))) \
              ORDER BY text_rank ASC, m.pinned DESC, m.importance DESC, m.updated_at DESC \
              LIMIT ?",
         )
         .bind(fts_query)
         .bind(&self.scope.user_id)
         .bind(session_id)
-        .bind(now())
-        .bind(now())
+        .bind(historical)
+        .bind(&current_time)
+        .bind(&current_time)
+        .bind(historical)
+        .bind(as_of)
+        .bind(as_of)
         .bind(i64::try_from(limit.clamp(1, 24)).unwrap_or(24))
         .fetch_all(&self.pool)
         .await?;
@@ -1105,7 +1117,7 @@ impl Storage {
         let inserted = sqlx::query(
             "INSERT INTO memory_items_fts(memory_id, user_id, searchable_text) \
              SELECT id, user_id, subject || ' ' || predicate || ' ' || value \
-             FROM memory_items WHERE status = 'active'",
+             FROM memory_items WHERE status IN ('active', 'superseded')",
         )
         .execute(&mut *tx)
         .await?;
@@ -1657,15 +1669,17 @@ async fn commit_memory_item(
         .unwrap_or(1);
     let previous_id = previous.as_ref().map(|row| row.get::<String, _>("id"));
     if let Some(previous_id) = &previous_id {
-        sqlx::query("UPDATE memory_items SET status = 'superseded', updated_at = ? WHERE id = ?")
-            .bind(timestamp)
-            .bind(previous_id)
-            .execute(&mut **tx)
-            .await?;
-        sqlx::query("DELETE FROM memory_items_fts WHERE memory_id = ?")
-            .bind(previous_id)
-            .execute(&mut **tx)
-            .await?;
+        let previous_valid_to = draft.valid_from.as_deref().unwrap_or(timestamp);
+        sqlx::query(
+            "UPDATE memory_items \
+             SET status = 'superseded', valid_to = COALESCE(valid_to, ?), updated_at = ? \
+             WHERE id = ?",
+        )
+        .bind(previous_valid_to)
+        .bind(timestamp)
+        .bind(previous_id)
+        .execute(&mut **tx)
+        .await?;
     }
     let next_item_id = new_id();
     sqlx::query(
@@ -1818,6 +1832,18 @@ fn event_from_row(row: sqlx::sqlite::SqliteRow) -> Result<EventEnvelope, Storage
 
 fn new_id() -> String {
     Uuid::now_v7().to_string()
+}
+
+fn memory_as_of(query: &str) -> Option<String> {
+    query
+        .split(|character: char| !character.is_ascii_digit())
+        .find_map(|segment| {
+            (segment.len() == 4)
+                .then(|| segment.parse::<u16>().ok())
+                .flatten()
+                .filter(|year| (1900..=9999).contains(year))
+        })
+        .map(|year| format!("{year:04}-12-31T23:59:59.999Z"))
 }
 
 fn memory_fts_query(query: &str) -> Option<String> {
@@ -2062,7 +2088,7 @@ mod tests {
             confidence: 0.99,
             importance: 0.7,
             sensitivity: Sensitivity::Personal,
-            valid_from: None,
+            valid_from: Some("2025-01-01T00:00:00Z".to_string()),
             valid_to: None,
         };
         let recorded = storage
@@ -2096,6 +2122,7 @@ mod tests {
             .expect("second source");
         draft.value = "Neovim".to_string();
         draft.evidence_quote = "Correction: I use Neovim every day".to_string();
+        draft.valid_from = Some("2026-01-01T00:00:00Z".to_string());
         let corrected = storage
             .record_memory_candidate(&second_source, &draft)
             .await
@@ -2127,6 +2154,14 @@ mod tests {
         assert_eq!(evidence[0].version, "2");
         assert!(evidence[0].text.contains("Neovim"));
         assert!(!evidence[0].source_event_ids.is_empty());
+        let historical = storage
+            .retrieve_memory_evidence(&session_id, "Which editor did I use in 2025?", 12)
+            .await
+            .expect("retrieve historical memory");
+        assert_eq!(historical.len(), 1);
+        assert_eq!(historical[0].version, "1");
+        assert!(historical[0].text.contains("Vim"));
+        assert!(historical[0].text.contains("valid_to=2026-01-01"));
         assert!(
             storage
                 .retrieve_memory_evidence(&session_id, "favorite beverage matcha", 12)

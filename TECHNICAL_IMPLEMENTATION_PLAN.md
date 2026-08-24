@@ -2355,7 +2355,7 @@ Playwright：
 - [x] P5-012 实现 valid_from/valid_to 时间版本。
 - [x] P5-013 实现 FTS5 trigram projection。
 - [x] P5-014 实现 structured/FTS/recency candidate retrieval。
-- [ ] P5-015 实现 temporal query expansion。
+- [x] P5-015 实现 temporal query expansion。
 - [x] P5-016 实现 RRF + bounded boosts。
 - [x] P5-017 实现去重和 token-capped evidence rendering。
 - [x] P5-018 ContextCompiler 注入带来源的 memory evidence。
