@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { LainClient } from "./lain.mjs";
+import { LainClient, historyText } from "./lain.mjs";
 
 class FakeSocket {
   constructor() {
@@ -45,14 +45,31 @@ test("negotiates v1 and streams one turn", async () => {
   assert.deepEqual(socket.sent[0], { type: "client.hello", versions: [1] });
   socket.packet({ v: 1, type: "server.hello", scope: { session_id: "session-1" } });
   assert.equal(socket.sent[1].type, "session.subscribe");
-  socket.packet({ v: 1, type: "session.snapshot", snapshot: {} });
+  socket.packet({
+    v: 1,
+    type: "session.snapshot",
+    snapshot: { messages: [{ role: "user", content: "previous" }] },
+  });
   await connected;
+  assert.match(historyText(client.messages), /you  › previous/);
 
   const answer = client.ask("hello");
   assert.equal(socket.sent[2].type, "message.create");
+  socket.packet({
+    v: 1,
+    type: "message.accepted",
+    run_id: "run-1",
+    payload: { content: "hello" },
+  });
   socket.packet({ v: 1, type: "run.started", run_id: "run-1", payload: {} });
   socket.packet({ v: 1, type: "model.started", run_id: "run-1", payload: {} });
   socket.packet({ v: 1, type: "text.delta", run_id: "run-1", payload: { text: "hi" } });
+  socket.packet({
+    v: 1,
+    type: "text.completed",
+    run_id: "run-1",
+    payload: { content: "hi" },
+  });
   socket.packet({
     v: 1,
     type: "run.completed",
@@ -62,4 +79,12 @@ test("negotiates v1 and streams one turn", async () => {
 
   assert.deepEqual(await answer, { input_tokens: 3, output_tokens: 1, cached_input_tokens: 2 });
   assert.match(output, /lain › hi/);
+  assert.deepEqual(
+    client.messages.map(({ role, content }) => [role, content]),
+    [
+      ["user", "previous"],
+      ["user", "hello"],
+      ["assistant", "hi"],
+    ],
+  );
 });

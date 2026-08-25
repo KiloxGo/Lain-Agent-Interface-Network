@@ -43,9 +43,10 @@ npm run dev
 ```powershell
 .\lain.cmd
 .\lain.cmd -p "介绍一下你自己"
+.\lain.cmd -c
 ```
 
-可用 `LAIN_WS_URL` 覆盖默认的 `ws://127.0.0.1:3000/v1/ws`。首版 CLI 支持流式回复、`/help`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。
+可用 `LAIN_WS_URL` 覆盖默认的 `ws://127.0.0.1:3000/v1/ws`。`-c` 会显示最近的持久消息并继续默认 session。CLI 支持流式回复、`/help`、`/history`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。
 
 默认访问 Vite 输出的本地地址。`/api/health` 只表示进程存活，`/api/ready` 检查 identity、SQLite、数据目录和 provider；`/api/provider` 返回不含 Secret 的能力诊断。前端使用 `/v1/ws`：协商版本后订阅默认 session，按 seq 重放持久事件并支持刷新恢复、退避重连和 Stop。`/ws/stream` 与裸文本 `/ws` 暂时作为弃用兼容入口。
 

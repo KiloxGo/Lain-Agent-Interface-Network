@@ -41,6 +41,7 @@ export class LainClient {
     this.socket = null;
     this.sessionId = null;
     this.activeRunId = null;
+    this.messages = [];
     this.pending = null;
     this.startedReply = false;
   }
@@ -64,6 +65,7 @@ export class LainClient {
             this.sessionId = packet.scope.session_id;
             this.send({ type: "session.subscribe", session_id: this.sessionId, after_seq: 0 });
           } else if (packet.type === "session.snapshot") {
+            this.messages = Array.isArray(packet.snapshot?.messages) ? packet.snapshot.messages : [];
             clearTimeout(timer);
             resolve();
           } else if (packet.type === "error" && !this.pending) {
@@ -121,6 +123,8 @@ export class LainClient {
     const payload = packet.payload ?? {};
     if (packet.type === "run.queued" || packet.type === "run.started") {
       this.activeRunId = packet.run_id;
+    } else if (packet.type === "message.accepted" && typeof payload.content === "string") {
+      this.messages.push({ role: "user", content: payload.content });
     } else if (packet.type === "model.started") {
       this.startedReply = true;
       this.write(`\n${pink("◈ lain › ")}`);
@@ -131,6 +135,8 @@ export class LainClient {
         this.write(`\n${pink("◈ lain › ")}`);
       }
       this.write(payload.text);
+    } else if (packet.type === "text.completed" && typeof payload.content === "string") {
+      this.messages.push({ role: "assistant", content: payload.content });
     } else if (packet.type === "run.completed") {
       this.finish(null, payload.usage);
     } else if (packet.type === "run.cancelled") {
@@ -223,15 +229,32 @@ function run(command, args, cwd) {
 
 function usageLine(usage) {
   if (!usage) return "";
+  const cached = usage.cached_input_tokens ?? 0;
+  const cacheRate = usage.input_tokens ? ` (${Math.round((cached / usage.input_tokens) * 100)}%)` : "";
   return dim(
-    `tokens: ${usage.input_tokens ?? "?"} in / ${usage.output_tokens ?? "?"} out / ${usage.cached_input_tokens ?? 0} cached\n`,
+    `tokens: ${usage.input_tokens ?? "?"} in / ${usage.output_tokens ?? "?"} out / ${cached} cached${cacheRate}\n`,
   );
+}
+
+export function historyText(messages, limit = 8) {
+  const visible = messages
+    .filter((message) => ["user", "assistant"].includes(message.role))
+    .slice(-limit);
+  if (visible.length === 0) return dim("no previous messages\n");
+  return `${visible
+    .map((message) => {
+      const label = message.role === "user" ? "you " : "lain";
+      const content = String(message.content ?? "").replaceAll(/\s+/g, " ").trim();
+      return `${pink(`${label} › `)}${content.length > 500 ? `${content.slice(0, 500)}...` : content}`;
+    })
+    .join("\n")}\n`;
 }
 
 function help() {
   return [
     "Commands:",
     "  /help    show this help",
+    "  /history show recent persisted messages",
     "  /status  show kernel and session",
     "  /quit    close the connection",
   ].join("\n");
@@ -239,11 +262,15 @@ function help() {
 
 export async function main(args = process.argv.slice(2)) {
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("Usage: lain [-p \"prompt\"] [initial prompt]");
+    console.log("Usage: lain [-c] [-p \"prompt\"] [initial prompt]");
     return;
   }
-  const oneShot = args[0] === "-p";
-  const initialPrompt = (oneShot ? args.slice(1) : args).join(" ").trim();
+  const continueSession = args.includes("-c") || args.includes("--continue");
+  const oneShot = args.includes("-p");
+  const initialPrompt = args
+    .filter((argument) => !["-c", "--continue", "-p"].includes(argument))
+    .join(" ")
+    .trim();
   if (oneShot && !initialPrompt) throw new Error("-p requires a prompt");
 
   process.stdout.write(banner());
@@ -251,6 +278,7 @@ export async function main(args = process.argv.slice(2)) {
   const stopOwnedKernel = () => kernel?.kill();
   process.once("exit", stopOwnedKernel);
   process.stdout.write(`${dim(`connected: ${client.status()}`)}\n`);
+  if (continueSession) process.stdout.write(historyText(client.messages));
 
   const ask = async (text) => {
     try {
@@ -281,6 +309,10 @@ export async function main(args = process.argv.slice(2)) {
       if (text === "/quit" || text === "/exit") break;
       if (text === "/help") {
         console.log(help());
+        continue;
+      }
+      if (text === "/history") {
+        process.stdout.write(historyText(client.messages));
         continue;
       }
       if (text === "/status") {
