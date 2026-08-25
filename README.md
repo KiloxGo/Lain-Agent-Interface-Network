@@ -38,11 +38,11 @@ npm ci
 npm run dev
 ```
 
-终端 CLI（另开终端，复用已运行的 kernel）：
+终端 CLI 会复用已运行的 kernel；如果默认地址不可用，则自动增量构建并启动本仓库 kernel：
 
 ```powershell
-node cli/lain.mjs
-node cli/lain.mjs -p "介绍一下你自己"
+.\lain.cmd
+.\lain.cmd -p "介绍一下你自己"
 ```
 
 可用 `LAIN_WS_URL` 覆盖默认的 `ws://127.0.0.1:3000/v1/ws`。首版 CLI 支持流式回复、`/help`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。

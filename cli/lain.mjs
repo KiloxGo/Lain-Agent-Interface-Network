@@ -1,10 +1,21 @@
 #!/usr/bin/env node
 
 import { randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
+import { createServer } from "node:net";
+import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const DEFAULT_URL = "ws://127.0.0.1:3000/v1/ws";
+const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const KERNEL_DIRECTORY = join(REPOSITORY_ROOT, "lain-kernel");
+const KERNEL_BINARY = join(
+  KERNEL_DIRECTORY,
+  "target",
+  "debug",
+  process.platform === "win32" ? "lain-kernel.exe" : "lain-kernel",
+);
 const pink = (text) => color("\x1b[38;5;205m", text);
 const dim = (text) => color("\x1b[2m", text);
 
@@ -140,6 +151,76 @@ export class LainClient {
   }
 }
 
+async function connectClient(url) {
+  const client = new LainClient(url);
+  await client.connect();
+  return client;
+}
+
+async function connectOrStartKernel() {
+  const configuredUrl = process.env.LAIN_WS_URL;
+  try {
+    return { client: await connectClient(configuredUrl ?? DEFAULT_URL), kernel: null };
+  } catch (error) {
+    if (configuredUrl) throw error;
+  }
+
+  process.stdout.write(dim("kernel unavailable; starting local kernel...\n"));
+  await run("cargo", ["build", "--locked", "--bin", "lain-kernel"], KERNEL_DIRECTORY);
+  const port = await availablePort();
+  let kernelError = "";
+  let kernelSpawnError = null;
+  const kernel = spawn(KERNEL_BINARY, [], {
+    cwd: KERNEL_DIRECTORY,
+    env: { ...process.env, LAIN_BIND_ADDR: `127.0.0.1:${port}` },
+    stdio: ["ignore", "ignore", "pipe"],
+    windowsHide: true,
+  });
+  kernel.stderr.setEncoding("utf8");
+  kernel.stderr.on("data", (chunk) => {
+    kernelError = `${kernelError}${chunk}`.slice(-2_000);
+  });
+  kernel.once("error", (error) => {
+    kernelSpawnError = error;
+  });
+  const url = `ws://127.0.0.1:${port}/v1/ws`;
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (kernelSpawnError) throw kernelSpawnError;
+    if (kernel.exitCode !== null) {
+      throw new Error(kernelError.trim() || `kernel exited with code ${kernel.exitCode}`);
+    }
+    try {
+      return { client: await connectClient(url), kernel };
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+  kernel.kill();
+  throw new Error(kernelError.trim() || "local kernel did not become ready");
+}
+
+function availablePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => resolve(address.port));
+    });
+  });
+}
+
+function run(command, args, cwd) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { cwd, stdio: "inherit", windowsHide: true });
+    child.once("error", reject);
+    child.once("exit", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${command} exited with code ${code}`));
+    });
+  });
+}
+
 function usageLine(usage) {
   if (!usage) return "";
   return dim(
@@ -158,7 +239,7 @@ function help() {
 
 export async function main(args = process.argv.slice(2)) {
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("Usage: node cli/lain.mjs [-p \"prompt\"] [initial prompt]");
+    console.log("Usage: lain [-p \"prompt\"] [initial prompt]");
     return;
   }
   const oneShot = args[0] === "-p";
@@ -166,8 +247,9 @@ export async function main(args = process.argv.slice(2)) {
   if (oneShot && !initialPrompt) throw new Error("-p requires a prompt");
 
   process.stdout.write(banner());
-  const client = new LainClient(process.env.LAIN_WS_URL ?? DEFAULT_URL);
-  await client.connect();
+  const { client, kernel } = await connectOrStartKernel();
+  const stopOwnedKernel = () => kernel?.kill();
+  process.once("exit", stopOwnedKernel);
   process.stdout.write(`${dim(`connected: ${client.status()}`)}\n`);
 
   const ask = async (text) => {
@@ -181,6 +263,8 @@ export async function main(args = process.argv.slice(2)) {
   if (initialPrompt) await ask(initialPrompt);
   if (oneShot) {
     client.close();
+    process.off("exit", stopOwnedKernel);
+    stopOwnedKernel();
     return;
   }
 
@@ -207,8 +291,10 @@ export async function main(args = process.argv.slice(2)) {
     }
   } finally {
     process.off("SIGINT", onInterrupt);
+    process.off("exit", stopOwnedKernel);
     readline.close();
     client.close();
+    stopOwnedKernel();
   }
 }
 
