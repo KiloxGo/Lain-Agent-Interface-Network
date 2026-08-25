@@ -6,6 +6,7 @@
 
 ### Added
 
+- 首个有界只读 Tool Loop：模型可在 CLI workspace 内列文件、读取 UTF-8 文本和字面搜索；调用与结果状态写入 SQLite 审计，CLI 显示执行进度。
 - 无额外运行时依赖的终端 CLI：复用 v1 协议的持久会话与流式输出，支持单次 prompt、最近历史、token/cache usage、取消和自动启动本地 kernel。
 - 根级项目说明、环境变量示例与固定工具链版本。
 - 目标架构、技术调研、ADR 与分阶段实施清单。

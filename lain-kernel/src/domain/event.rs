@@ -58,6 +58,21 @@ pub enum PersistedEvent {
         estimated: bool,
         dropped_items: usize,
     },
+    #[serde(rename = "tool.started")]
+    ToolStarted {
+        invocation_id: String,
+        tool_call_id: String,
+        name: String,
+        risk: String,
+    },
+    #[serde(rename = "tool.completed")]
+    ToolCompleted {
+        invocation_id: String,
+        tool_call_id: String,
+        name: String,
+        status: String,
+        summary: String,
+    },
     #[serde(rename = "memory.candidate_evaluated")]
     MemoryCandidateEvaluated {
         candidate_id: String,
@@ -93,6 +108,8 @@ impl PersistedEvent {
             Self::RunFailed { .. } => "run.failed",
             Self::IdentityActivated { .. } => "identity.activated",
             Self::ContextCompiled { .. } => "context.compiled",
+            Self::ToolStarted { .. } => "tool.started",
+            Self::ToolCompleted { .. } => "tool.completed",
             Self::MemoryCandidateEvaluated { .. } => "memory.candidate_evaluated",
             Self::MemoryItemCommitted { .. } => "memory.item_committed",
             Self::MemoryItemStatusChanged { .. } => "memory.item_status_changed",

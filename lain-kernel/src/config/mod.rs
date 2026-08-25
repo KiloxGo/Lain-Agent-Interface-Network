@@ -83,6 +83,7 @@ pub struct Config {
     pub system_prompt_path: PathBuf,
     pub identity_dir: PathBuf,
     pub data_dir: PathBuf,
+    pub workspace_root: Option<PathBuf>,
     pub provider: ProviderConfig,
     pub shutdown_timeout: Duration,
     pub max_message_bytes: usize,
@@ -146,6 +147,10 @@ impl Config {
             .or_else(|| dirs::home_dir().map(|home| home.join(".lain")))
             .unwrap_or_else(|| current_dir.join(".lain"));
         let data_dir = absolute_path(current_dir, data_value);
+        let workspace_root = get("LAIN_WORKSPACE")
+            .filter(|value| !value.trim().is_empty())
+            .map(PathBuf::from)
+            .map(|value| absolute_path(current_dir, value));
 
         let base_url = get("DEEPSEEK_BASE_URL").unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
         let parsed_url = reqwest::Url::parse(&base_url).map_err(|_| ConfigError::InvalidUrl {
@@ -215,6 +220,7 @@ impl Config {
             system_prompt_path,
             identity_dir,
             data_dir,
+            workspace_root,
             provider: ProviderConfig {
                 api_key: get("DEEPSEEK_API_KEY").filter(|value| !value.trim().is_empty()),
                 base_url: parsed_url.as_str().trim_end_matches('/').to_string(),

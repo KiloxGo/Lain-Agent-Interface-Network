@@ -12,7 +12,7 @@
 - 存储：`~/.lain/state/lain.db` 下的 SQLite WAL 保存 session、message、run 与事件；旧 Markdown 记忆暂时保留为兼容读取和迁移入口（根目录可通过 `LAIN_DATA_DIR` 覆盖）。
 - 记忆：Memory v1 将模型抽取先写为候选，由 Rust 策略校验证据、敏感度和指令污染；只有已提交 item 会通过有来源的 FTS5 evidence 进入 Context Compiler。
 - 身份与上下文：`identity/v1` 资产启动时校验 manifest/schema/hash；每个 v1 run 在模型调用前保存 identity version、ContextPlan、prompt hash、预算选择与 drop reason。
-- 工具：当前仅有由模型文本标签触发的实验性记忆行为，尚无受约束的结构化工具层。
+- 工具：CLI 自动启动的 kernel 提供 `list_files`、`read_file`、`search_text` 三个结构化只读 workspace 工具；路径、Secret 文件、遍历量与输出大小由 Rust 策略限制，尚不提供写文件或命令执行。
 - 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、SQLite 事务/迁移/并发 seq、协议 DTO 与 Markdown 迁移已有离线契约测试。
 
 完整现状、目标架构、ADR 和 209 项实施任务见 [TECHNICAL_IMPLEMENTATION_PLAN.md](TECHNICAL_IMPLEMENTATION_PLAN.md)。
@@ -46,7 +46,7 @@ npm run dev
 .\lain.cmd -c
 ```
 
-可用 `LAIN_WS_URL` 覆盖默认的 `ws://127.0.0.1:3000/v1/ws`。`-c` 会显示最近的持久消息并继续默认 session。CLI 支持流式回复、`/help`、`/history`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。
+可用 `LAIN_WS_URL` 覆盖默认的 `ws://127.0.0.1:3000/v1/ws`。CLI 自动启动 kernel 时将调用目录作为只读 workspace；可用 `LAIN_WORKSPACE` 显式覆盖。`-c` 会显示最近的持久消息并继续默认 session。CLI 支持流式回复、工具进度、`/help`、`/history`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。
 
 默认访问 Vite 输出的本地地址。`/api/health` 只表示进程存活，`/api/ready` 检查 identity、SQLite、数据目录和 provider；`/api/provider` 返回不含 Secret 的能力诊断。前端使用 `/v1/ws`：协商版本后订阅默认 session，按 seq 重放持久事件并支持刷新恢复、退避重连和 Stop。`/ws/stream` 与裸文本 `/ws` 暂时作为弃用兼容入口。
 
@@ -103,7 +103,7 @@ evals/           可版本化的人格与记忆评测样例
 ## 配置与数据
 
 - 不要提交 `.env`、API Key、聊天记录或真实用户资料。
-- `LAIN_IDENTITY_DIR`、`LAIN_SYSTEM_PROMPT` 与 `LAIN_DATA_DIR` 可配置；相对路径会以启动目录为基准解析成绝对路径。SQLite 位于 `<LAIN_DATA_DIR>/state/lain.db`，不要在 WAL 活跃时只复制主数据库文件。默认值仍适合从 `lain-kernel` 目录启动。
+- `LAIN_IDENTITY_DIR`、`LAIN_SYSTEM_PROMPT`、`LAIN_DATA_DIR` 与 `LAIN_WORKSPACE` 可配置；相对路径会以启动目录为基准解析成绝对路径。SQLite 位于 `<LAIN_DATA_DIR>/state/lain.db`，不要在 WAL 活跃时只复制主数据库文件。默认值仍适合从 `lain-kernel` 目录启动。
 - `LAIN_BIND_ADDR`、provider 地址、Flash/Pro 模型、超时、消息大小和关机超时均可通过 `.env.example` 中的变量覆盖；配置与诊断输出会隐藏 API Key。
 - 评测样例必须使用合成数据，不得复制真实会话。
 - 当前仓库尚未选定开源许可证；代码和角色相关素材的授权边界见 [docs/IP_AND_ASSET_POLICY.md](docs/IP_AND_ASSET_POLICY.md)。

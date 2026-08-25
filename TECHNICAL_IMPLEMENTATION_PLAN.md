@@ -2382,18 +2382,18 @@ Playwright：
 
 - [ ] P6-001 定义 Tool trait 和 ToolDefinition。
 - [ ] P6-002 定义 ToolRisk、ToolPolicyDecision。
-- [ ] P6-003 创建 tool_invocations/tool_approvals 表。
+- [ ] P6-003 创建 tool_invocations/tool_approvals 表。（只读 v0 已创建 `tool_invocations`；仍缺 approval 表。）
 - [ ] P6-004 实现 ToolRegistry 和版本冲突检测。
 - [ ] P6-005 实现 JSON schema input validation。
 - [ ] P6-006 实现 timeout、cancel、output cap。
 - [ ] P6-007 实现 idempotency key。
-- [ ] P6-008 实现 input/output guards 和 redaction。
-- [ ] P6-009 实现 Runner tool loop、max turns/calls。
+- [ ] P6-008 实现 input/output guards 和 redaction。（只读 v0 已覆盖 workspace 路径、常见 Secret 文件、文件/遍历/输出上限及 untrusted 标记；仍缺通用内容 redaction。）
+- [x] P6-009 实现 Runner tool loop、max turns/calls。（只读 v0：最多 4 轮、8 次调用。）
 - [ ] P6-010 实现 approval pause/resume。
 - [ ] P6-011 前端 approval UI。
 - [ ] P6-012 内置 read-only memory_search/memory_get 工具。
 - [ ] P6-013 内置 time_now 和 instance_status 工具。
-- [ ] P6-014 工具 schema 按 mode 最小化注入。
+- [x] P6-014 工具 schema 按 mode 最小化注入。（仅配置 workspace 的 chat mode 注入三个只读 schema。）
 - [ ] P6-015 仅对安全只读工具启用 parallel calls。
 - [ ] P6-016 实现 MCP stdio client 和 lifecycle。
 - [ ] P6-017 实现 namespaced tools/list/tools/call。

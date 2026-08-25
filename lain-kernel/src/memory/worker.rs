@@ -93,14 +93,8 @@ pub async fn process_one(
             request_id: format!("memory:{}", job.id),
             model: route.model,
             messages: vec![
-                ModelMessage {
-                    role: Role::System,
-                    content: EXTRACTION_SYSTEM_PROMPT.to_string(),
-                },
-                ModelMessage {
-                    role: Role::User,
-                    content: user_payload,
-                },
+                ModelMessage::text(Role::System, EXTRACTION_SYSTEM_PROMPT),
+                ModelMessage::text(Role::User, user_payload),
             ],
             tools: Vec::new(),
             tool_choice: ToolChoice::None,

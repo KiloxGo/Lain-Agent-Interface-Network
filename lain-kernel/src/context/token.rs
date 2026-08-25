@@ -12,9 +12,16 @@ pub trait TokenEstimator: Send + Sync {
 
     fn estimate_messages(&self, messages: &[ModelMessage]) -> TokenEstimate {
         let tokens = messages.iter().fold(0_u32, |total, message| {
+            let tool_tokens = message.tool_calls.iter().fold(0_u32, |subtotal, call| {
+                subtotal
+                    .saturating_add(self.estimate_text(&call.name).tokens)
+                    .saturating_add(self.estimate_text(&call.arguments).tokens)
+                    .saturating_add(8)
+            });
             total
                 .saturating_add(8)
                 .saturating_add(self.estimate_text(&message.content).tokens)
+                .saturating_add(tool_tokens)
         });
         TokenEstimate {
             tokens,

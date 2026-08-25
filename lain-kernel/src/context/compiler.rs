@@ -139,10 +139,7 @@ impl ContextCompiler {
             );
         }
 
-        let mut messages = vec![ModelMessage {
-            role: Role::System,
-            content: stable_prefix,
-        }];
+        let mut messages = vec![ModelMessage::text(Role::System, stable_prefix)];
 
         let mut example_used = 0_u32;
         for example in self.identity.select_examples(&input.mode, 3) {
@@ -167,14 +164,11 @@ impl ContextCompiler {
                     example_tokens,
                     &mut position,
                 );
-                messages.push(ModelMessage {
-                    role: Role::User,
-                    content: example.user.clone(),
-                });
-                messages.push(ModelMessage {
-                    role: Role::Assistant,
-                    content: example.ideal_response.clone(),
-                });
+                messages.push(ModelMessage::text(Role::User, example.user.clone()));
+                messages.push(ModelMessage::text(
+                    Role::Assistant,
+                    example.ideal_response.clone(),
+                ));
             } else {
                 dropped.push(dropped_item(
                     &example.id,
@@ -326,10 +320,10 @@ impl ContextCompiler {
             ));
         }
         if !dynamic_sections.is_empty() {
-            messages.push(ModelMessage {
-                role: Role::System,
-                content: dynamic_sections.join("\n\n"),
-            });
+            messages.push(ModelMessage::text(
+                Role::System,
+                dynamic_sections.join("\n\n"),
+            ));
         }
 
         let (recent_selected, recent_dropped) = select_recent_pairs(
@@ -493,14 +487,14 @@ fn select_recent_pairs(
 }
 
 fn to_model_message(message: MessageRecord) -> ModelMessage {
-    ModelMessage {
-        role: match message.role.as_str() {
+    ModelMessage::text(
+        match message.role.as_str() {
             "assistant" => Role::Assistant,
             "tool" => Role::Tool,
             _ => Role::User,
         },
-        content: message.content,
-    }
+        message.content,
+    )
 }
 
 fn source_type_for_block(kind: IdentityBlockKind) -> ContextSourceType {

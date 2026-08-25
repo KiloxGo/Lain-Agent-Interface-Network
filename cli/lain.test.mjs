@@ -63,6 +63,18 @@ test("negotiates v1 and streams one turn", async () => {
   });
   socket.packet({ v: 1, type: "run.started", run_id: "run-1", payload: {} });
   socket.packet({ v: 1, type: "model.started", run_id: "run-1", payload: {} });
+  socket.packet({
+    v: 1,
+    type: "tool.started",
+    run_id: "run-1",
+    payload: { name: "read_file" },
+  });
+  socket.packet({
+    v: 1,
+    type: "tool.completed",
+    run_id: "run-1",
+    payload: { status: "completed", summary: "read 2 lines" },
+  });
   socket.packet({ v: 1, type: "text.delta", run_id: "run-1", payload: { text: "hi" } });
   socket.packet({
     v: 1,
@@ -79,6 +91,7 @@ test("negotiates v1 and streams one turn", async () => {
 
   assert.deepEqual(await answer, { input_tokens: 3, output_tokens: 1, cached_input_tokens: 2 });
   assert.match(output, /lain › hi/);
+  assert.match(output, /tool › read_file/);
   assert.deepEqual(
     client.messages.map(({ role, content }) => [role, content]),
     [

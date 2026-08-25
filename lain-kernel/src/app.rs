@@ -34,6 +34,7 @@ use crate::{
         provider_diagnostics as build_provider_diagnostics,
     },
     storage::Storage,
+    tools::WorkspaceTools,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -72,6 +73,7 @@ pub struct AppState {
     pub system_prompt: Option<Arc<str>>,
     pub identity: Option<Arc<IdentityKernel>>,
     pub storage: Option<Storage>,
+    pub workspace_tools: Option<WorkspaceTools>,
     pub router: ModelRouter,
     pub tasks: TaskTracker,
     pub shutdown: CancellationToken,
@@ -80,6 +82,16 @@ pub struct AppState {
 impl AppState {
     pub async fn initialize(config: Config) -> Self {
         let mut checks = Vec::with_capacity(5);
+
+        let workspace_tools = config.workspace_root.as_ref().and_then(|root| {
+            match WorkspaceTools::new(root) {
+                Ok(tools) => Some(tools),
+                Err(error) => {
+                    tracing::warn!(workspace = %root.display(), error = %error, "workspace tools disabled");
+                    None
+                }
+            }
+        });
 
         let memory_configured = memory::configure_data_dir(config.data_dir.clone());
         match memory_configured {
@@ -264,6 +276,7 @@ impl AppState {
             system_prompt,
             identity,
             storage,
+            workspace_tools,
             router,
             tasks: TaskTracker::new(),
             shutdown: CancellationToken::new(),
@@ -643,10 +656,7 @@ async fn handle_socket(
         }
 
         add_retrieval_context(&mut history, &text).await;
-        history.push(ModelMessage {
-            role: Role::User,
-            content: text.clone(),
-        });
+        history.push(ModelMessage::text(Role::User, text.clone()));
 
         let profile = match memory::load_profile().await {
             Ok(profile) => profile.unwrap_or_default(),
@@ -663,10 +673,7 @@ async fn handle_socket(
         } else {
             format!("{system_prompt}\n\n##User Context\n{profile}")
         };
-        let mut request_messages = vec![ModelMessage {
-            role: Role::System,
-            content: system_content,
-        }];
+        let mut request_messages = vec![ModelMessage::text(Role::System, system_content)];
         request_messages.extend(history.clone());
 
         turn += 1;
@@ -985,9 +992,9 @@ async fn add_retrieval_context(history: &mut Vec<ModelMessage>, text: &str) {
     };
 
     if !retrieved.is_empty() {
-        history.push(ModelMessage {
-            role: Role::System,
-            content: format!(
+        history.push(ModelMessage::text(
+            Role::System,
+            format!(
                 "{}\n{}",
                 if is_history_query {
                     "[Wired Archive] Related records found:"
@@ -996,7 +1003,7 @@ async fn add_retrieval_context(history: &mut Vec<ModelMessage>, text: &str) {
                 },
                 retrieved.join("\n---\n")
             ),
-        });
+        ));
     }
 }
 
@@ -1018,10 +1025,7 @@ async fn finalize_successful_reply(
         tracing::warn!(error = %error, topic = raw_topic, "topic log failed");
     }
 
-    history.push(ModelMessage {
-        role: Role::Assistant,
-        content: clean_reply,
-    });
+    history.push(ModelMessage::text(Role::Assistant, clean_reply));
     if history.len() > 10 {
         *history = history.split_off(history.len() - 10);
     }
@@ -1167,6 +1171,7 @@ mod tests {
                 system_prompt_path: PathBuf::from("synthetic-prompt"),
                 identity_dir: PathBuf::from("synthetic-identity"),
                 data_dir: PathBuf::from("synthetic-data"),
+                workspace_root: None,
                 provider: ProviderConfig::for_test(),
                 shutdown_timeout: Duration::from_secs(1),
                 max_message_bytes: 1024,
@@ -1182,6 +1187,7 @@ mod tests {
             system_prompt: None,
             identity: None,
             storage: None,
+            workspace_tools: None,
             router: ModelRouter::new("flash".to_string(), "pro".to_string()),
             tasks: TaskTracker::new(),
             shutdown: CancellationToken::new(),

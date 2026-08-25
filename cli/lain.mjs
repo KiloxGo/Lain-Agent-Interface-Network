@@ -125,9 +125,11 @@ export class LainClient {
       this.activeRunId = packet.run_id;
     } else if (packet.type === "message.accepted" && typeof payload.content === "string") {
       this.messages.push({ role: "user", content: payload.content });
-    } else if (packet.type === "model.started") {
-      this.startedReply = true;
-      this.write(`\n${pink("◈ lain › ")}`);
+    } else if (packet.type === "tool.started") {
+      this.startedReply = false;
+      this.write(`\n${dim(`◇ tool › ${payload.name ?? "unknown"}`)}\n`);
+    } else if (packet.type === "tool.completed") {
+      this.write(`${dim(`  ${payload.status ?? "unknown"}: ${payload.summary ?? ""}`)}\n`);
     } else if (packet.type === "text.delta") {
       if (typeof payload.text !== "string") return;
       if (!this.startedReply) {
@@ -178,7 +180,11 @@ async function connectOrStartKernel() {
   let kernelSpawnError = null;
   const kernel = spawn(KERNEL_BINARY, [], {
     cwd: KERNEL_DIRECTORY,
-    env: { ...process.env, LAIN_BIND_ADDR: `127.0.0.1:${port}` },
+    env: {
+      ...process.env,
+      LAIN_BIND_ADDR: `127.0.0.1:${port}`,
+      LAIN_WORKSPACE: process.env.LAIN_WORKSPACE ?? process.cwd(),
+    },
     stdio: ["ignore", "ignore", "pipe"],
     windowsHide: true,
   });

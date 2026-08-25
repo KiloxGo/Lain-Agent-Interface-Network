@@ -404,6 +404,19 @@ impl DeepSeekRequest {
                         Role::Tool => "tool",
                     },
                     content: message.content.clone(),
+                    tool_calls: message
+                        .tool_calls
+                        .iter()
+                        .map(|call| ApiMessageToolCall {
+                            id: call.id.clone(),
+                            kind: "function",
+                            function: ApiMessageFunction {
+                                name: call.name.clone(),
+                                arguments: call.arguments.clone(),
+                            },
+                        })
+                        .collect(),
+                    tool_call_id: message.tool_call_id.clone(),
                 })
                 .collect(),
             stream: true,
@@ -450,6 +463,24 @@ impl DeepSeekRequest {
 struct DeepSeekMessage {
     role: &'static str,
     content: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    tool_calls: Vec<ApiMessageToolCall>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct ApiMessageToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    kind: &'static str,
+    function: ApiMessageFunction,
+}
+
+#[derive(Debug, Serialize)]
+struct ApiMessageFunction {
+    name: String,
+    arguments: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -650,7 +681,7 @@ mod tests {
     use tokio::{sync::Mutex, task::JoinHandle};
 
     use super::*;
-    use crate::provider::{ModelMessage, ResponseFormat, ToolDefinition};
+    use crate::provider::{ModelMessage, ModelToolCall, ResponseFormat, ToolDefinition};
 
     #[derive(Clone)]
     struct MockResponse {
@@ -748,10 +779,7 @@ mod tests {
         ModelRequest {
             request_id: "contract-request".to_string(),
             model: "deepseek-v4-flash".to_string(),
-            messages: vec![ModelMessage {
-                role: Role::User,
-                content: "synthetic request".to_string(),
-            }],
+            messages: vec![ModelMessage::text(Role::User, "synthetic request")],
             tools: Vec::new(),
             tool_choice: ToolChoice::None,
             temperature: None,
@@ -782,6 +810,28 @@ mod tests {
             DeepSeekProvider::capabilities_for_base_url("https://api.deepseek.com/beta")
                 .supports_strict_tools
         );
+    }
+
+    #[test]
+    fn tool_exchange_serializes_with_provider_call_ids() {
+        let mut model_request = request(Duration::from_secs(2));
+        model_request
+            .messages
+            .push(ModelMessage::assistant_tool_calls(
+                "",
+                vec![ModelToolCall {
+                    id: "call-1".to_string(),
+                    name: "read_file".to_string(),
+                    arguments: r#"{"path":"README.md"}"#.to_string(),
+                }],
+            ));
+        model_request
+            .messages
+            .push(ModelMessage::tool_result("call-1", "README contents"));
+        let value = serde_json::to_value(DeepSeekRequest::from_model_request(&model_request))
+            .expect("request JSON");
+        assert_eq!(value["messages"][1]["tool_calls"][0]["id"], "call-1");
+        assert_eq!(value["messages"][2]["tool_call_id"], "call-1");
     }
 
     async fn collect(

@@ -9,6 +9,7 @@ pub mod migration;
 pub mod protocol;
 pub mod provider;
 pub mod storage;
+pub mod tools;
 pub mod transport;
 
 use app::{AppState, build_router};
@@ -137,6 +138,7 @@ mod tests {
             system_prompt_path: prompt_path,
             identity_dir: fixture.path().join("identity"),
             data_dir: fixture.path().join("data"),
+            workspace_root: None,
             provider: ProviderConfig::for_test(),
             shutdown_timeout: Duration::from_secs(1),
             max_message_bytes: 1024,

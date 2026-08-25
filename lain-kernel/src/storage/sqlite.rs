@@ -318,6 +318,91 @@ impl Storage {
         Ok(event)
     }
 
+    pub async fn start_tool_invocation(
+        &self,
+        run_id: &str,
+        tool_call_id: &str,
+        name: &str,
+        arguments: &serde_json::Value,
+    ) -> Result<(String, EventEnvelope), StorageError> {
+        let mut tx = self.pool.begin().await?;
+        let run = fetch_run(&mut tx, run_id).await?;
+        let invocation_id = new_id();
+        let timestamp = now();
+        sqlx::query(
+            "INSERT INTO tool_invocations(id, run_id, tool_call_id, tool_name, risk, arguments_json, status, started_at) \
+             VALUES (?, ?, ?, ?, 'read_only', ?, 'running', ?)",
+        )
+        .bind(&invocation_id)
+        .bind(run_id)
+        .bind(tool_call_id)
+        .bind(name)
+        .bind(serde_json::to_string(arguments)?)
+        .bind(&timestamp)
+        .execute(&mut *tx)
+        .await?;
+        let event = append_event(
+            &mut tx,
+            &self.scope.instance_id,
+            &run.session_id,
+            Some(run_id),
+            &PersistedEvent::ToolStarted {
+                invocation_id: invocation_id.clone(),
+                tool_call_id: tool_call_id.to_string(),
+                name: name.to_string(),
+                risk: "read_only".to_string(),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok((invocation_id, event))
+    }
+
+    pub async fn complete_tool_invocation(
+        &self,
+        run_id: &str,
+        invocation_id: &str,
+        tool_call_id: &str,
+        name: &str,
+        result: Result<(&str, &str), (&str, &str)>,
+    ) -> Result<EventEnvelope, StorageError> {
+        let mut tx = self.pool.begin().await?;
+        let run = fetch_run(&mut tx, run_id).await?;
+        let timestamp = now();
+        let (status, result_text, error_code, summary) = match result {
+            Ok((content, summary)) => ("completed", Some(content), None, summary),
+            Err((code, summary)) => ("failed", None, Some(code), summary),
+        };
+        sqlx::query(
+            "UPDATE tool_invocations SET status = ?, result_text = ?, error_code = ?, completed_at = ? \
+             WHERE id = ? AND run_id = ?",
+        )
+        .bind(status)
+        .bind(result_text)
+        .bind(error_code)
+        .bind(&timestamp)
+        .bind(invocation_id)
+        .bind(run_id)
+        .execute(&mut *tx)
+        .await?;
+        let event = append_event(
+            &mut tx,
+            &self.scope.instance_id,
+            &run.session_id,
+            Some(run_id),
+            &PersistedEvent::ToolCompleted {
+                invocation_id: invocation_id.to_string(),
+                tool_call_id: tool_call_id.to_string(),
+                name: name.to_string(),
+                status: status.to_string(),
+                summary: summary.to_string(),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(event)
+    }
+
     pub async fn complete_reply(
         &self,
         run_id: &str,
@@ -2663,5 +2748,50 @@ mod tests {
                 .expect("load relationship"),
             Some(relationship)
         );
+    }
+
+    #[tokio::test]
+    async fn tool_invocations_are_audited_without_arguments_in_events() {
+        let storage = Storage::in_memory().await.expect("initialize database");
+        let session_id = storage.scope().session_id.clone();
+        let accepted = storage
+            .accept_user_input(
+                &session_id,
+                "tool-audit-1",
+                "inspect the project",
+                "mock",
+                "mock-model",
+                "v1",
+            )
+            .await
+            .expect("accept input");
+        storage
+            .start_run(&accepted.run.id)
+            .await
+            .expect("start run");
+        let (invocation_id, started) = storage
+            .start_tool_invocation(
+                &accepted.run.id,
+                "call-1",
+                "read_file",
+                &json!({"path": "private.txt"}),
+            )
+            .await
+            .expect("start tool");
+        assert_eq!(started.event_type, "tool.started");
+        assert!(started.payload.get("arguments").is_none());
+        let completed = storage
+            .complete_tool_invocation(
+                &accepted.run.id,
+                &invocation_id,
+                "call-1",
+                "read_file",
+                Ok(("secret contents", "read 1 line")),
+            )
+            .await
+            .expect("complete tool");
+        assert_eq!(completed.event_type, "tool.completed");
+        assert_eq!(completed.payload["summary"], "read 1 line");
+        assert!(!completed.payload.to_string().contains("secret contents"));
     }
 }
