@@ -54,6 +54,10 @@ pub enum StorageError {
     InvalidMemoryCandidateStatus { id: String, status: String },
     #[error("memory item not found: {0}")]
     MemoryItemNotFound(String),
+    #[error("tool approval not found: {0}")]
+    ToolApprovalNotFound(String),
+    #[error("tool approval {id} cannot transition from {status}")]
+    InvalidToolApprovalStatus { id: String, status: String },
     #[error("invalid memory item status: {0}")]
     InvalidMemoryItemStatus(String),
 }
@@ -323,6 +327,7 @@ impl Storage {
         run_id: &str,
         tool_call_id: &str,
         name: &str,
+        risk: &str,
         arguments: &serde_json::Value,
     ) -> Result<(String, EventEnvelope), StorageError> {
         let mut tx = self.pool.begin().await?;
@@ -331,12 +336,13 @@ impl Storage {
         let timestamp = now();
         sqlx::query(
             "INSERT INTO tool_invocations(id, run_id, tool_call_id, tool_name, risk, arguments_json, status, started_at) \
-             VALUES (?, ?, ?, ?, 'read_only', ?, 'running', ?)",
+             VALUES (?, ?, ?, ?, ?, ?, 'running', ?)",
         )
         .bind(&invocation_id)
         .bind(run_id)
         .bind(tool_call_id)
         .bind(name)
+        .bind(risk)
         .bind(serde_json::to_string(arguments)?)
         .bind(&timestamp)
         .execute(&mut *tx)
@@ -350,12 +356,105 @@ impl Storage {
                 invocation_id: invocation_id.clone(),
                 tool_call_id: tool_call_id.to_string(),
                 name: name.to_string(),
-                risk: "read_only".to_string(),
+                risk: risk.to_string(),
             },
         )
         .await?;
         tx.commit().await?;
         Ok((invocation_id, event))
+    }
+
+    pub async fn request_tool_approval(
+        &self,
+        run_id: &str,
+        invocation_id: &str,
+        tool_call_id: &str,
+        name: &str,
+        action_hash: &str,
+    ) -> Result<(String, EventEnvelope), StorageError> {
+        let mut tx = self.pool.begin().await?;
+        let run = fetch_run(&mut tx, run_id).await?;
+        let approval_id = new_id();
+        let timestamp = now();
+        sqlx::query(
+            "INSERT INTO tool_approvals(id, invocation_id, run_id, tool_call_id, tool_name, action_hash, status, requested_at) \
+             VALUES (?, ?, ?, ?, ?, ?, 'requested', ?)",
+        )
+        .bind(&approval_id)
+        .bind(invocation_id)
+        .bind(run_id)
+        .bind(tool_call_id)
+        .bind(name)
+        .bind(action_hash)
+        .bind(&timestamp)
+        .execute(&mut *tx)
+        .await?;
+        let event = append_event(
+            &mut tx,
+            &self.scope.instance_id,
+            &run.session_id,
+            Some(run_id),
+            &PersistedEvent::ToolApprovalRequested {
+                approval_id: approval_id.clone(),
+                invocation_id: invocation_id.to_string(),
+                tool_call_id: tool_call_id.to_string(),
+                name: name.to_string(),
+                action_hash: action_hash.to_string(),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok((approval_id, event))
+    }
+
+    pub async fn decide_tool_approval(
+        &self,
+        run_id: &str,
+        approval_id: &str,
+        outcome: &str,
+    ) -> Result<EventEnvelope, StorageError> {
+        let mut tx = self.pool.begin().await?;
+        let run = fetch_run(&mut tx, run_id).await?;
+        let row = sqlx::query(
+            "SELECT invocation_id, status FROM tool_approvals WHERE id = ? AND run_id = ?",
+        )
+        .bind(approval_id)
+        .bind(run_id)
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| StorageError::ToolApprovalNotFound(approval_id.to_string()))?;
+        let invocation_id: String = row.get("invocation_id");
+        let status: String = row.get("status");
+        if status != "requested" {
+            return Err(StorageError::InvalidToolApprovalStatus {
+                id: approval_id.to_string(),
+                status,
+            });
+        }
+        let timestamp = now();
+        sqlx::query(
+            "UPDATE tool_approvals SET status = ?, decided_at = ? WHERE id = ? AND run_id = ?",
+        )
+        .bind(outcome)
+        .bind(&timestamp)
+        .bind(approval_id)
+        .bind(run_id)
+        .execute(&mut *tx)
+        .await?;
+        let event = append_event(
+            &mut tx,
+            &self.scope.instance_id,
+            &run.session_id,
+            Some(run_id),
+            &PersistedEvent::ToolApprovalDecided {
+                approval_id: approval_id.to_string(),
+                invocation_id,
+                outcome: outcome.to_string(),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(event)
     }
 
     pub async fn complete_tool_invocation(
@@ -2774,6 +2873,7 @@ mod tests {
                 &accepted.run.id,
                 "call-1",
                 "read_file",
+                "read_only",
                 &json!({"path": "private.txt"}),
             )
             .await
@@ -2793,5 +2893,40 @@ mod tests {
         assert_eq!(completed.event_type, "tool.completed");
         assert_eq!(completed.payload["summary"], "read 1 line");
         assert!(!completed.payload.to_string().contains("secret contents"));
+
+        let (edit_invocation_id, _) = storage
+            .start_tool_invocation(
+                &accepted.run.id,
+                "call-2",
+                "replace_text",
+                "workspace_write",
+                &json!({"path": "note.txt", "old_text": "old", "new_text": "new"}),
+            )
+            .await
+            .expect("start edit");
+        let (approval_id, requested) = storage
+            .request_tool_approval(
+                &accepted.run.id,
+                &edit_invocation_id,
+                "call-2",
+                "replace_text",
+                "synthetic-action-hash",
+            )
+            .await
+            .expect("request approval");
+        assert_eq!(requested.event_type, "tool.approval_requested");
+        assert!(requested.payload.get("arguments").is_none());
+        let decided = storage
+            .decide_tool_approval(&accepted.run.id, &approval_id, "approved")
+            .await
+            .expect("decide approval");
+        assert_eq!(decided.event_type, "tool.approval_decided");
+        assert_eq!(decided.payload["outcome"], "approved");
+        assert!(matches!(
+            storage
+                .decide_tool_approval(&accepted.run.id, &approval_id, "approved")
+                .await,
+            Err(StorageError::InvalidToolApprovalStatus { .. })
+        ));
     }
 }

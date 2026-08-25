@@ -27,7 +27,7 @@ use crate::{
         ToolChoice,
     },
     storage::{CompletionUsage, RunRecord, Storage, StorageError},
-    tools::ToolCall,
+    tools::{ToolCall, ToolError},
 };
 
 const OUTBOUND_CAPACITY: usize = 64;
@@ -37,6 +37,7 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(20);
 const MAX_REPLAY_EVENTS: i64 = 500;
 const MAX_TOOL_ROUNDS: usize = 4;
 const MAX_TOOL_CALLS: usize = 8;
+const APPROVAL_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Debug, Default)]
 struct PendingToolCall {
@@ -209,6 +210,14 @@ async fn handle_socket(socket: WebSocket, state: AppState, connection_id: String
             }
             ClientCommand::RunCancel { .. } => {
                 if send_json(&outbound, &ErrorEvent::new("no_active_run", true))
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
+            ClientCommand::ToolApprovalRespond { .. } => {
+                if send_json(&outbound, &ErrorEvent::new("no_active_approval", true))
                     .await
                     .is_err()
                 {
@@ -633,7 +642,13 @@ async fn execute_run(
             let arguments = serde_json::from_str(&call.arguments)
                 .unwrap_or_else(|_| json!({ "invalid_raw_arguments": call.arguments }));
             let (invocation_id, started) = match storage
-                .start_tool_invocation(&run.id, &call.id, &call.name, &arguments)
+                .start_tool_invocation(
+                    &run.id,
+                    &call.id,
+                    &call.name,
+                    tool_risk(&call.name),
+                    &arguments,
+                )
                 .await
             {
                 Ok(value) => value,
@@ -645,7 +660,92 @@ async fn execute_run(
             if !client_gone && send_json(outbound, &started).await.is_err() {
                 client_gone = true;
             }
-            let result = workspace_tools.execute(call.clone()).await;
+            let result = if call.name == "replace_text" {
+                match workspace_tools.prepare_replace(call.clone()).await {
+                    Ok(edit) => {
+                        let (approval_id, requested) = match storage
+                            .request_tool_approval(
+                                &run.id,
+                                &invocation_id,
+                                &call.id,
+                                &call.name,
+                                &edit.action_hash,
+                            )
+                            .await
+                        {
+                            Ok(value) => value,
+                            Err(error) => {
+                                tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
+                                return fail_run(storage, outbound, &run, "storage_error").await;
+                            }
+                        };
+                        if !client_gone && send_json(outbound, &requested).await.is_err() {
+                            client_gone = true;
+                        }
+                        if !client_gone {
+                            let event = transient_event(
+                                storage.scope(),
+                                &run.session_id,
+                                &run,
+                                "tool.approval_required",
+                                json!({
+                                    "approval_id": &approval_id,
+                                    "invocation_id": &invocation_id,
+                                    "name": &call.name,
+                                    "path": &edit.display_path,
+                                    "diff": &edit.diff,
+                                }),
+                            );
+                            if send_json(outbound, &event).await.is_err() {
+                                client_gone = true;
+                            }
+                        }
+                        let approval = await_tool_approval(
+                            incoming,
+                            outbound,
+                            &run,
+                            &approval_id,
+                            &cancellation,
+                            &mut client_gone,
+                        )
+                        .await;
+                        let outcome = match approval {
+                            ApprovalOutcome::Approved => "approved",
+                            ApprovalOutcome::Rejected => "rejected",
+                            ApprovalOutcome::Unavailable => "cancelled",
+                            ApprovalOutcome::RunCancelled => "cancelled",
+                        };
+                        let decided = match storage
+                            .decide_tool_approval(&run.id, &approval_id, outcome)
+                            .await
+                        {
+                            Ok(event) => event,
+                            Err(error) => {
+                                tracing::error!(run_id = run.id, error = %error, "tool approval decision audit failed");
+                                return fail_run(storage, outbound, &run, "storage_error").await;
+                            }
+                        };
+                        if !client_gone && send_json(outbound, &decided).await.is_err() {
+                            client_gone = true;
+                        }
+                        match approval {
+                            ApprovalOutcome::Approved => workspace_tools.apply_replace(edit).await,
+                            ApprovalOutcome::Rejected => Err(ToolError::ApprovalRejected),
+                            ApprovalOutcome::Unavailable => Err(ToolError::ApprovalUnavailable),
+                            ApprovalOutcome::RunCancelled => {
+                                cancellation.cancel();
+                                if let Ok(event) = storage.cancel_run(&run.id).await {
+                                    let _ = send_json(outbound, &event).await;
+                                }
+                                return RunOutcome::Continue;
+                            }
+                        }
+                    }
+                    Err(error) => Err(error),
+                }
+            } else {
+                workspace_tools.execute(call.clone()).await
+            };
             let (model_content, completed) = match result {
                 Ok(result) => {
                     let event = storage
@@ -667,13 +767,14 @@ async fn execute_run(
                 }
                 Err(error) => {
                     let summary = error.to_string();
+                    let code = tool_error_code(&error);
                     let event = storage
                         .complete_tool_invocation(
                             &run.id,
                             &invocation_id,
                             &call.id,
                             &call.name,
-                            Err(("tool_rejected", &summary)),
+                            Err((code, &summary)),
                         )
                         .await;
                     (format!("Tool failed: {summary}"), event)
@@ -754,6 +855,105 @@ fn add_usage(total: &mut TokenUsage, current: &TokenUsage) {
     total.cache_miss_input_tokens = total
         .cache_miss_input_tokens
         .saturating_add(current.cache_miss_input_tokens);
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ApprovalOutcome {
+    Approved,
+    Rejected,
+    Unavailable,
+    RunCancelled,
+}
+
+async fn await_tool_approval(
+    incoming: &mut SplitStream<WebSocket>,
+    outbound: &mpsc::Sender<Outbound>,
+    run: &RunRecord,
+    approval_id: &str,
+    cancellation: &CancellationToken,
+    client_gone: &mut bool,
+) -> ApprovalOutcome {
+    if *client_gone {
+        return ApprovalOutcome::Unavailable;
+    }
+    let deadline = tokio::time::sleep(APPROVAL_TIMEOUT);
+    tokio::pin!(deadline);
+    loop {
+        let frame = tokio::select! {
+            () = cancellation.cancelled() => return ApprovalOutcome::Unavailable,
+            () = &mut deadline => return ApprovalOutcome::Unavailable,
+            frame = incoming.next() => frame,
+        };
+        match frame {
+            Some(Ok(Message::Text(text))) => match serde_json::from_str::<ClientCommand>(&text) {
+                Ok(ClientCommand::ToolApprovalRespond {
+                    approval_id: response_id,
+                    approved,
+                }) if response_id == approval_id => {
+                    return if approved {
+                        ApprovalOutcome::Approved
+                    } else {
+                        ApprovalOutcome::Rejected
+                    };
+                }
+                Ok(ClientCommand::RunCancel { run_id }) if run_id == run.id => {
+                    return ApprovalOutcome::RunCancelled;
+                }
+                Ok(ClientCommand::Ping { nonce }) => {
+                    if send_json(outbound, &PongEvent::new(nonce.as_deref()))
+                        .await
+                        .is_err()
+                    {
+                        *client_gone = true;
+                        return ApprovalOutcome::Unavailable;
+                    }
+                }
+                _ => {
+                    if send_json(
+                        outbound,
+                        &ErrorEvent::new("approval_response_invalid", true),
+                    )
+                    .await
+                    .is_err()
+                    {
+                        *client_gone = true;
+                        return ApprovalOutcome::Unavailable;
+                    }
+                }
+            },
+            Some(Ok(Message::Ping(payload))) => {
+                if send_frame(outbound, Message::Pong(payload)).await.is_err() {
+                    *client_gone = true;
+                    return ApprovalOutcome::Unavailable;
+                }
+            }
+            Some(Ok(Message::Pong(_))) => {}
+            Some(Ok(Message::Close(_))) | None | Some(Err(_)) => {
+                *client_gone = true;
+                return ApprovalOutcome::Unavailable;
+            }
+            Some(Ok(Message::Binary(_))) => {
+                let _ = send_json(outbound, &ErrorEvent::new("binary_not_supported", true)).await;
+            }
+        }
+    }
+}
+
+fn tool_risk(name: &str) -> &'static str {
+    if name == "replace_text" {
+        "workspace_write"
+    } else {
+        "read_only"
+    }
+}
+
+fn tool_error_code(error: &ToolError) -> &'static str {
+    match error {
+        ToolError::ApprovalRejected => "approval_rejected",
+        ToolError::ApprovalUnavailable => "approval_unavailable",
+        ToolError::FileChanged => "file_changed",
+        _ => "tool_rejected",
+    }
 }
 
 enum ControlOutcome {

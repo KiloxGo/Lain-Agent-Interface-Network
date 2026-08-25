@@ -101,3 +101,32 @@ test("negotiates v1 and streams one turn", async () => {
     ],
   );
 });
+
+test("answers one-shot tool approval", async () => {
+  const socket = new FakeSocket();
+  const client = new LainClient("ws://test", {
+    socketFactory: () => socket,
+    approve: async ({ diff }) => diff === "-before\n+after",
+  });
+  client.socket = socket;
+
+  client.handleEvent({
+    type: "tool.approval_required",
+    payload: { approval_id: "approval-1", diff: "-before\n+after" },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  client.approve = async () => {
+    throw new Error("prompt unavailable");
+  };
+  client.handleEvent({
+    type: "tool.approval_required",
+    payload: { approval_id: "approval-2", diff: "-after\n+final" },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(socket.sent, [
+    { type: "tool.approval.respond", approval_id: "approval-1", approved: true },
+    { type: "tool.approval.respond", approval_id: "approval-2", approved: false },
+  ]);
+});

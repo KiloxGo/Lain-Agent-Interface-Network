@@ -34,10 +34,18 @@ export function banner() {
 }
 
 export class LainClient {
-  constructor(url = DEFAULT_URL, { socketFactory, write = (text) => process.stdout.write(text) } = {}) {
+  constructor(
+    url = DEFAULT_URL,
+    {
+      socketFactory,
+      write = (text) => process.stdout.write(text),
+      approve = async () => false,
+    } = {},
+  ) {
     this.url = url;
     this.socketFactory = socketFactory ?? ((address) => new WebSocket(address));
     this.write = write;
+    this.approve = approve;
     this.socket = null;
     this.sessionId = null;
     this.activeRunId = null;
@@ -130,6 +138,8 @@ export class LainClient {
       this.write(`\n${dim(`◇ tool › ${payload.name ?? "unknown"}`)}\n`);
     } else if (packet.type === "tool.completed") {
       this.write(`${dim(`  ${payload.status ?? "unknown"}: ${payload.summary ?? ""}`)}\n`);
+    } else if (packet.type === "tool.approval_required") {
+      void this.respondToApproval(payload);
     } else if (packet.type === "text.delta") {
       if (typeof payload.text !== "string") return;
       if (!this.startedReply) {
@@ -146,6 +156,18 @@ export class LainClient {
     } else if (packet.type === "run.failed" || packet.type === "error") {
       this.finish(new Error(payload.code ?? packet.code ?? "run failed"));
     }
+  }
+
+  async respondToApproval(payload) {
+    let approved = false;
+    try {
+      approved = Boolean(await this.approve(payload));
+    } catch {}
+    this.send({
+      type: "tool.approval.respond",
+      approval_id: payload.approval_id,
+      approved,
+    });
   }
 
   finish(error, usage) {
@@ -285,6 +307,15 @@ export async function main(args = process.argv.slice(2)) {
   process.once("exit", stopOwnedKernel);
   process.stdout.write(`${dim(`connected: ${client.status()}`)}\n`);
   if (continueSession) process.stdout.write(historyText(client.messages));
+  const readline = createInterface({ input: process.stdin, output: process.stdout });
+  client.approve = async (approval) => {
+    process.stdout.write(
+      `\n${pink(`鈼?approve 鈥?${approval.name ?? "workspace edit"}`)}\n${dim(approval.path ?? "")}\n${approval.diff ?? ""}\n`,
+    );
+    if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
+    const answer = await readline.question("Apply this change? [y/N] ");
+    return /^(y|yes)$/i.test(answer.trim());
+  };
 
   const ask = async (text) => {
     try {
@@ -294,21 +325,14 @@ export async function main(args = process.argv.slice(2)) {
       process.stderr.write(`${error.message}\n`);
     }
   };
-  if (initialPrompt) await ask(initialPrompt);
-  if (oneShot) {
-    client.close();
-    process.off("exit", stopOwnedKernel);
-    stopOwnedKernel();
-    return;
-  }
-
-  const readline = createInterface({ input: process.stdin, output: process.stdout });
   const onInterrupt = () => {
     if (client.activeRunId) client.cancel();
     else readline.close();
   };
   process.on("SIGINT", onInterrupt);
   try {
+    if (initialPrompt) await ask(initialPrompt);
+    if (oneShot) return;
     while (true) {
       const text = (await readline.question(pink("\n◈ you  › "))).trim();
       if (!text) continue;

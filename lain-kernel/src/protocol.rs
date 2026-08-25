@@ -31,6 +31,8 @@ pub enum ClientCommand {
     },
     #[serde(rename = "run.cancel")]
     RunCancel { run_id: String },
+    #[serde(rename = "tool.approval.respond")]
+    ToolApprovalRespond { approval_id: String, approved: bool },
     #[serde(rename = "client.ping")]
     Ping { nonce: Option<String> },
 }

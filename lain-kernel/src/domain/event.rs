@@ -73,6 +73,20 @@ pub enum PersistedEvent {
         status: String,
         summary: String,
     },
+    #[serde(rename = "tool.approval_requested")]
+    ToolApprovalRequested {
+        approval_id: String,
+        invocation_id: String,
+        tool_call_id: String,
+        name: String,
+        action_hash: String,
+    },
+    #[serde(rename = "tool.approval_decided")]
+    ToolApprovalDecided {
+        approval_id: String,
+        invocation_id: String,
+        outcome: String,
+    },
     #[serde(rename = "memory.candidate_evaluated")]
     MemoryCandidateEvaluated {
         candidate_id: String,
@@ -110,6 +124,8 @@ impl PersistedEvent {
             Self::ContextCompiled { .. } => "context.compiled",
             Self::ToolStarted { .. } => "tool.started",
             Self::ToolCompleted { .. } => "tool.completed",
+            Self::ToolApprovalRequested { .. } => "tool.approval_requested",
+            Self::ToolApprovalDecided { .. } => "tool.approval_decided",
             Self::MemoryCandidateEvaluated { .. } => "memory.candidate_evaluated",
             Self::MemoryItemCommitted { .. } => "memory.item_committed",
             Self::MemoryItemStatusChanged { .. } => "memory.item_status_changed",

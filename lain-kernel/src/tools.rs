@@ -6,8 +6,9 @@ use std::{
 use serde::Deserialize;
 use serde_json::json;
 use thiserror::Error;
+use uuid::Uuid;
 
-use crate::provider::ToolDefinition;
+use crate::{identity::sha256_hex, provider::ToolDefinition};
 
 const MAX_OUTPUT_BYTES: usize = 64 * 1024;
 const MAX_FILE_BYTES: u64 = 1024 * 1024;
@@ -15,6 +16,7 @@ const MAX_VISITED_FILES: usize = 2_000;
 const DEFAULT_LIST_LIMIT: usize = 200;
 const DEFAULT_SEARCH_LIMIT: usize = 50;
 const DEFAULT_READ_LINES: usize = 200;
+const MAX_DIFF_BYTES: usize = 32 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolCall {
@@ -27,6 +29,17 @@ pub struct ToolCall {
 pub struct ToolResult {
     pub content: String,
     pub summary: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingEdit {
+    pub call: ToolCall,
+    pub display_path: String,
+    pub diff: String,
+    pub action_hash: String,
+    path: PathBuf,
+    original_hash: String,
+    replacement: String,
 }
 
 #[derive(Debug, Error)]
@@ -43,6 +56,20 @@ pub enum ToolError {
     FileTooLarge,
     #[error("file is not UTF-8 text")]
     NotText,
+    #[error("replace_text requires explicit approval")]
+    ApprovalRequired,
+    #[error("edit rejected by user")]
+    ApprovalRejected,
+    #[error("edit approval unavailable")]
+    ApprovalUnavailable,
+    #[error("old_text cannot be empty")]
+    EmptyOldText,
+    #[error("old_text must match exactly once, found {0} occurrences")]
+    MatchCount(usize),
+    #[error("replacement would exceed the file size limit")]
+    ReplacementTooLarge,
+    #[error("file changed after approval was requested")]
+    FileChanged,
     #[error("tool execution failed: {0}")]
     Io(#[from] std::io::Error),
     #[error("tool task failed")]
@@ -107,6 +134,21 @@ impl WorkspaceTools {
                 }),
                 strict: false,
             },
+            ToolDefinition {
+                name: "replace_text".to_string(),
+                description: "Replace one exact, uniquely occurring text block in an existing UTF-8 workspace file. Requires one-shot user approval after a diff preview.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Workspace-relative existing file"},
+                        "old_text": {"type": "string", "minLength": 1},
+                        "new_text": {"type": "string"}
+                    },
+                    "required": ["path", "old_text", "new_text"],
+                    "additionalProperties": false
+                }),
+                strict: false,
+            },
         ]
     }
 
@@ -122,8 +164,74 @@ impl WorkspaceTools {
             "list_files" => self.list_files(serde_json::from_str(&call.arguments)?),
             "read_file" => self.read_file(serde_json::from_str(&call.arguments)?),
             "search_text" => self.search_text(serde_json::from_str(&call.arguments)?),
+            "replace_text" => Err(ToolError::ApprovalRequired),
             _ => Err(ToolError::UnknownTool(call.name)),
         }
+    }
+
+    pub async fn prepare_replace(&self, call: ToolCall) -> Result<PendingEdit, ToolError> {
+        let tools = self.clone();
+        tokio::task::spawn_blocking(move || tools.prepare_replace_blocking(call))
+            .await
+            .map_err(|_| ToolError::TaskFailed)?
+    }
+
+    pub async fn apply_replace(&self, edit: PendingEdit) -> Result<ToolResult, ToolError> {
+        let tools = self.clone();
+        tokio::task::spawn_blocking(move || tools.apply_replace_blocking(edit))
+            .await
+            .map_err(|_| ToolError::TaskFailed)?
+    }
+
+    fn prepare_replace_blocking(&self, call: ToolCall) -> Result<PendingEdit, ToolError> {
+        if call.name != "replace_text" {
+            return Err(ToolError::UnknownTool(call.name));
+        }
+        let input: ReplaceTextInput = serde_json::from_str(&call.arguments)?;
+        if input.old_text.is_empty() {
+            return Err(ToolError::EmptyOldText);
+        }
+        let path = self.resolve(&input.path)?;
+        let original = read_text_file(&path)?;
+        let count = original.match_indices(&input.old_text).count();
+        if count != 1 {
+            return Err(ToolError::MatchCount(count));
+        }
+        let replacement = original.replacen(&input.old_text, &input.new_text, 1);
+        if replacement.len() as u64 > MAX_FILE_BYTES {
+            return Err(ToolError::ReplacementTooLarge);
+        }
+        let display_path = relative_display(&self.root, &path);
+        let original_hash = sha256(&original);
+        let action_hash = sha256(&format!(
+            "replace_text\0{display_path}\0{}\0{original_hash}",
+            call.arguments
+        ));
+        Ok(PendingEdit {
+            diff: replacement_preview(&display_path, &input.old_text, &input.new_text),
+            call,
+            display_path,
+            action_hash,
+            path,
+            original_hash,
+            replacement,
+        })
+    }
+
+    fn apply_replace_blocking(&self, edit: PendingEdit) -> Result<ToolResult, ToolError> {
+        let path = self.resolve(&edit.display_path)?;
+        if path != edit.path {
+            return Err(ToolError::FileChanged);
+        }
+        let current = read_text_file(&path)?;
+        if sha256(&current) != edit.original_hash {
+            return Err(ToolError::FileChanged);
+        }
+        replace_file(&path, edit.replacement.as_bytes(), &edit.original_hash)?;
+        Ok(ToolResult {
+            content: format!("updated {}", edit.display_path),
+            summary: format!("updated {}", edit.display_path),
+        })
     }
 
     fn list_files(&self, input: ListFilesInput) -> Result<ToolResult, ToolError> {
@@ -150,20 +258,7 @@ impl WorkspaceTools {
 
     fn read_file(&self, input: ReadFileInput) -> Result<ToolResult, ToolError> {
         let path = self.resolve(&input.path)?;
-        let metadata = fs::metadata(&path)?;
-        if !metadata.is_file() {
-            return Err(ToolError::PathUnavailable("not a file".to_string()));
-        }
-        if metadata.len() > MAX_FILE_BYTES {
-            return Err(ToolError::FileTooLarge);
-        }
-        let text = fs::read_to_string(&path).map_err(|error| {
-            if error.kind() == std::io::ErrorKind::InvalidData {
-                ToolError::NotText
-            } else {
-                ToolError::Io(error)
-            }
-        })?;
+        let text = read_text_file(&path)?;
         let start = input.start_line.unwrap_or(1).max(1);
         let max_lines = input.max_lines.unwrap_or(DEFAULT_READ_LINES).clamp(1, 500);
         let selected = text
@@ -282,6 +377,14 @@ struct SearchTextInput {
     limit: Option<usize>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ReplaceTextInput {
+    path: String,
+    old_text: String,
+    new_text: String,
+}
+
 fn collect_files(
     directory: &Path,
     root: &Path,
@@ -373,16 +476,116 @@ fn relative_display(root: &Path, path: &Path) -> String {
         .replace('\\', "/")
 }
 
-fn cap_output(mut output: String) -> String {
-    if output.len() <= MAX_OUTPUT_BYTES {
+fn read_text_file(path: &Path) -> Result<String, ToolError> {
+    let metadata = fs::metadata(path)?;
+    if !metadata.is_file() {
+        return Err(ToolError::PathUnavailable("not a file".to_string()));
+    }
+    if metadata.len() > MAX_FILE_BYTES {
+        return Err(ToolError::FileTooLarge);
+    }
+    fs::read_to_string(path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::InvalidData {
+            ToolError::NotText
+        } else {
+            ToolError::Io(error)
+        }
+    })
+}
+
+fn replacement_preview(path: &str, old_text: &str, new_text: &str) -> String {
+    let mut preview = format!("--- {path}\n+++ {path}\n@@ exact replacement @@\n");
+    for line in old_text.lines() {
+        preview.push_str(&format!("-{line}\n"));
+    }
+    for line in new_text.lines() {
+        preview.push_str(&format!("+{line}\n"));
+    }
+    cap_at(preview, MAX_DIFF_BYTES, "\n[diff truncated]")
+}
+
+fn sha256(value: &str) -> String {
+    sha256_hex(value.as_bytes())
+}
+
+fn replace_file(path: &Path, content: &[u8], expected_hash: &str) -> Result<(), ToolError> {
+    use std::io::Write;
+
+    let parent = path
+        .parent()
+        .ok_or_else(|| ToolError::PathUnavailable("file has no parent".to_string()))?;
+    let temp = parent.join(format!(".lain-edit-{}.tmp", Uuid::now_v7()));
+    let result = (|| {
+        let mut file = fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&temp)?;
+        file.write_all(content)?;
+        file.sync_all()?;
+        let permissions = fs::metadata(path)?.permissions();
+        fs::set_permissions(&temp, permissions)?;
+        if sha256(&read_text_file(path)?) != expected_hash {
+            return Err(ToolError::FileChanged);
+        }
+        atomic_replace(&temp, path)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temp);
+    }
+    result
+}
+
+#[cfg(not(windows))]
+fn atomic_replace(source: &Path, destination: &Path) -> Result<(), ToolError> {
+    fs::rename(source, destination).map_err(ToolError::Io)
+}
+
+#[cfg(windows)]
+fn atomic_replace(source: &Path, destination: &Path) -> Result<(), ToolError> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{
+        MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW,
+    };
+
+    let source = source
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect::<Vec<_>>();
+    let destination = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(Some(0))
+        .collect::<Vec<_>>();
+    // SAFETY: both pointers reference null-terminated UTF-16 buffers for the duration of the call.
+    let succeeded = unsafe {
+        MoveFileExW(
+            source.as_ptr(),
+            destination.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if succeeded == 0 {
+        Err(ToolError::Io(std::io::Error::last_os_error()))
+    } else {
+        Ok(())
+    }
+}
+
+fn cap_output(output: String) -> String {
+    cap_at(output, MAX_OUTPUT_BYTES, "\n[output truncated]")
+}
+
+fn cap_at(mut output: String, limit: usize, suffix: &str) -> String {
+    if output.len() <= limit {
         return output;
     }
-    let mut end = MAX_OUTPUT_BYTES;
+    let mut end = limit;
     while !output.is_char_boundary(end) {
         end -= 1;
     }
     output.truncate(end);
-    output.push_str("\n[output truncated]");
+    output.push_str(suffix);
     output
 }
 
@@ -440,5 +643,47 @@ mod tests {
             })
             .await;
         assert!(matches!(secret, Err(ToolError::PathUnavailable(_))));
+    }
+
+    #[tokio::test]
+    async fn replace_requires_preview_and_rejects_stale_files() {
+        let fixture = TempDir::new().expect("fixture");
+        let path = fixture.path().join("note.txt");
+        fs::write(&path, "before\n").expect("source");
+        let tools = WorkspaceTools::new(fixture.path()).expect("tools");
+        let call = ToolCall {
+            id: "edit-1".to_string(),
+            name: "replace_text".to_string(),
+            arguments: r#"{"path":"note.txt","old_text":"before","new_text":"after"}"#.to_string(),
+        };
+
+        assert!(matches!(
+            tools.execute(call.clone()).await,
+            Err(ToolError::ApprovalRequired)
+        ));
+        let edit = tools.prepare_replace(call).await.expect("preview");
+        assert!(edit.diff.contains("-before\n+after"));
+        assert_eq!(fs::read_to_string(&path).expect("unchanged"), "before\n");
+        tools.apply_replace(edit).await.expect("approved edit");
+        assert_eq!(fs::read_to_string(&path).expect("updated"), "after\n");
+
+        let stale = tools
+            .prepare_replace(ToolCall {
+                id: "edit-2".to_string(),
+                name: "replace_text".to_string(),
+                arguments: r#"{"path":"note.txt","old_text":"after","new_text":"final"}"#
+                    .to_string(),
+            })
+            .await
+            .expect("second preview");
+        fs::write(&path, "changed elsewhere\n").expect("race fixture");
+        assert!(matches!(
+            tools.apply_replace(stale).await,
+            Err(ToolError::FileChanged)
+        ));
+        assert_eq!(
+            fs::read_to_string(&path).expect("external change kept"),
+            "changed elsewhere\n"
+        );
     }
 }
