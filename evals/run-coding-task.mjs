@@ -10,7 +10,6 @@ const ROOT = resolve(import.meta.dirname, "..");
 const KERNEL_DIR = join(ROOT, "lain-kernel");
 const KERNEL = join(KERNEL_DIR, "target", "debug", process.platform === "win32" ? "lain-kernel.exe" : "lain-kernel");
 const CASES = join(ROOT, "evals", "cases", "coding", "golden.jsonl");
-const OUTPUT = resolve(process.env.CODING_EVAL_OUTPUT ?? "evals/results/p6/coding-task-smoke.json");
 
 function invariant(condition, message) {
   if (!condition) throw new Error(message);
@@ -22,6 +21,12 @@ function selectedCaseId(args) {
     throw new Error("usage: node evals/run-coding-task.mjs --case <coding-case-id>");
   }
   return args[index + 1];
+}
+
+function selectedOutput(args) {
+  const index = args.indexOf("--output");
+  if (index >= 0 && !args[index + 1]) throw new Error("--output requires a path");
+  return resolve(process.env.CODING_EVAL_OUTPUT ?? (index >= 0 ? args[index + 1] : undefined) ?? "evals/results/p6/coding-task-smoke.json");
 }
 
 async function loadCase(id) {
@@ -150,7 +155,9 @@ async function score(item, workspace, client, usage, decisions) {
 
   if (!isSubsequence(item.expected.tool_subsequence, tools)) failures.push(`tool sequence: ${tools.join(" -> ")}`);
   if (!isSubsequence(item.expected.exit_codes, exitCodes)) failures.push(`exit codes: ${exitCodes.join(",")}`);
-  if (!final.includes(item.expected.final_contains)) failures.push(`final response: ${final}`);
+  if (item.expected.final_equals !== undefined
+      ? final !== item.expected.final_equals
+      : !final.includes(item.expected.final_contains)) failures.push(`final response: ${final}`);
   if (decisions.some(({ approved }) => !approved)) failures.push("unexpected approval request");
 
   for (const [path, expected] of Object.entries(item.expected.files)) {
@@ -185,6 +192,7 @@ async function score(item, workspace, client, usage, decisions) {
 
 async function main(args = process.argv.slice(2)) {
   const item = await loadCase(selectedCaseId(args));
+  const output = selectedOutput(args);
   await ensureKernel();
   const fixture = await mkdtemp(join(tmpdir(), "lain-coding-eval-"));
   const workspace = join(fixture, "workspace");
@@ -213,8 +221,8 @@ async function main(args = process.argv.slice(2)) {
     client = await connect(`ws://127.0.0.1:${port}/v1/ws`, item, decisions);
     const usage = await client.ask(item.input.prompt);
     const result = await score(item, workspace, client, usage, decisions);
-    await mkdir(dirname(OUTPUT), { recursive: true });
-    await writeFile(OUTPUT, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+    await mkdir(dirname(output), { recursive: true });
+    await writeFile(output, `${JSON.stringify(result, null, 2)}\n`, "utf8");
     console.log(JSON.stringify(result, null, 2));
     invariant(result.passed, result.failures.join("; "));
   } finally {

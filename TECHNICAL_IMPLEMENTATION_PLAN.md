@@ -2400,7 +2400,7 @@ Playwright：
 - [ ] P6-018 MCP metadata/output 标记 untrusted。
 - [ ] P6-019 建立最小 scope 和 approval 映射。
 - [ ] P6-020 增加 balanced tool eval suite。（已建立 3 类 coding smoke 与失败恢复基线；扩展到均衡规模后完成。）
-- [ ] P6-021 对 tool output prompt injection 做 red-team。
+- [x] P6-021 对 tool output prompt injection 做 red-team。（workspace v0：统一 untrusted 标签、canary 泄露检测与未授权写入检测；MCP/web 接入后追加对应案例。）
 
 完成门：所有副作用可审计；破坏性工具零未授权执行；MCP 失效不影响普通聊天。
 
