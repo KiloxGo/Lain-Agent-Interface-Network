@@ -309,11 +309,16 @@ export async function main(args = process.argv.slice(2)) {
   if (continueSession) process.stdout.write(historyText(client.messages));
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   client.approve = async (approval) => {
+    const command = typeof approval.command === "string";
+    const detail = command
+      ? `${dim(approval.cwd ?? ".")}\n$ ${approval.command}`
+      : `${dim(approval.path ?? "")}\n${approval.diff ?? ""}`;
+    const warning = typeof approval.warning === "string" ? `\n${dim(approval.warning)}` : "";
     process.stdout.write(
-      `\n${pink(`鈼?approve 鈥?${approval.name ?? "workspace edit"}`)}\n${dim(approval.path ?? "")}\n${approval.diff ?? ""}\n`,
+      `\n${pink(`鈼?approve 鈥?${approval.name ?? "tool"}`)}\n${detail}${warning}\n`,
     );
     if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
-    const answer = await readline.question("Apply this change? [y/N] ");
+    const answer = await readline.question(command ? "Run this check? [y/N] " : "Apply this change? [y/N] ");
     return /^(y|yes)$/i.test(answer.trim());
   };
 

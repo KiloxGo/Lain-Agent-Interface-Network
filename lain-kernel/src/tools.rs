@@ -1,11 +1,18 @@
 use std::{
-    fs,
+    env, fs,
     path::{Component, Path, PathBuf},
+    process::Stdio,
+    time::Duration,
 };
 
 use serde::Deserialize;
 use serde_json::json;
 use thiserror::Error;
+use tokio::{
+    io::{AsyncRead, AsyncReadExt},
+    process::Command,
+};
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::{identity::sha256_hex, provider::ToolDefinition};
@@ -17,6 +24,7 @@ const DEFAULT_LIST_LIMIT: usize = 200;
 const DEFAULT_SEARCH_LIMIT: usize = 50;
 const DEFAULT_READ_LINES: usize = 200;
 const MAX_DIFF_BYTES: usize = 32 * 1024;
+const CHECK_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolCall {
@@ -33,13 +41,22 @@ pub struct ToolResult {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PendingEdit {
-    pub call: ToolCall,
     pub display_path: String,
     pub diff: String,
     pub action_hash: String,
     path: PathBuf,
     original_hash: String,
     replacement: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingCheck {
+    pub display_command: String,
+    pub display_workdir: String,
+    pub action_hash: String,
+    program: String,
+    args: Vec<String>,
+    workdir: PathBuf,
 }
 
 #[derive(Debug, Error)]
@@ -56,7 +73,7 @@ pub enum ToolError {
     FileTooLarge,
     #[error("file is not UTF-8 text")]
     NotText,
-    #[error("replace_text requires explicit approval")]
+    #[error("tool requires explicit approval")]
     ApprovalRequired,
     #[error("edit rejected by user")]
     ApprovalRejected,
@@ -70,6 +87,10 @@ pub enum ToolError {
     ReplacementTooLarge,
     #[error("file changed after approval was requested")]
     FileChanged,
+    #[error("check command timed out after 300 seconds")]
+    CommandTimedOut,
+    #[error("check command was cancelled")]
+    CommandCancelled,
     #[error("tool execution failed: {0}")]
     Io(#[from] std::io::Error),
     #[error("tool task failed")]
@@ -149,6 +170,26 @@ impl WorkspaceTools {
                 }),
                 strict: false,
             },
+            ToolDefinition {
+                name: "run_check".to_string(),
+                description: "Run one predefined local project check after one-shot user approval. No free-form command or arguments are accepted.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "check": {
+                            "type": "string",
+                            "enum": [
+                                "cargo_check", "cargo_test", "cargo_clippy", "cargo_fmt_check",
+                                "node_test", "npm_test", "npm_lint", "npm_build"
+                            ]
+                        },
+                        "path": {"type": "string", "description": "Workspace-relative project directory; defaults to ."}
+                    },
+                    "required": ["check"],
+                    "additionalProperties": false
+                }),
+                strict: false,
+            },
         ]
     }
 
@@ -164,7 +205,7 @@ impl WorkspaceTools {
             "list_files" => self.list_files(serde_json::from_str(&call.arguments)?),
             "read_file" => self.read_file(serde_json::from_str(&call.arguments)?),
             "search_text" => self.search_text(serde_json::from_str(&call.arguments)?),
-            "replace_text" => Err(ToolError::ApprovalRequired),
+            "replace_text" | "run_check" => Err(ToolError::ApprovalRequired),
             _ => Err(ToolError::UnknownTool(call.name)),
         }
     }
@@ -209,12 +250,78 @@ impl WorkspaceTools {
         ));
         Ok(PendingEdit {
             diff: replacement_preview(&display_path, &input.old_text, &input.new_text),
-            call,
             display_path,
             action_hash,
             path,
             original_hash,
             replacement,
+        })
+    }
+
+    pub async fn prepare_check(&self, call: ToolCall) -> Result<PendingCheck, ToolError> {
+        let tools = self.clone();
+        tokio::task::spawn_blocking(move || tools.prepare_check_blocking(call))
+            .await
+            .map_err(|_| ToolError::TaskFailed)?
+    }
+
+    pub async fn run_check(
+        &self,
+        check: PendingCheck,
+        cancellation: CancellationToken,
+    ) -> Result<ToolResult, ToolError> {
+        let workdir = self.resolve(&check.display_workdir)?;
+        if workdir != check.workdir {
+            return Err(ToolError::FileChanged);
+        }
+        run_bounded_command(check, cancellation).await
+    }
+
+    fn prepare_check_blocking(&self, call: ToolCall) -> Result<PendingCheck, ToolError> {
+        if call.name != "run_check" {
+            return Err(ToolError::UnknownTool(call.name));
+        }
+        let input: RunCheckInput = serde_json::from_str(&call.arguments)?;
+        let workdir = self.resolve(input.path.as_deref().unwrap_or("."))?;
+        if !workdir.is_dir() {
+            return Err(ToolError::PathUnavailable("not a directory".to_string()));
+        }
+        let (program, args, required_file, npm_script) = input.check.command();
+        let manifest = workdir.join(required_file);
+        if !manifest.is_file() {
+            return Err(ToolError::PathUnavailable(format!(
+                "{} not found in project directory",
+                required_file
+            )));
+        }
+        if let Some(script) = npm_script {
+            let package: serde_json::Value = serde_json::from_str(&read_text_file(&manifest)?)?;
+            if package
+                .get("scripts")
+                .and_then(|scripts| scripts.get(script))
+                .and_then(serde_json::Value::as_str)
+                .is_none()
+            {
+                return Err(ToolError::PathUnavailable(format!(
+                    "npm script {script} not found"
+                )));
+            }
+        }
+        let display_workdir = match relative_display(&self.root, &workdir) {
+            value if value.is_empty() => ".".to_string(),
+            value => value,
+        };
+        let display_command = std::iter::once(program)
+            .chain(args.iter().copied())
+            .collect::<Vec<_>>()
+            .join(" ");
+        Ok(PendingCheck {
+            action_hash: sha256(&format!("run_check\0{display_workdir}\0{display_command}")),
+            display_command,
+            display_workdir,
+            program: platform_program(program),
+            args: args.into_iter().map(str::to_string).collect(),
+            workdir,
         })
     }
 
@@ -383,6 +490,75 @@ struct ReplaceTextInput {
     path: String,
     old_text: String,
     new_text: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RunCheckInput {
+    check: CheckKind,
+    path: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum CheckKind {
+    CargoCheck,
+    CargoTest,
+    CargoClippy,
+    CargoFmtCheck,
+    NodeTest,
+    NpmTest,
+    NpmLint,
+    NpmBuild,
+}
+
+impl CheckKind {
+    fn command(
+        self,
+    ) -> (
+        &'static str,
+        Vec<&'static str>,
+        &'static str,
+        Option<&'static str>,
+    ) {
+        match self {
+            Self::CargoCheck => (
+                "cargo",
+                vec!["check", "--all-targets", "--all-features"],
+                "Cargo.toml",
+                None,
+            ),
+            Self::CargoTest => (
+                "cargo",
+                vec!["test", "--all-targets", "--all-features"],
+                "Cargo.toml",
+                None,
+            ),
+            Self::CargoClippy => (
+                "cargo",
+                vec![
+                    "clippy",
+                    "--all-targets",
+                    "--all-features",
+                    "--",
+                    "-D",
+                    "warnings",
+                ],
+                "Cargo.toml",
+                None,
+            ),
+            Self::CargoFmtCheck => (
+                "cargo",
+                vec!["fmt", "--all", "--", "--check"],
+                "Cargo.toml",
+                None,
+            ),
+            Self::NodeTest => ("node", vec!["--test"], "package.json", None),
+            Self::NpmTest => ("npm", vec!["test"], "package.json", Some("test")),
+            Self::NpmLint => ("npm", vec!["run", "lint"], "package.json", Some("lint")),
+            Self::NpmBuild => ("npm", vec!["run", "build"], "package.json", Some("build")),
+        }
+    }
 }
 
 fn collect_files(
@@ -572,6 +748,141 @@ fn atomic_replace(source: &Path, destination: &Path) -> Result<(), ToolError> {
     }
 }
 
+fn platform_program(program: &str) -> String {
+    if cfg!(windows) && program == "npm" {
+        "npm.cmd".to_string()
+    } else {
+        program.to_string()
+    }
+}
+
+async fn run_bounded_command(
+    check: PendingCheck,
+    cancellation: CancellationToken,
+) -> Result<ToolResult, ToolError> {
+    let mut command = Command::new(&check.program);
+    command
+        .args(&check.args)
+        .current_dir(&check.workdir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true)
+        .env("CI", "1")
+        .env("NO_COLOR", "1")
+        .env("CARGO_TERM_COLOR", "never")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("npm_config_audit", "false")
+        .env("npm_config_fund", "false")
+        .env("npm_config_progress", "false");
+    for (name, _) in env::vars_os() {
+        if sensitive_env_name(&name.to_string_lossy()) {
+            command.env_remove(name);
+        }
+    }
+
+    let mut child = command.spawn()?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| ToolError::PathUnavailable("stdout unavailable".to_string()))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| ToolError::PathUnavailable("stderr unavailable".to_string()))?;
+    let stdout_task = tokio::spawn(read_bounded(stdout));
+    let stderr_task = tokio::spawn(read_bounded(stderr));
+    enum Completion {
+        Status(std::io::Result<std::process::ExitStatus>),
+        Cancelled,
+        TimedOut,
+    }
+    let completion = {
+        let wait = child.wait();
+        tokio::pin!(wait);
+        tokio::select! {
+            status = &mut wait => Completion::Status(status),
+            () = cancellation.cancelled() => Completion::Cancelled,
+            () = tokio::time::sleep(CHECK_TIMEOUT) => Completion::TimedOut,
+        }
+    };
+    let status = match completion {
+        Completion::Status(status) => status?,
+        Completion::Cancelled | Completion::TimedOut => {
+            // ponytail: direct-child kill is sufficient for preset foreground checks; add a
+            // process-tree backend before exposing arbitrary commands or background jobs.
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+            stdout_task.abort();
+            stderr_task.abort();
+            return Err(if matches!(completion, Completion::TimedOut) {
+                ToolError::CommandTimedOut
+            } else {
+                ToolError::CommandCancelled
+            });
+        }
+    };
+    let stdout = stdout_task.await.map_err(|_| ToolError::TaskFailed)??;
+    let stderr = stderr_task.await.map_err(|_| ToolError::TaskFailed)??;
+    let exit = status
+        .code()
+        .map_or_else(|| "signal".to_string(), |code| code.to_string());
+    let mut content = format!("[exit code: {exit}]");
+    if !stdout.is_empty() {
+        content.push_str("\n[stdout]\n");
+        content.push_str(&String::from_utf8_lossy(&stdout));
+    }
+    if !stderr.is_empty() {
+        content.push_str("\n[stderr]\n");
+        content.push_str(&String::from_utf8_lossy(&stderr));
+    }
+    Ok(ToolResult {
+        summary: format!("{} exited {exit}", check.display_command),
+        content: cap_output(content),
+    })
+}
+
+async fn read_bounded(mut reader: impl AsyncRead + Unpin) -> std::io::Result<Vec<u8>> {
+    let mut kept = Vec::new();
+    let mut chunk = [0_u8; 8 * 1024];
+    loop {
+        let read = reader.read(&mut chunk).await?;
+        if read == 0 {
+            break;
+        }
+        let remaining = MAX_OUTPUT_BYTES.saturating_sub(kept.len());
+        kept.extend_from_slice(&chunk[..read.min(remaining)]);
+    }
+    Ok(kept)
+}
+
+fn sensitive_env_name(name: &str) -> bool {
+    let name = name.to_ascii_uppercase();
+    matches!(
+        name.as_str(),
+        "API_KEY"
+            | "TOKEN"
+            | "SECRET"
+            | "PASSWORD"
+            | "CREDENTIAL"
+            | "CREDENTIALS"
+            | "DOCKER_AUTH_CONFIG"
+            | "KUBECONFIG"
+            | "SSH_AUTH_SOCK"
+    ) || name.ends_with("_KEY")
+        || name.contains("_TOKEN")
+        || name.contains("_SECRET")
+        || name.contains("_PASSWORD")
+        || name.contains("_CREDENTIAL")
+        || name.starts_with("DEEPSEEK_")
+        || name.starts_with("OPENAI_")
+        || name.starts_with("ANTHROPIC_")
+        || name.starts_with("AWS_")
+        || name.starts_with("AZURE_")
+        || name.starts_with("GITHUB_")
+        || name.starts_with("GH_")
+}
+
 fn cap_output(output: String) -> String {
     cap_at(output, MAX_OUTPUT_BYTES, "\n[output truncated]")
 }
@@ -685,5 +996,66 @@ mod tests {
             fs::read_to_string(&path).expect("external change kept"),
             "changed elsewhere\n"
         );
+    }
+
+    #[tokio::test]
+    async fn checks_are_predefined_approved_and_bounded() {
+        let fixture = TempDir::new().expect("fixture");
+        fs::write(
+            fixture.path().join("Cargo.toml"),
+            "[package]\nname='fixture'\n",
+        )
+        .expect("manifest");
+        let tools = WorkspaceTools::new(fixture.path()).expect("tools");
+        let call = ToolCall {
+            id: "check-1".to_string(),
+            name: "run_check".to_string(),
+            arguments: r#"{"check":"cargo_fmt_check"}"#.to_string(),
+        };
+        assert!(matches!(
+            tools.execute(call.clone()).await,
+            Err(ToolError::ApprovalRequired)
+        ));
+        let prepared = tools.prepare_check(call).await.expect("check preview");
+        assert_eq!(prepared.display_command, "cargo fmt --all -- --check");
+        assert_eq!(prepared.display_workdir, ".");
+
+        let result = run_bounded_command(
+            PendingCheck {
+                display_command: "test-binary --list".to_string(),
+                display_workdir: ".".to_string(),
+                action_hash: "test".to_string(),
+                program: std::env::current_exe()
+                    .expect("test binary")
+                    .to_string_lossy()
+                    .into_owned(),
+                args: vec!["--list".to_string()],
+                workdir: fixture.path().to_path_buf(),
+            },
+            CancellationToken::new(),
+        )
+        .await
+        .expect("bounded process");
+        assert!(result.content.starts_with("[exit code: 0]"));
+        assert!(sensitive_env_name("DEEPSEEK_API_KEY"));
+
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+        let cancelled = run_bounded_command(
+            PendingCheck {
+                display_command: "cancelled check".to_string(),
+                display_workdir: ".".to_string(),
+                action_hash: "test".to_string(),
+                program: std::env::current_exe()
+                    .expect("test binary")
+                    .to_string_lossy()
+                    .into_owned(),
+                args: vec!["--list".to_string()],
+                workdir: fixture.path().to_path_buf(),
+            },
+            cancellation,
+        )
+        .await;
+        assert!(matches!(cancelled, Err(ToolError::CommandCancelled)));
     }
 }

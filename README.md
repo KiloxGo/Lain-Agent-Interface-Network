@@ -12,7 +12,7 @@
 - 存储：`~/.lain/state/lain.db` 下的 SQLite WAL 保存 session、message、run 与事件；旧 Markdown 记忆暂时保留为兼容读取和迁移入口（根目录可通过 `LAIN_DATA_DIR` 覆盖）。
 - 记忆：Memory v1 将模型抽取先写为候选，由 Rust 策略校验证据、敏感度和指令污染；只有已提交 item 会通过有来源的 FTS5 evidence 进入 Context Compiler。
 - 身份与上下文：`identity/v1` 资产启动时校验 manifest/schema/hash；每个 v1 run 在模型调用前保存 identity version、ContextPlan、prompt hash、预算选择与 drop reason。
-- 工具：CLI 自动启动的 kernel 提供 `list_files`、`read_file`、`search_text` 和 `replace_text`；路径、Secret 文件、遍历量与输出大小由 Rust 策略限制，精确写入必须先展示 diff 并取得一次性 `y/N` 授权，尚不提供命令执行。
+- 工具：CLI 自动启动的 kernel 提供 `list_files`、`read_file`、`search_text`、`replace_text` 和 `run_check`；路径、Secret、遍历量与输出大小由 Rust 策略限制，精确写入和八种预定义 Cargo/Node/npm 检查必须先展示 diff 或 command/cwd 并取得一次性 `y/N` 授权，尚不提供任意 shell。
 - 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、SQLite 事务/迁移/并发 seq、协议 DTO 与 Markdown 迁移已有离线契约测试。
 
 完整现状、目标架构、ADR 和 209 项实施任务见 [TECHNICAL_IMPLEMENTATION_PLAN.md](TECHNICAL_IMPLEMENTATION_PLAN.md)。
@@ -46,7 +46,7 @@ npm run dev
 .\lain.cmd -c
 ```
 
-可用 `LAIN_WS_URL` 覆盖默认的 `ws://127.0.0.1:3000/v1/ws`。CLI 自动启动 kernel 时将调用目录作为受限 workspace；可用 `LAIN_WORKSPACE` 显式覆盖。`-c` 会显示最近的持久消息并继续默认 session。CLI 支持流式回复、工具进度、精确编辑审批、`/help`、`/history`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。
+可用 `LAIN_WS_URL` 覆盖默认的 `ws://127.0.0.1:3000/v1/ws`。CLI 自动启动 kernel 时将调用目录作为受限 workspace；可用 `LAIN_WORKSPACE` 显式覆盖。`-c` 会显示最近的持久消息并继续默认 session。CLI 支持流式回复、工具进度、精确编辑/项目检查审批、`/help`、`/history`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。
 
 默认访问 Vite 输出的本地地址。`/api/health` 只表示进程存活，`/api/ready` 检查 identity、SQLite、数据目录和 provider；`/api/provider` 返回不含 Secret 的能力诊断。前端使用 `/v1/ws`：协商版本后订阅默认 session，按 seq 重放持久事件并支持刷新恢复、退避重连和 Stop。`/ws/stream` 与裸文本 `/ws` 暂时作为弃用兼容入口。
 
