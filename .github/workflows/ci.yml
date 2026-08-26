@@ -66,6 +66,8 @@ jobs:
         working-directory: frontend
       - name: Validate synthetic eval fixtures
         run: node evals/validate.mjs
+      - name: Check coding eval runner
+        run: node --check evals/run-coding-task.mjs
 
   dependency-policy:
     name: Rust dependency policy (${{ matrix.checks }})

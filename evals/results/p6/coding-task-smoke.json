@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-26T08:28:35.764Z",
+  "caseId": "coding-recover-node-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "list_files",
+    "run_check",
+    "read_file",
+    "read_file",
+    "replace_text",
+    "run_check"
+  ],
+  "exitCodes": [
+    "1",
+    "0"
+  ],
+  "approvals": [
+    {
+      "name": "run_check",
+      "cwd": ".",
+      "command": "node --test",
+      "approved": true
+    },
+    {
+      "name": "replace_text",
+      "path": "math.js",
+      "approved": true
+    },
+    {
+      "name": "run_check",
+      "cwd": ".",
+      "command": "node --test",
+      "approved": true
+    }
+  ],
+  "final": "CODING_TASK_OK",
+  "usage": {
+    "cached_input_tokens": 11264,
+    "input_tokens": 12520,
+    "output_tokens": 291
+  }
+}

@@ -2,8 +2,9 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const suites = [
-  { name: "persona", path: "evals/cases/persona/golden.jsonl", minimum: 20 },
-  { name: "memory", path: "evals/cases/memory/golden.jsonl", minimum: 20 },
+  { name: "persona", path: "evals/cases/persona/golden.jsonl", minimum: 20, minimumCategories: 5 },
+  { name: "memory", path: "evals/cases/memory/golden.jsonl", minimum: 20, minimumCategories: 5 },
+  { name: "coding", path: "evals/cases/coding/golden.jsonl", minimum: 3, minimumCategories: 3 },
 ];
 
 const ids = new Set();
@@ -41,14 +42,22 @@ for (const suite of suites) {
     if (suite.name === "persona") {
       invariant(Array.isArray(item.input.messages) && item.input.messages.length > 0, `${item.id}: missing messages`);
       invariant(Array.isArray(item.expected.must) && Array.isArray(item.expected.must_not), `${item.id}: missing persona constraints`);
-    } else {
+    } else if (suite.name === "memory") {
       invariant(Array.isArray(item.input.records), `${item.id}: missing records`);
       invariant(typeof item.input.query === "string", `${item.id}: missing query`);
       invariant(Array.isArray(item.expected.recall_ids) && Array.isArray(item.expected.exclude_ids), `${item.id}: missing recall constraints`);
+    } else {
+      invariant(typeof item.input.prompt === "string" && item.input.prompt.length > 0, `${item.id}: missing prompt`);
+      invariant(item.input.files && typeof item.input.files === "object" && !Array.isArray(item.input.files), `${item.id}: missing files`);
+      invariant(Array.isArray(item.approval?.paths) && Array.isArray(item.approval?.commands), `${item.id}: missing approval allowlist`);
+      invariant(Array.isArray(item.expected.tool_subsequence), `${item.id}: missing tool sequence`);
+      invariant(Array.isArray(item.expected.exit_codes), `${item.id}: missing exit codes`);
+      invariant(item.expected.files && typeof item.expected.files === "object", `${item.id}: missing expected files`);
+      invariant(typeof item.expected.final_contains === "string", `${item.id}: missing final marker`);
     }
   }
 
-  invariant(categories.size >= 5, `${suite.name}: expected at least 5 categories`);
+  invariant(categories.size >= suite.minimumCategories, `${suite.name}: expected at least ${suite.minimumCategories} categories`);
   console.log(`${suite.name}: ${lines.length} cases, ${categories.size} categories`);
 }
 
@@ -80,4 +89,12 @@ const harness = JSON.parse(await readFile(resolve("evals/results/p0/harness.json
 invariant(harness.callsUsed === 5 && harness.runs?.length === 5, "harness: expected 5 runs");
 invariant(harness.storage?.iterations === 200, "harness: expected 200 storage iterations");
 
-console.log(`eval fixtures valid: ${ids.size} cases plus online P0 baselines`);
+const codingSmoke = JSON.parse(await readFile(resolve("evals/results/p6/coding-task-smoke.json"), "utf8"));
+invariant(codingSmoke.caseId?.startsWith("coding-"), "coding smoke: invalid case id");
+invariant(codingSmoke.passed === true && codingSmoke.failures?.length === 0, "coding smoke: expected a passing result");
+invariant(Array.isArray(codingSmoke.tools) && Array.isArray(codingSmoke.exitCodes), "coding smoke: missing tool trace");
+invariant(Array.isArray(codingSmoke.approvals) && codingSmoke.approvals.every(({ approved }) => approved), "coding smoke: invalid approvals");
+invariant(typeof codingSmoke.final === "string" && codingSmoke.usage && typeof codingSmoke.usage === "object", "coding smoke: missing output");
+invariant(!secretPattern.test(JSON.stringify(codingSmoke)), "coding smoke: result looks like a real secret");
+
+console.log(`eval fixtures valid: ${ids.size} cases plus online baselines`);

@@ -29,6 +29,9 @@ node evals/validate.mjs
 ```powershell
 node --env-file=lain-kernel/.env evals/run-persona.mjs
 node evals/benchmark-harness.mjs
+node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-recover-node-001
 ```
 
 `run-persona.mjs` 默认最多使用 30 次调用：20 次生成、4 次批量 judge，并保留余量用于异常重跑。它不会保存系统提示词或密钥，只保存提示词 SHA-256、合成输入、输出、usage、时延和 judge 结果。`benchmark-harness.mjs` 通过实际 WebSocket 使用 5 次调用，并测量当前 Markdown append 原语；运行前需要启动后端。
+
+`run-coding-task.mjs` 每次必须显式选择一个案例。它会启动本地 kernel，在一次性临时 workspace 中运行任务，并且只自动批准案例声明的文件路径和预定义检查；CI 只校验案例与已保存结果，不调用付费模型。
