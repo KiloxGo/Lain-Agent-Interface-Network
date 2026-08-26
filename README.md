@@ -12,7 +12,7 @@
 - 存储：`~/.lain/state/lain.db` 下的 SQLite WAL 保存 session、message、run 与事件；旧 Markdown 记忆暂时保留为兼容读取和迁移入口（根目录可通过 `LAIN_DATA_DIR` 覆盖）。
 - 记忆：Memory v1 将模型抽取先写为候选，由 Rust 策略校验证据、敏感度和指令污染；只有已提交 item 会通过有来源的 FTS5 evidence 进入 Context Compiler。
 - 身份与上下文：`identity/v1` 资产启动时校验 manifest/schema/hash；每个 v1 run 在模型调用前保存 identity version、ContextPlan、prompt hash、预算选择与 drop reason。
-- 工具：CLI 自动启动的 kernel 提供 `list_files`、`read_file`、`search_text`、`replace_text` 和 `run_check`；路径、Secret、遍历量与输出大小由 Rust 策略限制，精确写入和八种预定义 Cargo/Node/npm 检查必须先展示 diff 或 command/cwd 并取得一次性 `y/N` 授权，尚不提供任意 shell。
+- 工具：CLI 自动启动的 kernel 提供 `list_files`、`read_file`、`search_text`、`replace_text`、`create_file` 和 `run_check`；路径、Secret、遍历量与输出大小由 Rust 策略限制，精确写入、no-clobber 创建和八种预定义 Cargo/Node/npm 检查必须先展示 diff 或 command/cwd 并取得一次性 `y/N` 授权，尚不提供覆盖式 write 或任意 shell。
 - 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、SQLite 事务/迁移/并发 seq、协议 DTO 与 Markdown 迁移已有离线契约测试。
 
 完整现状、目标架构、ADR 和 209 项实施任务见 [TECHNICAL_IMPLEMENTATION_PLAN.md](TECHNICAL_IMPLEMENTATION_PLAN.md)。

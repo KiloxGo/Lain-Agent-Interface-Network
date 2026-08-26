@@ -704,6 +704,52 @@ async fn execute_run(
                     }
                     Err(error) => Err(error),
                 },
+                "create_file" => match workspace_tools.prepare_create(call.clone()).await {
+                    Ok(create) => {
+                        let approval = resolve_tool_approval(
+                            storage,
+                            incoming,
+                            outbound,
+                            ToolApprovalRequest {
+                                run: &run,
+                                invocation_id: &invocation_id,
+                                call: &call,
+                                action_hash: &create.action_hash,
+                                presentation: json!({
+                                    "path": &create.display_path,
+                                    "diff": &create.diff
+                                }),
+                            },
+                            &cancellation,
+                            &mut client_gone,
+                        )
+                        .await;
+                        match approval {
+                            Ok(ApprovalOutcome::Approved) => {
+                                workspace_tools.apply_create(create).await
+                            }
+                            Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
+                            Ok(ApprovalOutcome::Unavailable) => Err(ToolError::ApprovalUnavailable),
+                            Ok(ApprovalOutcome::RunCancelled) => {
+                                cancellation.cancel();
+                                return cancel_tool_run(
+                                    storage,
+                                    outbound,
+                                    &run,
+                                    &invocation_id,
+                                    &call,
+                                    "approval_cancelled",
+                                )
+                                .await;
+                            }
+                            Err(error) => {
+                                tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
+                                return fail_run(storage, outbound, &run, "storage_error").await;
+                            }
+                        }
+                    }
+                    Err(error) => Err(error),
+                },
                 "run_check" => match workspace_tools.prepare_check(call.clone()).await {
                     Ok(check) => {
                         let approval = resolve_tool_approval(
@@ -1075,7 +1121,7 @@ async fn await_tool_approval(
 }
 
 fn tool_risk(name: &str) -> &'static str {
-    if matches!(name, "replace_text" | "run_check") {
+    if matches!(name, "replace_text" | "create_file" | "run_check") {
         "workspace_write"
     } else {
         "read_only"
@@ -1087,6 +1133,7 @@ fn tool_error_code(error: &ToolError) -> &'static str {
         ToolError::ApprovalRejected => "approval_rejected",
         ToolError::ApprovalUnavailable => "approval_unavailable",
         ToolError::FileChanged => "file_changed",
+        ToolError::PathAlreadyExists => "path_already_exists",
         ToolError::CommandTimedOut => "command_timed_out",
         ToolError::CommandCancelled => "command_cancelled",
         _ => "tool_rejected",

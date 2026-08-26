@@ -35,6 +35,8 @@ P6 只读工具已经能帮助模型理解项目，但不能完成最小代码�
 
 这些能力只在精确替换不能覆盖真实任务，且已有相应沙箱、回滚和评测证据时增加。
 
+后续变更：单文件创建已由 [ADR 0008](0008-approved-no-clobber-file-creation.md) 以独立 no-clobber 语义接受；覆盖、删除、通用 patch 与 shell 仍不在本决策范围内。
+
 ## 官方参考
 
 - [DeepSeek Harness approval subsystem](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/approval.md)
@@ -42,4 +44,3 @@ P6 只读工具已经能帮助模型理解项目，但不能完成最小代码�
 - [Gemini CLI tools reference](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/tools.md)
 - [Codex apply_patch instructions](https://github.com/openai/codex/blob/main/codex-rs/core/prompt_with_apply_patch_instructions.md)
 - [DeepSeek Harness Windows workspace escape discussion](https://github.com/deepseek-ai/deepseek-harness/discussions/523)
-

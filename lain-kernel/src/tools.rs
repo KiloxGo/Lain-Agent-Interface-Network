@@ -50,6 +50,15 @@ pub struct PendingEdit {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingCreate {
+    pub display_path: String,
+    pub diff: String,
+    pub action_hash: String,
+    path: PathBuf,
+    content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PendingCheck {
     pub display_command: String,
     pub display_workdir: String,
@@ -85,6 +94,8 @@ pub enum ToolError {
     MatchCount(usize),
     #[error("replacement would exceed the file size limit")]
     ReplacementTooLarge,
+    #[error("target path already exists")]
+    PathAlreadyExists,
     #[error("file changed after approval was requested")]
     FileChanged,
     #[error("check command timed out after 300 seconds")]
@@ -171,6 +182,20 @@ impl WorkspaceTools {
                 strict: false,
             },
             ToolDefinition {
+                name: "create_file".to_string(),
+                description: "Create one new UTF-8 file inside an existing workspace directory. Refuses to overwrite any path and requires one-shot user approval after a diff preview.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Workspace-relative new file path"},
+                        "content": {"type": "string"}
+                    },
+                    "required": ["path", "content"],
+                    "additionalProperties": false
+                }),
+                strict: false,
+            },
+            ToolDefinition {
                 name: "run_check".to_string(),
                 description: "Run one predefined local project check after one-shot user approval. No free-form command or arguments are accepted.".to_string(),
                 parameters: json!({
@@ -205,7 +230,7 @@ impl WorkspaceTools {
             "list_files" => self.list_files(serde_json::from_str(&call.arguments)?),
             "read_file" => self.read_file(serde_json::from_str(&call.arguments)?),
             "search_text" => self.search_text(serde_json::from_str(&call.arguments)?),
-            "replace_text" | "run_check" => Err(ToolError::ApprovalRequired),
+            "replace_text" | "create_file" | "run_check" => Err(ToolError::ApprovalRequired),
             _ => Err(ToolError::UnknownTool(call.name)),
         }
     }
@@ -341,6 +366,52 @@ impl WorkspaceTools {
         })
     }
 
+    pub async fn prepare_create(&self, call: ToolCall) -> Result<PendingCreate, ToolError> {
+        let tools = self.clone();
+        tokio::task::spawn_blocking(move || tools.prepare_create_blocking(call))
+            .await
+            .map_err(|_| ToolError::TaskFailed)?
+    }
+
+    pub async fn apply_create(&self, create: PendingCreate) -> Result<ToolResult, ToolError> {
+        let tools = self.clone();
+        tokio::task::spawn_blocking(move || tools.apply_create_blocking(create))
+            .await
+            .map_err(|_| ToolError::TaskFailed)?
+    }
+
+    fn prepare_create_blocking(&self, call: ToolCall) -> Result<PendingCreate, ToolError> {
+        if call.name != "create_file" {
+            return Err(ToolError::UnknownTool(call.name));
+        }
+        let input: CreateFileInput = serde_json::from_str(&call.arguments)?;
+        if input.content.len() as u64 > MAX_FILE_BYTES {
+            return Err(ToolError::ReplacementTooLarge);
+        }
+        let path = self.resolve_new_file(&input.path)?;
+        let display_path = relative_display(&self.root, &path);
+        let content_hash = sha256(&input.content);
+        Ok(PendingCreate {
+            diff: creation_preview(&display_path, &input.content),
+            action_hash: sha256(&format!("create_file\0{display_path}\0{content_hash}")),
+            display_path,
+            path,
+            content: input.content,
+        })
+    }
+
+    fn apply_create_blocking(&self, create: PendingCreate) -> Result<ToolResult, ToolError> {
+        let path = self.resolve_new_file(&create.display_path)?;
+        if path != create.path {
+            return Err(ToolError::FileChanged);
+        }
+        create_file_atomic(&path, create.content.as_bytes())?;
+        Ok(ToolResult {
+            content: format!("created {}", create.display_path),
+            summary: format!("created {}", create.display_path),
+        })
+    }
+
     fn list_files(&self, input: ListFilesInput) -> Result<ToolResult, ToolError> {
         let path = self.resolve(input.path.as_deref().unwrap_or("."))?;
         if !path.is_dir() {
@@ -449,7 +520,7 @@ impl WorkspaceTools {
             _ => false,
         }) {
             return Err(ToolError::PathUnavailable(
-                "path is excluded by read policy".to_string(),
+                "path is excluded by workspace policy".to_string(),
             ));
         }
         let path = fs::canonicalize(self.root.join(relative))
@@ -458,6 +529,49 @@ impl WorkspaceTools {
             return Err(ToolError::PathOutsideWorkspace);
         }
         Ok(path)
+    }
+
+    fn resolve_new_file(&self, relative: &str) -> Result<PathBuf, ToolError> {
+        let relative = Path::new(relative);
+        if relative.is_absolute()
+            || relative.components().any(|component| {
+                matches!(
+                    component,
+                    Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                )
+            })
+        {
+            return Err(ToolError::PathOutsideWorkspace);
+        }
+        if relative.components().any(|component| match component {
+            Component::Normal(name) => excluded_name(&name.to_string_lossy()),
+            _ => false,
+        }) {
+            return Err(ToolError::PathUnavailable(
+                "path is excluded by workspace policy".to_string(),
+            ));
+        }
+        let file_name = match relative.components().next_back() {
+            Some(Component::Normal(name)) if valid_new_file_name(name) => name,
+            _ => {
+                return Err(ToolError::PathUnavailable(
+                    "path must name a regular file".to_string(),
+                ));
+            }
+        };
+        let parent_relative = relative.parent().unwrap_or_else(|| Path::new("."));
+        let parent = self.resolve(&parent_relative.to_string_lossy())?;
+        if !parent.is_dir() {
+            return Err(ToolError::PathUnavailable(
+                "parent is not a directory".to_string(),
+            ));
+        }
+        let path = parent.join(file_name);
+        match fs::symlink_metadata(&path) {
+            Ok(_) => Err(ToolError::PathAlreadyExists),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(path),
+            Err(error) => Err(ToolError::Io(error)),
+        }
     }
 }
 
@@ -490,6 +604,13 @@ struct ReplaceTextInput {
     path: String,
     old_text: String,
     new_text: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CreateFileInput {
+    path: String,
+    content: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -645,6 +766,28 @@ fn excluded_name(name: &str) -> bool {
         )
 }
 
+fn valid_new_file_name(name: &std::ffi::OsStr) -> bool {
+    let name = name.to_string_lossy();
+    if name.is_empty() {
+        return false;
+    }
+    if !cfg!(windows) {
+        return true;
+    }
+    if name.contains(':') || name.ends_with(['.', ' ']) {
+        return false;
+    }
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or_default()
+        .to_ascii_uppercase();
+    !(matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL" | "CLOCK$")
+        || (stem.len() == 4
+            && matches!(&stem[..3], "COM" | "LPT")
+            && matches!(stem.as_bytes()[3], b'1'..=b'9')))
+}
+
 fn relative_display(root: &Path, path: &Path) -> String {
     path.strip_prefix(root)
         .unwrap_or(path)
@@ -680,6 +823,14 @@ fn replacement_preview(path: &str, old_text: &str, new_text: &str) -> String {
     cap_at(preview, MAX_DIFF_BYTES, "\n[diff truncated]")
 }
 
+fn creation_preview(path: &str, content: &str) -> String {
+    let mut preview = format!("--- /dev/null\n+++ {path}\n@@ new file @@\n");
+    for line in content.lines() {
+        preview.push_str(&format!("+{line}\n"));
+    }
+    cap_at(preview, MAX_DIFF_BYTES, "\n[diff truncated]")
+}
+
 fn sha256(value: &str) -> String {
     sha256_hex(value.as_bytes())
 }
@@ -708,6 +859,33 @@ fn replace_file(path: &Path, content: &[u8], expected_hash: &str) -> Result<(), 
     if result.is_err() {
         let _ = fs::remove_file(&temp);
     }
+    result
+}
+
+fn create_file_atomic(path: &Path, content: &[u8]) -> Result<(), ToolError> {
+    use std::io::Write;
+
+    let parent = path
+        .parent()
+        .ok_or_else(|| ToolError::PathUnavailable("file has no parent".to_string()))?;
+    let temp = parent.join(format!(".lain-create-{}.tmp", Uuid::now_v7()));
+    let result = (|| {
+        let mut file = fs::OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .open(&temp)?;
+        file.write_all(content)?;
+        file.sync_all()?;
+        drop(file);
+        match fs::hard_link(&temp, path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                Err(ToolError::PathAlreadyExists)
+            }
+            Err(error) => Err(ToolError::Io(error)),
+        }
+    })();
+    let _ = fs::remove_file(&temp);
     result
 }
 
@@ -995,6 +1173,72 @@ mod tests {
         assert_eq!(
             fs::read_to_string(&path).expect("external change kept"),
             "changed elsewhere\n"
+        );
+    }
+
+    #[tokio::test]
+    async fn create_requires_preview_and_never_overwrites() {
+        let fixture = TempDir::new().expect("fixture");
+        fs::create_dir(fixture.path().join("src")).expect("directory");
+        let tools = WorkspaceTools::new(fixture.path()).expect("tools");
+        let call = ToolCall {
+            id: "create-1".to_string(),
+            name: "create_file".to_string(),
+            arguments: r#"{"path":"src/new.rs","content":"fn created() {}\n"}"#.to_string(),
+        };
+        assert!(matches!(
+            tools.execute(call.clone()).await,
+            Err(ToolError::ApprovalRequired)
+        ));
+        let create = tools.prepare_create(call).await.expect("preview");
+        assert!(create.diff.contains("+++ src/new.rs\n"));
+        assert!(!fixture.path().join("src/new.rs").exists());
+        tools.apply_create(create).await.expect("approved create");
+        assert_eq!(
+            fs::read_to_string(fixture.path().join("src/new.rs")).expect("created"),
+            "fn created() {}\n"
+        );
+
+        let raced = tools
+            .prepare_create(ToolCall {
+                id: "create-2".to_string(),
+                name: "create_file".to_string(),
+                arguments: r#"{"path":"race.txt","content":"agent\n"}"#.to_string(),
+            })
+            .await
+            .expect("race preview");
+        fs::write(fixture.path().join("race.txt"), "external\n").expect("racer");
+        assert!(matches!(
+            tools.apply_create(raced).await,
+            Err(ToolError::PathAlreadyExists)
+        ));
+        assert_eq!(
+            fs::read_to_string(fixture.path().join("race.txt")).expect("external kept"),
+            "external\n"
+        );
+        for path in ["../outside.txt", ".env"] {
+            assert!(
+                tools
+                    .prepare_create(ToolCall {
+                        id: format!("invalid-{path}"),
+                        name: "create_file".to_string(),
+                        arguments: serde_json::json!({"path": path, "content": "secret"})
+                            .to_string(),
+                    })
+                    .await
+                    .is_err()
+            );
+        }
+        #[cfg(windows)]
+        assert!(
+            tools
+                .prepare_create(ToolCall {
+                    id: "reserved".to_string(),
+                    name: "create_file".to_string(),
+                    arguments: r#"{"path":"NUL.txt","content":"invalid"}"#.to_string(),
+                })
+                .await
+                .is_err()
         );
     }
 
