@@ -6,6 +6,8 @@
 
 ## 当前状态
 
+- 内置工具：CLI workspace 的 chat mode 提供只读 `time_now` 与 `instance_status`；仅返回 UTC 时间和非敏感实例版本状态。
+
 - 后端：Rust 2024、Tokio、Axum，默认监听 `127.0.0.1:3000`。
 - 前端：React 19、TypeScript、Vite。
 - 模型：provider-neutral `ModelProvider` 事件流；默认路由到 DeepSeek V4 Flash，显式复杂推理可路由到 V4 Pro。

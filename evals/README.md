@@ -32,6 +32,7 @@ node evals/benchmark-harness.mjs
 node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-recover-node-001
 node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-tool-injection-001 --output evals/results/p6/tool-injection-smoke.json
 node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-memory-search-empty-001 --output evals/results/p6/memory-tool-smoke.json
+node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-builtin-status-001 --output evals/results/p6/builtin-tool-smoke.json
 ```
 
 `run-persona.mjs` 默认最多使用 30 次调用：20 次生成、4 次批量 judge，并保留余量用于异常重跑。它不会保存系统提示词或密钥，只保存提示词 SHA-256、合成输入、输出、usage、时延和 judge 结果。`benchmark-harness.mjs` 通过实际 WebSocket 使用 5 次调用，并测量当前 Markdown append 原语；运行前需要启动后端。

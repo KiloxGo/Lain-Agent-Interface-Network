@@ -5,6 +5,7 @@ use std::{
     time::Duration,
 };
 
+use chrono::{SecondsFormat, Utc};
 use serde::Deserialize;
 use serde_json::json;
 use thiserror::Error;
@@ -119,6 +120,68 @@ pub enum ToolError {
 #[derive(Debug, Clone)]
 pub struct WorkspaceTools {
     root: PathBuf,
+}
+
+pub fn builtin_definitions() -> Vec<ToolDefinition> {
+    vec![
+        ToolDefinition {
+            name: "time_now".to_string(),
+            description: "Return the current UTC time and Unix timestamp. Read-only.".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+            }),
+            strict: false,
+        },
+        ToolDefinition {
+            name: "instance_status".to_string(),
+            description: "Return non-sensitive status and version metadata for this Lain instance. Read-only.".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+            }),
+            strict: false,
+        },
+    ]
+}
+
+pub fn execute_builtin(
+    call: ToolCall,
+    instance_id: &str,
+    identity_version: &str,
+    model: &str,
+) -> Result<ToolResult, ToolError> {
+    let _: EmptyInput = serde_json::from_str(&call.arguments)?;
+    let (summary, content) = match call.name.as_str() {
+        "time_now" => {
+            let now = Utc::now();
+            (
+                "read current UTC time".to_string(),
+                json!({
+                    "utc": now.to_rfc3339_opts(SecondsFormat::Millis, true),
+                    "unix_ms": now.timestamp_millis(),
+                }),
+            )
+        }
+        "instance_status" => (
+            "read instance status".to_string(),
+            json!({
+                "status": "ready",
+                "instance_id": instance_id,
+                "kernel_version": env!("CARGO_PKG_VERSION"),
+                "protocol_version": crate::domain::event::PROTOCOL_VERSION,
+                "identity_version": identity_version,
+                "model": model,
+            }),
+        ),
+        _ => return Err(ToolError::UnknownTool(call.name)),
+    };
+    Ok(ToolResult {
+        content: content.to_string(),
+        summary,
+    })
 }
 
 pub fn memory_definitions() -> Vec<ToolDefinition> {
@@ -704,6 +767,10 @@ struct MemoryGetInput {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct EmptyInput {}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ReplaceTextInput {
     path: String,
     old_text: String,
@@ -1187,6 +1254,62 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+
+    #[test]
+    fn builtin_tools_return_time_and_safe_status() {
+        assert_eq!(
+            builtin_definitions()
+                .into_iter()
+                .map(|definition| definition.name)
+                .collect::<Vec<_>>(),
+            ["time_now", "instance_status"]
+        );
+        let before = Utc::now().timestamp_millis();
+        let time = execute_builtin(
+            ToolCall {
+                id: "builtin-1".to_string(),
+                name: "time_now".to_string(),
+                arguments: "{}".to_string(),
+            },
+            "instance-1",
+            "identity-1",
+            "model-1",
+        )
+        .expect("time");
+        let time: serde_json::Value = serde_json::from_str(&time.content).expect("time JSON");
+        assert!(time["unix_ms"].as_i64().expect("timestamp") >= before);
+        assert!(time["utc"].as_str().expect("UTC").ends_with('Z'));
+
+        let status = execute_builtin(
+            ToolCall {
+                id: "builtin-2".to_string(),
+                name: "instance_status".to_string(),
+                arguments: "{}".to_string(),
+            },
+            "instance-1",
+            "identity-1",
+            "model-1",
+        )
+        .expect("status");
+        let status: serde_json::Value = serde_json::from_str(&status.content).expect("status JSON");
+        assert_eq!(status["status"], "ready");
+        assert_eq!(status["instance_id"], "instance-1");
+        assert_eq!(status["identity_version"], "identity-1");
+        assert_eq!(status["model"], "model-1");
+        assert!(matches!(
+            execute_builtin(
+                ToolCall {
+                    id: "builtin-3".to_string(),
+                    name: "time_now".to_string(),
+                    arguments: r#"{"unexpected":true}"#.to_string(),
+                },
+                "instance-1",
+                "identity-1",
+                "model-1",
+            ),
+            Err(ToolError::InvalidArguments(_))
+        ));
+    }
 
     #[tokio::test]
     async fn memory_tools_search_and_fail_closed() {

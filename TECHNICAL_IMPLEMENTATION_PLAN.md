@@ -2392,7 +2392,7 @@ Playwright：
 - [x] P6-010 实现 approval pause/resume。（CLI v0：一次性 y/N、5 分钟超时与断线 fail closed、执行前 hash 重验。）
 - [ ] P6-011 前端 approval UI。
 - [x] P6-012 内置 read-only memory_search/memory_get 工具。（复用 Memory v1 检索；按 user/session/status/never_recall fail closed。）
-- [ ] P6-013 内置 time_now 和 instance_status 工具。
+- [x] P6-013 内置 time_now 和 instance_status 工具。（返回 UTC/Unix 时间与非敏感实例版本状态；复用只读审计链路。）
 - [x] P6-014 工具 schema 按 mode 最小化注入。（配置 workspace 的 chat mode 注入两个只读记忆、三个只读 workspace、两个审批文件写入和一个预定义检查 schema。）
 - [ ] P6-015 仅对安全只读工具启用 parallel calls。
 - [ ] P6-016 实现 MCP stdio client 和 lifecycle。

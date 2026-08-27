@@ -24,3 +24,4 @@ ADR 用于记录难以逆转、跨模块或影响数据/协议兼容性的技术
 - [ADR-0007：审批后运行预定义项目检查](0007-approved-predefined-project-checks.md)
 - [ADR-0008：审批式 no-clobber 文件创建](0008-approved-no-clobber-file-creation.md)
 - [ADR-0009：受检索策略约束的只读记忆工具](0009-policy-bound-read-only-memory-tools.md)
+- [ADR-0010：只读运行时信息工具](0010-read-only-runtime-introspection-tools.md)

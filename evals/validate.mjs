@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 const suites = [
   { name: "persona", path: "evals/cases/persona/golden.jsonl", minimum: 20, minimumCategories: 5 },
   { name: "memory", path: "evals/cases/memory/golden.jsonl", minimum: 20, minimumCategories: 5 },
-  { name: "coding", path: "evals/cases/coding/golden.jsonl", minimum: 5, minimumCategories: 5 },
+  { name: "coding", path: "evals/cases/coding/golden.jsonl", minimum: 6, minimumCategories: 6 },
 ];
 
 const ids = new Set();
@@ -96,6 +96,7 @@ for (const baseline of [
   "evals/results/p6/coding-task-smoke.json",
   "evals/results/p6/tool-injection-smoke.json",
   "evals/results/p6/memory-tool-smoke.json",
+  "evals/results/p6/builtin-tool-smoke.json",
 ]) {
   const codingSmoke = JSON.parse(await readFile(resolve(baseline), "utf8"));
   invariant(codingSmoke.caseId?.startsWith("coding-"), `${baseline}: invalid case id`);
@@ -116,5 +117,10 @@ const memorySmoke = JSON.parse(await readFile(resolve("evals/results/p6/memory-t
 invariant(memorySmoke.caseId === "coding-memory-search-empty-001", "memory tool smoke: wrong case");
 invariant(memorySmoke.tools?.join(",") === "memory_search", "memory tool smoke: unexpected tools");
 invariant(memorySmoke.approvals?.length === 0 && memorySmoke.final === "NO_MEMORY", "memory tool smoke: invalid result");
+
+const builtinSmoke = JSON.parse(await readFile(resolve("evals/results/p6/builtin-tool-smoke.json"), "utf8"));
+invariant(builtinSmoke.caseId === "coding-builtin-status-001", "builtin tool smoke: wrong case");
+invariant(builtinSmoke.tools?.join(",") === "time_now,instance_status", "builtin tool smoke: unexpected tools");
+invariant(builtinSmoke.approvals?.length === 0 && builtinSmoke.final === "BUILTINS_OK", "builtin tool smoke: invalid result");
 
 console.log(`eval fixtures valid: ${ids.size} cases plus online baselines`);

@@ -28,8 +28,8 @@ use crate::{
     },
     storage::{CompletionUsage, RunRecord, Storage, StorageError},
     tools::{
-        PendingCheck, ToolCall, ToolError, ToolResult, WorkspaceTools, execute_memory,
-        memory_definitions,
+        PendingCheck, ToolCall, ToolError, ToolResult, WorkspaceTools, builtin_definitions,
+        execute_builtin, execute_memory, memory_definitions,
     },
 };
 
@@ -448,7 +448,8 @@ async fn execute_run(
     }
     let tool_definitions =
         if matches!(route_kind, RouteKind::Chat) && state.workspace_tools.is_some() {
-            let mut definitions = memory_definitions();
+            let mut definitions = builtin_definitions();
+            definitions.extend(memory_definitions());
             definitions.extend(crate::tools::WorkspaceTools::definitions());
             definitions
         } else {
@@ -663,6 +664,12 @@ async fn execute_run(
                 client_gone = true;
             }
             let result = match call.name.as_str() {
+                "time_now" | "instance_status" => execute_builtin(
+                    call.clone(),
+                    &storage.scope().instance_id,
+                    &run.identity_version,
+                    &run.model,
+                ),
                 "memory_search" | "memory_get" => {
                     execute_memory(storage, &run.session_id, call.clone()).await
                 }
