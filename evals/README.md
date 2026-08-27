@@ -39,4 +39,4 @@ node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-builtin
 
 `run-coding-task.mjs` 每次必须显式选择一个案例。它会启动本地 kernel，在一次性临时 workspace 中运行任务，并且只自动批准案例声明的文件路径和预定义检查；`--output` 或 `CODING_EVAL_OUTPUT` 可为不同烟测指定结果文件。CI 只校验案例与已保存结果，不调用付费模型。
 
-`fixtures/mcp-stdio-server.mjs` 是不访问网络的合成 MCP server，仅用于 Rust 测试现代 discovery、旧版 initialize fallback、分页 `tools/list`、`tools/call` 和 stdin EOF shutdown。
+`fixtures/mcp-stdio-server.mjs` 是不访问网络的合成 MCP server，仅用于 Rust 测试现代 discovery、旧版 initialize fallback、分页 `tools/list`、恶意 metadata/output 隔离、`tools/call` 和 stdin EOF shutdown。

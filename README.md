@@ -8,7 +8,7 @@
 
 - 内置工具：CLI workspace 的 chat mode 提供只读 `time_now` 与 `instance_status`；仅返回 UTC 时间和非敏感实例版本状态。
 - 并行策略：同一模型 step 中的全只读工具批次可以并行执行；写入、检查、未知工具及混合批次保持串行。
-- MCP：可选启动一个本地 stdio server，支持 MCP 2026-07-28 discovery 与旧版 initialize fallback；已实现有界 `tools/list`、稳定 namespace 和目录约束的 `tools/call`，但在不可信输出与审批策略完成前不向模型暴露。
+- MCP：可选启动一个本地 stdio server，支持 MCP 2026-07-28 discovery 与旧版 initialize fallback；已实现有界 `tools/list`、稳定 namespace、目录约束的 `tools/call` 及不可信 metadata/output 隔离，但在审批策略完成前不向模型暴露。
 
 - 后端：Rust 2024、Tokio、Axum，默认监听 `127.0.0.1:3000`。
 - 前端：React 19、TypeScript、Vite。

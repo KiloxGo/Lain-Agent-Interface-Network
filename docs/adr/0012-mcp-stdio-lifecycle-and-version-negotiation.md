@@ -18,7 +18,8 @@ MCP 2026-07-28 已移除连接级 `initialize` 生命周期，改为每个请求
 6. kernel shutdown 时先关闭 child stdin 并等待 2 秒，仍未退出才强制终止。连接或协商失败只记录警告并禁用 MCP，不改变 readiness。
 7. server 声明 tools capability 时，连接阶段在 10 秒总预算内分页调用 `tools/list`，最多接收 32 页、128 个工具；目录不合法则禁用该 MCP server。
 8. 模型侧工具名使用配置 namespace，而不使用不唯一的 server self-reported name。格式为 `<namespace>__<tool>`；下划线与点号分别转义为 `_u` 与 `_d`，最终名称必须满足 DeepSeek Chat 的 64 字符限制。
-9. `tools/call` 只接受 JSON object 参数和已发现的 namespaced 工具名；现代请求逐次携带 `_meta`，旧版保持原 wire shape。当前只返回有界原始结果，不在 P6-018/P6-019 前暴露给模型。
+9. `tools/call` 只接受 JSON object 参数和已发现的 namespaced 工具名；现代请求逐次携带 `_meta`，旧版保持原 wire shape。在 P6-019 host approval policy 完成前不向模型暴露。
+10. server 提供的工具说明统一带 `mcp:<namespace>` 不可信来源标签并限制为 2 KiB；输入 schema 递归移除 `description`、`title`、`$comment`、`examples` 和 `default` 等展示型字段，目录原始 metadata 总计不得超过 256 KiB。工具结果不公开原始旁路，只输出带来源标签且限制为 64 KiB 的模型文本。
 
 ## 备选方案
 
@@ -30,6 +31,7 @@ MCP 2026-07-28 已移除连接级 `initialize` 生命周期，改为每个请求
 ## 安全与隐私
 
 - server self-reported identity 和 capabilities 仅用于诊断，不参与授权决策。
+- server annotations、工具说明、schema 展示字段和工具结果均不作为权限依据；授权只由 host policy 决定。
 - stdout 只能包含有界 JSON-RPC；畸形、超长、关闭或版本不相容均 fail closed。
 - 不把 DeepSeek/API/cloud 凭证隐式转交给 MCP 子进程；需要 server 专用凭证时再增加显式最小 env allowlist。
 
