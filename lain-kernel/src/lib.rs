@@ -4,6 +4,7 @@ pub mod context;
 pub mod domain;
 pub mod error;
 pub mod identity;
+pub mod mcp;
 pub mod memory;
 pub mod migration;
 pub mod protocol;
@@ -111,11 +112,11 @@ async fn drain_tasks(tasks: TaskTracker, wait: std::time::Duration) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use std::{net::SocketAddr, time::Duration};
+    use std::{net::SocketAddr, path::PathBuf, time::Duration};
 
     use tempfile::TempDir;
 
-    use crate::config::ProviderConfig;
+    use crate::config::{McpConfig, ProviderConfig};
 
     use super::*;
 
@@ -148,6 +149,17 @@ mod tests {
                 lease_duration: Duration::from_secs(30),
                 max_candidates_per_message: 8,
             },
+            mcp: Some(McpConfig {
+                name: "fixture".to_string(),
+                command: "node".to_string(),
+                args: vec![
+                    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                        .join("../evals/fixtures/mcp-stdio-server.mjs")
+                        .to_string_lossy()
+                        .into_owned(),
+                    "modern".to_string(),
+                ],
+            }),
         };
 
         run_until(config, async {})

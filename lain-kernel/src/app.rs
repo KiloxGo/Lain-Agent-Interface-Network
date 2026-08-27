@@ -27,6 +27,7 @@ use crate::{
     config::Config,
     error::AppError,
     identity::IdentityKernel,
+    mcp::McpClient,
     memory,
     provider::{
         FinishReason, ModelError, ModelEvent, ModelMessage, ModelRequest, ModelRouter, Role,
@@ -74,6 +75,7 @@ pub struct AppState {
     pub identity: Option<Arc<IdentityKernel>>,
     pub storage: Option<Storage>,
     pub workspace_tools: Option<WorkspaceTools>,
+    pub mcp: Option<Arc<McpClient>>,
     pub router: ModelRouter,
     pub tasks: TaskTracker,
     pub shutdown: CancellationToken,
@@ -269,6 +271,34 @@ impl AppState {
             config.provider.model.clone(),
             config.provider.pro_model.clone(),
         );
+        let tasks = TaskTracker::new();
+        let shutdown = CancellationToken::new();
+        // ponytail: one opt-in server covers the first bridge; add a supervised server map
+        // only after a second real integration or restart requirement appears.
+        let mcp = match config.mcp.as_ref() {
+            Some(mcp_config) => match McpClient::connect(mcp_config).await {
+                Ok(client) => {
+                    let client = Arc::new(client);
+                    tracing::info!(
+                        namespace = client.info().namespace,
+                        protocol_version = client.info().protocol_version,
+                        "MCP stdio server connected"
+                    );
+                    let lifecycle = Arc::clone(&client);
+                    let lifecycle_shutdown = shutdown.clone();
+                    tasks.spawn(async move {
+                        lifecycle_shutdown.cancelled().await;
+                        lifecycle.close().await;
+                    });
+                    Some(client)
+                }
+                Err(error) => {
+                    tracing::warn!(error = %error, "MCP stdio server unavailable; continuing without MCP");
+                    None
+                }
+            },
+            None => None,
+        };
         let state = Self {
             config: Arc::new(config),
             readiness: ReadinessState::from_checks(checks),
@@ -277,9 +307,10 @@ impl AppState {
             identity,
             storage,
             workspace_tools,
+            mcp,
             router,
-            tasks: TaskTracker::new(),
-            shutdown: CancellationToken::new(),
+            tasks,
+            shutdown,
         };
         state.start_memory_worker();
         state
@@ -1181,6 +1212,7 @@ mod tests {
                     lease_duration: Duration::from_secs(30),
                     max_candidates_per_message: 8,
                 },
+                mcp: None,
             }),
             readiness: ReadinessState::from_checks(checks),
             provider: None,
@@ -1188,6 +1220,7 @@ mod tests {
             identity: None,
             storage: None,
             workspace_tools: None,
+            mcp: None,
             router: ModelRouter::new("flash".to_string(), "pro".to_string()),
             tasks: TaskTracker::new(),
             shutdown: CancellationToken::new(),

@@ -88,6 +88,7 @@ pub struct Config {
     pub shutdown_timeout: Duration,
     pub max_message_bytes: usize,
     pub memory: MemoryConfig,
+    pub mcp: Option<McpConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +97,27 @@ pub struct MemoryConfig {
     pub poll_interval: Duration,
     pub lease_duration: Duration,
     pub max_candidates_per_message: usize,
+}
+
+#[derive(Clone)]
+pub struct McpConfig {
+    pub name: String,
+    pub command: String,
+    pub args: Vec<String>,
+}
+
+impl fmt::Debug for McpConfig {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("McpConfig")
+            .field("name", &self.name)
+            .field("command", &self.command)
+            .field(
+                "args",
+                &format_args!("[{} redacted arg(s)]", self.args.len()),
+            )
+            .finish()
+    }
 }
 
 #[derive(Debug, Error)]
@@ -112,6 +134,10 @@ pub enum ConfigError {
     InvalidBoolean { name: &'static str, value: String },
     #[error("{name} cannot be empty")]
     EmptyModel { name: &'static str },
+    #[error("LAIN_MCP_STDIO_NAME must contain only ASCII letters, digits, '-' or '_'")]
+    InvalidMcpName,
+    #[error("LAIN_MCP_STDIO_ARGS must be a JSON array of strings: {0}")]
+    InvalidMcpArgs(#[source] serde_json::Error),
 }
 
 impl Config {
@@ -214,6 +240,29 @@ impl Config {
             get("LAIN_MEMORY_MAX_CANDIDATES"),
             DEFAULT_MEMORY_MAX_CANDIDATES,
         )?;
+        let mcp = get("LAIN_MCP_STDIO_COMMAND")
+            .filter(|value| !value.trim().is_empty())
+            .map(|command| {
+                let name = get("LAIN_MCP_STDIO_NAME").unwrap_or_else(|| "local".to_string());
+                if name.is_empty()
+                    || name.len() > 64
+                    || !name
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+                {
+                    return Err(ConfigError::InvalidMcpName);
+                }
+                let args = get("LAIN_MCP_STDIO_ARGS")
+                    .map(|value| serde_json::from_str(&value).map_err(ConfigError::InvalidMcpArgs))
+                    .transpose()?
+                    .unwrap_or_default();
+                Ok(McpConfig {
+                    name,
+                    command,
+                    args,
+                })
+            })
+            .transpose()?;
 
         Ok(Self {
             bind_addr,
@@ -237,6 +286,7 @@ impl Config {
                 lease_duration: Duration::from_secs(memory_lease_secs),
                 max_candidates_per_message: memory_max_candidates,
             },
+            mcp,
         })
     }
 }
@@ -336,6 +386,7 @@ mod tests {
         assert!(config.data_dir.is_absolute());
         assert!(!config.provider.is_configured());
         assert!(!config.memory.extraction_enabled);
+        assert!(config.mcp.is_none());
     }
 
     #[test]
@@ -369,5 +420,35 @@ mod tests {
         let error = config_from(&[("LAIN_MEMORY_EXTRACTION_ENABLED", "sometimes")])
             .expect_err("invalid boolean must fail");
         assert!(matches!(error, ConfigError::InvalidBoolean { .. }));
+    }
+
+    #[test]
+    fn mcp_stdio_config_is_explicit_and_bounded() {
+        let config = config_from(&[
+            ("LAIN_MCP_STDIO_COMMAND", "synthetic-mcp"),
+            ("LAIN_MCP_STDIO_NAME", "fixture_1"),
+            ("LAIN_MCP_STDIO_ARGS", r#"["--stdio","private-value"]"#),
+        ])
+        .expect("valid MCP config");
+        let mcp = config.mcp.expect("MCP config");
+        assert_eq!(mcp.name, "fixture_1");
+        assert_eq!(mcp.args, ["--stdio", "private-value"]);
+        let debug = format!("{mcp:?}");
+        assert!(!debug.contains("private-value"));
+
+        assert!(matches!(
+            config_from(&[
+                ("LAIN_MCP_STDIO_COMMAND", "synthetic-mcp"),
+                ("LAIN_MCP_STDIO_NAME", "bad/name"),
+            ]),
+            Err(ConfigError::InvalidMcpName)
+        ));
+        assert!(matches!(
+            config_from(&[
+                ("LAIN_MCP_STDIO_COMMAND", "synthetic-mcp"),
+                ("LAIN_MCP_STDIO_ARGS", "not-json"),
+            ]),
+            Err(ConfigError::InvalidMcpArgs(_))
+        ));
     }
 }

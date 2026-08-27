@@ -1205,7 +1205,7 @@ async fn read_bounded(mut reader: impl AsyncRead + Unpin) -> std::io::Result<Vec
     Ok(kept)
 }
 
-fn sensitive_env_name(name: &str) -> bool {
+pub(crate) fn sensitive_env_name(name: &str) -> bool {
     let name = name.to_ascii_uppercase();
     matches!(
         name.as_str(),
