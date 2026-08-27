@@ -1,4 +1,4 @@
-use std::{io, process::Stdio, time::Duration};
+use std::{collections::HashSet, io, process::Stdio, time::Duration};
 
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -9,7 +9,7 @@ use tokio::{
     time::timeout,
 };
 
-use crate::{config::McpConfig, tools::sensitive_env_name};
+use crate::{config::McpConfig, provider::ToolDefinition, tools::sensitive_env_name};
 
 const MODERN_PROTOCOL_VERSION: &str = "2026-07-28";
 const LEGACY_PROTOCOL_VERSION: &str = "2025-11-25";
@@ -19,6 +19,8 @@ const MESSAGE_LIMIT: usize = 64 * 1024;
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_SKIPPED_MESSAGES: usize = 32;
+const MAX_TOOL_PAGES: usize = 32;
+const MAX_TOOLS: usize = 128;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct McpConnectionInfo {
@@ -31,7 +33,20 @@ pub struct McpConnectionInfo {
 
 pub struct McpClient {
     info: McpConnectionInfo,
+    tools: Vec<McpTool>,
     process: Mutex<Option<McpProcess>>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct McpToolResult {
+    pub content: Vec<Value>,
+    pub structured_content: Option<Value>,
+    pub is_error: bool,
+}
+
+struct McpTool {
+    definition: ToolDefinition,
+    remote_name: String,
 }
 
 impl std::fmt::Debug for McpClient {
@@ -39,6 +54,7 @@ impl std::fmt::Debug for McpClient {
         formatter
             .debug_struct("McpClient")
             .field("info", &self.info)
+            .field("tool_count", &self.tools.len())
             .finish_non_exhaustive()
     }
 }
@@ -63,12 +79,17 @@ pub enum McpError {
     InvalidResponse(&'static str),
     #[error("MCP server does not support a compatible protocol version")]
     UnsupportedVersion,
+    #[error("MCP tool arguments must be a JSON object")]
+    InvalidArguments,
+    #[error("unknown MCP tool: {0}")]
+    UnknownTool(String),
 }
 
 struct McpProcess {
     child: Child,
     stdin: Option<ChildStdin>,
     stdout: BufReader<ChildStdout>,
+    next_id: i64,
 }
 
 impl McpClient {
@@ -92,6 +113,7 @@ impl McpClient {
             child,
             stdin: Some(stdin),
             stdout: BufReader::new(stdout),
+            next_id: 1,
         };
 
         let info = match negotiate(&mut process, &config.name).await {
@@ -101,14 +123,58 @@ impl McpClient {
                 return Err(error);
             }
         };
+        let tools = if info.capabilities.get("tools").is_some() {
+            let listed = timeout(HANDSHAKE_TIMEOUT, list_tools(&mut process, &info))
+                .await
+                .map_err(|_| McpError::Timeout)
+                .and_then(|result| result);
+            match listed {
+                Ok(tools) => tools,
+                Err(error) => {
+                    stop_process(&mut process).await;
+                    return Err(error);
+                }
+            }
+        } else {
+            Vec::new()
+        };
         Ok(Self {
             info,
+            tools,
             process: Mutex::new(Some(process)),
         })
     }
 
     pub fn info(&self) -> &McpConnectionInfo {
         &self.info
+    }
+
+    pub fn tool_definitions(&self) -> Vec<ToolDefinition> {
+        self.tools
+            .iter()
+            .map(|tool| tool.definition.clone())
+            .collect()
+    }
+
+    pub async fn call_tool(&self, name: &str, arguments: Value) -> Result<McpToolResult, McpError> {
+        if !arguments.is_object() {
+            return Err(McpError::InvalidArguments);
+        }
+        let remote_name = self
+            .tools
+            .iter()
+            .find(|tool| tool.definition.name == name)
+            .map(|tool| tool.remote_name.clone())
+            .ok_or_else(|| McpError::UnknownTool(name.to_string()))?;
+        let mut process = self.process.lock().await;
+        let process = process.as_mut().ok_or(McpError::Closed)?;
+        call_tool(
+            process,
+            &self.info.protocol_version,
+            &remote_name,
+            arguments,
+        )
+        .await
     }
 
     pub async fn close(&self) {
@@ -122,13 +188,7 @@ async fn negotiate(
     process: &mut McpProcess,
     namespace: &str,
 ) -> Result<McpConnectionInfo, McpError> {
-    let discovery = request(
-        process,
-        1,
-        "server/discover",
-        json!({"_meta": modern_meta()}),
-    )
-    .await;
+    let discovery = request(process, "server/discover", json!({"_meta": modern_meta()})).await;
     match discovery {
         Ok(result) => parse_discovery(namespace, result),
         Err(error) if error.allows_legacy_fallback() => initialize_legacy(process, namespace).await,
@@ -142,7 +202,6 @@ async fn initialize_legacy(
 ) -> Result<McpConnectionInfo, McpError> {
     let result = request(
         process,
-        2,
         "initialize",
         json!({
             "protocolVersion": LEGACY_PROTOCOL_VERSION,
@@ -170,6 +229,140 @@ async fn initialize_legacy(
         server_version,
         capabilities,
     })
+}
+
+async fn list_tools(
+    process: &mut McpProcess,
+    info: &McpConnectionInfo,
+) -> Result<Vec<McpTool>, McpError> {
+    let mut tools = Vec::new();
+    let mut names = HashSet::new();
+    let mut cursor = None;
+    for _ in 0..MAX_TOOL_PAGES {
+        let mut params = json!({});
+        if let Some(cursor) = cursor.take() {
+            params["cursor"] = Value::String(cursor);
+        }
+        let result = request(
+            process,
+            "tools/list",
+            request_params(&info.protocol_version, params),
+        )
+        .await?;
+        require_complete(&info.protocol_version, &result)?;
+        let page = result
+            .get("tools")
+            .and_then(Value::as_array)
+            .ok_or(McpError::InvalidResponse("missing tools"))?;
+        for tool in page {
+            if tools.len() == MAX_TOOLS {
+                return Err(McpError::InvalidResponse("too many tools"));
+            }
+            let remote_name = tool
+                .get("name")
+                .and_then(Value::as_str)
+                .ok_or(McpError::InvalidResponse("invalid tool name"))?;
+            let name = namespaced_tool_name(&info.namespace, remote_name)
+                .ok_or(McpError::InvalidResponse("unsupported tool name"))?;
+            if !names.insert(name.clone()) {
+                return Err(McpError::InvalidResponse("duplicate tool name"));
+            }
+            let input_schema = object_field(tool, "inputSchema")?.clone();
+            tools.push(McpTool {
+                definition: ToolDefinition {
+                    name,
+                    description: tool
+                        .get("description")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    parameters: input_schema,
+                    strict: false,
+                },
+                remote_name: remote_name.to_string(),
+            });
+        }
+        cursor = match result.get("nextCursor") {
+            None | Some(Value::Null) => return Ok(tools),
+            Some(Value::String(cursor)) if !cursor.is_empty() => Some(cursor.clone()),
+            _ => return Err(McpError::InvalidResponse("invalid nextCursor")),
+        };
+    }
+    Err(McpError::InvalidResponse("too many tool pages"))
+}
+
+async fn call_tool(
+    process: &mut McpProcess,
+    protocol_version: &str,
+    remote_name: &str,
+    arguments: Value,
+) -> Result<McpToolResult, McpError> {
+    let result = request(
+        process,
+        "tools/call",
+        request_params(
+            protocol_version,
+            json!({"name": remote_name, "arguments": arguments}),
+        ),
+    )
+    .await?;
+    require_complete(protocol_version, &result)?;
+    let content = result
+        .get("content")
+        .and_then(Value::as_array)
+        .ok_or(McpError::InvalidResponse("missing tool content"))?
+        .clone();
+    let is_error = match result.get("isError") {
+        None => false,
+        Some(value) => value
+            .as_bool()
+            .ok_or(McpError::InvalidResponse("invalid isError"))?,
+    };
+    Ok(McpToolResult {
+        content,
+        structured_content: result.get("structuredContent").cloned(),
+        is_error,
+    })
+}
+
+fn require_complete(protocol_version: &str, result: &Value) -> Result<(), McpError> {
+    if protocol_version == MODERN_PROTOCOL_VERSION
+        && result.get("resultType").and_then(Value::as_str) != Some("complete")
+    {
+        return Err(McpError::InvalidResponse("request did not complete"));
+    }
+    Ok(())
+}
+
+fn request_params(protocol_version: &str, mut params: Value) -> Value {
+    if protocol_version == MODERN_PROTOCOL_VERSION {
+        params["_meta"] = modern_meta();
+    }
+    params
+}
+
+fn namespaced_tool_name(namespace: &str, remote_name: &str) -> Option<String> {
+    if namespace.is_empty()
+        || !namespace
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        || remote_name.is_empty()
+        || remote_name.len() > 128
+        || !remote_name
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
+    {
+        return None;
+    }
+    let mut name = format!("{namespace}__");
+    for byte in remote_name.bytes() {
+        match byte {
+            b'_' => name.push_str("_u"),
+            b'.' => name.push_str("_d"),
+            _ => name.push(char::from(byte)),
+        }
+    }
+    (name.len() <= 64).then_some(name)
 }
 
 fn parse_discovery(namespace: &str, result: Value) -> Result<McpConnectionInfo, McpError> {
@@ -200,12 +393,12 @@ fn parse_discovery(namespace: &str, result: Value) -> Result<McpConnectionInfo, 
     })
 }
 
-async fn request(
-    process: &mut McpProcess,
-    id: i64,
-    method: &str,
-    params: Value,
-) -> Result<Value, McpError> {
+async fn request(process: &mut McpProcess, method: &str, params: Value) -> Result<Value, McpError> {
+    let id = process.next_id;
+    process.next_id = process
+        .next_id
+        .checked_add(1)
+        .ok_or(McpError::InvalidResponse("request id exhausted"))?;
     send(
         process,
         &json!({"jsonrpc":"2.0","id":id,"method":method,"params":params}),
@@ -350,6 +543,21 @@ mod tests {
             assert_eq!(client.info().protocol_version, expected);
             assert_eq!(client.info().server_name.as_deref(), Some("fixture-server"));
             assert!(client.info().capabilities.get("tools").is_some());
+            let definitions = client.tool_definitions();
+            assert_eq!(definitions.len(), 2);
+            assert_eq!(definitions[0].name, "fixture__echo");
+            assert_eq!(definitions[1].name, "fixture__server_dstatus");
+            assert!(definitions[0].parameters.is_object());
+            let result = client
+                .call_tool("fixture__echo", json!({"message":"hello"}))
+                .await
+                .expect("call fixture tool");
+            assert_eq!(result.content[0]["text"], "echo: hello");
+            assert_eq!(
+                result.structured_content.as_ref().unwrap()["text"],
+                "echo: hello"
+            );
+            assert!(!result.is_error);
             client.close().await;
         }
     }
@@ -370,5 +578,19 @@ mod tests {
             }
             .allows_legacy_fallback()
         );
+    }
+
+    #[test]
+    fn tool_names_are_namespaced_for_deepseek_without_collisions() {
+        assert_eq!(
+            namespaced_tool_name("local", "repo.search_text").as_deref(),
+            Some("local__repo_dsearch_utext")
+        );
+        assert_ne!(
+            namespaced_tool_name("local", "a.b"),
+            namespaced_tool_name("local", "a_b")
+        );
+        assert!(namespaced_tool_name("local", "bad name").is_none());
+        assert!(namespaced_tool_name(&"n".repeat(64), "tool").is_none());
     }
 }

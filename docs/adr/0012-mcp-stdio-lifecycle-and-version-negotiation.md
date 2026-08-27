@@ -16,7 +16,9 @@ MCP 2026-07-28 已移除连接级 `initialize` 生命周期，改为每个请求
 4. stdio 使用单行 JSON-RPC 2.0 framing，输入和输出各限制 64 KiB，握手 10 秒超时，最多跳过 32 条无关消息。
 5. 子进程默认继承非敏感环境；复用现有环境变量过滤器移除 provider、云、GitHub、token、password 与 credential 类变量。stderr 丢弃，避免阻塞和未经处理的日志泄露。
 6. kernel shutdown 时先关闭 child stdin 并等待 2 秒，仍未退出才强制终止。连接或协商失败只记录警告并禁用 MCP，不改变 readiness。
-7. 当前只保存协议版本、server identity 与 capabilities；`tools/list`、`tools/call`、命名空间注入和结果安全处理由 P6-017 至 P6-019 分别完成。
+7. server 声明 tools capability 时，连接阶段在 10 秒总预算内分页调用 `tools/list`，最多接收 32 页、128 个工具；目录不合法则禁用该 MCP server。
+8. 模型侧工具名使用配置 namespace，而不使用不唯一的 server self-reported name。格式为 `<namespace>__<tool>`；下划线与点号分别转义为 `_u` 与 `_d`，最终名称必须满足 DeepSeek Chat 的 64 字符限制。
+9. `tools/call` 只接受 JSON object 参数和已发现的 namespaced 工具名；现代请求逐次携带 `_meta`，旧版保持原 wire shape。当前只返回有界原始结果，不在 P6-018/P6-019 前暴露给模型。
 
 ## 备选方案
 
@@ -37,7 +39,7 @@ MCP 2026-07-28 已移除连接级 `initialize` 生命周期，改为每个请求
 
 ## 验证
 
-- 合成 Node stdio server 覆盖现代 discovery、旧版 initialize fallback、capability/identity 解析与 EOF shutdown。
+- 合成 Node stdio server 覆盖现代 discovery、旧版 initialize fallback、capability/identity 解析、分页工具目录、命名空间、现代请求 `_meta`、新旧 `tools/call` 与 EOF shutdown。
 - 配置测试覆盖 opt-in、namespace 字符约束、JSON args 和 Debug 参数脱敏。
 - 全量 Rust、CLI、评测与跨平台 CI 必须保持通过。
 
@@ -45,3 +47,5 @@ MCP 2026-07-28 已移除连接级 `initialize` 生命周期，改为每个请求
 
 - [MCP 2026-07-28 stdio transport](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/transports/stdio.mdx)
 - [MCP 2026-07-28 server discovery](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/server/discover.mdx)
+- [MCP 2026-07-28 tools](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/server/tools.mdx)
+- [DeepSeek Chat Completions tools](https://api-docs.deepseek.com/api/create-chat-completion/)
