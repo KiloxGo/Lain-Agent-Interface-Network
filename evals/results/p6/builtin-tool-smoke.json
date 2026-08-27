@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-27T07:31:55.790Z",
+  "generatedAt": "2026-08-27T07:51:15.768Z",
   "caseId": "coding-builtin-status-001",
   "passed": true,
   "failures": [],
@@ -8,12 +8,18 @@
     "time_now",
     "instance_status"
   ],
+  "toolEvents": [
+    "tool.started:time_now",
+    "tool.started:instance_status",
+    "tool.completed:time_now",
+    "tool.completed:instance_status"
+  ],
   "exitCodes": [],
   "approvals": [],
   "final": "BUILTINS_OK",
   "usage": {
-    "cached_input_tokens": 3328,
-    "input_tokens": 4576,
+    "cached_input_tokens": 4352,
+    "input_tokens": 4579,
     "output_tokens": 46
   }
 }

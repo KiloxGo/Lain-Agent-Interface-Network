@@ -7,6 +7,7 @@
 ## 当前状态
 
 - 内置工具：CLI workspace 的 chat mode 提供只读 `time_now` 与 `instance_status`；仅返回 UTC 时间和非敏感实例版本状态。
+- 并行策略：同一模型 step 中的全只读工具批次可以并行执行；写入、检查、未知工具及混合批次保持串行。
 
 - 后端：Rust 2024、Tokio、Axum，默认监听 `127.0.0.1:3000`。
 - 前端：React 19、TypeScript、Vite。

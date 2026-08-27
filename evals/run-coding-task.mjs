@@ -143,6 +143,9 @@ async function score(item, workspace, client, usage, decisions) {
   const tools = client.events
     .filter(({ type }) => type === "tool.started")
     .map(({ payload }) => payload.name);
+  const toolEvents = client.events
+    .filter(({ type }) => type === "tool.started" || type === "tool.completed")
+    .map(({ type, payload }) => `${type}:${payload.name}`);
   const summaries = client.events
     .filter(({ type }) => type === "tool.completed")
     .map(({ payload }) => payload.summary ?? "");
@@ -179,6 +182,7 @@ async function score(item, workspace, client, usage, decisions) {
     passed: failures.length === 0,
     failures,
     tools,
+    toolEvents,
     exitCodes,
     approvals: decisions,
     final,

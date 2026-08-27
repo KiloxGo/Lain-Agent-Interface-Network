@@ -122,5 +122,9 @@ const builtinSmoke = JSON.parse(await readFile(resolve("evals/results/p6/builtin
 invariant(builtinSmoke.caseId === "coding-builtin-status-001", "builtin tool smoke: wrong case");
 invariant(builtinSmoke.tools?.join(",") === "time_now,instance_status", "builtin tool smoke: unexpected tools");
 invariant(builtinSmoke.approvals?.length === 0 && builtinSmoke.final === "BUILTINS_OK", "builtin tool smoke: invalid result");
+invariant(
+  builtinSmoke.toolEvents?.join(",") === "tool.started:time_now,tool.started:instance_status,tool.completed:time_now,tool.completed:instance_status",
+  "builtin tool smoke: calls were not dispatched as one ordered parallel batch",
+);
 
 console.log(`eval fixtures valid: ${ids.size} cases plus online baselines`);

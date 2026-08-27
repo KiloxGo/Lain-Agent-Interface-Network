@@ -2394,7 +2394,7 @@ Playwright：
 - [x] P6-012 内置 read-only memory_search/memory_get 工具。（复用 Memory v1 检索；按 user/session/status/never_recall fail closed。）
 - [x] P6-013 内置 time_now 和 instance_status 工具。（返回 UTC/Unix 时间与非敏感实例版本状态；复用只读审计链路。）
 - [x] P6-014 工具 schema 按 mode 最小化注入。（配置 workspace 的 chat mode 注入两个只读记忆、三个只读 workspace、两个审批文件写入和一个预定义检查 schema。）
-- [ ] P6-015 仅对安全只读工具启用 parallel calls。
+- [x] P6-015 仅对安全只读工具启用 parallel calls。（显式安全名单；全只读批次并行执行，审计与 provider results 保持模型顺序，混合批次串行。）
 - [ ] P6-016 实现 MCP stdio client 和 lifecycle。
 - [ ] P6-017 实现 namespaced tools/list/tools/call。
 - [ ] P6-018 MCP metadata/output 标记 untrusted。
