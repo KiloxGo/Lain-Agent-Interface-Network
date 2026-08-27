@@ -2391,9 +2391,9 @@ Playwright：
 - [x] P6-009 实现 Runner tool loop、max turns/calls。（只读 v0：最多 4 轮、8 次调用。）
 - [x] P6-010 实现 approval pause/resume。（CLI v0：一次性 y/N、5 分钟超时与断线 fail closed、执行前 hash 重验。）
 - [ ] P6-011 前端 approval UI。
-- [ ] P6-012 内置 read-only memory_search/memory_get 工具。
+- [x] P6-012 内置 read-only memory_search/memory_get 工具。（复用 Memory v1 检索；按 user/session/status/never_recall fail closed。）
 - [ ] P6-013 内置 time_now 和 instance_status 工具。
-- [x] P6-014 工具 schema 按 mode 最小化注入。（仅配置 workspace 的 chat mode 注入三个只读、两个审批文件写入和一个预定义检查 schema。）
+- [x] P6-014 工具 schema 按 mode 最小化注入。（配置 workspace 的 chat mode 注入两个只读记忆、三个只读 workspace、两个审批文件写入和一个预定义检查 schema。）
 - [ ] P6-015 仅对安全只读工具启用 parallel calls。
 - [ ] P6-016 实现 MCP stdio client 和 lifecycle。
 - [ ] P6-017 实现 namespaced tools/list/tools/call。

@@ -1179,6 +1179,30 @@ impl Storage {
         Ok(memory_item_from_row(row))
     }
 
+    pub async fn get_recallable_memory_item(
+        &self,
+        session_id: &str,
+        item_id: &str,
+    ) -> Result<MemoryItemView, StorageError> {
+        self.require_session(session_id).await?;
+        let row = sqlx::query(
+            "SELECT m.id, m.memory_type, m.scope, m.subject, m.predicate, m.value, \
+                    m.sensitivity, m.status, m.version, c.source_message_id, c.evidence_quote, \
+                    m.valid_from, m.valid_to, m.never_recall, m.pinned, m.created_at, m.updated_at \
+             FROM memory_items m JOIN memory_candidates c ON c.id = m.source_candidate_id \
+             WHERE m.id = ? AND m.user_id = ? AND m.never_recall = 0 \
+               AND m.status IN ('active', 'superseded') \
+               AND (m.scope != 'session' OR m.session_id = ?)",
+        )
+        .bind(item_id)
+        .bind(&self.scope.user_id)
+        .bind(session_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| StorageError::MemoryItemNotFound(item_id.to_string()))?;
+        Ok(memory_item_from_row(row))
+    }
+
     pub async fn retrieve_memory_evidence(
         &self,
         session_id: &str,
@@ -2338,6 +2362,14 @@ mod tests {
         assert_eq!(evidence[0].version, "2");
         assert!(evidence[0].text.contains("Neovim"));
         assert!(!evidence[0].source_event_ids.is_empty());
+        let recalled = storage
+            .get_recallable_memory_item(
+                &session_id,
+                corrected.item_id.as_deref().expect("corrected item id"),
+            )
+            .await
+            .expect("get recallable item");
+        assert_eq!(recalled.value, "Neovim");
         let historical = storage
             .retrieve_memory_evidence(&session_id, "Which editor did I use in 2025?", 12)
             .await
@@ -2417,6 +2449,12 @@ mod tests {
             .expect("update controls");
         assert!(item.pinned);
         assert!(item.never_recall);
+        assert!(matches!(
+            storage
+                .get_recallable_memory_item(&session_id, &item_id)
+                .await,
+            Err(StorageError::MemoryItemNotFound(_))
+        ));
         assert!(
             storage
                 .retrieve_memory_evidence(&session_id, "private diagnosis", 8)

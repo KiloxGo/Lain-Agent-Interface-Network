@@ -27,7 +27,10 @@ use crate::{
         ToolChoice,
     },
     storage::{CompletionUsage, RunRecord, Storage, StorageError},
-    tools::{PendingCheck, ToolCall, ToolError, ToolResult, WorkspaceTools},
+    tools::{
+        PendingCheck, ToolCall, ToolError, ToolResult, WorkspaceTools, execute_memory,
+        memory_definitions,
+    },
 };
 
 const OUTBOUND_CAPACITY: usize = 64;
@@ -443,15 +446,14 @@ async fn execute_run(
     if send_json(outbound, &context_event).await.is_err() {
         // The provider call still completes so committed runs do not depend on a live client.
     }
-    let tool_definitions = if matches!(route_kind, RouteKind::Chat) {
-        state
-            .workspace_tools
-            .as_ref()
-            .map(|_| crate::tools::WorkspaceTools::definitions())
-            .unwrap_or_default()
-    } else {
-        Vec::new()
-    };
+    let tool_definitions =
+        if matches!(route_kind, RouteKind::Chat) && state.workspace_tools.is_some() {
+            let mut definitions = memory_definitions();
+            definitions.extend(crate::tools::WorkspaceTools::definitions());
+            definitions
+        } else {
+            Vec::new()
+        };
     let mut request = ModelRequest {
         request_id: run.id.clone(),
         model: route.model,
@@ -661,6 +663,9 @@ async fn execute_run(
                 client_gone = true;
             }
             let result = match call.name.as_str() {
+                "memory_search" | "memory_get" => {
+                    execute_memory(storage, &run.session_id, call.clone()).await
+                }
                 "replace_text" => match workspace_tools.prepare_replace(call.clone()).await {
                     Ok(edit) => {
                         let approval = resolve_tool_approval(
@@ -1134,6 +1139,8 @@ fn tool_error_code(error: &ToolError) -> &'static str {
         ToolError::PathAlreadyExists => "path_already_exists",
         ToolError::CommandTimedOut => "command_timed_out",
         ToolError::CommandCancelled => "command_cancelled",
+        ToolError::MemoryUnavailable => "memory_unavailable",
+        ToolError::BackendUnavailable => "tool_unavailable",
         _ => "tool_rejected",
     }
 }

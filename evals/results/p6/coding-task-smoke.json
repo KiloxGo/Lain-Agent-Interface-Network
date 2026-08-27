@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-26T08:28:35.764Z",
+  "generatedAt": "2026-08-27T01:31:55.635Z",
   "caseId": "coding-recover-node-001",
   "passed": true,
   "failures": [],
   "tools": [
-    "list_files",
     "run_check",
+    "list_files",
     "read_file",
     "read_file",
     "replace_text",
@@ -35,10 +35,10 @@
       "approved": true
     }
   ],
-  "final": "CODING_TASK_OK",
+  "final": "Tests pass (exit 0). The bug was in `math.js`: `return a - b` should have been `return a + b`, matching the test expecting `add(2, 3) === 5`.\n\nCODING_TASK_OK",
   "usage": {
-    "cached_input_tokens": 11264,
-    "input_tokens": 12520,
-    "output_tokens": 291
+    "cached_input_tokens": 12416,
+    "input_tokens": 13469,
+    "output_tokens": 376
   }
 }

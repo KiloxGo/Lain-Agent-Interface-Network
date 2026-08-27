@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-27T01:31:23.404Z",
+  "caseId": "coding-memory-search-empty-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "memory_search"
+  ],
+  "exitCodes": [],
+  "approvals": [],
+  "final": "NO_MEMORY",
+  "usage": {
+    "cached_input_tokens": 2944,
+    "input_tokens": 4284,
+    "output_tokens": 57
+  }
+}

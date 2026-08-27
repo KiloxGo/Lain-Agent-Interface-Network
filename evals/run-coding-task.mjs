@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
@@ -40,11 +40,7 @@ async function loadCase(id) {
 }
 
 async function ensureKernel() {
-  try {
-    await access(KERNEL);
-  } catch {
-    await run("cargo", ["build", "--locked", "--bin", "lain-kernel"], KERNEL_DIR);
-  }
+  await run("cargo", ["build", "--locked", "--bin", "lain-kernel"], KERNEL_DIR);
 }
 
 function run(command, args, cwd) {

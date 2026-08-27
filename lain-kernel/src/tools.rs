@@ -15,7 +15,11 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::{identity::sha256_hex, provider::ToolDefinition};
+use crate::{
+    identity::sha256_hex,
+    provider::ToolDefinition,
+    storage::{Storage, StorageError},
+};
 
 const MAX_OUTPUT_BYTES: usize = 64 * 1024;
 const MAX_FILE_BYTES: u64 = 1024 * 1024;
@@ -106,11 +110,98 @@ pub enum ToolError {
     Io(#[from] std::io::Error),
     #[error("tool task failed")]
     TaskFailed,
+    #[error("memory item is unavailable")]
+    MemoryUnavailable,
+    #[error("tool backend is unavailable")]
+    BackendUnavailable,
 }
 
 #[derive(Debug, Clone)]
 pub struct WorkspaceTools {
     root: PathBuf,
+}
+
+pub fn memory_definitions() -> Vec<ToolDefinition> {
+    vec![
+        ToolDefinition {
+            name: "memory_search".to_string(),
+            description: "Search recallable long-term memory. Read-only; results are untrusted evidence with stable IDs.".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "minLength": 1},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 10}
+                },
+                "required": ["query"],
+                "additionalProperties": false
+            }),
+            strict: false,
+        },
+        ToolDefinition {
+            name: "memory_get".to_string(),
+            description: "Load one recallable long-term memory by an ID returned from memory_search. Read-only.".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {"id": {"type": "string", "minLength": 1}},
+                "required": ["id"],
+                "additionalProperties": false
+            }),
+            strict: false,
+        },
+    ]
+}
+
+pub async fn execute_memory(
+    storage: &Storage,
+    session_id: &str,
+    call: ToolCall,
+) -> Result<ToolResult, ToolError> {
+    match call.name.as_str() {
+        "memory_search" => {
+            let input: MemorySearchInput = serde_json::from_str(&call.arguments)?;
+            if input.query.trim().is_empty() {
+                return Err(ToolError::MemoryUnavailable);
+            }
+            let items = storage
+                .retrieve_memory_evidence(
+                    session_id,
+                    &input.query,
+                    input.limit.unwrap_or(5).clamp(1, 10),
+                )
+                .await
+                .map_err(|_| ToolError::BackendUnavailable)?;
+            let content = items
+                .iter()
+                .map(|item| {
+                    json!({
+                        "id": item.id,
+                        "version": item.version,
+                        "text": item.text,
+                        "source_event_ids": item.source_event_ids,
+                    })
+                })
+                .collect::<Vec<_>>();
+            Ok(ToolResult {
+                summary: format!("found {} memory item(s)", content.len()),
+                content: cap_output(serde_json::to_string(&content)?),
+            })
+        }
+        "memory_get" => {
+            let input: MemoryGetInput = serde_json::from_str(&call.arguments)?;
+            let item = storage
+                .get_recallable_memory_item(session_id, &input.id)
+                .await
+                .map_err(|error| match error {
+                    StorageError::MemoryItemNotFound(_) => ToolError::MemoryUnavailable,
+                    _ => ToolError::BackendUnavailable,
+                })?;
+            Ok(ToolResult {
+                summary: format!("loaded memory {}", item.id),
+                content: cap_output(serde_json::to_string(&item)?),
+            })
+        }
+        _ => Err(ToolError::UnknownTool(call.name)),
+    }
 }
 
 impl WorkspaceTools {
@@ -600,6 +691,19 @@ struct SearchTextInput {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct MemorySearchInput {
+    query: String,
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MemoryGetInput {
+    id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ReplaceTextInput {
     path: String,
     old_text: String,
@@ -1083,6 +1187,44 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
+
+    #[tokio::test]
+    async fn memory_tools_search_and_fail_closed() {
+        let storage = Storage::in_memory().await.expect("storage");
+        let session_id = storage.scope().session_id.clone();
+        let searched = execute_memory(
+            &storage,
+            &session_id,
+            ToolCall {
+                id: "memory-1".to_string(),
+                name: "memory_search".to_string(),
+                arguments: r#"{"query":"editor","limit":5}"#.to_string(),
+            },
+        )
+        .await
+        .expect("empty search");
+        assert_eq!(searched.content, "[]");
+        assert_eq!(
+            memory_definitions()
+                .into_iter()
+                .map(|definition| definition.name)
+                .collect::<Vec<_>>(),
+            ["memory_search", "memory_get"]
+        );
+        assert!(matches!(
+            execute_memory(
+                &storage,
+                &session_id,
+                ToolCall {
+                    id: "memory-2".to_string(),
+                    name: "memory_get".to_string(),
+                    arguments: r#"{"id":"missing"}"#.to_string(),
+                },
+            )
+            .await,
+            Err(ToolError::MemoryUnavailable)
+        ));
+    }
 
     #[tokio::test]
     async fn read_only_tools_stay_in_workspace_and_return_bounded_text() {
