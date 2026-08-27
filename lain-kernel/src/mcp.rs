@@ -16,7 +16,7 @@ const LEGACY_PROTOCOL_VERSION: &str = "2025-11-25";
 const LEGACY_PROTOCOL_VERSIONS: [&str; 4] =
     ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 const MESSAGE_LIMIT: usize = 64 * 1024;
-const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(3);
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_SKIPPED_MESSAGES: usize = 32;
 
