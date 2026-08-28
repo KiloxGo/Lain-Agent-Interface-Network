@@ -2396,7 +2396,7 @@ Playwright：
 - [x] P6-014 工具 schema 按 mode 最小化注入。（配置 workspace 的 chat mode 注入两个只读记忆、三个只读 workspace、两个审批文件写入和一个预定义检查 schema。）
 - [x] P6-015 仅对安全只读工具启用 parallel calls。（显式安全名单；全只读批次并行执行，审计与 provider results 保持模型顺序，混合批次串行。）
 - [x] P6-016 实现 MCP stdio client 和 lifecycle。（单个 opt-in 本地 server；2026-07-28 discovery 与旧 initialize fallback；有界 framing、敏感环境过滤及 EOF/kill shutdown。）
-- [x] P6-017 实现 namespaced tools/list/tools/call。（连接时有界分页读取目录；工具名映射到 DeepSeek-safe server namespace；仅允许调用已发现工具，模型暴露等待 P6-018/P6-019。）
+- [x] P6-017 实现 namespaced tools/list/tools/call。（连接时有界分页读取目录；工具名映射到 DeepSeek-safe server namespace；仅允许调用已发现工具；模型暴露与 host policy 已由 P6-018/P6-019 完成。）
 - [x] P6-018 MCP metadata/output 标记 untrusted。（工具说明带 host 生成的不可信来源标签并限制 2 KiB；schema 剥离展示型元数据；目录元数据总计 256 KiB；返回内容统一带 namespace 来源并限制 64 KiB。）
 - [x] P6-019 建立最小 scope 和 approval 映射。（chat mode 注入已发现的 namespaced MCP 工具；全部按 `external_side_effect` 串行处理并复用一次性审批/审计链，不采信 server annotations；审批超时、断线、拒绝及未知工具均 fail closed。）
 - [ ] P6-020 增加 balanced tool eval suite。（已建立 3 类 coding smoke 与失败恢复基线；扩展到均衡规模后完成。）
