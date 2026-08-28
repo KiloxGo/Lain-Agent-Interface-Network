@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-28T15:12:36.190Z",
+  "caseId": "coding-edit-node-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "list_files",
+    "read_file",
+    "read_file",
+    "read_file",
+    "replace_text",
+    "run_check"
+  ],
+  "toolEvents": [
+    "tool.started:list_files",
+    "tool.completed:list_files",
+    "tool.started:read_file",
+    "tool.started:read_file",
+    "tool.started:read_file",
+    "tool.completed:read_file",
+    "tool.completed:read_file",
+    "tool.completed:read_file",
+    "tool.started:replace_text",
+    "tool.completed:replace_text",
+    "tool.started:run_check",
+    "tool.completed:run_check"
+  ],
+  "exitCodes": [
+    "0"
+  ],
+  "approvals": [
+    {
+      "name": "replace_text",
+      "path": "greeting.js",
+      "approved": true
+    },
+    {
+      "name": "run_check",
+      "cwd": ".",
+      "command": "node --test",
+      "approved": true
+    }
+  ],
+  "final": "Test passes. CODING_TASK_OK",
+  "usage": {
+    "cached_input_tokens": 11776,
+    "input_tokens": 12557,
+    "output_tokens": 327
+  }
+}

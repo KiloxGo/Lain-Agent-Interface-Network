@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-28T15:12:18.637Z",
+  "caseId": "coding-create-node-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "list_files",
+    "create_file",
+    "run_check"
+  ],
+  "toolEvents": [
+    "tool.started:list_files",
+    "tool.completed:list_files",
+    "tool.started:create_file",
+    "tool.completed:create_file",
+    "tool.started:run_check",
+    "tool.completed:run_check"
+  ],
+  "exitCodes": [
+    "0"
+  ],
+  "approvals": [
+    {
+      "name": "create_file",
+      "path": "sum.test.js",
+      "approved": true
+    },
+    {
+      "name": "run_check",
+      "cwd": ".",
+      "command": "node --test",
+      "approved": true
+    }
+  ],
+  "final": "Created `sum.test.js` with a `node:test` assertion and ran `node_test` in the workspace root — it exited 0 with 1 test passing.\n\nCODING_TASK_OK",
+  "usage": {
+    "cached_input_tokens": 8960,
+    "input_tokens": 9444,
+    "output_tokens": 217
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-28T15:15:04.305Z",
+  "caseId": "coding-mcp-echo-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "fixture__echo"
+  ],
+  "toolEvents": [
+    "tool.started:fixture__echo",
+    "tool.completed:fixture__echo"
+  ],
+  "exitCodes": [],
+  "approvals": [
+    {
+      "name": "fixture__echo",
+      "server": "fixture",
+      "arguments": {
+        "message": "balanced-suite"
+      },
+      "approved": true
+    }
+  ],
+  "final": "MCP_OK",
+  "usage": {
+    "cached_input_tokens": 4352,
+    "input_tokens": 4816,
+    "output_tokens": 50
+  }
+}

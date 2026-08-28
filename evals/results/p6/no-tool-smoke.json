@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-28T15:14:51.111Z",
+  "caseId": "coding-no-tool-001",
+  "passed": true,
+  "failures": [],
+  "tools": [],
+  "toolEvents": [],
+  "exitCodes": [],
+  "approvals": [],
+  "final": "NO_TOOL_NEEDED",
+  "usage": {
+    "cached_input_tokens": 2048,
+    "input_tokens": 2181,
+    "output_tokens": 7
+  }
+}

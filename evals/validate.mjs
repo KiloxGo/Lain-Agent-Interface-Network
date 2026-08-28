@@ -4,10 +4,11 @@ import { resolve } from "node:path";
 const suites = [
   { name: "persona", path: "evals/cases/persona/golden.jsonl", minimum: 20, minimumCategories: 5 },
   { name: "memory", path: "evals/cases/memory/golden.jsonl", minimum: 20, minimumCategories: 5 },
-  { name: "coding", path: "evals/cases/coding/golden.jsonl", minimum: 6, minimumCategories: 6 },
+  { name: "coding", path: "evals/cases/coding/golden.jsonl", minimum: 8, minimumCategories: 8 },
 ];
 
 const ids = new Set();
+const codingCaseIds = new Set();
 const secretPattern = /(?:sk-[A-Za-z0-9]{16,}|Bearer\s+[A-Za-z0-9._-]{16,}|BEGIN (?:RSA |EC )?PRIVATE KEY)/;
 
 function invariant(condition, message) {
@@ -50,13 +51,17 @@ for (const suite of suites) {
       invariant(typeof item.input.prompt === "string" && item.input.prompt.length > 0, `${item.id}: missing prompt`);
       invariant(item.input.files && typeof item.input.files === "object" && !Array.isArray(item.input.files), `${item.id}: missing files`);
       invariant(Array.isArray(item.approval?.paths) && Array.isArray(item.approval?.commands), `${item.id}: missing approval allowlist`);
+      invariant(item.approval.tools === undefined || Array.isArray(item.approval.tools), `${item.id}: invalid tool approval allowlist`);
+      invariant(item.input.mcp === undefined || item.input.mcp === true, `${item.id}: invalid MCP fixture flag`);
       invariant(Array.isArray(item.expected.tool_subsequence), `${item.id}: missing tool sequence`);
       invariant(Array.isArray(item.expected.exit_codes), `${item.id}: missing exit codes`);
+      invariant(item.expected.max_tool_calls === undefined || Number.isInteger(item.expected.max_tool_calls), `${item.id}: invalid tool call limit`);
       invariant(item.expected.files && typeof item.expected.files === "object", `${item.id}: missing expected files`);
       invariant(
         typeof item.expected.final_contains === "string" || typeof item.expected.final_equals === "string",
         `${item.id}: missing final marker`,
       );
+      codingCaseIds.add(item.id);
     }
   }
 
@@ -92,20 +97,33 @@ const harness = JSON.parse(await readFile(resolve("evals/results/p0/harness.json
 invariant(harness.callsUsed === 5 && harness.runs?.length === 5, "harness: expected 5 runs");
 invariant(harness.storage?.iterations === 200, "harness: expected 200 storage iterations");
 
-for (const baseline of [
-  "evals/results/p6/coding-task-smoke.json",
-  "evals/results/p6/tool-injection-smoke.json",
-  "evals/results/p6/memory-tool-smoke.json",
-  "evals/results/p6/builtin-tool-smoke.json",
-]) {
+const toolBaselines = [
+  ["evals/results/p6/coding-task-smoke.json", "coding-recover-node-001"],
+  ["evals/results/p6/create-node-smoke.json", "coding-create-node-001"],
+  ["evals/results/p6/edit-node-smoke.json", "coding-edit-node-001"],
+  ["evals/results/p6/tool-injection-smoke.json", "coding-tool-injection-001"],
+  ["evals/results/p6/memory-tool-smoke.json", "coding-memory-search-empty-001"],
+  ["evals/results/p6/builtin-tool-smoke.json", "coding-builtin-status-001"],
+  ["evals/results/p6/no-tool-smoke.json", "coding-no-tool-001"],
+  ["evals/results/p6/mcp-echo-smoke.json", "coding-mcp-echo-001"],
+];
+const toolResults = [];
+for (const [baseline, expectedCaseId] of toolBaselines) {
   const codingSmoke = JSON.parse(await readFile(resolve(baseline), "utf8"));
-  invariant(codingSmoke.caseId?.startsWith("coding-"), `${baseline}: invalid case id`);
+  invariant(codingSmoke.caseId === expectedCaseId, `${baseline}: wrong case id`);
   invariant(codingSmoke.passed === true && codingSmoke.failures?.length === 0, `${baseline}: expected a passing result`);
   invariant(Array.isArray(codingSmoke.tools) && Array.isArray(codingSmoke.exitCodes), `${baseline}: missing tool trace`);
   invariant(Array.isArray(codingSmoke.approvals) && codingSmoke.approvals.every(({ approved }) => approved), `${baseline}: invalid approvals`);
   invariant(typeof codingSmoke.final === "string" && codingSmoke.usage && typeof codingSmoke.usage === "object", `${baseline}: missing output`);
   invariant(!secretPattern.test(JSON.stringify(codingSmoke)), `${baseline}: result looks like a real secret`);
+  toolResults.push(codingSmoke);
 }
+invariant(toolResults.length === codingCaseIds.size, "tool suite: missing coding baseline");
+for (const caseId of codingCaseIds) {
+  invariant(toolResults.some((result) => result.caseId === caseId), `tool suite: missing ${caseId}`);
+}
+const approvalCases = toolResults.filter(({ approvals }) => approvals.length > 0);
+invariant(approvalCases.length * 2 === toolResults.length, "tool suite: expected equal approval/no-approval cases");
 
 const injectionSmoke = JSON.parse(await readFile(resolve("evals/results/p6/tool-injection-smoke.json"), "utf8"));
 invariant(injectionSmoke.caseId === "coding-tool-injection-001", "tool injection smoke: wrong case");
@@ -127,4 +145,16 @@ invariant(
   "builtin tool smoke: calls were not dispatched as one ordered parallel batch",
 );
 
+const noToolSmoke = JSON.parse(await readFile(resolve("evals/results/p6/no-tool-smoke.json"), "utf8"));
+invariant(noToolSmoke.tools?.length === 0 && noToolSmoke.approvals?.length === 0, "no-tool smoke: unexpected tool use");
+invariant(noToolSmoke.final === "NO_TOOL_NEEDED", "no-tool smoke: invalid result");
+
+const mcpSmoke = JSON.parse(await readFile(resolve("evals/results/p6/mcp-echo-smoke.json"), "utf8"));
+invariant(mcpSmoke.tools?.join(",") === "fixture__echo", "MCP smoke: unexpected tools");
+invariant(mcpSmoke.approvals?.length === 1 && mcpSmoke.approvals[0].approved, "MCP smoke: invalid approval");
+invariant(mcpSmoke.final === "MCP_OK", "MCP smoke: invalid result");
+
+console.log(
+  `tool suite: ${toolResults.length}/${toolResults.length} passed, ${approvalCases.length} approval + ${toolResults.length - approvalCases.length} no-approval cases`,
+);
 console.log(`eval fixtures valid: ${ids.size} cases plus online baselines`);

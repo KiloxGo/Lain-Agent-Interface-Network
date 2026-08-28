@@ -30,6 +30,10 @@ node evals/validate.mjs
 node --env-file=lain-kernel/.env evals/run-persona.mjs
 node evals/benchmark-harness.mjs
 node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-recover-node-001
+node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-create-node-001 --output evals/results/p6/create-node-smoke.json
+node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-edit-node-001 --output evals/results/p6/edit-node-smoke.json
+node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-no-tool-001 --output evals/results/p6/no-tool-smoke.json
+node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-mcp-echo-001 --output evals/results/p6/mcp-echo-smoke.json
 node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-tool-injection-001 --output evals/results/p6/tool-injection-smoke.json
 node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-memory-search-empty-001 --output evals/results/p6/memory-tool-smoke.json
 node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-builtin-status-001 --output evals/results/p6/builtin-tool-smoke.json
@@ -37,6 +41,6 @@ node --env-file=lain-kernel/.env evals/run-coding-task.mjs --case coding-builtin
 
 `run-persona.mjs` 默认最多使用 30 次调用：20 次生成、4 次批量 judge，并保留余量用于异常重跑。它不会保存系统提示词或密钥，只保存提示词 SHA-256、合成输入、输出、usage、时延和 judge 结果。`benchmark-harness.mjs` 通过实际 WebSocket 使用 5 次调用，并测量当前 Markdown append 原语；运行前需要启动后端。
 
-`run-coding-task.mjs` 每次必须显式选择一个案例。它会启动本地 kernel，在一次性临时 workspace 中运行任务，并且只自动批准案例声明的文件路径和预定义检查；`--output` 或 `CODING_EVAL_OUTPUT` 可为不同烟测指定结果文件。CI 只校验案例与已保存结果，不调用付费模型。
+`run-coding-task.mjs` 每次必须显式选择一个案例。它会启动本地 kernel，在一次性临时 workspace 中运行任务，并且只自动批准案例声明的文件路径、预定义检查与 MCP 工具；`--output` 或 `CODING_EVAL_OUTPUT` 可为不同烟测指定结果文件。P6 balanced suite 固定覆盖 8 个不同类别，其中 4 个需要一次性审批、4 个不得产生审批，并含一个明确的 no-tool 负向选择；CI 校验全部案例都有通过的已保存结果，不调用付费模型。
 
-`fixtures/mcp-stdio-server.mjs` 是不访问网络的合成 MCP server，仅用于 Rust 测试现代 discovery、旧版 initialize fallback、分页 `tools/list`、恶意 metadata/output 隔离、`tools/call` 和 stdin EOF shutdown。
+`fixtures/mcp-stdio-server.mjs` 是不访问网络的合成 MCP server，用于 Rust 协议测试以及 balanced suite 的真实模型 → 审批 → MCP echo 闭环。

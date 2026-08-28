@@ -98,6 +98,9 @@ class RecordingClient extends LainClient {
 }
 
 function approvalAllowed(item, payload) {
+  if (typeof payload.server === "string") {
+    return (item.approval.tools ?? []).includes(payload.name);
+  }
   if (["replace_text", "create_file"].includes(payload.name)) {
     return item.approval.paths.includes(payload.path);
   }
@@ -115,7 +118,15 @@ async function connect(url, item, decisions) {
     const client = new RecordingClient(url, { write: () => {} });
     client.approve = async (payload) => {
       const approved = approvalAllowed(item, payload);
-      decisions.push({ name: payload.name, path: payload.path, cwd: payload.cwd, command: payload.command, approved });
+      decisions.push({
+        name: payload.name,
+        path: payload.path,
+        cwd: payload.cwd,
+        command: payload.command,
+        server: payload.server,
+        arguments: payload.arguments,
+        approved,
+      });
       return approved;
     };
     try {
@@ -153,6 +164,9 @@ async function score(item, workspace, client, usage, decisions) {
   const final = [...client.messages].reverse().find(({ role }) => role === "assistant")?.content ?? "";
 
   if (!isSubsequence(item.expected.tool_subsequence, tools)) failures.push(`tool sequence: ${tools.join(" -> ")}`);
+  if (item.expected.max_tool_calls !== undefined && tools.length > item.expected.max_tool_calls) {
+    failures.push(`tool count: ${tools.length}`);
+  }
   if (!isSubsequence(item.expected.exit_codes, exitCodes)) failures.push(`exit codes: ${exitCodes.join(",")}`);
   if (item.expected.final_equals !== undefined
       ? final !== item.expected.final_equals
@@ -208,6 +222,14 @@ async function main(args = process.argv.slice(2)) {
       LAIN_WORKSPACE: workspace,
       LAIN_DATA_DIR: data,
       LAIN_MEMORY_EXTRACTION_ENABLED: "false",
+      ...(item.input.mcp ? {
+        LAIN_MCP_STDIO_NAME: "fixture",
+        LAIN_MCP_STDIO_COMMAND: process.execPath,
+        LAIN_MCP_STDIO_ARGS: JSON.stringify([
+          join(ROOT, "evals", "fixtures", "mcp-stdio-server.mjs"),
+          "modern",
+        ]),
+      } : {}),
     },
     stdio: ["ignore", "ignore", "pipe"],
     windowsHide: true,
