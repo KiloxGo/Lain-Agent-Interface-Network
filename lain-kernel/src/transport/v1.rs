@@ -20,6 +20,7 @@ use crate::{
     context::{CompileInput, ContextBudget, ContextCompiler, RelationshipState},
     domain::event::PROTOCOL_VERSION,
     error::AppError,
+    identity::sha256_hex,
     memory,
     protocol::{ClientCommand, ErrorEvent, PongEvent, ServerHello, SnapshotEvent, transient_event},
     provider::{
@@ -446,15 +447,20 @@ async fn execute_run(
     if send_json(outbound, &context_event).await.is_err() {
         // The provider call still completes so committed runs do not depend on a live client.
     }
-    let tool_definitions =
-        if matches!(route_kind, RouteKind::Chat) && state.workspace_tools.is_some() {
-            let mut definitions = builtin_definitions();
+    let tool_definitions = if matches!(route_kind, RouteKind::Chat) {
+        let mut definitions = Vec::new();
+        if state.workspace_tools.is_some() {
+            definitions.extend(builtin_definitions());
             definitions.extend(memory_definitions());
             definitions.extend(crate::tools::WorkspaceTools::definitions());
-            definitions
-        } else {
-            Vec::new()
-        };
+        }
+        if let Some(mcp) = state.mcp.as_deref() {
+            definitions.extend(mcp.tool_definitions());
+        }
+        definitions
+    } else {
+        Vec::new()
+    };
     let mut request = ModelRequest {
         request_id: run.id.clone(),
         model: route.model,
@@ -604,9 +610,7 @@ async fn execute_run(
             raw_reply = turn_text;
             break;
         }
-        let Some(workspace_tools) = state.workspace_tools.as_ref() else {
-            return fail_run(storage, outbound, &run, "tool_unavailable").await;
-        };
+        let workspace_tools = state.workspace_tools.as_ref();
         if tool_round == MAX_TOOL_ROUNDS || pending_tools.is_empty() {
             return fail_run(storage, outbound, &run, "tool_round_limit").await;
         }
@@ -653,7 +657,7 @@ async fn execute_run(
                         &run.id,
                         &call.id,
                         &call.name,
-                        tool_risk(&call.name),
+                        tool_risk(&call.name, false),
                         &arguments,
                     )
                     .await
@@ -726,12 +730,16 @@ async fn execute_run(
         for call in calls {
             let arguments = serde_json::from_str(&call.arguments)
                 .unwrap_or_else(|_| json!({ "invalid_raw_arguments": call.arguments }));
+            let mcp = state
+                .mcp
+                .as_deref()
+                .filter(|client| client.has_tool(&call.name));
             let (invocation_id, started) = match storage
                 .start_tool_invocation(
                     &run.id,
                     &call.id,
                     &call.name,
-                    tool_risk(&call.name),
+                    tool_risk(&call.name, mcp.is_some()),
                     &arguments,
                 )
                 .await
@@ -745,10 +753,83 @@ async fn execute_run(
             if !client_gone && send_json(outbound, &started).await.is_err() {
                 client_gone = true;
             }
-            let result = match call.name.as_str() {
-                "replace_text" => match workspace_tools.prepare_replace(call.clone()).await {
-                    Ok(edit) => {
+            let result = if let Some(mcp) = mcp {
+                match serde_json::from_str::<Value>(&call.arguments) {
+                    Err(error) => Err(ToolError::InvalidArguments(error)),
+                    Ok(arguments) if !arguments.is_object() => Err(ToolError::ExternalTool(
+                        "MCP tool arguments must be a JSON object".to_string(),
+                    )),
+                    Ok(arguments) => {
+                        let action_hash = mcp_action_hash(&call.name, &call.arguments);
                         let approval = resolve_tool_approval(
+                            storage,
+                            incoming,
+                            outbound,
+                            ToolApprovalRequest {
+                                run: &run,
+                                invocation_id: &invocation_id,
+                                call: &call,
+                                action_hash: &action_hash,
+                                presentation: json!({
+                                    "server": &mcp.info().namespace,
+                                    "tool": &call.name,
+                                    "arguments": &arguments,
+                                    "warning": "External MCP tools may have side effects; server annotations are not trusted."
+                                }),
+                            },
+                            &cancellation,
+                            &mut client_gone,
+                        )
+                        .await;
+                        match approval {
+                            Ok(ApprovalOutcome::Approved) => {
+                                match mcp.call_tool(&call.name, arguments).await {
+                                    Ok(result) if result.is_error => Err(ToolError::ExternalTool(
+                                        result.model_content().to_string(),
+                                    )),
+                                    Ok(result) => Ok(ToolResult {
+                                        content: result.model_content().to_string(),
+                                        summary: format!("called MCP tool {}", call.name),
+                                    }),
+                                    Err(error) => {
+                                        tracing::warn!(
+                                            run_id = run.id,
+                                            tool = call.name,
+                                            error = %error,
+                                            "MCP tool call failed"
+                                        );
+                                        Err(ToolError::ExternalTool(
+                                            "MCP request failed".to_string(),
+                                        ))
+                                    }
+                                }
+                            }
+                            Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
+                            Ok(ApprovalOutcome::Unavailable) => Err(ToolError::ApprovalUnavailable),
+                            Ok(ApprovalOutcome::RunCancelled) => {
+                                cancellation.cancel();
+                                return cancel_tool_run(
+                                    storage,
+                                    outbound,
+                                    &run,
+                                    &invocation_id,
+                                    &call,
+                                    "approval_cancelled",
+                                )
+                                .await;
+                            }
+                            Err(error) => {
+                                tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
+                                return fail_run(storage, outbound, &run, "storage_error").await;
+                            }
+                        }
+                    }
+                }
+            } else if let Some(workspace_tools) = workspace_tools {
+                match call.name.as_str() {
+                    "replace_text" => match workspace_tools.prepare_replace(call.clone()).await {
+                        Ok(edit) => {
+                            let approval = resolve_tool_approval(
                             storage,
                             incoming,
                             outbound,
@@ -763,147 +844,162 @@ async fn execute_run(
                             &mut client_gone,
                         )
                         .await;
-                        match approval {
-                            Ok(ApprovalOutcome::Approved) => {
-                                workspace_tools.apply_replace(edit).await
-                            }
-                            Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
-                            Ok(ApprovalOutcome::Unavailable) => Err(ToolError::ApprovalUnavailable),
-                            Ok(ApprovalOutcome::RunCancelled) => {
-                                cancellation.cancel();
-                                return cancel_tool_run(
-                                    storage,
-                                    outbound,
-                                    &run,
-                                    &invocation_id,
-                                    &call,
-                                    "approval_cancelled",
-                                )
-                                .await;
-                            }
-                            Err(error) => {
-                                tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
-                                return fail_run(storage, outbound, &run, "storage_error").await;
-                            }
-                        }
-                    }
-                    Err(error) => Err(error),
-                },
-                "create_file" => match workspace_tools.prepare_create(call.clone()).await {
-                    Ok(create) => {
-                        let approval = resolve_tool_approval(
-                            storage,
-                            incoming,
-                            outbound,
-                            ToolApprovalRequest {
-                                run: &run,
-                                invocation_id: &invocation_id,
-                                call: &call,
-                                action_hash: &create.action_hash,
-                                presentation: json!({
-                                    "path": &create.display_path,
-                                    "diff": &create.diff
-                                }),
-                            },
-                            &cancellation,
-                            &mut client_gone,
-                        )
-                        .await;
-                        match approval {
-                            Ok(ApprovalOutcome::Approved) => {
-                                workspace_tools.apply_create(create).await
-                            }
-                            Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
-                            Ok(ApprovalOutcome::Unavailable) => Err(ToolError::ApprovalUnavailable),
-                            Ok(ApprovalOutcome::RunCancelled) => {
-                                cancellation.cancel();
-                                return cancel_tool_run(
-                                    storage,
-                                    outbound,
-                                    &run,
-                                    &invocation_id,
-                                    &call,
-                                    "approval_cancelled",
-                                )
-                                .await;
-                            }
-                            Err(error) => {
-                                tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
-                                return fail_run(storage, outbound, &run, "storage_error").await;
-                            }
-                        }
-                    }
-                    Err(error) => Err(error),
-                },
-                "run_check" => match workspace_tools.prepare_check(call.clone()).await {
-                    Ok(check) => {
-                        let approval = resolve_tool_approval(
-                            storage,
-                            incoming,
-                            outbound,
-                            ToolApprovalRequest {
-                                run: &run,
-                                invocation_id: &invocation_id,
-                                call: &call,
-                                action_hash: &check.action_hash,
-                                presentation: json!({
-                                    "command": &check.display_command,
-                                    "cwd": &check.display_workdir,
-                                    "warning": "Local project checks run without an OS sandbox."
-                                }),
-                            },
-                            &cancellation,
-                            &mut client_gone,
-                        )
-                        .await;
-                        match approval {
-                            Ok(ApprovalOutcome::Approved) => match execute_check_with_control(
-                                workspace_tools,
-                                check,
-                                incoming,
-                                outbound,
-                                &run,
-                                &cancellation,
-                                &mut client_gone,
-                            )
-                            .await
-                            {
-                                CheckOutcome::Completed(result) => result,
-                                CheckOutcome::RunCancelled => {
+                            match approval {
+                                Ok(ApprovalOutcome::Approved) => {
+                                    workspace_tools.apply_replace(edit).await
+                                }
+                                Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
+                                Ok(ApprovalOutcome::Unavailable) => {
+                                    Err(ToolError::ApprovalUnavailable)
+                                }
+                                Ok(ApprovalOutcome::RunCancelled) => {
+                                    cancellation.cancel();
                                     return cancel_tool_run(
                                         storage,
                                         outbound,
                                         &run,
                                         &invocation_id,
                                         &call,
-                                        "command_cancelled",
+                                        "approval_cancelled",
                                     )
                                     .await;
                                 }
-                            },
-                            Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
-                            Ok(ApprovalOutcome::Unavailable) => Err(ToolError::ApprovalUnavailable),
-                            Ok(ApprovalOutcome::RunCancelled) => {
-                                cancellation.cancel();
-                                return cancel_tool_run(
-                                    storage,
-                                    outbound,
-                                    &run,
-                                    &invocation_id,
-                                    &call,
-                                    "approval_cancelled",
-                                )
-                                .await;
-                            }
-                            Err(error) => {
-                                tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
-                                return fail_run(storage, outbound, &run, "storage_error").await;
+                                Err(error) => {
+                                    tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
+                                    return fail_run(storage, outbound, &run, "storage_error")
+                                        .await;
+                                }
                             }
                         }
+                        Err(error) => Err(error),
+                    },
+                    "create_file" => match workspace_tools.prepare_create(call.clone()).await {
+                        Ok(create) => {
+                            let approval = resolve_tool_approval(
+                                storage,
+                                incoming,
+                                outbound,
+                                ToolApprovalRequest {
+                                    run: &run,
+                                    invocation_id: &invocation_id,
+                                    call: &call,
+                                    action_hash: &create.action_hash,
+                                    presentation: json!({
+                                        "path": &create.display_path,
+                                        "diff": &create.diff
+                                    }),
+                                },
+                                &cancellation,
+                                &mut client_gone,
+                            )
+                            .await;
+                            match approval {
+                                Ok(ApprovalOutcome::Approved) => {
+                                    workspace_tools.apply_create(create).await
+                                }
+                                Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
+                                Ok(ApprovalOutcome::Unavailable) => {
+                                    Err(ToolError::ApprovalUnavailable)
+                                }
+                                Ok(ApprovalOutcome::RunCancelled) => {
+                                    cancellation.cancel();
+                                    return cancel_tool_run(
+                                        storage,
+                                        outbound,
+                                        &run,
+                                        &invocation_id,
+                                        &call,
+                                        "approval_cancelled",
+                                    )
+                                    .await;
+                                }
+                                Err(error) => {
+                                    tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
+                                    return fail_run(storage, outbound, &run, "storage_error")
+                                        .await;
+                                }
+                            }
+                        }
+                        Err(error) => Err(error),
+                    },
+                    "run_check" => match workspace_tools.prepare_check(call.clone()).await {
+                        Ok(check) => {
+                            let approval = resolve_tool_approval(
+                                storage,
+                                incoming,
+                                outbound,
+                                ToolApprovalRequest {
+                                    run: &run,
+                                    invocation_id: &invocation_id,
+                                    call: &call,
+                                    action_hash: &check.action_hash,
+                                    presentation: json!({
+                                        "command": &check.display_command,
+                                        "cwd": &check.display_workdir,
+                                        "warning": "Local project checks run without an OS sandbox."
+                                    }),
+                                },
+                                &cancellation,
+                                &mut client_gone,
+                            )
+                            .await;
+                            match approval {
+                                Ok(ApprovalOutcome::Approved) => match execute_check_with_control(
+                                    workspace_tools,
+                                    check,
+                                    incoming,
+                                    outbound,
+                                    &run,
+                                    &cancellation,
+                                    &mut client_gone,
+                                )
+                                .await
+                                {
+                                    CheckOutcome::Completed(result) => result,
+                                    CheckOutcome::RunCancelled => {
+                                        return cancel_tool_run(
+                                            storage,
+                                            outbound,
+                                            &run,
+                                            &invocation_id,
+                                            &call,
+                                            "command_cancelled",
+                                        )
+                                        .await;
+                                    }
+                                },
+                                Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
+                                Ok(ApprovalOutcome::Unavailable) => {
+                                    Err(ToolError::ApprovalUnavailable)
+                                }
+                                Ok(ApprovalOutcome::RunCancelled) => {
+                                    cancellation.cancel();
+                                    return cancel_tool_run(
+                                        storage,
+                                        outbound,
+                                        &run,
+                                        &invocation_id,
+                                        &call,
+                                        "approval_cancelled",
+                                    )
+                                    .await;
+                                }
+                                Err(error) => {
+                                    tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
+                                    return fail_run(storage, outbound, &run, "storage_error")
+                                        .await;
+                                }
+                            }
+                        }
+                        Err(error) => Err(error),
+                    },
+                    _ => {
+                        execute_read_only_call(storage, Some(workspace_tools), &run, call.clone())
+                            .await
                     }
-                    Err(error) => Err(error),
-                },
-                _ => execute_read_only_call(storage, workspace_tools, &run, call.clone()).await,
+                }
+            } else {
+                execute_read_only_call(storage, None, &run, call.clone()).await
             };
             let (model_content, completed) = match result {
                 Ok(result) => {
@@ -916,7 +1012,12 @@ async fn execute_run(
                             Ok((&result.content, &result.summary)),
                         )
                         .await;
-                    (untrusted_tool_output("workspace", &result.content), event)
+                    let model_content = if mcp.is_some() {
+                        result.content.clone()
+                    } else {
+                        untrusted_tool_output("workspace", &result.content)
+                    };
+                    (model_content, event)
                 }
                 Err(error) => {
                     let summary = error.to_string();
@@ -1018,7 +1119,7 @@ fn is_parallel_safe_tool(name: &str) -> bool {
 
 async fn execute_read_only_call(
     storage: &Storage,
-    workspace_tools: &WorkspaceTools,
+    workspace_tools: Option<&WorkspaceTools>,
     run: &RunRecord,
     call: ToolCall,
 ) -> Result<ToolResult, ToolError> {
@@ -1030,7 +1131,10 @@ async fn execute_read_only_call(
             &run.model,
         ),
         "memory_search" | "memory_get" => execute_memory(storage, &run.session_id, call).await,
-        _ => workspace_tools.execute(call).await,
+        _ => match workspace_tools {
+            Some(workspace_tools) => workspace_tools.execute(call).await,
+            None => Err(ToolError::BackendUnavailable),
+        },
     }
 }
 
@@ -1234,12 +1338,18 @@ async fn await_tool_approval(
     }
 }
 
-fn tool_risk(name: &str) -> &'static str {
-    if matches!(name, "replace_text" | "create_file" | "run_check") {
+fn tool_risk(name: &str, is_mcp: bool) -> &'static str {
+    if is_mcp {
+        "external_side_effect"
+    } else if matches!(name, "replace_text" | "create_file" | "run_check") {
         "workspace_write"
     } else {
         "read_only"
     }
+}
+
+fn mcp_action_hash(name: &str, arguments: &str) -> String {
+    sha256_hex(format!("mcp\0{name}\0{arguments}").as_bytes())
 }
 
 fn tool_error_code(error: &ToolError) -> &'static str {
@@ -1252,6 +1362,7 @@ fn tool_error_code(error: &ToolError) -> &'static str {
         ToolError::CommandCancelled => "command_cancelled",
         ToolError::MemoryUnavailable => "memory_unavailable",
         ToolError::BackendUnavailable => "tool_unavailable",
+        ToolError::ExternalTool(_) => "external_tool_failed",
         _ => "tool_rejected",
     }
 }
@@ -1496,6 +1607,20 @@ mod tests {
             call("instance_status")
         ]));
         assert!(!can_parallelize(&[call("read_file"), call("replace_text")]));
+        assert!(!can_parallelize(&[call("fixture__echo"), call("time_now")]));
         assert!(!is_parallel_safe_tool("unknown"));
+    }
+
+    #[test]
+    fn mcp_tools_are_external_and_approval_is_bound_to_exact_call() {
+        assert_eq!(tool_risk("fixture__echo", true), "external_side_effect");
+        assert_ne!(
+            mcp_action_hash("fixture__echo", r#"{"message":"one"}"#),
+            mcp_action_hash("fixture__echo", r#"{"message":"two"}"#)
+        );
+        assert_ne!(
+            mcp_action_hash("fixture__echo", "{}"),
+            mcp_action_hash("fixture__other", "{}")
+        );
     }
 }

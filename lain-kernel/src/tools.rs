@@ -115,6 +115,8 @@ pub enum ToolError {
     MemoryUnavailable,
     #[error("tool backend is unavailable")]
     BackendUnavailable,
+    #[error("external tool failed: {0}")]
+    ExternalTool(String),
 }
 
 #[derive(Debug, Clone)]

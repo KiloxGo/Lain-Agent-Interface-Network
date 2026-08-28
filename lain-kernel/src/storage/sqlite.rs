@@ -2106,6 +2106,8 @@ fn now() -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use super::*;
 
     #[tokio::test]
@@ -2118,6 +2120,77 @@ mod tests {
             storage.journal_mode().await.expect("journal mode"),
             "memory"
         );
+    }
+
+    #[tokio::test]
+    async fn v7_preserves_tool_audits_and_accepts_external_risk() -> Result<(), StorageError> {
+        let options = SqliteConnectOptions::from_str("sqlite::memory:")?
+            .foreign_keys(true)
+            .journal_mode(SqliteJournalMode::Memory);
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(options)
+            .await?;
+        let v6 = Migrator {
+            migrations: Cow::Owned(
+                MIGRATOR
+                    .iter()
+                    .filter(|migration| migration.version <= 6)
+                    .cloned()
+                    .collect(),
+            ),
+            ..Migrator::DEFAULT
+        };
+        v6.run(&pool).await?;
+        let scope = ensure_default_scope(&pool).await?;
+        let storage = Storage { pool, scope };
+        let accepted = storage
+            .accept_user_input(
+                &storage.scope().session_id,
+                "migration-v7",
+                "test",
+                "mock",
+                "mock",
+                "v1",
+            )
+            .await?;
+        storage.start_run(&accepted.run.id).await?;
+        let (invocation_id, _) = storage
+            .start_tool_invocation(
+                &accepted.run.id,
+                "call-before-v7",
+                "replace_text",
+                "workspace_write",
+                &json!({}),
+            )
+            .await?;
+        let (approval_id, _) = storage
+            .request_tool_approval(
+                &accepted.run.id,
+                &invocation_id,
+                "call-before-v7",
+                "replace_text",
+                "hash-before-v7",
+            )
+            .await?;
+
+        MIGRATOR.run(&storage.pool).await?;
+        let preserved: String =
+            sqlx::query_scalar("SELECT action_hash FROM tool_approvals WHERE id = ?")
+                .bind(approval_id)
+                .fetch_one(&storage.pool)
+                .await?;
+        assert_eq!(preserved, "hash-before-v7");
+        storage
+            .start_tool_invocation(
+                &accepted.run.id,
+                "call-after-v7",
+                "fixture__echo",
+                "external_side_effect",
+                &json!({}),
+            )
+            .await?;
+        Ok::<(), StorageError>(())
     }
 
     #[tokio::test]

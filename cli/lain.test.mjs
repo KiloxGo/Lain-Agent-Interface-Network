@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { LainClient, historyText } from "./lain.mjs";
+import { LainClient, approvalPrompt, historyText } from "./lain.mjs";
 
 class FakeSocket {
   constructor() {
@@ -129,4 +129,16 @@ test("answers one-shot tool approval", async () => {
     { type: "tool.approval.respond", approval_id: "approval-1", approved: true },
     { type: "tool.approval.respond", approval_id: "approval-2", approved: false },
   ]);
+});
+
+test("shows MCP server, tool, and exact arguments before approval", () => {
+  const prompt = approvalPrompt({
+    server: "fixture",
+    tool: "fixture__echo",
+    arguments: { message: "hello" },
+  });
+  assert.match(prompt.detail, /mcp:fixture/);
+  assert.match(prompt.detail, /fixture__echo/);
+  assert.match(prompt.detail, /"message": "hello"/);
+  assert.equal(prompt.question, "Call this external tool? [y/N] ");
 });

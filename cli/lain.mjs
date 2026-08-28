@@ -33,6 +33,25 @@ export function banner() {
 `) + dim("local harness / protocol v1\n");
 }
 
+export function approvalPrompt(approval) {
+  if (typeof approval.command === "string") {
+    return {
+      detail: `${dim(approval.cwd ?? ".")}\n$ ${approval.command}`,
+      question: "Run this check? [y/N] ",
+    };
+  }
+  if (typeof approval.server === "string") {
+    return {
+      detail: `${dim(`mcp:${approval.server}`)}\n${approval.tool ?? approval.name ?? "tool"}\n${JSON.stringify(approval.arguments ?? {}, null, 2)}`,
+      question: "Call this external tool? [y/N] ",
+    };
+  }
+  return {
+    detail: `${dim(approval.path ?? "")}\n${approval.diff ?? ""}`,
+    question: "Apply this change? [y/N] ",
+  };
+}
+
 export class LainClient {
   constructor(
     url = DEFAULT_URL,
@@ -309,16 +328,13 @@ export async function main(args = process.argv.slice(2)) {
   if (continueSession) process.stdout.write(historyText(client.messages));
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   client.approve = async (approval) => {
-    const command = typeof approval.command === "string";
-    const detail = command
-      ? `${dim(approval.cwd ?? ".")}\n$ ${approval.command}`
-      : `${dim(approval.path ?? "")}\n${approval.diff ?? ""}`;
+    const { detail, question } = approvalPrompt(approval);
     const warning = typeof approval.warning === "string" ? `\n${dim(approval.warning)}` : "";
     process.stdout.write(
       `\n${pink(`鈼?approve 鈥?${approval.name ?? "tool"}`)}\n${detail}${warning}\n`,
     );
     if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
-    const answer = await readline.question(command ? "Run this check? [y/N] " : "Apply this change? [y/N] ");
+    const answer = await readline.question(question);
     return /^(y|yes)$/i.test(answer.trim());
   };
 
