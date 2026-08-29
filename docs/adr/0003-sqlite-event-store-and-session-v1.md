@@ -12,7 +12,7 @@ P2 WebSocket 能把 provider 的流式输出送到浏览器，但对话历史仍
 
 采用本地 SQLite 作为结构化事实与事件主存储，默认文件为 `<LAIN_DATA_DIR>/state/lain.db`。连接使用 `foreign_keys=ON`、WAL、`synchronous=FULL`、5 秒 busy timeout、内存临时表和最多 4 个连接；schema 只通过提交到仓库的 sqlx forward migration 演进。
 
-单用户原型启动时幂等创建一个 active instance、默认 user 与 active session。外部稳定 ID 和 event ID 使用 UUIDv7；SQLite rowid 不进入协议。
+单用户原型启动时幂等创建一个 active instance、默认 user 与 active session。全局 CLI 后续按 [ADR-0015](0015-workspace-scoped-cli-session.md) 在同一 instance/user 下选择 workspace session。外部稳定 ID 和 event ID 使用 UUIDv7；SQLite rowid 不进入协议。
 
 用户输入事务同时完成：
 
@@ -46,7 +46,7 @@ Markdown 不再是 session 的写入主路径。`lain-data import-markdown <dir>
 
 - 刷新、重连和已完成 run 的进程重启恢复不再依赖 provider；启动时遗留的 queued/running/cancelling run 会原子转为 `run.failed(kernel_restarted)`，不会永久卡住 UI。
 - 断开浏览器不会中止正在进行的 provider stream；kernel 会继续消费并提交最终回复，重连后再重放。
-- 当前只有默认 active session，创建/归档多个 session 的 UI 留给后续产品阶段。
+- 当前没有创建/归档多个 session 的 UI；kernel 只会为全局 CLI 自动选择或创建 workspace session。
 - `context_plans` 在 P3 只建立 schema；P4 Context Compiler 才填充内容。
 - `memory_extract` job 在 P3 只可靠入队；P5 worker 才会认领。
 - 备份必须使用 SQLite Backup API 或一致性 checkpoint，不能在 WAL 活跃时只复制 `lain.db`。

@@ -10,11 +10,11 @@
 
 ## 决策
 
-1. 使用三个 host-owned 输入信号：`Conversation`、`Task`、`Maintenance`，分别来自现有 route 分类，不从模型输出或工具内容推断状态。
+1. 使用六个 host-owned 输入信号：`Conversation`、`Task`、`Maintenance` 来自现有 route 分类；`Succeeded`、`Failed`、`Cancelled` 来自持久化 run 终态。不从模型输出或工具内容推断状态。
 2. reducer 确定性映射到有限 `Affect`、activation、closeness expression、uncertainty 和最多五个 active intent ID；所有数值继续限制在 0..=1。
-3. 每次 run 开始后生成一个十分钟 TTL 的 SelfState，并在同一 SQLite 事务中写入版本化 `state_snapshots` 与 `state.changed` 事件。事件不保存用户正文。
+3. 每次 run 开始及进入成功、失败或取消终态后生成一个十分钟 TTL 的 SelfState，并在同一 SQLite 事务中写入版本化 `state_snapshots` 与 `state.changed` 事件。事件不保存用户正文。
 4. 当前 run 在编译上下文时读取刚写入的状态。每种 Affect 映射为一条固定 voice directive；directive 只能改变表达方式，不能改变权限、事实、工具风险或任务完成标准。
-5. 过期状态由 Context Compiler 丢弃；下一次 run 根据新的 host signal 重新生成，不让旧情绪无限延续。
+5. 终态状态供 CLI 和审计呈现；下一次 run 会先根据新的 route signal 重置。过期状态由 Context Compiler 丢弃，不让旧情绪无限延续。
 
 ## 备选方案
 
@@ -38,7 +38,7 @@
 
 ## 验证方式
 
-- reducer 单测覆盖 task 映射、数值校验、voice directive 和十分钟 TTL。
+- reducer 单测覆盖 task、success、failure、cancellation 映射、数值校验、voice directive 和十分钟 TTL。
 - storage 单测覆盖 snapshot 与 `state.changed` 原子写入及 round-trip。
 - Context Compiler 现有确定性、预算与过期测试继续通过。
 - Rust 全量测试、Clippy 和 rustfmt 必须通过。

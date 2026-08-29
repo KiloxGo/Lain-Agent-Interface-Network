@@ -133,6 +133,13 @@ pub struct SessionSnapshot {
 
 impl Storage {
     pub async fn initialize(data_dir: &Path) -> Result<Self, StorageError> {
+        Self::initialize_for_session(data_dir, "Main").await
+    }
+
+    pub(crate) async fn initialize_for_session(
+        data_dir: &Path,
+        session_title: &str,
+    ) -> Result<Self, StorageError> {
         let state_dir = data_dir.join("state");
         tokio::fs::create_dir_all(&state_dir)
             .await
@@ -153,7 +160,7 @@ impl Storage {
             .connect_with(options)
             .await?;
         MIGRATOR.run(&pool).await?;
-        let scope = ensure_default_scope(&pool).await?;
+        let scope = ensure_scope(&pool, session_title).await?;
         let storage = Self { pool, scope };
         storage.recover_interrupted_runs().await?;
         Ok(storage)
@@ -171,7 +178,7 @@ impl Storage {
             .connect_with(options)
             .await?;
         MIGRATOR.run(&pool).await?;
-        let scope = ensure_default_scope(&pool).await?;
+        let scope = ensure_scope(&pool, "Main").await?;
         Ok(Self { pool, scope })
     }
 
@@ -1678,7 +1685,10 @@ impl Storage {
     }
 }
 
-async fn ensure_default_scope(pool: &SqlitePool) -> Result<StorageScope, StorageError> {
+async fn ensure_scope(
+    pool: &SqlitePool,
+    session_title: &str,
+) -> Result<StorageScope, StorageError> {
     let mut tx = pool.begin().await?;
     let active = sqlx::query("SELECT id FROM instances WHERE status = 'active' LIMIT 1")
         .fetch_optional(&mut *tx)
@@ -1723,10 +1733,11 @@ async fn ensure_default_scope(pool: &SqlitePool) -> Result<StorageScope, Storage
         }
     };
     let session_id = match sqlx::query(
-        "SELECT id FROM sessions WHERE instance_id = ? AND user_id = ? AND status = 'active' ORDER BY updated_at DESC LIMIT 1",
+        "SELECT id FROM sessions WHERE instance_id = ? AND user_id = ? AND title = ? AND status = 'active' ORDER BY created_at LIMIT 1",
     )
     .bind(&instance_id)
     .bind(&user_id)
+    .bind(session_title)
     .fetch_optional(&mut *tx)
     .await?
     {
@@ -1736,11 +1747,12 @@ async fn ensure_default_scope(pool: &SqlitePool) -> Result<StorageScope, Storage
             let timestamp = now();
             sqlx::query(
                 "INSERT INTO sessions(id, instance_id, user_id, title, status, created_at, updated_at) \
-                 VALUES (?, ?, ?, 'Main', 'active', ?, ?)",
+                 VALUES (?, ?, ?, ?, 'active', ?, ?)",
             )
             .bind(&id)
             .bind(&instance_id)
             .bind(&user_id)
+            .bind(session_title)
             .bind(&timestamp)
             .bind(&timestamp)
             .execute(&mut *tx)
@@ -2191,7 +2203,7 @@ mod tests {
             ..Migrator::DEFAULT
         };
         v6.run(&pool).await?;
-        let scope = ensure_default_scope(&pool).await?;
+        let scope = ensure_scope(&pool, "Main").await?;
         let storage = Storage { pool, scope };
         let accepted = storage
             .accept_user_input(
@@ -2777,6 +2789,29 @@ mod tests {
             .expect("reopen file database");
         assert_eq!(reopened.scope(), &scope);
         assert!(reopened.foreign_keys_enabled().await.expect("foreign keys"));
+    }
+
+    #[tokio::test]
+    async fn workspace_sessions_are_stable_and_isolated() {
+        let fixture = tempfile::tempdir().expect("temporary directory");
+        let first = Storage::initialize_for_session(fixture.path(), "workspace:one")
+            .await
+            .expect("initialize first workspace");
+        let first_scope = first.scope().clone();
+        drop(first);
+
+        let reopened = Storage::initialize_for_session(fixture.path(), "workspace:one")
+            .await
+            .expect("reopen first workspace");
+        assert_eq!(reopened.scope(), &first_scope);
+        drop(reopened);
+
+        let second = Storage::initialize_for_session(fixture.path(), "workspace:two")
+            .await
+            .expect("initialize second workspace");
+        assert_eq!(second.scope().instance_id, first_scope.instance_id);
+        assert_eq!(second.scope().user_id, first_scope.user_id);
+        assert_ne!(second.scope().session_id, first_scope.session_id);
     }
 
     #[tokio::test]

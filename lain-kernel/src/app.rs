@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, future::Future, sync::Arc};
+use std::{collections::BTreeMap, future::Future, path::Path as StdPath, sync::Arc};
 
 use axum::{
     Json, Router,
@@ -26,7 +26,7 @@ use tower_http::{
 use crate::{
     config::Config,
     error::AppError,
-    identity::IdentityKernel,
+    identity::{IdentityKernel, sha256_hex},
     mcp::McpClient,
     memory,
     provider::{
@@ -126,7 +126,9 @@ impl AppState {
             }
         }
 
-        let storage = match Storage::initialize(&config.data_dir).await {
+        let session_title = workspace_session_title(config.workspace_root.as_deref());
+        let storage = match Storage::initialize_for_session(&config.data_dir, &session_title).await
+        {
             Ok(storage) => {
                 checks.push(ReadinessCheck {
                     name: "storage",
@@ -354,6 +356,22 @@ impl AppState {
             }
         });
     }
+}
+
+fn workspace_session_title(workspace_root: Option<&StdPath>) -> String {
+    workspace_root.map_or_else(
+        || "Main".to_string(),
+        |root| {
+            let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+            let path = canonical.to_string_lossy();
+            let normalized = if cfg!(windows) {
+                path.to_lowercase()
+            } else {
+                path.into_owned()
+            };
+            format!("workspace:{}", sha256_hex(normalized.as_bytes()))
+        },
+    )
 }
 
 #[derive(Debug, Serialize)]
@@ -1189,6 +1207,22 @@ mod tests {
     };
 
     use super::*;
+
+    #[test]
+    fn workspace_session_title_is_stable_without_exposing_the_path() {
+        let root = StdPath::new(r"C:\Users\test\secret-project");
+        let title = workspace_session_title(Some(root));
+        assert_eq!(title, workspace_session_title(Some(root)));
+        assert!(title.starts_with("workspace:"));
+        assert!(!title.contains("secret-project"));
+        if cfg!(windows) {
+            assert_eq!(
+                title,
+                workspace_session_title(Some(StdPath::new(r"c:\users\TEST\SECRET-PROJECT")))
+            );
+        }
+        assert_eq!(workspace_session_title(None), "Main");
+    }
 
     fn test_state(ready: bool) -> AppState {
         let checks = vec![ReadinessCheck {

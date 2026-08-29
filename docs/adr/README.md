@@ -29,3 +29,4 @@ ADR 用于记录难以逆转、跨模块或影响数据/协议兼容性的技术
 - [ADR-0012：MCP stdio 生命周期与双时代版本协商](0012-mcp-stdio-lifecycle-and-version-negotiation.md)
 - [ADR-0013：一次性审批的宿主 shell](0013-one-shot-approved-shell.md)
 - [ADR-0014：有限、可过期的 SelfState reducer](0014-finite-self-state-reducer.md)
+- [ADR-0015：按 workspace 选择稳定 CLI session](0015-workspace-scoped-cli-session.md)

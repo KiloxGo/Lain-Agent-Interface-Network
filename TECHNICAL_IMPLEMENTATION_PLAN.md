@@ -2403,6 +2403,7 @@ Playwright：
 - [x] P6-021 对 tool output prompt injection 做 red-team。（workspace v0：统一 untrusted 标签、canary 泄露检测与未授权写入检测；MCP client 覆盖恶意目录/输出 fixture，balanced suite 覆盖恶意 metadata 下的模型 → 审批 → MCP 端到端调用。）
 - [x] P6-022 实现一次性审批的宿主 shell。（单行 4 KiB command、workspace cwd、`external_side_effect`、敏感环境清理、64 KiB 输出、300 秒超时、取消和 Windows Job Object/Unix process group 后代回收；无 OS sandbox。）
 - [x] P6-023 提供全局 `lain` 命令。（根包使用标准 npm `bin` + `npm link`；真实路径入口兼容 Windows junction，从任意目录启动时仍以调用目录作为 workspace。）
+- [x] P6-024 按 workspace 隔离稳定 session。（规范化绝对路径只以 SHA-256 标题进入 SQLite；同项目复用 session，不同项目不串上下文，同时保留共享 instance/user 人格与记忆。）
 
 完成门：所有副作用可审计；破坏性工具零未授权执行；MCP 失效不影响普通聊天。
 
@@ -2412,8 +2413,8 @@ Playwright：
 
 目标：让“人格”通过行为和身体呈现，同时不污染核心运行时。
 
-- [x] P7-001 实现 finite SelfState reducer。（host-owned chat/task/maintenance signal 确定性映射有界状态，不接受模型 hidden tag。）
-- [x] P7-002 实现 state.changed event 和 TTL reset。（snapshot 与事件原子写入；十分钟 TTL，过期不注入，下一 run 重置。）
+- [x] P7-001 实现 finite SelfState reducer。（host-owned chat/task/maintenance/success/failure/cancellation signal 确定性映射有界状态，不接受模型 hidden tag。）
+- [x] P7-002 实现 state.changed event 和 TTL reset。（run 开始与终态的 snapshot/event 原子写入；十分钟 TTL，过期不注入，下一 run 重置。）
 - [ ] P7-003 实现 affect → voice/gesture 映射表。（固定 voice directive 已接入 Context Compiler；gesture 等待终端/embodiment 消费者。）
 - [ ] P7-004 创建 embodimentStore/event bus。
 - [ ] P7-005 定义 TTS Provider 接口。

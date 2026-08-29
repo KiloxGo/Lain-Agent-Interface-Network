@@ -52,6 +52,9 @@ pub enum SelfStateSignal {
     Conversation,
     Task,
     Maintenance,
+    Succeeded,
+    Failed,
+    Cancelled,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -82,6 +85,15 @@ impl SelfState {
                 0.05,
                 vec!["maintain_system".to_string()],
             ),
+            SelfStateSignal::Succeeded => (Affect::Calm, 0.25, 0.2, 0.0, Vec::new()),
+            SelfStateSignal::Failed => (
+                Affect::Tense,
+                0.65,
+                0.1,
+                0.4,
+                vec!["recover_from_failure".to_string()],
+            ),
+            SelfStateSignal::Cancelled => (Affect::Calm, 0.15, 0.1, 0.0, Vec::new()),
         };
         Self {
             affect,
@@ -202,6 +214,18 @@ mod tests {
         assert!(!task.is_active_at(now + Duration::minutes(10)));
         assert!(task.validate().is_ok());
         assert!(task.affect.voice_directive().contains("useful clue"));
+        assert_eq!(
+            SelfState::reduce(SelfStateSignal::Succeeded, now).affect,
+            Affect::Calm
+        );
+        assert_eq!(
+            SelfState::reduce(SelfStateSignal::Failed, now).affect,
+            Affect::Tense
+        );
+        assert_eq!(
+            SelfState::reduce(SelfStateSignal::Cancelled, now).affect,
+            Affect::Calm
+        );
     }
 
     #[test]

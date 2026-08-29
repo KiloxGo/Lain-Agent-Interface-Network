@@ -550,6 +550,13 @@ async fn execute_run(
                                 if let Ok(event) = event {
                                     let _ = send_json(outbound, &event).await;
                                 }
+                                update_self_state(
+                                    storage,
+                                    outbound,
+                                    &run,
+                                    SelfStateSignal::Cancelled,
+                                )
+                                .await;
                                 return RunOutcome::Continue;
                             }
                             ControlOutcome::ConnectionClosed => {
@@ -1121,9 +1128,12 @@ async fn execute_run(
                 for event in persisted {
                     let _ = send_json(outbound, &event).await;
                 }
-                RunOutcome::Continue
-            } else {
+            }
+            update_self_state(storage, outbound, &run, SelfStateSignal::Succeeded).await;
+            if client_gone {
                 RunOutcome::ConnectionClosed
+            } else {
+                RunOutcome::Continue
             }
         }
         Err(error) => {
@@ -1478,6 +1488,7 @@ async fn cancel_tool_run(
     if let Ok(event) = storage.cancel_run(&run.id).await {
         let _ = send_json(outbound, &event).await;
     }
+    update_self_state(storage, outbound, run, SelfStateSignal::Cancelled).await;
     RunOutcome::Continue
 }
 
@@ -1495,7 +1506,25 @@ async fn fail_run(
             tracing::error!(run_id = run.id, error = %error, "run failure transaction failed")
         }
     }
+    update_self_state(storage, outbound, run, SelfStateSignal::Failed).await;
     RunOutcome::Continue
+}
+
+async fn update_self_state(
+    storage: &Storage,
+    outbound: &mpsc::Sender<Outbound>,
+    run: &RunRecord,
+    signal: SelfStateSignal,
+) {
+    let state = SelfState::reduce(signal, Utc::now());
+    match storage.set_self_state(&run.id, &state).await {
+        Ok(event) => {
+            let _ = send_json(outbound, &event).await;
+        }
+        Err(error) => {
+            tracing::warn!(run_id = run.id, error = %error, "self state outcome update degraded");
+        }
+    }
 }
 
 async fn subscribe(
