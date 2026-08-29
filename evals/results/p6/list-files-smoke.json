@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-29T09:30:13.983Z",
+  "caseId": "coding-list-files-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "list_files"
+  ],
+  "toolEvents": [
+    "tool.started:list_files",
+    "tool.completed:list_files"
+  ],
+  "exitCodes": [],
+  "approvals": [],
+  "final": "LIST_OK",
+  "usage": {
+    "cached_input_tokens": 4352,
+    "input_tokens": 4688,
+    "output_tokens": 50
+  }
+}

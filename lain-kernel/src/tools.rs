@@ -29,6 +29,7 @@ const DEFAULT_LIST_LIMIT: usize = 200;
 const DEFAULT_SEARCH_LIMIT: usize = 50;
 const DEFAULT_READ_LINES: usize = 200;
 const MAX_DIFF_BYTES: usize = 32 * 1024;
+const MAX_COMMAND_BYTES: usize = 4 * 1024;
 const CHECK_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,7 +65,7 @@ pub struct PendingCreate {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PendingCheck {
+pub struct PendingCommand {
     pub display_command: String,
     pub display_workdir: String,
     pub action_hash: String,
@@ -107,6 +108,10 @@ pub enum ToolError {
     CommandTimedOut,
     #[error("check command was cancelled")]
     CommandCancelled,
+    #[error("shell command must be a non-empty single line")]
+    InvalidCommand,
+    #[error("shell command exceeds 4096 bytes")]
+    CommandTooLong,
     #[error("tool execution failed: {0}")]
     Io(#[from] std::io::Error),
     #[error("tool task failed")]
@@ -371,6 +376,20 @@ impl WorkspaceTools {
                 }),
                 strict: false,
             },
+            ToolDefinition {
+                name: "shell".to_string(),
+                description: "Run one shell command in the workspace after showing the exact command and receiving one-shot user approval. The command runs with host account permissions and no OS sandbox.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "command": {"type": "string", "minLength": 1, "maxLength": MAX_COMMAND_BYTES},
+                        "path": {"type": "string", "description": "Workspace-relative working directory; defaults to ."}
+                    },
+                    "required": ["command"],
+                    "additionalProperties": false
+                }),
+                strict: false,
+            },
         ]
     }
 
@@ -386,7 +405,9 @@ impl WorkspaceTools {
             "list_files" => self.list_files(serde_json::from_str(&call.arguments)?),
             "read_file" => self.read_file(serde_json::from_str(&call.arguments)?),
             "search_text" => self.search_text(serde_json::from_str(&call.arguments)?),
-            "replace_text" | "create_file" | "run_check" => Err(ToolError::ApprovalRequired),
+            "replace_text" | "create_file" | "run_check" | "shell" => {
+                Err(ToolError::ApprovalRequired)
+            }
             _ => Err(ToolError::UnknownTool(call.name)),
         }
     }
@@ -439,26 +460,26 @@ impl WorkspaceTools {
         })
     }
 
-    pub async fn prepare_check(&self, call: ToolCall) -> Result<PendingCheck, ToolError> {
+    pub async fn prepare_check(&self, call: ToolCall) -> Result<PendingCommand, ToolError> {
         let tools = self.clone();
         tokio::task::spawn_blocking(move || tools.prepare_check_blocking(call))
             .await
             .map_err(|_| ToolError::TaskFailed)?
     }
 
-    pub async fn run_check(
+    pub async fn run_command(
         &self,
-        check: PendingCheck,
+        command: PendingCommand,
         cancellation: CancellationToken,
     ) -> Result<ToolResult, ToolError> {
-        let workdir = self.resolve(&check.display_workdir)?;
-        if workdir != check.workdir {
+        let workdir = self.resolve(&command.display_workdir)?;
+        if workdir != command.workdir {
             return Err(ToolError::FileChanged);
         }
-        run_bounded_command(check, cancellation).await
+        run_bounded_command(command, cancellation).await
     }
 
-    fn prepare_check_blocking(&self, call: ToolCall) -> Result<PendingCheck, ToolError> {
+    fn prepare_check_blocking(&self, call: ToolCall) -> Result<PendingCommand, ToolError> {
         if call.name != "run_check" {
             return Err(ToolError::UnknownTool(call.name));
         }
@@ -496,12 +517,49 @@ impl WorkspaceTools {
             .chain(args.iter().copied())
             .collect::<Vec<_>>()
             .join(" ");
-        Ok(PendingCheck {
+        Ok(PendingCommand {
             action_hash: sha256(&format!("run_check\0{display_workdir}\0{display_command}")),
             display_command,
             display_workdir,
             program: platform_program(program),
             args: args.into_iter().map(str::to_string).collect(),
+            workdir,
+        })
+    }
+
+    pub async fn prepare_shell(&self, call: ToolCall) -> Result<PendingCommand, ToolError> {
+        let tools = self.clone();
+        tokio::task::spawn_blocking(move || tools.prepare_shell_blocking(call))
+            .await
+            .map_err(|_| ToolError::TaskFailed)?
+    }
+
+    fn prepare_shell_blocking(&self, call: ToolCall) -> Result<PendingCommand, ToolError> {
+        if call.name != "shell" {
+            return Err(ToolError::UnknownTool(call.name));
+        }
+        let input: ShellInput = serde_json::from_str(&call.arguments)?;
+        if input.command.trim().is_empty() || input.command.chars().any(char::is_control) {
+            return Err(ToolError::InvalidCommand);
+        }
+        if input.command.len() > MAX_COMMAND_BYTES {
+            return Err(ToolError::CommandTooLong);
+        }
+        let workdir = self.resolve(input.path.as_deref().unwrap_or("."))?;
+        if !workdir.is_dir() {
+            return Err(ToolError::PathUnavailable("not a directory".to_string()));
+        }
+        let display_workdir = match relative_display(&self.root, &workdir) {
+            value if value.is_empty() => ".".to_string(),
+            value => value,
+        };
+        let (program, args) = shell_command(&input.command);
+        Ok(PendingCommand {
+            action_hash: sha256(&format!("shell\0{display_workdir}\0{}", input.command)),
+            display_command: input.command,
+            display_workdir,
+            program,
+            args,
             workdir,
         })
     }
@@ -790,6 +848,13 @@ struct CreateFileInput {
 #[serde(deny_unknown_fields)]
 struct RunCheckInput {
     check: CheckKind,
+    path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ShellInput {
+    command: String,
     path: Option<String>,
 }
 
@@ -1107,8 +1172,25 @@ fn platform_program(program: &str) -> String {
     }
 }
 
+fn shell_command(command: &str) -> (String, Vec<String>) {
+    if cfg!(windows) {
+        (
+            "cmd.exe".to_string(),
+            ["/D", "/S", "/C", command]
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+        )
+    } else {
+        (
+            "/bin/sh".to_string(),
+            ["-lc", command].into_iter().map(str::to_string).collect(),
+        )
+    }
+}
+
 async fn run_bounded_command(
-    check: PendingCheck,
+    check: PendingCommand,
     cancellation: CancellationToken,
 ) -> Result<ToolResult, ToolError> {
     let mut command = Command::new(&check.program);
@@ -1126,6 +1208,7 @@ async fn run_bounded_command(
         .env("npm_config_audit", "false")
         .env("npm_config_fund", "false")
         .env("npm_config_progress", "false");
+    configure_process_tree(&mut command);
     for (name, _) in env::vars_os() {
         if sensitive_env_name(&name.to_string_lossy()) {
             command.env_remove(name);
@@ -1133,6 +1216,7 @@ async fn run_bounded_command(
     }
 
     let mut child = command.spawn()?;
+    let process_tree = ProcessTree::attach(&child)?;
     let stdout = child
         .stdout
         .take()
@@ -1158,10 +1242,12 @@ async fn run_bounded_command(
         }
     };
     let status = match completion {
-        Completion::Status(status) => status?,
+        Completion::Status(status) => {
+            drop(process_tree);
+            status?
+        }
         Completion::Cancelled | Completion::TimedOut => {
-            // ponytail: direct-child kill is sufficient for preset foreground checks; add a
-            // process-tree backend before exposing arbitrary commands or background jobs.
+            drop(process_tree);
             let _ = child.kill().await;
             let _ = child.wait().await;
             stdout_task.abort();
@@ -1191,6 +1277,90 @@ async fn run_bounded_command(
         summary: format!("{} exited {exit}", check.display_command),
         content: cap_output(content),
     })
+}
+
+#[cfg(unix)]
+fn configure_process_tree(command: &mut Command) {
+    command.process_group(0);
+}
+
+#[cfg(windows)]
+fn configure_process_tree(_command: &mut Command) {}
+
+#[cfg(unix)]
+struct ProcessTree(i32);
+
+#[cfg(unix)]
+impl ProcessTree {
+    fn attach(child: &tokio::process::Child) -> std::io::Result<Self> {
+        child
+            .id()
+            .map(|pid| Self(pid as i32))
+            .ok_or_else(|| std::io::Error::other("child process has no id"))
+    }
+}
+
+#[cfg(unix)]
+impl Drop for ProcessTree {
+    fn drop(&mut self) {
+        // SAFETY: the child is placed in a new process group whose id is its pid.
+        unsafe {
+            libc::kill(-self.0, libc::SIGKILL);
+        }
+    }
+}
+
+#[cfg(windows)]
+struct ProcessTree(isize);
+
+#[cfg(windows)]
+impl ProcessTree {
+    fn attach(child: &tokio::process::Child) -> std::io::Result<Self> {
+        use std::{ffi::c_void, mem::size_of, ptr};
+        use windows_sys::Win32::System::JobObjects::{
+            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
+            SetInformationJobObject,
+        };
+
+        let process = child
+            .raw_handle()
+            .ok_or_else(|| std::io::Error::other("child process has no handle"))?;
+        // SAFETY: null security/name create an unnamed job; info points to a valid structure;
+        // the child handle remains valid while Child is alive.
+        unsafe {
+            let job = CreateJobObjectW(ptr::null(), ptr::null());
+            if job.is_null() {
+                return Err(std::io::Error::last_os_error());
+            }
+            let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            if SetInformationJobObject(
+                job,
+                JobObjectExtendedLimitInformation,
+                &info as *const _ as *const c_void,
+                size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            ) == 0
+                || AssignProcessToJobObject(job, process) == 0
+            {
+                windows_sys::Win32::Foundation::CloseHandle(job);
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(Self(job as isize))
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for ProcessTree {
+    fn drop(&mut self) {
+        use windows_sys::Win32::{Foundation::CloseHandle, System::JobObjects::TerminateJobObject};
+        // SAFETY: self owns the live job handle until it is closed here.
+        unsafe {
+            TerminateJobObject(self.0 as *mut std::ffi::c_void, 1);
+            CloseHandle(self.0 as *mut std::ffi::c_void);
+        }
+    }
 }
 
 async fn read_bounded(mut reader: impl AsyncRead + Unpin) -> std::io::Result<Vec<u8>> {
@@ -1516,7 +1686,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn checks_are_predefined_approved_and_bounded() {
+    async fn approved_commands_are_previewed_and_bounded() {
         let fixture = TempDir::new().expect("fixture");
         fs::write(
             fixture.path().join("Cargo.toml"),
@@ -1537,8 +1707,39 @@ mod tests {
         assert_eq!(prepared.display_command, "cargo fmt --all -- --check");
         assert_eq!(prepared.display_workdir, ".");
 
+        let shell_call = ToolCall {
+            id: "shell-1".to_string(),
+            name: "shell".to_string(),
+            arguments: r#"{"command":"echo lain-shell"}"#.to_string(),
+        };
+        assert!(matches!(
+            tools.execute(shell_call.clone()).await,
+            Err(ToolError::ApprovalRequired)
+        ));
+        let shell = tools
+            .prepare_shell(shell_call)
+            .await
+            .expect("shell preview");
+        assert_eq!(shell.display_command, "echo lain-shell");
+        assert_eq!(shell.display_workdir, ".");
+        let shell_result = tools
+            .run_command(shell, CancellationToken::new())
+            .await
+            .expect("shell command");
+        assert!(shell_result.content.contains("lain-shell"));
+        assert!(
+            tools
+                .prepare_shell(ToolCall {
+                    id: "shell-invalid".to_string(),
+                    name: "shell".to_string(),
+                    arguments: serde_json::json!({"command": "echo one\necho two"}).to_string(),
+                })
+                .await
+                .is_err()
+        );
+
         let result = run_bounded_command(
-            PendingCheck {
+            PendingCommand {
                 display_command: "test-binary --list".to_string(),
                 display_workdir: ".".to_string(),
                 action_hash: "test".to_string(),
@@ -1559,7 +1760,7 @@ mod tests {
         let cancellation = CancellationToken::new();
         cancellation.cancel();
         let cancelled = run_bounded_command(
-            PendingCheck {
+            PendingCommand {
                 display_command: "cancelled check".to_string(),
                 display_workdir: ".".to_string(),
                 action_hash: "test".to_string(),

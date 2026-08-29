@@ -2,10 +2,11 @@
 
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { createServer } from "node:net";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const DEFAULT_URL = "ws://127.0.0.1:3000/v1/ws";
 const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -208,13 +209,11 @@ async function connectClient(url) {
 
 async function connectOrStartKernel() {
   const configuredUrl = process.env.LAIN_WS_URL;
-  try {
-    return { client: await connectClient(configuredUrl ?? DEFAULT_URL), kernel: null };
-  } catch (error) {
-    if (configuredUrl) throw error;
+  if (configuredUrl) {
+    return { client: await connectClient(configuredUrl), kernel: null };
   }
 
-  process.stdout.write(dim("kernel unavailable; starting local kernel...\n"));
+  process.stdout.write(dim("starting workspace kernel...\n"));
   await run("cargo", ["build", "--locked", "--bin", "lain-kernel"], KERNEL_DIRECTORY);
   const port = await availablePort();
   let kernelError = "";
@@ -381,7 +380,10 @@ export async function main(args = process.argv.slice(2)) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+) {
   main().catch((error) => {
     process.stderr.write(`lain: ${error.message}\n`);
     process.exitCode = 1;

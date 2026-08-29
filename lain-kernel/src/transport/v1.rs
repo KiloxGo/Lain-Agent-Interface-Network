@@ -29,7 +29,7 @@ use crate::{
     },
     storage::{CompletionUsage, RunRecord, Storage, StorageError},
     tools::{
-        PendingCheck, ToolCall, ToolError, ToolResult, WorkspaceTools, builtin_definitions,
+        PendingCommand, ToolCall, ToolError, ToolResult, WorkspaceTools, builtin_definitions,
         execute_builtin, execute_memory, memory_definitions, untrusted_tool_output,
     },
 };
@@ -922,77 +922,93 @@ async fn execute_run(
                         }
                         Err(error) => Err(error),
                     },
-                    "run_check" => match workspace_tools.prepare_check(call.clone()).await {
-                        Ok(check) => {
-                            let approval = resolve_tool_approval(
-                                storage,
-                                incoming,
-                                outbound,
-                                ToolApprovalRequest {
-                                    run: &run,
-                                    invocation_id: &invocation_id,
-                                    call: &call,
-                                    action_hash: &check.action_hash,
-                                    presentation: json!({
-                                        "command": &check.display_command,
-                                        "cwd": &check.display_workdir,
-                                        "warning": "Local project checks run without an OS sandbox."
-                                    }),
-                                },
-                                &cancellation,
-                                &mut client_gone,
-                            )
-                            .await;
-                            match approval {
-                                Ok(ApprovalOutcome::Approved) => match execute_check_with_control(
-                                    workspace_tools,
-                                    check,
+                    "run_check" | "shell" => {
+                        let prepared = if call.name == "run_check" {
+                            workspace_tools.prepare_check(call.clone()).await
+                        } else {
+                            workspace_tools.prepare_shell(call.clone()).await
+                        };
+                        match prepared {
+                            Ok(command) => {
+                                let warning = if call.name == "shell" {
+                                    "Shell commands run with host account permissions, network access, and no OS sandbox."
+                                } else {
+                                    "Local project checks run without an OS sandbox."
+                                };
+                                let approval = resolve_tool_approval(
+                                    storage,
                                     incoming,
                                     outbound,
-                                    &run,
+                                    ToolApprovalRequest {
+                                        run: &run,
+                                        invocation_id: &invocation_id,
+                                        call: &call,
+                                        action_hash: &command.action_hash,
+                                        presentation: json!({
+                                            "command": &command.display_command,
+                                            "cwd": &command.display_workdir,
+                                            "warning": warning
+                                        }),
+                                    },
                                     &cancellation,
                                     &mut client_gone,
                                 )
-                                .await
-                                {
-                                    CheckOutcome::Completed(result) => result,
-                                    CheckOutcome::RunCancelled => {
+                                .await;
+                                match approval {
+                                    Ok(ApprovalOutcome::Approved) => {
+                                        match execute_command_with_control(
+                                            workspace_tools,
+                                            command,
+                                            incoming,
+                                            outbound,
+                                            &run,
+                                            &cancellation,
+                                            &mut client_gone,
+                                        )
+                                        .await
+                                        {
+                                            CommandOutcome::Completed(result) => result,
+                                            CommandOutcome::RunCancelled => {
+                                                return cancel_tool_run(
+                                                    storage,
+                                                    outbound,
+                                                    &run,
+                                                    &invocation_id,
+                                                    &call,
+                                                    "command_cancelled",
+                                                )
+                                                .await;
+                                            }
+                                        }
+                                    }
+                                    Ok(ApprovalOutcome::Rejected) => {
+                                        Err(ToolError::ApprovalRejected)
+                                    }
+                                    Ok(ApprovalOutcome::Unavailable) => {
+                                        Err(ToolError::ApprovalUnavailable)
+                                    }
+                                    Ok(ApprovalOutcome::RunCancelled) => {
+                                        cancellation.cancel();
                                         return cancel_tool_run(
                                             storage,
                                             outbound,
                                             &run,
                                             &invocation_id,
                                             &call,
-                                            "command_cancelled",
+                                            "approval_cancelled",
                                         )
                                         .await;
                                     }
-                                },
-                                Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
-                                Ok(ApprovalOutcome::Unavailable) => {
-                                    Err(ToolError::ApprovalUnavailable)
-                                }
-                                Ok(ApprovalOutcome::RunCancelled) => {
-                                    cancellation.cancel();
-                                    return cancel_tool_run(
-                                        storage,
-                                        outbound,
-                                        &run,
-                                        &invocation_id,
-                                        &call,
-                                        "approval_cancelled",
-                                    )
-                                    .await;
-                                }
-                                Err(error) => {
-                                    tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
-                                    return fail_run(storage, outbound, &run, "storage_error")
-                                        .await;
+                                    Err(error) => {
+                                        tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
+                                        return fail_run(storage, outbound, &run, "storage_error")
+                                            .await;
+                                    }
                                 }
                             }
+                            Err(error) => Err(error),
                         }
-                        Err(error) => Err(error),
-                    },
+                    }
                     _ => {
                         execute_read_only_call(storage, Some(workspace_tools), &run, call.clone())
                             .await
@@ -1227,37 +1243,37 @@ async fn resolve_tool_approval(
     Ok(approval)
 }
 
-enum CheckOutcome {
+enum CommandOutcome {
     Completed(Result<ToolResult, ToolError>),
     RunCancelled,
 }
 
-async fn execute_check_with_control(
+async fn execute_command_with_control(
     tools: &WorkspaceTools,
-    check: PendingCheck,
+    command: PendingCommand,
     incoming: &mut SplitStream<WebSocket>,
     outbound: &mpsc::Sender<Outbound>,
     run: &RunRecord,
     cancellation: &CancellationToken,
     client_gone: &mut bool,
-) -> CheckOutcome {
-    let execution = tools.run_check(check, cancellation.clone());
+) -> CommandOutcome {
+    let execution = tools.run_command(command, cancellation.clone());
     tokio::pin!(execution);
     if *client_gone {
-        return CheckOutcome::Completed(execution.await);
+        return CommandOutcome::Completed(execution.await);
     }
     loop {
         tokio::select! {
-            result = &mut execution => return CheckOutcome::Completed(result),
+            result = &mut execution => return CommandOutcome::Completed(result),
             frame = incoming.next() => match handle_run_control(frame, outbound, run, cancellation).await {
                 ControlOutcome::Continue => {}
                 ControlOutcome::Cancelled => {
                     let _ = execution.await;
-                    return CheckOutcome::RunCancelled;
+                    return CommandOutcome::RunCancelled;
                 }
                 ControlOutcome::ConnectionClosed => {
                     *client_gone = true;
-                    return CheckOutcome::Completed(execution.await);
+                    return CommandOutcome::Completed(execution.await);
                 }
             }
         }
@@ -1339,7 +1355,7 @@ async fn await_tool_approval(
 }
 
 fn tool_risk(name: &str, is_mcp: bool) -> ToolRisk {
-    if is_mcp {
+    if is_mcp || name == "shell" {
         ToolRisk::ExternalSideEffect
     } else if matches!(name, "replace_text" | "create_file" | "run_check") {
         ToolRisk::WorkspaceWrite
@@ -1607,6 +1623,7 @@ mod tests {
             call("instance_status")
         ]));
         assert!(!can_parallelize(&[call("read_file"), call("replace_text")]));
+        assert!(!can_parallelize(&[call("shell"), call("time_now")]));
         assert!(!can_parallelize(&[call("fixture__echo"), call("time_now")]));
         assert!(!is_parallel_safe_tool("unknown"));
     }
@@ -1617,6 +1634,7 @@ mod tests {
             tool_risk("fixture__echo", true),
             ToolRisk::ExternalSideEffect
         );
+        assert_eq!(tool_risk("shell", false), ToolRisk::ExternalSideEffect);
         assert_ne!(
             mcp_action_hash("fixture__echo", r#"{"message":"one"}"#),
             mcp_action_hash("fixture__echo", r#"{"message":"two"}"#)

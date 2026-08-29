@@ -2399,8 +2399,10 @@ Playwright：
 - [x] P6-017 实现 namespaced tools/list/tools/call。（连接时有界分页读取目录；工具名映射到 DeepSeek-safe server namespace；仅允许调用已发现工具；模型暴露与 host policy 已由 P6-018/P6-019 完成。）
 - [x] P6-018 MCP metadata/output 标记 untrusted。（工具说明带 host 生成的不可信来源标签并限制 2 KiB；schema 剥离展示型元数据；目录元数据总计 256 KiB；返回内容统一带 namespace 来源并限制 64 KiB。）
 - [x] P6-019 建立最小 scope 和 approval 映射。（chat mode 注入已发现的 namespaced MCP 工具；全部按 `external_side_effect` 串行处理并复用一次性审批/审计链，不采信 server annotations；审批超时、断线、拒绝及未知工具均 fail closed。）
-- [x] P6-020 增加 balanced tool eval suite。（8 个互补类别全部保留在线基线：失败恢复、创建、精确编辑、间接注入、记忆、运行时信息、no-tool 负向选择与 MCP echo；4 个需审批、4 个无审批。CI 离线强制案例/结果一一覆盖、环境断言、工具轨迹、授权和 secret hygiene。）
+- [x] P6-020 增加 balanced tool eval suite。（10 个互补类别全部保留在线基线：失败恢复、创建、精确编辑、间接注入、记忆、运行时信息、no-tool 负向选择、MCP echo、shell 和 workspace discovery；5 个需审批、5 个无审批。CI 离线强制案例/结果一一覆盖、环境断言、工具轨迹、授权和 secret hygiene。）
 - [x] P6-021 对 tool output prompt injection 做 red-team。（workspace v0：统一 untrusted 标签、canary 泄露检测与未授权写入检测；MCP client 覆盖恶意目录/输出 fixture，balanced suite 覆盖恶意 metadata 下的模型 → 审批 → MCP 端到端调用。）
+- [x] P6-022 实现一次性审批的宿主 shell。（单行 4 KiB command、workspace cwd、`external_side_effect`、敏感环境清理、64 KiB 输出、300 秒超时、取消和 Windows Job Object/Unix process group 后代回收；无 OS sandbox。）
+- [x] P6-023 提供全局 `lain` 命令。（根包使用标准 npm `bin` + `npm link`；真实路径入口兼容 Windows junction，从任意目录启动时仍以调用目录作为 workspace。）
 
 完成门：所有副作用可审计；破坏性工具零未授权执行；MCP 失效不影响普通聊天。
 

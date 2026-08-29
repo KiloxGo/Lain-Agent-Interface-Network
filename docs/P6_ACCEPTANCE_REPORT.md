@@ -1,5 +1,7 @@
 # P6 CLI/MCP v0 验收报告
 
+> 这是引入宿主 shell 前的 checkpoint；后续扩展与当前边界见 [`P6_SHELL_ACCEPTANCE_REPORT.md`](P6_SHELL_ACCEPTANCE_REPORT.md)。
+
 - 日期：2026-08-29
 - 分支：`feat/cli-mvp`
 - 维护者：KiloxGo

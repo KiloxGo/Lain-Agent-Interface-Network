@@ -106,6 +106,8 @@ const toolBaselines = [
   ["evals/results/p6/builtin-tool-smoke.json", "coding-builtin-status-001"],
   ["evals/results/p6/no-tool-smoke.json", "coding-no-tool-001"],
   ["evals/results/p6/mcp-echo-smoke.json", "coding-mcp-echo-001"],
+  ["evals/results/p6/shell-command-smoke.json", "coding-shell-command-001"],
+  ["evals/results/p6/list-files-smoke.json", "coding-list-files-001"],
 ];
 const toolResults = [];
 for (const [baseline, expectedCaseId] of toolBaselines) {
@@ -153,6 +155,21 @@ const mcpSmoke = JSON.parse(await readFile(resolve("evals/results/p6/mcp-echo-sm
 invariant(mcpSmoke.tools?.join(",") === "fixture__echo", "MCP smoke: unexpected tools");
 invariant(mcpSmoke.approvals?.length === 1 && mcpSmoke.approvals[0].approved, "MCP smoke: invalid approval");
 invariant(mcpSmoke.final === "MCP_OK", "MCP smoke: invalid result");
+
+const shellSmoke = JSON.parse(await readFile(resolve("evals/results/p6/shell-command-smoke.json"), "utf8"));
+invariant(shellSmoke.tools?.join(",") === "shell", "shell smoke: unexpected tools");
+invariant(shellSmoke.exitCodes?.join(",") === "0", "shell smoke: invalid exit code");
+invariant(
+  shellSmoke.approvals?.length === 1
+    && shellSmoke.approvals[0].approved
+    && shellSmoke.approvals[0].command === "echo SHELL_OK",
+  "shell smoke: invalid approval",
+);
+invariant(shellSmoke.final === "SHELL_OK", "shell smoke: invalid result");
+
+const listSmoke = JSON.parse(await readFile(resolve("evals/results/p6/list-files-smoke.json"), "utf8"));
+invariant(listSmoke.tools?.join(",") === "list_files", "list files smoke: unexpected tools");
+invariant(listSmoke.approvals?.length === 0 && listSmoke.final === "LIST_OK", "list files smoke: invalid result");
 
 console.log(
   `tool suite: ${toolResults.length}/${toolResults.length} passed, ${approvalCases.length} approval + ${toolResults.length - approvalCases.length} no-approval cases`,

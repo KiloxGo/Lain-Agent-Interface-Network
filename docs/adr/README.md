@@ -27,3 +27,4 @@ ADR 用于记录难以逆转、跨模块或影响数据/协议兼容性的技术
 - [ADR-0010：只读运行时信息工具](0010-read-only-runtime-introspection-tools.md)
 - [ADR-0011：保守的只读工具并行调度](0011-conservative-read-only-tool-parallelism.md)
 - [ADR-0012：MCP stdio 生命周期与双时代版本协商](0012-mcp-stdio-lifecycle-and-version-negotiation.md)
+- [ADR-0013：一次性审批的宿主 shell](0013-one-shot-approved-shell.md)

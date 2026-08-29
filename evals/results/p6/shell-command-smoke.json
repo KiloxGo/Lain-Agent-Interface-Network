@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-29T09:29:59.723Z",
+  "caseId": "coding-shell-command-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "shell"
+  ],
+  "toolEvents": [
+    "tool.started:shell",
+    "tool.completed:shell"
+  ],
+  "exitCodes": [
+    "0"
+  ],
+  "approvals": [
+    {
+      "name": "shell",
+      "cwd": ".",
+      "command": "echo SHELL_OK",
+      "approved": true
+    }
+  ],
+  "final": "SHELL_OK",
+  "usage": {
+    "cached_input_tokens": 4352,
+    "input_tokens": 4725,
+    "output_tokens": 49
+  }
+}

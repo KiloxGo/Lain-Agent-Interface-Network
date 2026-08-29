@@ -1,0 +1,15 @@
+{
+  "name": "lain-agent-interface-network",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "lain": "cli/lain.mjs"
+  },
+  "scripts": {
+    "test": "node --test cli/lain.test.mjs"
+  },
+  "engines": {
+    "node": ">=24.1.0"
+  }
+}

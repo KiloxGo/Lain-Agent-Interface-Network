@@ -104,7 +104,7 @@ function approvalAllowed(item, payload) {
   if (["replace_text", "create_file"].includes(payload.name)) {
     return item.approval.paths.includes(payload.path);
   }
-  if (payload.name === "run_check") {
+  if (["run_check", "shell"].includes(payload.name)) {
     return item.approval.commands.some(
       ({ cwd, command }) => cwd === payload.cwd && command === payload.command,
     );
