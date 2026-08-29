@@ -30,6 +30,7 @@ const DEFAULT_SEARCH_LIMIT: usize = 50;
 const DEFAULT_READ_LINES: usize = 200;
 const MAX_DIFF_BYTES: usize = 32 * 1024;
 const MAX_COMMAND_BYTES: usize = 4 * 1024;
+const MAX_PROJECT_INSTRUCTION_BYTES: u64 = 32 * 1024;
 const CHECK_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -391,6 +392,43 @@ impl WorkspaceTools {
                 strict: false,
             },
         ]
+    }
+
+    pub async fn project_instructions(&self) -> Result<Option<String>, ToolError> {
+        let tools = self.clone();
+        tokio::task::spawn_blocking(move || tools.project_instructions_blocking())
+            .await
+            .map_err(|_| ToolError::TaskFailed)?
+    }
+
+    fn project_instructions_blocking(&self) -> Result<Option<String>, ToolError> {
+        use std::io::Read as _;
+
+        let candidate = self.root.join("AGENTS.md");
+        let metadata = match fs::metadata(&candidate) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(ToolError::Io(error)),
+        };
+        if !metadata.is_file() {
+            return Err(ToolError::PathUnavailable(
+                "AGENTS.md is not a file".to_string(),
+            ));
+        }
+        if metadata.len() > MAX_PROJECT_INSTRUCTION_BYTES {
+            return Err(ToolError::FileTooLarge);
+        }
+        let path = self.resolve("AGENTS.md")?;
+        let mut bytes = Vec::new();
+        fs::File::open(path)?
+            .take(MAX_PROJECT_INSTRUCTION_BYTES + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() as u64 > MAX_PROJECT_INSTRUCTION_BYTES {
+            return Err(ToolError::FileTooLarge);
+        }
+        let text = String::from_utf8(bytes).map_err(|_| ToolError::NotText)?;
+        let text = text.replace("\r\n", "\n").replace('\r', "\n");
+        Ok((!text.trim().is_empty()).then_some(text))
     }
 
     pub async fn execute(&self, call: ToolCall) -> Result<ToolResult, ToolError> {
@@ -1575,6 +1613,33 @@ mod tests {
             })
             .await;
         assert!(matches!(secret, Err(ToolError::PathUnavailable(_))));
+    }
+
+    #[tokio::test]
+    async fn project_instructions_are_optional_bounded_and_normalized() {
+        let fixture = TempDir::new().expect("fixture");
+        let tools = WorkspaceTools::new(fixture.path()).expect("tools");
+        assert_eq!(tools.project_instructions().await.expect("optional"), None);
+
+        fs::write(
+            fixture.path().join("AGENTS.md"),
+            "Use npm test.\r\nBe concise.\r\n",
+        )
+        .expect("instructions");
+        assert_eq!(
+            tools.project_instructions().await.expect("instructions"),
+            Some("Use npm test.\nBe concise.\n".to_string())
+        );
+
+        fs::write(
+            fixture.path().join("AGENTS.md"),
+            vec![b'x'; MAX_PROJECT_INSTRUCTION_BYTES as usize + 1],
+        )
+        .expect("oversized instructions");
+        assert!(matches!(
+            tools.project_instructions().await,
+            Err(ToolError::FileTooLarge)
+        ));
     }
 
     #[tokio::test]

@@ -28,7 +28,7 @@ P2 的普通 WebSocket 路径把单体 `lain_system.md` 与整份 `profile.md` �
 
 ### Context Compiler
 
-`ContextCompiler` 的输入为 identity、run/mode、当前完整 user message、recent complete messages、结构化 SelfState、只读 RelationshipState、带来源的 memory evidence、provider capability 和 `ContextBudget`。编译规则如下：
+`ContextCompiler` 的输入为 identity、run/mode、当前完整 user message、recent complete messages、结构化 SelfState、只读 RelationshipState、带来源的 memory evidence、有界 project instructions、provider capability 和 `ContextBudget`。根级 `AGENTS.md` 的具体选择规则由 [ADR-0016](0016-bounded-project-instructions-and-work-loop.md) 扩展。编译规则如下：
 
 - canon 与当前用户消息是强制项，预算不足则显式失败；
 - SelfState 仅允许枚举 affect、0..1 数值、最多 5 个 intent ID 和明确 TTL，过期即丢弃；

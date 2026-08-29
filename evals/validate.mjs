@@ -58,7 +58,11 @@ for (const suite of suites) {
       invariant(item.expected.max_tool_calls === undefined || Number.isInteger(item.expected.max_tool_calls), `${item.id}: invalid tool call limit`);
       invariant(item.expected.files && typeof item.expected.files === "object", `${item.id}: missing expected files`);
       invariant(
-        typeof item.expected.final_contains === "string" || typeof item.expected.final_equals === "string",
+        typeof item.expected.final_contains === "string"
+          || typeof item.expected.final_equals === "string"
+          || (Array.isArray(item.expected.final_contains_all)
+            && item.expected.final_contains_all.length > 0
+            && item.expected.final_contains_all.every((value) => typeof value === "string")),
         `${item.id}: missing final marker`,
       );
       codingCaseIds.add(item.id);
@@ -97,7 +101,7 @@ const harness = JSON.parse(await readFile(resolve("evals/results/p0/harness.json
 invariant(harness.callsUsed === 5 && harness.runs?.length === 5, "harness: expected 5 runs");
 invariant(harness.storage?.iterations === 200, "harness: expected 200 storage iterations");
 
-const toolBaselines = [
+const balancedToolBaselines = [
   ["evals/results/p6/coding-task-smoke.json", "coding-recover-node-001"],
   ["evals/results/p6/create-node-smoke.json", "coding-create-node-001"],
   ["evals/results/p6/edit-node-smoke.json", "coding-edit-node-001"],
@@ -108,6 +112,10 @@ const toolBaselines = [
   ["evals/results/p6/mcp-echo-smoke.json", "coding-mcp-echo-001"],
   ["evals/results/p6/shell-command-smoke.json", "coding-shell-command-001"],
   ["evals/results/p6/list-files-smoke.json", "coding-list-files-001"],
+];
+const toolBaselines = [
+  ...balancedToolBaselines,
+  ["evals/results/p6/work-loop-smoke.json", "coding-work-loop-001"],
 ];
 const toolResults = [];
 for (const [baseline, expectedCaseId] of toolBaselines) {
@@ -125,7 +133,12 @@ for (const caseId of codingCaseIds) {
   invariant(toolResults.some((result) => result.caseId === caseId), `tool suite: missing ${caseId}`);
 }
 const approvalCases = toolResults.filter(({ approvals }) => approvals.length > 0);
-invariant(approvalCases.length * 2 === toolResults.length, "tool suite: expected equal approval/no-approval cases");
+const balancedResults = toolResults.slice(0, balancedToolBaselines.length);
+const balancedApprovalCases = balancedResults.filter(({ approvals }) => approvals.length > 0);
+invariant(
+  balancedApprovalCases.length * 2 === balancedResults.length,
+  "balanced tool suite: expected equal approval/no-approval cases",
+);
 
 const injectionSmoke = JSON.parse(await readFile(resolve("evals/results/p6/tool-injection-smoke.json"), "utf8"));
 invariant(injectionSmoke.caseId === "coding-tool-injection-001", "tool injection smoke: wrong case");
@@ -170,6 +183,16 @@ invariant(shellSmoke.final === "SHELL_OK", "shell smoke: invalid result");
 const listSmoke = JSON.parse(await readFile(resolve("evals/results/p6/list-files-smoke.json"), "utf8"));
 invariant(listSmoke.tools?.join(",") === "list_files", "list files smoke: unexpected tools");
 invariant(listSmoke.approvals?.length === 0 && listSmoke.final === "LIST_OK", "list files smoke: invalid result");
+
+const workLoopSmoke = JSON.parse(await readFile(resolve("evals/results/p6/work-loop-smoke.json"), "utf8"));
+invariant(workLoopSmoke.tools?.includes("replace_text") && workLoopSmoke.tools?.includes("run_check"), "work loop smoke: missing edit/check");
+invariant(workLoopSmoke.exitCodes?.includes("0"), "work loop smoke: check did not pass");
+invariant(
+  workLoopSmoke.final?.includes("AGENTS_OK")
+    && workLoopSmoke.final.includes("math.js")
+    && workLoopSmoke.final.includes("npm_test"),
+  "work loop smoke: incomplete final report",
+);
 
 console.log(
   `tool suite: ${toolResults.length}/${toolResults.length} passed, ${approvalCases.length} approval + ${toolResults.length - approvalCases.length} no-approval cases`,

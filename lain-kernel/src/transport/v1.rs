@@ -41,8 +41,8 @@ const OUTBOUND_WAIT: Duration = Duration::from_secs(2);
 const HELLO_TIMEOUT: Duration = Duration::from_secs(5);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(20);
 const MAX_REPLAY_EVENTS: i64 = 500;
-const MAX_TOOL_ROUNDS: usize = 4;
-const MAX_TOOL_CALLS: usize = 8;
+const MAX_TOOL_ROUNDS: usize = 8;
+const MAX_TOOL_CALLS: usize = 16;
 const APPROVAL_TIMEOUT: Duration = Duration::from_secs(300);
 
 #[derive(Debug, Default)]
@@ -369,11 +369,24 @@ async fn execute_run(
     let Some(identity) = state.identity.clone() else {
         return fail_run(storage, outbound, &run, "identity_unavailable").await;
     };
-    let (recent_result, self_state_result, relationship_result, memory_result) = tokio::join!(
+    let project_instructions_result = async {
+        match state.workspace_tools.as_ref() {
+            Some(tools) => tools.project_instructions().await,
+            None => Ok(None),
+        }
+    };
+    let (
+        recent_result,
+        self_state_result,
+        relationship_result,
+        memory_result,
+        project_instructions_result,
+    ) = tokio::join!(
         storage.recent_messages(&run.session_id, 80),
         storage.latest_self_state(),
         storage.latest_relationship_state(),
         storage.retrieve_memory_for_message(&run.session_id, &run.trigger_message_id, 12),
+        project_instructions_result,
     );
     let recent = match recent_result {
         Ok(messages) => messages,
@@ -418,6 +431,16 @@ async fn execute_run(
             Vec::new()
         }
     };
+    let project_instructions = match project_instructions_result {
+        Ok(instructions) => state
+            .workspace_tools
+            .as_ref()
+            .map(|_| instructions.unwrap_or_default()),
+        Err(error) => {
+            tracing::error!(run_id = run.id, error = %error, "project instructions unavailable");
+            return fail_run(storage, outbound, &run, "project_instructions_unavailable").await;
+        }
+    };
     let Some(current_message) = recent
         .iter()
         .find(|message| message.id == run.trigger_message_id)
@@ -448,6 +471,7 @@ async fn execute_run(
         self_state,
         relationship_state: relationship,
         memory_evidence,
+        project_instructions,
         now: Utc::now(),
         budget,
     }) {
@@ -469,7 +493,7 @@ async fn execute_run(
     if send_json(outbound, &context_event).await.is_err() {
         // The provider call still completes so committed runs do not depend on a live client.
     }
-    let tool_definitions = if matches!(route_kind, RouteKind::Chat) {
+    let tool_definitions = if matches!(route_kind, RouteKind::Chat) && capabilities.supports_tools {
         let mut definitions = Vec::new();
         if state.workspace_tools.is_some() {
             definitions.extend(builtin_definitions());

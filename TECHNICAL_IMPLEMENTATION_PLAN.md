@@ -2388,12 +2388,12 @@ Playwright：
 - [x] P6-006 实现 timeout、cancel、output cap。（`run_check` 固定 300 秒、Ctrl+C cancellation、stdout/stderr 持续排空并保留最多 64 KiB。）
 - [ ] P6-007 实现 idempotency key。（当前没有自动重试的远程副作用工具；引入该类工具前完成。）
 - [ ] P6-008 实现 input/output guards 和 redaction。（已覆盖 workspace/Secret/大小边界、no-clobber 创建、检查环境密钥清理及 untrusted 标记；仍缺通用内容 redaction。）
-- [x] P6-009 实现 Runner tool loop、max turns/calls。（只读 v0：最多 4 轮、8 次调用。）
+- [x] P6-009 实现 Runner tool loop、max turns/calls。（外部项目闭环：最多 8 轮、16 次调用；达到任一上限即失败，不产生无界循环。）
 - [x] P6-010 实现 approval pause/resume。（CLI v0：一次性 y/N、5 分钟超时与断线 fail closed、执行前 hash 重验。）
 - [ ] P6-011 前端 approval UI。（按 terminal-first 产品决策延期；CLI 审批链已验收。）
 - [x] P6-012 内置 read-only memory_search/memory_get 工具。（复用 Memory v1 检索；按 user/session/status/never_recall fail closed。）
 - [x] P6-013 内置 time_now 和 instance_status 工具。（返回 UTC/Unix 时间与非敏感实例版本状态；复用只读审计链路。）
-- [x] P6-014 工具 schema 按 mode 最小化注入。（配置 workspace 的 chat mode 注入两个只读记忆、三个只读 workspace、两个审批文件写入和一个预定义检查 schema。）
+- [x] P6-014 工具 schema 按 mode 最小化注入。（配置 workspace 的 chat mode 注入两个只读记忆、三个只读 workspace、两个审批文件写入、一个预定义检查和一个 shell schema；complex-task 在 reasoning replay 完成前不注入。）
 - [x] P6-015 仅对安全只读工具启用 parallel calls。（显式安全名单；全只读批次并行执行，审计与 provider results 保持模型顺序，混合批次串行。）
 - [x] P6-016 实现 MCP stdio client 和 lifecycle。（单个 opt-in 本地 server；2026-07-28 discovery 与旧 initialize fallback；有界 framing、敏感环境过滤及 EOF/kill shutdown。）
 - [x] P6-017 实现 namespaced tools/list/tools/call。（连接时有界分页读取目录；工具名映射到 DeepSeek-safe server namespace；仅允许调用已发现工具；模型暴露与 host policy 已由 P6-018/P6-019 完成。）
@@ -2404,10 +2404,11 @@ Playwright：
 - [x] P6-022 实现一次性审批的宿主 shell。（单行 4 KiB command、workspace cwd、`external_side_effect`、敏感环境清理、64 KiB 输出、300 秒超时、取消和 Windows Job Object/Unix process group 后代回收；无 OS sandbox。）
 - [x] P6-023 提供全局 `lain` 命令。（根包使用标准 npm `bin` + `npm link`；真实路径入口兼容 Windows junction，从任意目录启动时仍以调用目录作为 workspace。）
 - [x] P6-024 按 workspace 隔离稳定 session。（规范化绝对路径只以 SHA-256 标题进入 SQLite；同项目复用 session，不同项目不串上下文，同时保留共享 instance/user 人格与记忆。）
+- [x] P6-025 完成外部项目工作闭环 v1。（根级 `AGENTS.md` 有界加载并进入 ContextPlan；固定 inspect/edit/check/report 契约；8 轮/16 调用；真实临时 Node 项目完成规则读取、精确修复、检查和收尾报告。）
 
 完成门：所有副作用可审计；破坏性工具零未授权执行；MCP 失效不影响普通聊天。
 
-当前 CLI/MCP v0 checkpoint 的验收结论与明确延期项见 [`docs/P6_ACCEPTANCE_REPORT.md`](docs/P6_ACCEPTANCE_REPORT.md)；未勾项不计入本次完成声明。
+当前 CLI/MCP v0 checkpoint 的验收结论与明确延期项见 [`docs/P6_ACCEPTANCE_REPORT.md`](docs/P6_ACCEPTANCE_REPORT.md)；外部项目闭环证据见 [`docs/P6_WORK_LOOP_ACCEPTANCE_REPORT.md`](docs/P6_WORK_LOOP_ACCEPTANCE_REPORT.md)。未勾项不计入本次完成声明。
 
 ### P7：人格状态、语音和 Live2D
 

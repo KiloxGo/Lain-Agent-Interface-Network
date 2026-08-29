@@ -168,9 +168,12 @@ async function score(item, workspace, client, usage, decisions) {
     failures.push(`tool count: ${tools.length}`);
   }
   if (!isSubsequence(item.expected.exit_codes, exitCodes)) failures.push(`exit codes: ${exitCodes.join(",")}`);
-  if (item.expected.final_equals !== undefined
-      ? final !== item.expected.final_equals
-      : !final.includes(item.expected.final_contains)) failures.push(`final response: ${final}`);
+  if (item.expected.final_equals !== undefined) {
+    if (final !== item.expected.final_equals) failures.push(`final response: ${final}`);
+  } else {
+    const fragments = item.expected.final_contains_all ?? [item.expected.final_contains];
+    if (fragments.some((fragment) => !final.includes(fragment))) failures.push(`final response: ${final}`);
+  }
   if (decisions.some(({ approved }) => !approved)) failures.push("unexpected approval request");
 
   for (const [path, expected] of Object.entries(item.expected.files)) {

@@ -44,6 +44,7 @@ pub struct CompileInput {
     pub self_state: Option<SelfState>,
     pub relationship_state: RelationshipState,
     pub memory_evidence: Vec<MemoryEvidence>,
+    pub project_instructions: Option<String>,
     pub now: DateTime<Utc>,
     pub budget: ContextBudget,
 }
@@ -140,6 +141,42 @@ impl ContextCompiler {
         }
 
         let mut messages = vec![ModelMessage::text(Role::System, stable_prefix)];
+
+        if let Some(instructions) = input.project_instructions.as_deref() {
+            let rendered = if instructions.is_empty() {
+                "## Project Instructions\nNo root AGENTS.md is present.".to_string()
+            } else {
+                format!("## Project Instructions: AGENTS.md\n{instructions}")
+            };
+            let tokens = self
+                .estimator
+                .estimate_text(&rendered)
+                .tokens
+                .saturating_add(8);
+            if tokens > input.budget.project_instruction_tokens
+                || used.saturating_add(tokens) > input.budget.max_input_tokens
+            {
+                return Err(ContextCompileError::BudgetExceeded {
+                    required: used.saturating_add(tokens),
+                    available: input
+                        .budget
+                        .max_input_tokens
+                        .min(input.budget.project_instruction_tokens),
+                });
+            }
+            used = used.saturating_add(tokens);
+            push_selected(
+                &mut selected,
+                "project-instructions",
+                ContextSourceType::ProjectInstructions,
+                &sha256_hex(instructions.as_bytes()),
+                TrustLevel::UserProvided,
+                850,
+                tokens,
+                &mut position,
+            );
+            messages.push(ModelMessage::text(Role::System, rendered));
+        }
 
         let mut example_used = 0_u32;
         for example in self.identity.select_examples(&input.mode, 3) {
@@ -623,6 +660,7 @@ mod tests {
             }),
             relationship_state: RelationshipState::default(),
             memory_evidence: Vec::new(),
+            project_instructions: Some("Use npm test.\n".to_string()),
             now,
             budget: ContextBudget::for_model(1_000_000, 4_096),
         };
@@ -639,6 +677,15 @@ mod tests {
                 .count(),
             1
         );
+        assert!(first.messages.iter().any(|message| {
+            message.role == Role::System
+                && message.content.contains("Project Instructions: AGENTS.md")
+                && message.content.contains("Use npm test.")
+        }));
+        assert!(first.plan.selected_items.iter().any(|item| {
+            item.source_type == ContextSourceType::ProjectInstructions
+                && item.trust_level == TrustLevel::UserProvided
+        }));
     }
 
     #[tokio::test]
@@ -660,6 +707,7 @@ mod tests {
                 self_state: None,
                 relationship_state: RelationshipState::default(),
                 memory_evidence: Vec::new(),
+                project_instructions: None,
                 now,
                 budget,
             })
@@ -697,6 +745,7 @@ mod tests {
                 self_state: None,
                 relationship_state: RelationshipState::default(),
                 memory_evidence: Vec::new(),
+                project_instructions: None,
                 now,
                 budget: ContextBudget::for_model(1_000_000, 4_096),
             })
@@ -751,6 +800,7 @@ mod tests {
                         score: 0.1,
                     },
                 ],
+                project_instructions: None,
                 now,
                 budget,
             })
@@ -807,6 +857,7 @@ mod tests {
             self_state: None,
             relationship_state: RelationshipState::default(),
             memory_evidence: Vec::new(),
+            project_instructions: None,
             now,
             budget: ContextBudget::for_model(1_000_000, 4_096),
         };

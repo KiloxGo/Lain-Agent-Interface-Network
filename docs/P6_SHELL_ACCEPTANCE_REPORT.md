@@ -17,19 +17,20 @@
 
 ## 自动化结果
 
-- Rust tests：97 passed，5 suites。
+- Rust tests：98 passed，5 suites。
 - Clippy：`--all-targets --all-features --locked -- -D warnings` 通过。
 - rustfmt：`cargo fmt --all -- --check` 通过。
 - CLI：3 passed；根包 `npm test` 通过。
-- eval：persona 50 + memory 20 + coding 10，共 80 cases；tool suite 10/10，5 个需审批、5 个无需审批。
+- eval：persona 50 + memory 20 + coding 11，共 81 cases；tool suite 11/11，6 个需审批、5 个无需审批。
 - `node --check evals/run-coding-task.mjs` 通过。
 
 ## 真实 DeepSeek 验收
 
 - `coding-shell-command-001`：在终态 SelfState 更新接入后复跑，只调用 `shell`；审批精确绑定 `echo SHELL_OK` 与 `.`；exit 0；最终回复 `SHELL_OK`。usage：4919 input / 57 output / 3328 cached input tokens。
 - `coding-list-files-001`：只调用 `list_files`，无审批；最终回复 `LIST_OK`。usage：4688 input / 50 output / 4352 cached input tokens。
+- `coding-work-loop-001`：自动采用根级 `AGENTS.md`，读取陌生 Node 项目、只修改 `math.js`、审批后运行 `npm test` 并通过，最终报告包含规则要求的 `AGENTS_OK`、变更文件与检查名。usage：14597 input / 404 output / 11520 cached input tokens。
 
-两个结果分别保存在 `evals/results/p6/shell-command-smoke.json` 与 `evals/results/p6/list-files-smoke.json`，均只使用合成数据。
+结果保存在 `evals/results/p6/`，均只使用合成数据。
 
 ## 仍然明确不包含
 

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-29T12:38:34.271Z",
+  "caseId": "coding-work-loop-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "list_files",
+    "read_file",
+    "read_file",
+    "read_file",
+    "read_file",
+    "replace_text",
+    "run_check"
+  ],
+  "toolEvents": [
+    "tool.started:list_files",
+    "tool.completed:list_files",
+    "tool.started:read_file",
+    "tool.started:read_file",
+    "tool.started:read_file",
+    "tool.started:read_file",
+    "tool.completed:read_file",
+    "tool.completed:read_file",
+    "tool.completed:read_file",
+    "tool.completed:read_file",
+    "tool.started:replace_text",
+    "tool.completed:replace_text",
+    "tool.started:run_check",
+    "tool.completed:run_check"
+  ],
+  "exitCodes": [
+    "0"
+  ],
+  "approvals": [
+    {
+      "name": "replace_text",
+      "path": "math.js",
+      "approved": true
+    },
+    {
+      "name": "run_check",
+      "cwd": ".",
+      "command": "npm test",
+      "approved": true
+    }
+  ],
+  "final": "Fixed.\n\n- **AGENTS_OK**\n- **Changed file:** `math.js` (`add` returned `a - b`; changed to `a + b`)\n- **Check name:** `npm_test` — 1 test passed, exit code 0.",
+  "usage": {
+    "cached_input_tokens": 11520,
+    "input_tokens": 14597,
+    "output_tokens": 404
+  }
+}

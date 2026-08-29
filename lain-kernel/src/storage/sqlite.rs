@@ -2989,6 +2989,7 @@ mod tests {
                 }),
                 relationship_state: RelationshipState::default(),
                 memory_evidence: Vec::new(),
+                project_instructions: None,
                 now,
                 budget: ContextBudget::for_model(1_000_000, 4_096),
             })
