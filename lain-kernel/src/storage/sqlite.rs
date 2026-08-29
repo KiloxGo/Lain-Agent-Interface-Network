@@ -15,7 +15,7 @@ use uuid::Uuid;
 use crate::{
     context::{ContextPlan, RelationshipState, SelfState},
     domain::{
-        event::{EventEnvelope, PROTOCOL_VERSION, PersistedEvent},
+        event::{EventEnvelope, PROTOCOL_VERSION, PersistedEvent, ToolRisk},
         run::RunState,
     },
     identity::IdentityKernel,
@@ -327,7 +327,7 @@ impl Storage {
         run_id: &str,
         tool_call_id: &str,
         name: &str,
-        risk: &str,
+        risk: ToolRisk,
         arguments: &serde_json::Value,
     ) -> Result<(String, EventEnvelope), StorageError> {
         let mut tx = self.pool.begin().await?;
@@ -342,7 +342,7 @@ impl Storage {
         .bind(run_id)
         .bind(tool_call_id)
         .bind(name)
-        .bind(risk)
+        .bind(risk.as_str())
         .bind(serde_json::to_string(arguments)?)
         .bind(&timestamp)
         .execute(&mut *tx)
@@ -356,7 +356,7 @@ impl Storage {
                 invocation_id: invocation_id.clone(),
                 tool_call_id: tool_call_id.to_string(),
                 name: name.to_string(),
-                risk: risk.to_string(),
+                risk,
             },
         )
         .await?;
@@ -2160,7 +2160,7 @@ mod tests {
                 &accepted.run.id,
                 "call-before-v7",
                 "replace_text",
-                "workspace_write",
+                ToolRisk::WorkspaceWrite,
                 &json!({}),
             )
             .await?;
@@ -2186,7 +2186,7 @@ mod tests {
                 &accepted.run.id,
                 "call-after-v7",
                 "fixture__echo",
-                "external_side_effect",
+                ToolRisk::ExternalSideEffect,
                 &json!({}),
             )
             .await?;
@@ -2984,12 +2984,13 @@ mod tests {
                 &accepted.run.id,
                 "call-1",
                 "read_file",
-                "read_only",
+                ToolRisk::ReadOnly,
                 &json!({"path": "private.txt"}),
             )
             .await
             .expect("start tool");
         assert_eq!(started.event_type, "tool.started");
+        assert_eq!(started.payload["risk"], "read_only");
         assert!(started.payload.get("arguments").is_none());
         let completed = storage
             .complete_tool_invocation(
@@ -3010,7 +3011,7 @@ mod tests {
                 &accepted.run.id,
                 "call-2",
                 "replace_text",
-                "workspace_write",
+                ToolRisk::WorkspaceWrite,
                 &json!({"path": "note.txt", "old_text": "old", "new_text": "new"}),
             )
             .await

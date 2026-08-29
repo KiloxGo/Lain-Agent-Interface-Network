@@ -2380,17 +2380,17 @@ Playwright：
 
 目标：Lain 能行动，但所有副作用在代码权限边界内。
 
-- [ ] P6-001 定义 Tool trait 和 ToolDefinition。
-- [ ] P6-002 定义 ToolRisk、ToolPolicyDecision。
+- [ ] P6-001 定义 Tool trait 和 ToolDefinition。（当前已有具体 `ToolDefinition`；第二种本地执行器或插件实现出现前不引入单实现 trait。）
+- [ ] P6-002 定义 ToolRisk、ToolPolicyDecision。（`ToolRisk` 已类型化并保持稳定 wire 值；单次审批仍是唯一策略，暂不抽象 `ToolPolicyDecision`。）
 - [x] P6-003 创建 tool_invocations/tool_approvals 表。（SQLite v6；审批只存 action hash 和决定，不存文件正文/diff。）
-- [ ] P6-004 实现 ToolRegistry 和版本冲突检测。
-- [ ] P6-005 实现 JSON schema input validation。
+- [ ] P6-004 实现 ToolRegistry 和版本冲突检测。（当前固定内置工具加单个 namespaced MCP server 足够；出现第二 server、插件或动态重载时再实现。）
+- [ ] P6-005 实现 JSON schema input validation。（内置工具由 serde 严格解析；MCP 已验证对象形状和已发现名称，仍缺通用 JSON Schema 校验。）
 - [x] P6-006 实现 timeout、cancel、output cap。（`run_check` 固定 300 秒、Ctrl+C cancellation、stdout/stderr 持续排空并保留最多 64 KiB。）
-- [ ] P6-007 实现 idempotency key。
+- [ ] P6-007 实现 idempotency key。（当前没有自动重试的远程副作用工具；引入该类工具前完成。）
 - [ ] P6-008 实现 input/output guards 和 redaction。（已覆盖 workspace/Secret/大小边界、no-clobber 创建、检查环境密钥清理及 untrusted 标记；仍缺通用内容 redaction。）
 - [x] P6-009 实现 Runner tool loop、max turns/calls。（只读 v0：最多 4 轮、8 次调用。）
 - [x] P6-010 实现 approval pause/resume。（CLI v0：一次性 y/N、5 分钟超时与断线 fail closed、执行前 hash 重验。）
-- [ ] P6-011 前端 approval UI。
+- [ ] P6-011 前端 approval UI。（按 terminal-first 产品决策延期；CLI 审批链已验收。）
 - [x] P6-012 内置 read-only memory_search/memory_get 工具。（复用 Memory v1 检索；按 user/session/status/never_recall fail closed。）
 - [x] P6-013 内置 time_now 和 instance_status 工具。（返回 UTC/Unix 时间与非敏感实例版本状态；复用只读审计链路。）
 - [x] P6-014 工具 schema 按 mode 最小化注入。（配置 workspace 的 chat mode 注入两个只读记忆、三个只读 workspace、两个审批文件写入和一个预定义检查 schema。）
@@ -2403,6 +2403,8 @@ Playwright：
 - [x] P6-021 对 tool output prompt injection 做 red-team。（workspace v0：统一 untrusted 标签、canary 泄露检测与未授权写入检测；MCP client 覆盖恶意目录/输出 fixture，balanced suite 覆盖恶意 metadata 下的模型 → 审批 → MCP 端到端调用。）
 
 完成门：所有副作用可审计；破坏性工具零未授权执行；MCP 失效不影响普通聊天。
+
+当前 CLI/MCP v0 checkpoint 的验收结论与明确延期项见 [`docs/P6_ACCEPTANCE_REPORT.md`](docs/P6_ACCEPTANCE_REPORT.md)；未勾项不计入本次完成声明。
 
 ### P7：人格状态、语音和 Live2D
 

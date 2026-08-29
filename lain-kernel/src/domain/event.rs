@@ -4,6 +4,24 @@ use ts_rs::TS;
 
 pub const PROTOCOL_VERSION: u16 = 1;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolRisk {
+    ReadOnly,
+    WorkspaceWrite,
+    ExternalSideEffect,
+}
+
+impl ToolRisk {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReadOnly => "read_only",
+            Self::WorkspaceWrite => "workspace_write",
+            Self::ExternalSideEffect => "external_side_effect",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct EventEnvelope {
@@ -63,7 +81,7 @@ pub enum PersistedEvent {
         invocation_id: String,
         tool_call_id: String,
         name: String,
-        risk: String,
+        risk: ToolRisk,
     },
     #[serde(rename = "tool.completed")]
     ToolCompleted {

@@ -18,7 +18,7 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     app::{AppState, VisibleTextFilter, classify_route},
     context::{CompileInput, ContextBudget, ContextCompiler, RelationshipState},
-    domain::event::PROTOCOL_VERSION,
+    domain::event::{PROTOCOL_VERSION, ToolRisk},
     error::AppError,
     identity::sha256_hex,
     memory,
@@ -1338,13 +1338,13 @@ async fn await_tool_approval(
     }
 }
 
-fn tool_risk(name: &str, is_mcp: bool) -> &'static str {
+fn tool_risk(name: &str, is_mcp: bool) -> ToolRisk {
     if is_mcp {
-        "external_side_effect"
+        ToolRisk::ExternalSideEffect
     } else if matches!(name, "replace_text" | "create_file" | "run_check") {
-        "workspace_write"
+        ToolRisk::WorkspaceWrite
     } else {
-        "read_only"
+        ToolRisk::ReadOnly
     }
 }
 
@@ -1613,7 +1613,10 @@ mod tests {
 
     #[test]
     fn mcp_tools_are_external_and_approval_is_bound_to_exact_call() {
-        assert_eq!(tool_risk("fixture__echo", true), "external_side_effect");
+        assert_eq!(
+            tool_risk("fixture__echo", true),
+            ToolRisk::ExternalSideEffect
+        );
         assert_ne!(
             mcp_action_hash("fixture__echo", r#"{"message":"one"}"#),
             mcp_action_hash("fixture__echo", r#"{"message":"two"}"#)
