@@ -2412,9 +2412,9 @@ Playwright：
 
 目标：让“人格”通过行为和身体呈现，同时不污染核心运行时。
 
-- [ ] P7-001 实现 finite SelfState reducer。
-- [ ] P7-002 实现 state.changed event 和 TTL reset。
-- [ ] P7-003 实现 affect → voice/gesture 映射表。
+- [x] P7-001 实现 finite SelfState reducer。（host-owned chat/task/maintenance signal 确定性映射有界状态，不接受模型 hidden tag。）
+- [x] P7-002 实现 state.changed event 和 TTL reset。（snapshot 与事件原子写入；十分钟 TTL，过期不注入，下一 run 重置。）
+- [ ] P7-003 实现 affect → voice/gesture 映射表。（固定 voice directive 已接入 Context Compiler；gesture 等待终端/embodiment 消费者。）
 - [ ] P7-004 创建 embodimentStore/event bus。
 - [ ] P7-005 定义 TTS Provider 接口。
 - [ ] P7-006 按句段启动可取消 TTS。

@@ -17,7 +17,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     app::{AppState, VisibleTextFilter, classify_route},
-    context::{CompileInput, ContextBudget, ContextCompiler, RelationshipState},
+    context::{
+        CompileInput, ContextBudget, ContextCompiler, RelationshipState, SelfState, SelfStateSignal,
+    },
     domain::event::{PROTOCOL_VERSION, ToolRisk},
     error::AppError,
     identity::sha256_hex,
@@ -329,7 +331,7 @@ async fn execute_run(
     outbound: &mpsc::Sender<Outbound>,
     incoming: &mut SplitStream<WebSocket>,
     run: RunRecord,
-    route_kind: crate::provider::RouteKind,
+    route_kind: RouteKind,
 ) -> RunOutcome {
     let started = match storage.start_run(&run.id).await {
         Ok(event) => event,
@@ -339,7 +341,27 @@ async fn execute_run(
             return RunOutcome::Continue;
         }
     };
-    let client_gone_at_start = send_json(outbound, &started).await.is_err();
+    let mut client_gone_at_start = send_json(outbound, &started).await.is_err();
+
+    let signal = match route_kind {
+        RouteKind::Chat => SelfStateSignal::Conversation,
+        RouteKind::ComplexTask => SelfStateSignal::Task,
+        RouteKind::Maintenance => SelfStateSignal::Maintenance,
+    };
+    let next_self_state = SelfState::reduce(signal, Utc::now());
+    match storage.set_self_state(&run.id, &next_self_state).await {
+        Ok(event) if !client_gone_at_start => {
+            client_gone_at_start = send_json(outbound, &event).await.is_err();
+        }
+        Ok(_) => {}
+        Err(error) => {
+            tracing::warn!(
+                run_id = run.id,
+                error = %error,
+                "self state update degraded"
+            );
+        }
+    }
 
     let Some(provider) = state.provider.clone() else {
         return fail_run(storage, outbound, &run, "provider_unavailable").await;

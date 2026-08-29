@@ -76,6 +76,14 @@ pub enum PersistedEvent {
         estimated: bool,
         dropped_items: usize,
     },
+    #[serde(rename = "state.changed")]
+    SelfStateChanged {
+        affect: String,
+        activation: f32,
+        closeness_expression: f32,
+        uncertainty: f32,
+        expires_at: String,
+    },
     #[serde(rename = "tool.started")]
     ToolStarted {
         invocation_id: String,
@@ -140,6 +148,7 @@ impl PersistedEvent {
             Self::RunFailed { .. } => "run.failed",
             Self::IdentityActivated { .. } => "identity.activated",
             Self::ContextCompiled { .. } => "context.compiled",
+            Self::SelfStateChanged { .. } => "state.changed",
             Self::ToolStarted { .. } => "tool.started",
             Self::ToolCompleted { .. } => "tool.completed",
             Self::ToolApprovalRequested { .. } => "tool.approval_requested",

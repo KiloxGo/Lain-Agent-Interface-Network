@@ -60,6 +60,8 @@ pub enum StorageError {
     InvalidToolApprovalStatus { id: String, status: String },
     #[error("invalid memory item status: {0}")]
     InvalidMemoryItemStatus(String),
+    #[error("invalid self state: {0}")]
+    InvalidSelfState(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -1536,6 +1538,53 @@ impl Storage {
         self.latest_state("self").await
     }
 
+    pub async fn set_self_state(
+        &self,
+        run_id: &str,
+        state: &SelfState,
+    ) -> Result<EventEnvelope, StorageError> {
+        state
+            .validate()
+            .map_err(|error| StorageError::InvalidSelfState(error.to_string()))?;
+        let mut tx = self.pool.begin().await?;
+        let run = fetch_run(&mut tx, run_id).await?;
+        let version: i64 = sqlx::query_scalar(
+            "SELECT COALESCE(MAX(version), 0) + 1 FROM state_snapshots WHERE instance_id = ? AND state_type = 'self'",
+        )
+        .bind(&self.scope.instance_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        sqlx::query(
+            "INSERT INTO state_snapshots(id, instance_id, state_type, state_json, version, created_at) \
+             VALUES (?, ?, 'self', ?, ?, ?)",
+        )
+        .bind(new_id())
+        .bind(&self.scope.instance_id)
+        .bind(serde_json::to_string(state)?)
+        .bind(version)
+        .bind(now())
+        .execute(&mut *tx)
+        .await?;
+        let event = append_event(
+            &mut tx,
+            &self.scope.instance_id,
+            &run.session_id,
+            Some(run_id),
+            &PersistedEvent::SelfStateChanged {
+                affect: state.affect.as_str().to_string(),
+                activation: state.activation,
+                closeness_expression: state.closeness_expression,
+                uncertainty: state.uncertainty,
+                expires_at: state
+                    .expires_at
+                    .to_rfc3339_opts(SecondsFormat::Millis, true),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(event)
+    }
+
     pub async fn latest_relationship_state(
         &self,
     ) -> Result<Option<RelationshipState>, StorageError> {
@@ -2939,10 +2988,25 @@ mod tests {
             familiarity: 0.2,
             ..RelationshipState::default()
         };
-        storage
-            .save_state("self", &self_state)
+        let run_id = storage
+            .accept_user_input(
+                &storage.scope().session_id,
+                "state-client",
+                "hello",
+                "mock",
+                "mock",
+                "identity-v1",
+            )
+            .await
+            .expect("accept state turn")
+            .run
+            .id;
+        let changed = storage
+            .set_self_state(&run_id, &self_state)
             .await
             .expect("save self state");
+        assert_eq!(changed.event_type, "state.changed");
+        assert_eq!(changed.payload["affect"], "warm");
         storage
             .save_state("relationship", &relationship)
             .await

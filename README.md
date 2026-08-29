@@ -16,6 +16,7 @@
 - 存储：`~/.lain/state/lain.db` 下的 SQLite WAL 保存 session、message、run 与事件；旧 Markdown 记忆暂时保留为兼容读取和迁移入口（根目录可通过 `LAIN_DATA_DIR` 覆盖）。
 - 记忆：Memory v1 将模型抽取先写为候选，由 Rust 策略校验证据、敏感度和指令污染；只有已提交 item 会通过有来源的 FTS5 evidence 进入 Context Compiler。
 - 身份与上下文：`identity/v1` 资产启动时校验 manifest/schema/hash；每个 v1 run 在模型调用前保存 identity version、ContextPlan、prompt hash、预算选择与 drop reason。
+- 人格状态：每个 run 由 host 将 chat/task/maintenance 归约为十分钟有效的有限 SelfState，原子保存 `state.changed`，并只通过固定 voice directive 影响表达，不影响权限、事实或工具策略。
 - 工具：CLI 自动启动的 kernel 提供只读 `memory_search`/`memory_get` 与 workspace `list_files`、`read_file`、`search_text`、`replace_text`、`create_file`、`run_check`、`shell`；记忆工具继承 scope、状态和 `never_recall` 策略。精确写入、no-clobber 创建、八种预定义 Cargo/Node/npm 检查和 shell 命令必须先展示 diff 或精确 command/cwd 并取得一次性 `y/N` 授权；shell 使用宿主账户权限且没有 OS sandbox。
 - 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、SQLite 事务/迁移/并发 seq、协议 DTO 与 Markdown 迁移已有离线契约测试。
 

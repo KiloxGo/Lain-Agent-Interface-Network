@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 const DEFAULT_URL = "ws://127.0.0.1:3000/v1/ws";
 const REPOSITORY_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const KERNEL_DIRECTORY = join(REPOSITORY_ROOT, "lain-kernel");
+const AFFECTS = new Set(["calm", "curious", "distant", "warm", "tense", "tired"]);
 const KERNEL_BINARY = join(
   KERNEL_DIRECTORY,
   "target",
@@ -69,6 +70,7 @@ export class LainClient {
     this.socket = null;
     this.sessionId = null;
     this.activeRunId = null;
+    this.affect = null;
     this.messages = [];
     this.pending = null;
     this.startedReply = false;
@@ -140,7 +142,7 @@ export class LainClient {
   }
 
   status() {
-    return `${this.url} / session ${this.sessionId ?? "connecting"}`;
+    return `${this.url} / session ${this.sessionId ?? "connecting"}${this.affect ? ` / state ${this.affect}` : ""}`;
   }
 
   send(command) {
@@ -151,6 +153,9 @@ export class LainClient {
     const payload = packet.payload ?? {};
     if (packet.type === "run.queued" || packet.type === "run.started") {
       this.activeRunId = packet.run_id;
+    } else if (packet.type === "state.changed" && AFFECTS.has(payload.affect)) {
+      this.affect = payload.affect;
+      this.write(`${dim(`state › ${this.affect}`)}\n`);
     } else if (packet.type === "message.accepted" && typeof payload.content === "string") {
       this.messages.push({ role: "user", content: payload.content });
     } else if (packet.type === "tool.started") {

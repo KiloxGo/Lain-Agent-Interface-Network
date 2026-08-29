@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -23,6 +23,37 @@ pub enum Affect {
     Tired,
 }
 
+impl Affect {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Calm => "calm",
+            Self::Curious => "curious",
+            Self::Distant => "distant",
+            Self::Warm => "warm",
+            Self::Tense => "tense",
+            Self::Tired => "tired",
+        }
+    }
+
+    pub const fn voice_directive(self) -> &'static str {
+        match self {
+            Self::Calm => "Be quiet, direct, and steady.",
+            Self::Curious => "Be observant and precise; surface the next useful clue.",
+            Self::Distant => "Be restrained and factual without becoming cold or evasive.",
+            Self::Warm => "Be gently present while keeping the useful answer first.",
+            Self::Tense => "Be concise and risk-aware; do not dramatize urgency.",
+            Self::Tired => "Use short, clear sentences without claiming human fatigue.",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelfStateSignal {
+    Conversation,
+    Task,
+    Maintenance,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SelfState {
     pub affect: Affect,
@@ -34,6 +65,34 @@ pub struct SelfState {
 }
 
 impl SelfState {
+    pub fn reduce(signal: SelfStateSignal, now: DateTime<Utc>) -> Self {
+        let (affect, activation, closeness_expression, uncertainty, active_intents) = match signal {
+            SelfStateSignal::Conversation => (Affect::Warm, 0.35, 0.35, 0.05, Vec::new()),
+            SelfStateSignal::Task => (
+                Affect::Curious,
+                0.7,
+                0.15,
+                0.15,
+                vec!["complete_current_task".to_string()],
+            ),
+            SelfStateSignal::Maintenance => (
+                Affect::Calm,
+                0.45,
+                0.1,
+                0.05,
+                vec!["maintain_system".to_string()],
+            ),
+        };
+        Self {
+            affect,
+            activation,
+            closeness_expression,
+            uncertainty,
+            active_intents,
+            expires_at: now + Duration::minutes(10),
+        }
+    }
+
     pub fn validate(&self) -> Result<(), StateValidationError> {
         validate_unit("activation", self.activation)?;
         validate_unit("closeness_expression", self.closeness_expression)?;
@@ -131,6 +190,18 @@ mod tests {
         assert!(state.validate().is_ok());
         assert!(state.is_active_at(now));
         assert!(!state.is_active_at(now + Duration::minutes(6)));
+    }
+
+    #[test]
+    fn reducer_maps_activity_to_bounded_voice_state() {
+        let now = Utc::now();
+        let task = SelfState::reduce(SelfStateSignal::Task, now);
+        assert_eq!(task.affect, Affect::Curious);
+        assert_eq!(task.active_intents, ["complete_current_task"]);
+        assert!(task.is_active_at(now + Duration::minutes(9)));
+        assert!(!task.is_active_at(now + Duration::minutes(10)));
+        assert!(task.validate().is_ok());
+        assert!(task.affect.voice_directive().contains("useful clue"));
     }
 
     #[test]

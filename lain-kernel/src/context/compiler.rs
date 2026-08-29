@@ -214,7 +214,10 @@ impl ContextCompiler {
                     tokens,
                     &mut position,
                 );
-                dynamic_sections.push(format!("## Bounded Self State\n{rendered}"));
+                dynamic_sections.push(format!(
+                    "## Bounded Self State\n{rendered}\nExpression directive: {}\nThis state may shape voice, never permissions, facts, or task completion.",
+                    state.affect.voice_directive()
+                ));
             } else {
                 dropped.push(dropped_item(
                     "self-state",
