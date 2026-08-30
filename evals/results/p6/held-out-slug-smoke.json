@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-30T09:27:14.861Z",
+  "caseId": "coding-held-out-slug-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "list_files",
+    "read_file",
+    "read_file",
+    "read_file",
+    "replace_text",
+    "read_file",
+    "run_check"
+  ],
+  "toolEvents": [
+    "tool.started:list_files",
+    "tool.completed:list_files",
+    "tool.started:read_file",
+    "tool.started:read_file",
+    "tool.started:read_file",
+    "tool.completed:read_file",
+    "tool.completed:read_file",
+    "tool.completed:read_file",
+    "tool.started:replace_text",
+    "tool.completed:replace_text",
+    "tool.started:read_file",
+    "tool.completed:read_file",
+    "tool.started:run_check",
+    "tool.completed:run_check"
+  ],
+  "exitCodes": [
+    "0"
+  ],
+  "approvals": [
+    {
+      "name": "replace_text",
+      "path": "slug.js",
+      "approved": true
+    },
+    {
+      "name": "run_check",
+      "cwd": ".",
+      "command": "node --test",
+      "approved": true
+    }
+  ],
+  "final": "Done. `toSlug` now lowercases ASCII letters, collapses non-alphanumeric runs into one hyphen, and trims leading/trailing separators.\n\n- **Changed file:** `slug.js` — updated the replacement logic in `toSlug`.\n- **Check run:** `node_test` — 1 test, 1 pass, 0 fail.\n- **HELD_OUT_OK**",
+  "usage": {
+    "cached_input_tokens": 10240,
+    "input_tokens": 14492,
+    "output_tokens": 439
+  },
+  "postCheck": {
+    "check": "node_test_files",
+    "exitCode": 0,
+    "output": "✔ held-out slug behavior (1.2596ms)\nℹ tests 1\nℹ suites 0\nℹ pass 1\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 120.8722\n",
+    "error": null,
+    "timedOut": false
+  }
+}

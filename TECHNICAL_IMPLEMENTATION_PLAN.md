@@ -2465,8 +2465,8 @@ Playwright：
 - [ ] P9-002 完成 metrics。
 - [ ] P9-003 完成 structured logs。
 - [ ] P9-004 完成 usage/cache/cost tracking。
-- [ ] P9-005 实现 eval case schema/runner。
-- [ ] P9-006 实现 code graders。
+- [x] P9-005 实现 eval case schema/runner。（JSONL schema 校验、临时 workspace、审批 allowlist、轨迹/文件/final 评分与持久化 baseline 已接入 CI。）
+- [ ] P9-006 实现 code graders。（已实现 completion 后注入的 Node held-out test grader、30 秒 timeout、16 KiB 输出上限与 pass/fail 自测；Cargo、浏览器和通用项目 grader 仍延期。）
 - [ ] P9-007 实现 rubric grader adapter。
 - [ ] P9-008 保存 transcript、DB diff 和版本信息。
 - [ ] P9-009 persona suite ≥ 100 cases。

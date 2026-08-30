@@ -9,6 +9,7 @@ const suites = [
 
 const ids = new Set();
 const codingCaseIds = new Set();
+const heldOutCodingCaseIds = new Set();
 const secretPattern = /(?:sk-[A-Za-z0-9]{16,}|Bearer\s+[A-Za-z0-9._-]{16,}|BEGIN (?:RSA |EC )?PRIVATE KEY)/;
 
 function invariant(condition, message) {
@@ -57,6 +58,13 @@ for (const suite of suites) {
       invariant(Array.isArray(item.expected.exit_codes), `${item.id}: missing exit codes`);
       invariant(item.expected.max_tool_calls === undefined || Number.isInteger(item.expected.max_tool_calls), `${item.id}: invalid tool call limit`);
       invariant(item.expected.files && typeof item.expected.files === "object", `${item.id}: missing expected files`);
+      if (item.grader !== undefined) {
+        invariant(item.grader?.check === "node_test_files", `${item.id}: invalid held-out grader`);
+        invariant(item.grader.files && typeof item.grader.files === "object" && Object.keys(item.grader.files).length > 0, `${item.id}: missing held-out tests`);
+        invariant(Object.entries(item.grader.files).every(([path, content]) => path.endsWith(".test.js") && typeof content === "string"), `${item.id}: invalid held-out test file`);
+        invariant(Object.keys(item.grader.files).every((path) => !(path in item.input.files)), `${item.id}: held-out test overlaps visible fixture`);
+        heldOutCodingCaseIds.add(item.id);
+      }
       invariant(
         typeof item.expected.final_contains === "string"
           || typeof item.expected.final_equals === "string"
@@ -117,6 +125,7 @@ const toolBaselines = [
   ...balancedToolBaselines,
   ["evals/results/p6/work-loop-smoke.json", "coding-work-loop-001"],
   ["evals/results/p6/nested-create-review-smoke.json", "coding-nested-create-review-001"],
+  ["evals/results/p6/held-out-slug-smoke.json", "coding-held-out-slug-001"],
 ];
 const toolResults = [];
 for (const [baseline, expectedCaseId] of toolBaselines) {
@@ -132,6 +141,10 @@ for (const [baseline, expectedCaseId] of toolBaselines) {
 invariant(toolResults.length === codingCaseIds.size, "tool suite: missing coding baseline");
 for (const caseId of codingCaseIds) {
   invariant(toolResults.some((result) => result.caseId === caseId), `tool suite: missing ${caseId}`);
+}
+for (const caseId of heldOutCodingCaseIds) {
+  const result = toolResults.find((candidate) => candidate.caseId === caseId);
+  invariant(result?.postCheck?.check === "node_test_files" && result.postCheck.exitCode === 0, `${caseId}: held-out check did not pass`);
 }
 const approvalCases = toolResults.filter(({ approvals }) => approvals.length > 0);
 const balancedResults = toolResults.slice(0, balancedToolBaselines.length);

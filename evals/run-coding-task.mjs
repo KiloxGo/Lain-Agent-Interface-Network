@@ -51,6 +51,61 @@ function run(command, args, cwd) {
   });
 }
 
+function sensitiveEnvName(name) {
+  const upper = name.toUpperCase();
+  return /(?:^|_)(?:API_KEY|KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?)(?:_|$)/.test(upper)
+    || ["DOCKER_AUTH_CONFIG", "KUBECONFIG", "SSH_AUTH_SOCK"].includes(upper)
+    || ["DEEPSEEK_", "OPENAI_", "ANTHROPIC_", "AWS_", "AZURE_", "GITHUB_", "GH_"].some((prefix) => upper.startsWith(prefix));
+}
+
+function graderEnv() {
+  return Object.fromEntries(Object.entries(process.env).filter(([name]) => !sensitiveEnvName(name)));
+}
+
+function runCaptured(command, args, cwd) {
+  return new Promise((resolveRun) => {
+    const child = spawn(command, args, {
+      cwd,
+      env: { ...graderEnv(), CI: "1", NO_COLOR: "1", GIT_TERMINAL_PROMPT: "0" },
+      windowsHide: true,
+    });
+    let output = "";
+    let timedOut = false;
+    const append = (chunk) => { output = `${output}${chunk}`.slice(-16_384); };
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", append);
+    child.stderr.on("data", append);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill();
+    }, 30_000);
+    timer.unref();
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      resolveRun({ exitCode: null, output, error: error.message, timedOut });
+    });
+    child.once("close", (exitCode) => {
+      clearTimeout(timer);
+      resolveRun({ exitCode, output, error: null, timedOut });
+    });
+  });
+}
+
+async function runHeldOutGrader(item, workspace) {
+  if (!item.grader) return null;
+  invariant(item.grader.check === "node_test_files", `unsupported grader: ${item.grader.check}`);
+  const files = Object.keys(item.grader.files);
+  invariant(files.length > 0, "grader requires at least one hidden test file");
+  invariant(files.every((file) => file.endsWith(".test.js")), "grader files must be Node test files");
+  invariant(files.every((file) => !(file in item.input.files)), "grader files must be held out");
+  await writeFixture(workspace, item.grader.files);
+  return {
+    check: item.grader.check,
+    ...await runCaptured(process.execPath, ["--test", ...files], workspace),
+  };
+}
+
 function stop(child) {
   if (child.exitCode !== null) return Promise.resolve();
   return new Promise((resolveStop) => {
@@ -149,7 +204,7 @@ function isSubsequence(expected, actual) {
   return cursor === expected.length;
 }
 
-async function score(item, workspace, client, usage, decisions) {
+async function score(item, workspace, client, usage, decisions, postCheck) {
   const failures = [];
   const tools = client.events
     .filter(({ type }) => type === "tool.started")
@@ -175,6 +230,9 @@ async function score(item, workspace, client, usage, decisions) {
     if (fragments.some((fragment) => !final.includes(fragment))) failures.push(`final response: ${final}`);
   }
   if (decisions.some(({ approved }) => !approved)) failures.push("unexpected approval request");
+  if (postCheck?.timedOut) failures.push("held-out check timed out");
+  else if (postCheck?.error) failures.push(`held-out check error: ${postCheck.error}`);
+  else if (postCheck && postCheck.exitCode !== 0) failures.push(`held-out check exited ${postCheck.exitCode}`);
 
   for (const [path, expected] of Object.entries(item.expected.files)) {
     let content = "";
@@ -204,6 +262,7 @@ async function score(item, workspace, client, usage, decisions) {
     approvals: decisions,
     final,
     usage,
+    postCheck,
   };
 }
 
@@ -245,7 +304,8 @@ async function main(args = process.argv.slice(2)) {
   try {
     client = await connect(`ws://127.0.0.1:${port}/v1/ws`, item, decisions);
     const usage = await client.ask(item.input.prompt);
-    const result = await score(item, workspace, client, usage, decisions);
+    const postCheck = await runHeldOutGrader(item, workspace);
+    const result = await score(item, workspace, client, usage, decisions, postCheck);
     await mkdir(dirname(output), { recursive: true });
     await writeFile(output, `${JSON.stringify(result, null, 2)}\n`, "utf8");
     console.log(JSON.stringify(result, null, 2));
@@ -258,7 +318,35 @@ async function main(args = process.argv.slice(2)) {
   invariant(!stderr.includes("panicked"), stderr);
 }
 
-main().catch((error) => {
+async function selfTestHeldOutGrader() {
+  const fixture = await mkdtemp(join(tmpdir(), "lain-grader-self-test-"));
+  process.env.LAIN_EVAL_SECRET_TEST = "must-not-reach-grader";
+  try {
+    const source = "export const value = 1;\n";
+    await writeFixture(fixture, { "value.js": source });
+    const item = {
+      input: { files: { "value.js": source } },
+      grader: {
+        check: "node_test_files",
+        files: { "acceptance.test.js": "import assert from 'node:assert/strict'; import { value } from './value.js'; assert.equal(value, 1); assert.equal(process.env.LAIN_EVAL_SECRET_TEST, undefined);\n" },
+      },
+    };
+    const passing = await runHeldOutGrader(item, fixture);
+    invariant(passing.exitCode === 0, "passing held-out grader failed");
+    item.grader.files["acceptance.test.js"] = "import assert from 'node:assert/strict'; import { value } from './value.js'; assert.equal(value, 2);\n";
+    const failing = await runHeldOutGrader(item, fixture);
+    invariant(failing.exitCode !== 0, "failing held-out grader passed");
+    console.log("held-out grader self-test passed");
+  } finally {
+    delete process.env.LAIN_EVAL_SECRET_TEST;
+    await rm(fixture, { recursive: true, force: true });
+  }
+}
+
+const task = process.argv[2] === "--self-test"
+  ? selfTestHeldOutGrader()
+  : main();
+task.catch((error) => {
   process.stderr.write(`coding eval: ${error.message}\n`);
   process.exitCode = 1;
 });
