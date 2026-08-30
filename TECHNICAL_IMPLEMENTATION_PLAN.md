@@ -2405,6 +2405,7 @@ Playwright：
 - [x] P6-023 提供全局 `lain` 命令。（根包使用标准 npm `bin` + `npm link`；真实路径入口兼容 Windows junction，从任意目录启动时仍以调用目录作为 workspace。）
 - [x] P6-024 按 workspace 隔离稳定 session。（规范化绝对路径只以 SHA-256 标题进入 SQLite；同项目复用 session，不同项目不串上下文，同时保留共享 instance/user 人格与记忆。）
 - [x] P6-025 完成外部项目工作闭环 v1。（根级 `AGENTS.md` 有界加载并进入 ContextPlan；固定 inspect/edit/check/report 契约；8 轮/16 调用；真实临时 Node 项目完成规则读取、精确修复、检查和收尾报告。）
+- [x] P6-026 增加宿主写后质量门与嵌套文件创建。（写成功后可信提示复查/验证；检查失败后可信提示恢复；`create_file` 审批后安全创建缺失父目录；真实绿地任务不用 shell 完成创建与复读。）
 
 完成门：所有副作用可审计；破坏性工具零未授权执行；MCP 失效不影响普通聊天。
 

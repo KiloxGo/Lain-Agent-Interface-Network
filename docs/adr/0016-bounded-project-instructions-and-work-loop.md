@@ -15,6 +15,7 @@
 3. Context Compiler v2 为 project instructions 保留 8192 tokens，将内容哈希与选择记录写入 ContextPlan，不保存本地路径。项目指令属于 user-provided guidance，不能授权工具、覆盖隐私边界或要求泄露 Secret。
 4. Harness Contract 固定要求 workspace 任务先检查再修改，实际变更后尽可能运行相关检查，最终报告 outcome、changed files、checks 和 blockers。
 5. 工具循环保持硬上限但扩至 8 轮/16 次调用；chat route 在 provider 支持工具时使用现有工具。complex-task 在 reasoning replay 完成前继续不注入工具。
+6. 每个产生工具调用的 assistant step 在执行下一步前写入 SQLite 和 `assistant.step_completed` 事件。第 9 次模型请求在 wire 上移除全部工具并设为 `tool_choice=none`，只允许模型给出已完成事项、剩余事项与继续方式；不再把正常达到工具轮次边界直接当作无回复失败。
 
 ## 备选方案
 
@@ -28,6 +29,7 @@
 - 外部项目无需在 prompt 中重复仓库规则；同一 session 的每个新 run 都能看到最新根级规则。
 - Context Compiler 兼容版本从 1 升至 2，稳定前缀会变化一次；旧 ContextPlan 仍可审计，不会被重写。
 - 单个 run 最多可产生 9 次模型请求（初始请求加 8 个后续轮次），但通常在检查成功后提前结束。
+- provider、进程或工具上限导致 run 失败时，已完成的 assistant step 仍可由下一条用户消息恢复；工具调用审计继续保存在原有 invocation/event 表中。
 
 ## 安全与隐私
 
@@ -41,5 +43,6 @@
 
 - WorkspaceTools 单测覆盖缺失文件、CRLF 归一化和 32 KiB 上限。
 - Context Compiler 单测覆盖 project instructions 的 system message、来源类型、trust level 与确定性 hash。
+- 单测必须证明最后一次请求不携带工具、失败 run 保留已完成 assistant step、空目录可见且 Windows PowerShell 中文输出保持 UTF-8。
 - 真实 `coding-work-loop-001` 必须完成目录检查、并行读取、精确修改、`npm test` 和受规则约束的最终报告。
 - Rust 全量测试、Clippy、rustfmt、CLI 测试和离线 eval 校验必须通过。

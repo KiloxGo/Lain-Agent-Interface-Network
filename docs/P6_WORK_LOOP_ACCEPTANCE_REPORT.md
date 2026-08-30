@@ -36,7 +36,7 @@
 ## 明确延期
 
 - 父目录/子目录 `AGENTS.md` 继承与覆盖。
-- 结构化 plan/todo 状态、跨 run 未完成任务恢复。
+- 结构化 plan/todo 状态；跨 run 已能恢复持久化 assistant step，但尚无独立任务图。
 - 多文件 patch 的合并预览与批量审批。
 - complex-task 的 reasoning replay 与工具循环。
 - 自动 git diff/status 汇总；当前最终报告来自工具回执。

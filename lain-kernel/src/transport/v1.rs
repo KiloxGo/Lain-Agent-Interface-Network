@@ -44,6 +44,9 @@ const MAX_REPLAY_EVENTS: i64 = 500;
 const MAX_TOOL_ROUNDS: usize = 8;
 const MAX_TOOL_CALLS: usize = 16;
 const APPROVAL_TIMEOUT: Duration = Duration::from_secs(300);
+const TOOL_LIMIT_HANDOFF: &str = "The tool execution limit has been reached for this turn. Tools are disabled. Give the user a concise handoff stating what was completed, what remains, and that they can ask you to continue. Do not claim unverified work.";
+const WORKSPACE_CHANGED_GUIDANCE: &str = "Host quality gate: a workspace write succeeded. Before finishing, inspect the resulting file state and run the most relevant available check when practical. Report only checks that actually completed.";
+const CHECK_FAILED_GUIDANCE: &str = "Host quality gate: a project check exited non-zero. Do not report completion. Inspect the failure, make the smallest justified fix, and rerun the relevant check unless blocked; if blocked, report the exact blocker.";
 
 #[derive(Debug, Default)]
 struct PendingToolCall {
@@ -540,6 +543,7 @@ async fn execute_run(
     let mut tool_call_count = 0_usize;
 
     for tool_round in 0..=MAX_TOOL_ROUNDS {
+        prepare_tool_round(&mut request, tool_round);
         let stream_result = provider.stream(request.clone(), cancellation.clone()).await;
         let mut events = match stream_result {
             Ok(events) => events,
@@ -663,6 +667,21 @@ async fn execute_run(
             raw_reply = turn_text;
             break;
         }
+        let visible_step = memory::strip_all_tags(&turn_text);
+        if !visible_step.trim().is_empty() {
+            match storage.append_assistant_step(&run.id, &visible_step).await {
+                Ok(event) if !client_gone => {
+                    if send_json(outbound, &event).await.is_err() {
+                        client_gone = true;
+                    }
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::error!(run_id = run.id, error = %error, "assistant step persistence failed");
+                    return fail_run(storage, outbound, &run, "storage_error").await;
+                }
+            }
+        }
         let workspace_tools = state.workspace_tools.as_ref();
         if tool_round == MAX_TOOL_ROUNDS || pending_tools.is_empty() {
             return fail_run(storage, outbound, &run, "tool_round_limit").await;
@@ -780,6 +799,8 @@ async fn execute_run(
             continue;
         }
 
+        let mut workspace_changed_since_check = false;
+        let mut check_failed = false;
         for call in calls {
             let arguments = serde_json::from_str(&call.arguments)
                 .unwrap_or_else(|_| json!({ "invalid_raw_arguments": call.arguments }));
@@ -1070,6 +1091,19 @@ async fn execute_run(
             } else {
                 execute_read_only_call(storage, None, &run, call.clone()).await
             };
+            if mcp.is_none() {
+                match (call.name.as_str(), &result) {
+                    ("replace_text" | "create_file", Ok(_)) => {
+                        workspace_changed_since_check = true;
+                    }
+                    ("run_check", Ok(result)) if command_exited_zero(result) => {
+                        workspace_changed_since_check = false;
+                        check_failed = false;
+                    }
+                    ("run_check", _) => check_failed = true,
+                    _ => {}
+                }
+            }
             let (model_content, completed) = match result {
                 Ok(result) => {
                     let event = storage
@@ -1116,6 +1150,16 @@ async fn execute_run(
             request
                 .messages
                 .push(ModelMessage::tool_result(call.id, model_content));
+        }
+        if check_failed || workspace_changed_since_check {
+            request.messages.push(ModelMessage::text(
+                crate::provider::Role::System,
+                if check_failed {
+                    CHECK_FAILED_GUIDANCE
+                } else {
+                    WORKSPACE_CHANGED_GUIDANCE
+                },
+            ));
         }
         request.request_id = format!("{}:tool:{}", run.id, tool_round + 1);
     }
@@ -1170,6 +1214,22 @@ async fn execute_run(
             }
         }
     }
+}
+
+fn prepare_tool_round(request: &mut ModelRequest, tool_round: usize) {
+    if tool_round != MAX_TOOL_ROUNDS {
+        return;
+    }
+    request.tools.clear();
+    request.tool_choice = ToolChoice::None;
+    request.messages.push(ModelMessage::text(
+        crate::provider::Role::System,
+        TOOL_LIMIT_HANDOFF,
+    ));
+}
+
+fn command_exited_zero(result: &ToolResult) -> bool {
+    result.content.starts_with("[exit code: 0]")
 }
 
 fn can_parallelize(calls: &[ToolCall]) -> bool {
@@ -1701,6 +1761,50 @@ mod tests {
         assert!(!can_parallelize(&[call("shell"), call("time_now")]));
         assert!(!can_parallelize(&[call("fixture__echo"), call("time_now")]));
         assert!(!is_parallel_safe_tool("unknown"));
+    }
+
+    #[test]
+    fn final_tool_round_disables_tools_on_the_wire_and_requests_a_handoff() {
+        let mut request = ModelRequest {
+            request_id: "limit".to_string(),
+            model: "mock".to_string(),
+            messages: vec![ModelMessage::text(crate::provider::Role::User, "continue")],
+            tools: vec![crate::provider::ToolDefinition {
+                name: "shell".to_string(),
+                description: "test".to_string(),
+                parameters: json!({"type":"object"}),
+                strict: false,
+            }],
+            tool_choice: ToolChoice::Auto,
+            temperature: None,
+            top_p: None,
+            max_output_tokens: None,
+            response_format: crate::provider::ResponseFormat::Text,
+            thinking_mode: crate::provider::ThinkingMode::Disabled,
+            timeout: Duration::from_secs(1),
+            metadata: BTreeMap::new(),
+        };
+
+        prepare_tool_round(&mut request, MAX_TOOL_ROUNDS);
+
+        assert!(request.tools.is_empty());
+        assert_eq!(request.tool_choice, ToolChoice::None);
+        assert_eq!(
+            request.messages.last().expect("handoff").content,
+            TOOL_LIMIT_HANDOFF
+        );
+    }
+
+    #[test]
+    fn command_success_is_read_from_the_structured_output_prefix() {
+        assert!(command_exited_zero(&ToolResult {
+            content: "[exit code: 0]\n[stdout]\nok".to_string(),
+            summary: "node --test exited 0".to_string(),
+        }));
+        assert!(!command_exited_zero(&ToolResult {
+            content: "[exit code: 1]\n[stderr]\nfailed".to_string(),
+            summary: "node --test exited 1".to_string(),
+        }));
     }
 
     #[test]

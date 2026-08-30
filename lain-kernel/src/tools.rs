@@ -182,6 +182,8 @@ pub fn execute_builtin(
                 "protocol_version": crate::domain::event::PROTOCOL_VERSION,
                 "identity_version": identity_version,
                 "model": model,
+                "platform": env::consts::OS,
+                "shell": shell_name(),
             }),
         ),
         _ => return Err(ToolError::UnknownTool(call.name)),
@@ -284,6 +286,11 @@ impl WorkspaceTools {
     }
 
     pub fn definitions() -> Vec<ToolDefinition> {
+        let shell_description = if cfg!(windows) {
+            "Run one Windows PowerShell command in the workspace after showing the exact command and receiving one-shot user approval. Use PowerShell syntax, not cmd.exe, bash, mkdir -p, pwd, or &&. The command runs with host account permissions and no OS sandbox."
+        } else {
+            "Run one POSIX shell command in the workspace after showing the exact command and receiving one-shot user approval. The command runs with host account permissions and no OS sandbox."
+        };
         vec![
             ToolDefinition {
                 name: "list_files".to_string(),
@@ -345,7 +352,7 @@ impl WorkspaceTools {
             },
             ToolDefinition {
                 name: "create_file".to_string(),
-                description: "Create one new UTF-8 file inside an existing workspace directory. Refuses to overwrite any path and requires one-shot user approval after a diff preview.".to_string(),
+                description: "Create one new UTF-8 file and any missing parent directories inside the workspace. Refuses to overwrite any path and requires one-shot user approval after a diff preview.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
@@ -379,7 +386,7 @@ impl WorkspaceTools {
             },
             ToolDefinition {
                 name: "shell".to_string(),
-                description: "Run one shell command in the workspace after showing the exact command and receiving one-shot user approval. The command runs with host account permissions and no OS sandbox.".to_string(),
+                description: shell_description.to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
@@ -657,6 +664,13 @@ impl WorkspaceTools {
         if path != create.path {
             return Err(ToolError::FileChanged);
         }
+        // ponytail: a failed final publish may leave empty new parents; add a rollback journal
+        // only if real failures make those harmless directories operationally significant.
+        create_parent_directories(&self.root, &path)?;
+        let path = self.resolve_new_file(&create.display_path)?;
+        if path != create.path {
+            return Err(ToolError::FileChanged);
+        }
         create_file_atomic(&path, create.content.as_bytes())?;
         Ok(ToolResult {
             content: format!("created {}", create.display_path),
@@ -803,7 +817,15 @@ impl WorkspaceTools {
                 "path is excluded by workspace policy".to_string(),
             ));
         }
-        let file_name = match relative.components().next_back() {
+        if relative.components().any(|component| match component {
+            Component::Normal(name) => !valid_new_file_name(name),
+            _ => false,
+        }) {
+            return Err(ToolError::PathUnavailable(
+                "path contains an invalid file or directory name".to_string(),
+            ));
+        }
+        let _file_name = match relative.components().next_back() {
             Some(Component::Normal(name)) if valid_new_file_name(name) => name,
             _ => {
                 return Err(ToolError::PathUnavailable(
@@ -811,20 +833,78 @@ impl WorkspaceTools {
                 ));
             }
         };
-        let parent_relative = relative.parent().unwrap_or_else(|| Path::new("."));
-        let parent = self.resolve(&parent_relative.to_string_lossy())?;
-        if !parent.is_dir() {
-            return Err(ToolError::PathUnavailable(
-                "parent is not a directory".to_string(),
-            ));
+        let mut parent = self.root.clone();
+        for component in relative
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .components()
+        {
+            let Component::Normal(name) = component else {
+                continue;
+            };
+            parent.push(name);
+            match fs::symlink_metadata(&parent) {
+                Ok(metadata) if metadata.file_type().is_symlink() => {
+                    return Err(ToolError::PathOutsideWorkspace);
+                }
+                Ok(metadata) if !metadata.is_dir() => {
+                    return Err(ToolError::PathUnavailable(
+                        "parent is not a directory".to_string(),
+                    ));
+                }
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(ToolError::Io(error)),
+            }
         }
-        let path = parent.join(file_name);
+        let path = self.root.join(relative);
         match fs::symlink_metadata(&path) {
             Ok(_) => Err(ToolError::PathAlreadyExists),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(path),
             Err(error) => Err(ToolError::Io(error)),
         }
     }
+}
+
+fn create_parent_directories(root: &Path, path: &Path) -> Result<(), ToolError> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| ToolError::PathUnavailable("file has no parent".to_string()))?;
+    let relative = parent
+        .strip_prefix(root)
+        .map_err(|_| ToolError::PathOutsideWorkspace)?;
+    let mut current = root.to_path_buf();
+    for component in relative.components() {
+        let Component::Normal(name) = component else {
+            continue;
+        };
+        current.push(name);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(ToolError::PathOutsideWorkspace);
+            }
+            Ok(metadata) if !metadata.is_dir() => {
+                return Err(ToolError::PathUnavailable(
+                    "parent is not a directory".to_string(),
+                ));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                match fs::create_dir(&current) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                        let metadata = fs::symlink_metadata(&current)?;
+                        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                            return Err(ToolError::FileChanged);
+                        }
+                    }
+                    Err(error) => return Err(ToolError::Io(error)),
+                }
+            }
+            Err(error) => return Err(ToolError::Io(error)),
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]
@@ -981,6 +1061,7 @@ fn collect_files(
         *visited += 1;
         let path = entry.path();
         if file_type.is_dir() {
+            output.push(format!("{}/", relative_display(root, &path)));
             collect_files(&path, root, output, limit, visited)?;
         } else if file_type.is_file() {
             output.push(relative_display(root, &path));
@@ -1212,12 +1293,21 @@ fn platform_program(program: &str) -> String {
 
 fn shell_command(command: &str) -> (String, Vec<String>) {
     if cfg!(windows) {
+        let script = format!(
+            "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [Console]::OutputEncoding; {command}"
+        );
         (
-            "cmd.exe".to_string(),
-            ["/D", "/S", "/C", command]
-                .into_iter()
-                .map(str::to_string)
-                .collect(),
+            windows_powershell(),
+            [
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                &script,
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
         )
     } else {
         (
@@ -1225,6 +1315,23 @@ fn shell_command(command: &str) -> (String, Vec<String>) {
             ["-lc", command].into_iter().map(str::to_string).collect(),
         )
     }
+}
+
+fn shell_name() -> &'static str {
+    if cfg!(windows) { "powershell" } else { "sh" }
+}
+
+fn windows_powershell() -> String {
+    env::var_os("PATH")
+        .and_then(|path| {
+            env::split_paths(&path)
+                .map(|directory| directory.join("pwsh.exe"))
+                .find(|candidate| candidate.is_file())
+        })
+        .map_or_else(
+            || "powershell.exe".to_string(),
+            |path| path.display().to_string(),
+        )
 }
 
 async fn run_bounded_command(
@@ -1585,7 +1692,18 @@ mod tests {
             })
             .await
             .expect("list");
-        assert_eq!(listed.content, "src/main.rs");
+        assert_eq!(listed.content, "src/\nsrc/main.rs");
+
+        fs::create_dir(fixture.path().join("empty")).expect("empty directory");
+        let listed = tools
+            .execute(ToolCall {
+                id: "1b".to_string(),
+                name: "list_files".to_string(),
+                arguments: r#"{"path":"."}"#.to_string(),
+            })
+            .await
+            .expect("list with empty directory");
+        assert!(listed.content.lines().any(|path| path == "empty/"));
 
         let searched = tools
             .execute(ToolCall {
@@ -1707,6 +1825,24 @@ mod tests {
             "fn created() {}\n"
         );
 
+        let nested = tools
+            .prepare_create(ToolCall {
+                id: "create-nested".to_string(),
+                name: "create_file".to_string(),
+                arguments: r#"{"path":"site/assets/app.js","content":"export {};\n"}"#.to_string(),
+            })
+            .await
+            .expect("nested preview");
+        assert!(!fixture.path().join("site").exists());
+        tools
+            .apply_create(nested)
+            .await
+            .expect("approved nested create");
+        assert_eq!(
+            fs::read_to_string(fixture.path().join("site/assets/app.js")).expect("nested file"),
+            "export {};\n"
+        );
+
         let raced = tools
             .prepare_create(ToolCall {
                 id: "create-2".to_string(),
@@ -1792,6 +1928,23 @@ mod tests {
             .await
             .expect("shell command");
         assert!(shell_result.content.contains("lain-shell"));
+        #[cfg(windows)]
+        {
+            assert!(shell_name() == "powershell");
+            let unicode = tools
+                .prepare_shell(ToolCall {
+                    id: "shell-unicode".to_string(),
+                    name: "shell".to_string(),
+                    arguments: r#"{"command":"Write-Output '连接正常'"}"#.to_string(),
+                })
+                .await
+                .expect("PowerShell preview");
+            let unicode = tools
+                .run_command(unicode, CancellationToken::new())
+                .await
+                .expect("PowerShell UTF-8 output");
+            assert!(unicode.content.contains("连接正常"));
+        }
         assert!(
             tools
                 .prepare_shell(ToolCall {

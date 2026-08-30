@@ -511,6 +511,41 @@ impl Storage {
         Ok(event)
     }
 
+    pub async fn append_assistant_step(
+        &self,
+        run_id: &str,
+        content: &str,
+    ) -> Result<EventEnvelope, StorageError> {
+        let mut tx = self.pool.begin().await?;
+        let run = fetch_run(&mut tx, run_id).await?;
+        let message_id = new_id();
+        let timestamp = now();
+        sqlx::query(
+            "INSERT INTO messages(id, session_id, run_id, role, content, status, created_at, metadata_json) \
+             VALUES (?, ?, ?, 'assistant', ?, 'complete', ?, '{}')",
+        )
+        .bind(&message_id)
+        .bind(&run.session_id)
+        .bind(run_id)
+        .bind(content)
+        .bind(&timestamp)
+        .execute(&mut *tx)
+        .await?;
+        let event = append_event(
+            &mut tx,
+            &self.scope.instance_id,
+            &run.session_id,
+            Some(run_id),
+            &PersistedEvent::AssistantStepCompleted {
+                message_id,
+                content: content.to_string(),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(event)
+    }
+
     pub async fn complete_reply(
         &self,
         run_id: &str,
@@ -2336,6 +2371,44 @@ mod tests {
             .await
             .expect("count jobs");
         assert_eq!(job_count, 1);
+    }
+
+    #[tokio::test]
+    async fn failed_run_keeps_completed_assistant_steps_for_resume() {
+        let storage = Storage::in_memory().await.expect("initialize database");
+        let session_id = storage.scope().session_id.clone();
+        let accepted = storage
+            .accept_user_input(
+                &session_id,
+                "resume-after-limit",
+                "build the site",
+                "deepseek",
+                "synthetic-model",
+                "identity-v1",
+            )
+            .await
+            .expect("accept input");
+        storage
+            .start_run(&accepted.run.id)
+            .await
+            .expect("start run");
+        storage
+            .append_assistant_step(&accepted.run.id, "Created the project directories.")
+            .await
+            .expect("persist assistant step");
+        storage
+            .fail_run(&accepted.run.id, "tool_round_limit")
+            .await
+            .expect("fail run");
+
+        let recent = storage
+            .recent_messages(&session_id, 10)
+            .await
+            .expect("load resumable history");
+        assert_eq!(recent.len(), 2);
+        assert_eq!(recent[0].content, "build the site");
+        assert_eq!(recent[1].content, "Created the project directories.");
+        assert_eq!(recent[1].role, "assistant");
     }
 
     #[tokio::test]

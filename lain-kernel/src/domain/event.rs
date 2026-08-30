@@ -52,6 +52,8 @@ pub enum PersistedEvent {
     RunStarted { provider: String, model: String },
     #[serde(rename = "text.completed")]
     TextCompleted { message_id: String, content: String },
+    #[serde(rename = "assistant.step_completed")]
+    AssistantStepCompleted { message_id: String, content: String },
     #[serde(rename = "run.completed")]
     RunCompleted {
         message_id: String,
@@ -143,6 +145,7 @@ impl PersistedEvent {
             Self::RunQueued { .. } => "run.queued",
             Self::RunStarted { .. } => "run.started",
             Self::TextCompleted { .. } => "text.completed",
+            Self::AssistantStepCompleted { .. } => "assistant.step_completed",
             Self::RunCompleted { .. } => "run.completed",
             Self::RunCancelled => "run.cancelled",
             Self::RunFailed { .. } => "run.failed",

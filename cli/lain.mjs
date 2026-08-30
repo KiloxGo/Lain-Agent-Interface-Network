@@ -155,7 +155,7 @@ export class LainClient {
       this.activeRunId = packet.run_id;
     } else if (packet.type === "state.changed" && AFFECTS.has(payload.affect)) {
       this.affect = payload.affect;
-      this.write(`${dim(`state › ${this.affect}`)}\n`);
+      if (this.activeRunId) this.write(`${dim(`state › ${this.affect}`)}\n`);
     } else if (packet.type === "message.accepted" && typeof payload.content === "string") {
       this.messages.push({ role: "user", content: payload.content });
     } else if (packet.type === "tool.started") {
@@ -165,6 +165,11 @@ export class LainClient {
       this.write(`${dim(`  ${payload.status ?? "unknown"}: ${payload.summary ?? ""}`)}\n`);
     } else if (packet.type === "tool.approval_required") {
       void this.respondToApproval(payload);
+    } else if (
+      packet.type === "assistant.step_completed" &&
+      typeof payload.content === "string"
+    ) {
+      this.messages.push({ role: "assistant", content: payload.content });
     } else if (packet.type === "text.delta") {
       if (typeof payload.text !== "string") return;
       if (!this.startedReply) {
@@ -335,7 +340,7 @@ export async function main(args = process.argv.slice(2)) {
     const { detail, question } = approvalPrompt(approval);
     const warning = typeof approval.warning === "string" ? `\n${dim(approval.warning)}` : "";
     process.stdout.write(
-      `\n${pink(`鈼?approve 鈥?${approval.name ?? "tool"}`)}\n${detail}${warning}\n`,
+      `\n${pink(`◆ approve › ${approval.name ?? "tool"}`)}\n${detail}${warning}\n`,
     );
     if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
     const answer = await readline.question(question);

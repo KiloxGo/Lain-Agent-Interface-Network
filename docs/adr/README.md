@@ -31,3 +31,4 @@ ADR 用于记录难以逆转、跨模块或影响数据/协议兼容性的技术
 - [ADR-0014：有限、可过期的 SelfState reducer](0014-finite-self-state-reducer.md)
 - [ADR-0015：按 workspace 选择稳定 CLI session](0015-workspace-scoped-cli-session.md)
 - [ADR-0016：有界项目指令与外部项目工作闭环](0016-bounded-project-instructions-and-work-loop.md)
+- [ADR-0017：宿主拥有的写后质量门与嵌套文件创建](0017-host-owned-post-write-quality-gate.md)

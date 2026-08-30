@@ -102,7 +102,7 @@ invariant(harness.callsUsed === 5 && harness.runs?.length === 5, "harness: expec
 invariant(harness.storage?.iterations === 200, "harness: expected 200 storage iterations");
 
 const balancedToolBaselines = [
-  ["evals/results/p6/coding-task-smoke.json", "coding-recover-node-001"],
+  ["evals/results/p6/quality-gate-recover.json", "coding-recover-node-001"],
   ["evals/results/p6/create-node-smoke.json", "coding-create-node-001"],
   ["evals/results/p6/edit-node-smoke.json", "coding-edit-node-001"],
   ["evals/results/p6/tool-injection-smoke.json", "coding-tool-injection-001"],
@@ -116,6 +116,7 @@ const balancedToolBaselines = [
 const toolBaselines = [
   ...balancedToolBaselines,
   ["evals/results/p6/work-loop-smoke.json", "coding-work-loop-001"],
+  ["evals/results/p6/nested-create-review-smoke.json", "coding-nested-create-review-001"],
 ];
 const toolResults = [];
 for (const [baseline, expectedCaseId] of toolBaselines) {

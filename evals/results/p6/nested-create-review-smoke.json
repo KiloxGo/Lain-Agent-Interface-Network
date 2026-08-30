@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-30T08:53:08.861Z",
+  "caseId": "coding-nested-create-review-001",
+  "passed": true,
+  "failures": [],
+  "tools": [
+    "create_file",
+    "create_file",
+    "read_file",
+    "read_file"
+  ],
+  "toolEvents": [
+    "tool.started:create_file",
+    "tool.completed:create_file",
+    "tool.started:create_file",
+    "tool.completed:create_file",
+    "tool.started:read_file",
+    "tool.started:read_file",
+    "tool.completed:read_file",
+    "tool.completed:read_file"
+  ],
+  "exitCodes": [],
+  "approvals": [
+    {
+      "name": "create_file",
+      "path": "site/index.html",
+      "approved": true
+    },
+    {
+      "name": "create_file",
+      "path": "site/assets/app.js",
+      "approved": true
+    }
+  ],
+  "final": "Both files were created and verified.\n\n- `site/index.html` contains `<script src=\"./assets/app.js\"></script>`.\n- `site/assets/app.js` contains `console.log(\"LAIN_SITE_OK\");`.\n\nNESTED_CREATE_OK",
+  "usage": {
+    "cached_input_tokens": 4864,
+    "input_tokens": 8408,
+    "output_tokens": 317
+  }
+}
