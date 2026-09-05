@@ -2407,6 +2407,7 @@ Playwright：
 - [x] P6-025 完成外部项目工作闭环 v1。（根级 `AGENTS.md` 有界加载并进入 ContextPlan；固定 inspect/edit/check/report 契约；8 轮/16 调用；真实临时 Node 项目完成规则读取、精确修复、检查和收尾报告。）
 - [x] P6-026 增加宿主写后质量门与嵌套文件创建。（写成功后可信提示复查/验证；检查失败后可信提示恢复；`create_file` 审批后安全创建缺失父目录；真实绿地任务不用 shell 完成创建与复读。）
 - [x] P6-027 实现批量 workspace patch 与结构化变更回执。（最多 8 个 create/replace 操作共享合并 diff 和一次审批；全部路径/hash/父子冲突在首次写入前预检；成功后持久化 `workspace.changed`。宿主确认精确写入后不再要求模型机械复读；四文件隐藏验收只需 1 次工具调用，input tokens 从 14,798 降至 6,712。）
+- [x] P6-028 实现跨 run 工具预算 checkpoint。（最后一轮禁用工具并要求生成持久 handoff；完成事件标记 `finish_reason=tool_limit`。下一 run 仅在最近终态仍是该 checkpoint 时注入可信恢复指令，当前用户请求始终优先；正常完成、失败或取消会清除恢复语义。）
 
 完成门：所有副作用可审计；破坏性工具零未授权执行；MCP 失效不影响普通聊天。
 

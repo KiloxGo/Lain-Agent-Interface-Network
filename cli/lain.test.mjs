@@ -109,7 +109,10 @@ test("negotiates v1 and streams one turn", async () => {
     v: 1,
     type: "run.completed",
     run_id: "run-1",
-    payload: { usage: { input_tokens: 3, output_tokens: 1, cached_input_tokens: 2 } },
+    payload: {
+      finish_reason: "tool_limit",
+      usage: { input_tokens: 3, output_tokens: 1, cached_input_tokens: 2 },
+    },
   });
   socket.packet({
     v: 1,
@@ -123,6 +126,7 @@ test("negotiates v1 and streams one turn", async () => {
   assert.match(output, /tool › read_file/);
   assert.match(output, /state › curious/);
   assert.match(output, /changes › created "index\.html", updated "README\.md"/);
+  assert.match(output, /checkpoint › saved; send continue to resume/);
   assert.doesNotMatch(output, /state › tense/);
   assert.match(client.status(), /state tense/);
   assert.deepEqual(

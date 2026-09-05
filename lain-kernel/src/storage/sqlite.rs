@@ -769,6 +769,28 @@ impl Storage {
         Ok(rows.into_iter().map(message_from_row).collect())
     }
 
+    pub async fn latest_run_has_checkpoint(&self, session_id: &str) -> Result<bool, StorageError> {
+        let latest = sqlx::query_as::<_, (String, String)>(
+            "SELECT event_type, payload_json FROM events \
+             WHERE session_id = ? AND event_type IN ('run.completed', 'run.failed', 'run.cancelled') \
+             ORDER BY seq DESC LIMIT 1",
+        )
+        .bind(session_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        let Some((event_type, payload)) = latest else {
+            return Ok(false);
+        };
+        if event_type != "run.completed" {
+            return Ok(false);
+        }
+        let payload: serde_json::Value = serde_json::from_str(&payload)?;
+        Ok(payload
+            .get("finish_reason")
+            .and_then(|value| value.as_str())
+            == Some("tool_limit"))
+    }
+
     pub async fn claim_durable_job(
         &self,
         job_type: &str,
@@ -3086,6 +3108,7 @@ mod tests {
                 relationship_state: RelationshipState::default(),
                 memory_evidence: Vec::new(),
                 project_instructions: None,
+                resume_checkpoint: false,
                 now,
                 budget: ContextBudget::for_model(1_000_000, 4_096),
             })
@@ -3251,5 +3274,64 @@ mod tests {
                 .await,
             Err(StorageError::InvalidToolApprovalStatus { .. })
         ));
+    }
+
+    #[tokio::test]
+    async fn only_the_latest_terminal_run_can_offer_a_resume_checkpoint() {
+        let storage = Storage::in_memory().await.expect("initialize database");
+        let session_id = storage.scope().session_id.clone();
+        let first = storage
+            .accept_user_input(
+                &session_id,
+                "checkpoint-1",
+                "start the task",
+                "mock",
+                "mock-model",
+                "v1",
+            )
+            .await
+            .expect("accept first turn");
+        storage.start_run(&first.run.id).await.expect("start first");
+        storage
+            .complete_reply(
+                &first.run.id,
+                "Completed setup; continue with implementation.",
+                "tool_limit",
+                CompletionUsage::default(),
+            )
+            .await
+            .expect("save checkpoint");
+        assert!(
+            storage
+                .latest_run_has_checkpoint(&session_id)
+                .await
+                .expect("load checkpoint")
+        );
+
+        let second = storage
+            .accept_user_input(
+                &session_id,
+                "checkpoint-2",
+                "continue",
+                "mock",
+                "mock-model",
+                "v1",
+            )
+            .await
+            .expect("accept second turn");
+        storage
+            .start_run(&second.run.id)
+            .await
+            .expect("start second");
+        storage
+            .fail_run(&second.run.id, "provider_error")
+            .await
+            .expect("fail second");
+        assert!(
+            !storage
+                .latest_run_has_checkpoint(&session_id)
+                .await
+                .expect("checkpoint cleared by later terminal run")
+        );
     }
 }

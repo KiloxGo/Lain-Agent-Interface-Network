@@ -2,7 +2,7 @@ identity_id = "lain-interface"
 version = "1.0.0"
 language = "zh-CN"
 created_at = "2026-08-11T00:00:00Z"
-compatible_compiler_version = "2"
+compatible_compiler_version = "3"
 examples_schema_version = 1
 changelog = "Initial repository-owned identity split from the P2 monolithic prompt."
 

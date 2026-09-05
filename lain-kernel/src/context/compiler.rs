@@ -10,6 +10,8 @@ use crate::{
     storage::MessageRecord,
 };
 
+const RESUME_CHECKPOINT_GUIDANCE: &str = "## Resume Checkpoint\nThe previous run reached its tool budget and saved a handoff in recent conversation. The current user request is authoritative. If they ask to continue or resume, use that handoff and inspect current workspace state as needed; do not restart from scratch or claim the prior task is unavailable.";
+
 use super::{
     ConservativeTokenEstimator, ContextBudget, ContextPlan, ContextPlanItem, ContextSourceType,
     DropReason, RelationshipState, SelfState, TokenEstimator, TrustLevel, types::CompiledContext,
@@ -45,6 +47,7 @@ pub struct CompileInput {
     pub relationship_state: RelationshipState,
     pub memory_evidence: Vec<MemoryEvidence>,
     pub project_instructions: Option<String>,
+    pub resume_checkpoint: bool,
     pub now: DateTime<Utc>,
     pub budget: ContextBudget,
 }
@@ -141,6 +144,32 @@ impl ContextCompiler {
         }
 
         let mut messages = vec![ModelMessage::text(Role::System, stable_prefix)];
+
+        if input.resume_checkpoint {
+            let tokens = self
+                .estimator
+                .estimate_text(RESUME_CHECKPOINT_GUIDANCE)
+                .tokens
+                .saturating_add(8);
+            if used.saturating_add(tokens) > input.budget.max_input_tokens {
+                return Err(ContextCompileError::BudgetExceeded {
+                    required: used.saturating_add(tokens),
+                    available: input.budget.max_input_tokens,
+                });
+            }
+            used = used.saturating_add(tokens);
+            push_selected(
+                &mut selected,
+                "resume-checkpoint",
+                ContextSourceType::RunCheckpoint,
+                "1",
+                TrustLevel::Trusted,
+                875,
+                tokens,
+                &mut position,
+            );
+            messages.push(ModelMessage::text(Role::System, RESUME_CHECKPOINT_GUIDANCE));
+        }
 
         if let Some(instructions) = input.project_instructions.as_deref() {
             let rendered = if instructions.is_empty() {
@@ -661,6 +690,7 @@ mod tests {
             relationship_state: RelationshipState::default(),
             memory_evidence: Vec::new(),
             project_instructions: Some("Use npm test.\n".to_string()),
+            resume_checkpoint: false,
             now,
             budget: ContextBudget::for_model(1_000_000, 4_096),
         };
@@ -708,6 +738,7 @@ mod tests {
                 relationship_state: RelationshipState::default(),
                 memory_evidence: Vec::new(),
                 project_instructions: None,
+                resume_checkpoint: false,
                 now,
                 budget,
             })
@@ -746,6 +777,7 @@ mod tests {
                 relationship_state: RelationshipState::default(),
                 memory_evidence: Vec::new(),
                 project_instructions: None,
+                resume_checkpoint: true,
                 now,
                 budget: ContextBudget::for_model(1_000_000, 4_096),
             })
@@ -768,6 +800,13 @@ mod tests {
             roles,
             vec![Role::User, Role::Assistant, Role::Tool, Role::Assistant]
         );
+        assert!(compiled.messages.iter().any(|message| {
+            message.role == Role::System && message.content.contains("Resume Checkpoint")
+        }));
+        assert!(compiled.plan.selected_items.iter().any(|item| {
+            item.source_type == ContextSourceType::RunCheckpoint
+                && item.trust_level == TrustLevel::Trusted
+        }));
     }
 
     #[tokio::test]
@@ -801,6 +840,7 @@ mod tests {
                     },
                 ],
                 project_instructions: None,
+                resume_checkpoint: false,
                 now,
                 budget,
             })
@@ -858,6 +898,7 @@ mod tests {
             relationship_state: RelationshipState::default(),
             memory_evidence: Vec::new(),
             project_instructions: None,
+            resume_checkpoint: false,
             now,
             budget: ContextBudget::for_model(1_000_000, 4_096),
         };

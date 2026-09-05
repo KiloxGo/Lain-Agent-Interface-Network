@@ -192,6 +192,9 @@ export class LainClient {
     } else if (packet.type === "text.completed" && typeof payload.content === "string") {
       this.messages.push({ role: "assistant", content: payload.content });
     } else if (packet.type === "run.completed") {
+      if (payload.finish_reason === "tool_limit") {
+        this.write(`\n${dim("checkpoint › saved; send continue to resume")}\n`);
+      }
       this.finish(null, payload.usage);
     } else if (packet.type === "run.cancelled") {
       this.finish(new Error("cancelled"));

@@ -1453,6 +1453,7 @@ fn replace_file(path: &Path, content: &[u8], expected_hash: &str) -> Result<(), 
             .open(&temp)?;
         file.write_all(content)?;
         file.sync_all()?;
+        drop(file);
         let permissions = fs::metadata(path)?.permissions();
         fs::set_permissions(&temp, permissions)?;
         if sha256(&read_text_file(path)?) != expected_hash {

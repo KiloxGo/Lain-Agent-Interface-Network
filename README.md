@@ -15,7 +15,7 @@
 - 模型：provider-neutral `ModelProvider` 事件流；默认路由到 DeepSeek V4 Flash，显式复杂推理可路由到 V4 Pro。
 - 存储：`~/.lain/state/lain.db` 下的 SQLite WAL 保存 session、message、run 与事件；全局 CLI 按 workspace 路径哈希稳定隔离项目 session，同时共享 instance/user 人格与记忆（根目录可通过 `LAIN_DATA_DIR` 覆盖）。
 - 记忆：Memory v1 将模型抽取先写为候选，由 Rust 策略校验证据、敏感度和指令污染；只有已提交 item 会通过有来源的 FTS5 evidence 进入 Context Compiler。
-- 身份与上下文：`identity/v1` 资产启动时校验 manifest/schema/hash；Context Compiler v2 会有界读取 workspace 根目录的标准 `AGENTS.md`，每个 v1 run 在模型调用前保存 identity/compiler version、ContextPlan、prompt hash、预算选择与 drop reason。
+- 身份与上下文：`identity/v1` 资产启动时校验 manifest/schema/hash；Context Compiler v3 会有界读取 workspace 根目录的标准 `AGENTS.md`，每个 v1 run 在模型调用前保存 identity/compiler version、ContextPlan、prompt hash、预算选择与 drop reason；工具预算耗尽时保存可恢复 checkpoint，下一次同项目 run 可继续未完成工作。
 - 人格状态：每个 run 由 host 将 chat/task/maintenance 及最终 success/failure/cancellation 归约为十分钟有效的有限 SelfState，原子保存 `state.changed`，并只通过固定 voice directive 影响表达，不影响权限、事实或工具策略。
 - 工具：CLI 自动启动的 kernel 提供只读 `memory_search`/`memory_get` 与 workspace `list_files`、`read_file`、`search_text`、`replace_text`、`create_file`、`apply_patch`、`run_check`、`shell`；记忆工具继承 scope、状态和 `never_recall` 策略。`apply_patch` 可在一次合并 diff/一次授权中创建或精确更新最多 8 个文件，并在首次写入前预检全部路径与现有文件 hash；成功后持久化 `workspace.changed` 并由 CLI 汇总变更文件。所有写入、八种预定义 Cargo/Node/npm 检查和 shell 命令都必须取得一次性 `y/N` 授权；写入和检查失败会触发宿主拥有的复查/恢复质量门，shell 使用宿主账户权限且没有 OS sandbox。
 - 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、SQLite 事务/迁移/并发 seq、协议 DTO 与 Markdown 迁移已有离线契约测试。
@@ -61,7 +61,7 @@ lain
 
 全局命令仍运行本仓库源码，不复制角色素材或密钥；调用目录会成为受限 workspace，并自动采用根目录 `AGENTS.md`。更新仓库代码后无需重新 link。
 
-只有显式设置 `LAIN_WS_URL` 时 CLI 才会复用已运行的 kernel。CLI 自动启动 kernel 时将调用目录作为受限 workspace；可用 `LAIN_WORKSPACE` 显式覆盖。`-c` 会显示最近的持久消息并继续该 workspace 的稳定 session。CLI 支持流式回复、工具进度、文件/命令审批、`/help`、`/history`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。
+只有显式设置 `LAIN_WS_URL` 时 CLI 才会复用已运行的 kernel。CLI 自动启动 kernel 时将调用目录作为受限 workspace；可用 `LAIN_WORKSPACE` 显式覆盖。`-c` 会显示最近的持久消息并继续该 workspace 的稳定 session。工具预算耗尽时 CLI 显示已保存 checkpoint，发送“继续”即可从持久 handoff 恢复。CLI 支持流式回复、工具进度、文件/命令审批、`/help`、`/history`、`/status`、`/quit` 和 `Ctrl+C` 取消当前 run。
 
 默认访问 Vite 输出的本地地址。`/api/health` 只表示进程存活，`/api/ready` 检查 identity、SQLite、数据目录和 provider；`/api/provider` 返回不含 Secret 的能力诊断。前端使用 `/v1/ws`：协商版本后订阅默认 session，按 seq 重放持久事件并支持刷新恢复、退避重连和 Stop。`/ws/stream` 与裸文本 `/ws` 暂时作为弃用兼容入口。
 

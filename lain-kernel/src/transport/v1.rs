@@ -384,12 +384,14 @@ async fn execute_run(
         relationship_result,
         memory_result,
         project_instructions_result,
+        checkpoint_result,
     ) = tokio::join!(
         storage.recent_messages(&run.session_id, 80),
         storage.latest_self_state(),
         storage.latest_relationship_state(),
         storage.retrieve_memory_for_message(&run.session_id, &run.trigger_message_id, 12),
         project_instructions_result,
+        storage.latest_run_has_checkpoint(&run.session_id),
     );
     let recent = match recent_result {
         Ok(messages) => messages,
@@ -444,6 +446,13 @@ async fn execute_run(
             return fail_run(storage, outbound, &run, "project_instructions_unavailable").await;
         }
     };
+    let resume_checkpoint = match checkpoint_result {
+        Ok(checkpoint) => checkpoint,
+        Err(error) => {
+            tracing::error!(run_id = run.id, error = %error, "checkpoint loading failed");
+            return fail_run(storage, outbound, &run, "storage_error").await;
+        }
+    };
     let Some(current_message) = recent
         .iter()
         .find(|message| message.id == run.trigger_message_id)
@@ -475,6 +484,7 @@ async fn execute_run(
         relationship_state: relationship,
         memory_evidence,
         project_instructions,
+        resume_checkpoint,
         now: Utc::now(),
         budget,
     }) {
@@ -541,9 +551,10 @@ async fn execute_run(
     let mut client_gone = client_gone_at_start;
     let mut model_started_sent = false;
     let mut tool_call_count = 0_usize;
+    let mut checkpointed = false;
 
     for tool_round in 0..=MAX_TOOL_ROUNDS {
-        prepare_tool_round(&mut request, tool_round);
+        let checkpoint_round = prepare_tool_round(&mut request, tool_round);
         let stream_result = provider.stream(request.clone(), cancellation.clone()).await;
         let mut events = match stream_result {
             Ok(events) => events,
@@ -665,6 +676,7 @@ async fn execute_run(
         reason = turn_reason;
         if reason != FinishReason::ToolCalls {
             raw_reply = turn_text;
+            checkpointed = checkpoint_round;
             break;
         }
         let visible_step = memory::strip_all_tags(&turn_text);
@@ -1240,7 +1252,7 @@ async fn execute_run(
         let _ = send_json(outbound, &event).await;
     }
     let visible_reply = memory::strip_all_tags(&raw_reply);
-    let finish_reason = finish_reason_name(reason);
+    let finish_reason = persisted_finish_reason(reason, checkpointed);
     let completion_usage = CompletionUsage {
         input_tokens: saw_usage
             .then_some(usage.input_tokens)
@@ -1281,9 +1293,9 @@ async fn execute_run(
     }
 }
 
-fn prepare_tool_round(request: &mut ModelRequest, tool_round: usize) {
+fn prepare_tool_round(request: &mut ModelRequest, tool_round: usize) -> bool {
     if tool_round != MAX_TOOL_ROUNDS {
-        return;
+        return false;
     }
     request.tools.clear();
     request.tool_choice = ToolChoice::None;
@@ -1291,6 +1303,7 @@ fn prepare_tool_round(request: &mut ModelRequest, tool_round: usize) {
         crate::provider::Role::System,
         TOOL_LIMIT_HANDOFF,
     ));
+    true
 }
 
 fn command_exited_zero(result: &ToolResult) -> bool {
@@ -1781,6 +1794,14 @@ const fn finish_reason_name(reason: FinishReason) -> &'static str {
     }
 }
 
+const fn persisted_finish_reason(reason: FinishReason, checkpointed: bool) -> &'static str {
+    if checkpointed {
+        "tool_limit"
+    } else {
+        finish_reason_name(reason)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1789,6 +1810,10 @@ mod tests {
     fn finish_reasons_have_stable_wire_names() {
         assert_eq!(finish_reason_name(FinishReason::Stop), "stop");
         assert_eq!(finish_reason_name(FinishReason::ToolCalls), "tool_calls");
+        assert_eq!(
+            persisted_finish_reason(FinishReason::Stop, true),
+            "tool_limit"
+        );
     }
 
     #[test]
@@ -1853,7 +1878,7 @@ mod tests {
             metadata: BTreeMap::new(),
         };
 
-        prepare_tool_round(&mut request, MAX_TOOL_ROUNDS);
+        assert!(prepare_tool_round(&mut request, MAX_TOOL_ROUNDS));
 
         assert!(request.tools.is_empty());
         assert_eq!(request.tool_choice, ToolChoice::None);
@@ -1861,6 +1886,7 @@ mod tests {
             request.messages.last().expect("handoff").content,
             TOOL_LIMIT_HANDOFF
         );
+        assert!(!prepare_tool_round(&mut request, MAX_TOOL_ROUNDS - 1));
     }
 
     #[test]

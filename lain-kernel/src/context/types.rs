@@ -49,6 +49,7 @@ pub enum ContextSourceType {
     Behavior,
     Example,
     ProjectInstructions,
+    RunCheckpoint,
     SelfState,
     Relationship,
     MemoryEvidence,
