@@ -12,6 +12,30 @@ pub enum ToolRisk {
     ExternalSideEffect,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum WorkspaceChangeKind {
+    Created,
+    Updated,
+}
+
+impl WorkspaceChangeKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Created => "created",
+            Self::Updated => "updated",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct WorkspaceChange {
+    pub path: String,
+    pub kind: WorkspaceChangeKind,
+}
+
 impl ToolRisk {
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -101,6 +125,11 @@ pub enum PersistedEvent {
         status: String,
         summary: String,
     },
+    #[serde(rename = "workspace.changed")]
+    WorkspaceChanged {
+        invocation_id: String,
+        changes: Vec<WorkspaceChange>,
+    },
     #[serde(rename = "tool.approval_requested")]
     ToolApprovalRequested {
         approval_id: String,
@@ -154,6 +183,7 @@ impl PersistedEvent {
             Self::SelfStateChanged { .. } => "state.changed",
             Self::ToolStarted { .. } => "tool.started",
             Self::ToolCompleted { .. } => "tool.completed",
+            Self::WorkspaceChanged { .. } => "workspace.changed",
             Self::ToolApprovalRequested { .. } => "tool.approval_requested",
             Self::ToolApprovalDecided { .. } => "tool.approval_decided",
             Self::MemoryCandidateEvaluated { .. } => "memory.candidate_evaluated",

@@ -126,6 +126,7 @@ const toolBaselines = [
   ["evals/results/p6/work-loop-smoke.json", "coding-work-loop-001"],
   ["evals/results/p6/nested-create-review-smoke.json", "coding-nested-create-review-001"],
   ["evals/results/p6/held-out-slug-smoke.json", "coding-held-out-slug-001"],
+  ["evals/results/p6/batch-site-smoke.json", "coding-batch-site-001"],
 ];
 const toolResults = [];
 for (const [baseline, expectedCaseId] of toolBaselines) {
@@ -135,6 +136,13 @@ for (const [baseline, expectedCaseId] of toolBaselines) {
   invariant(Array.isArray(codingSmoke.tools) && Array.isArray(codingSmoke.exitCodes), `${baseline}: missing tool trace`);
   invariant(Array.isArray(codingSmoke.approvals) && codingSmoke.approvals.every(({ approved }) => approved), `${baseline}: invalid approvals`);
   invariant(typeof codingSmoke.final === "string" && codingSmoke.usage && typeof codingSmoke.usage === "object", `${baseline}: missing output`);
+  if (expectedCaseId === "coding-batch-site-001") {
+    invariant(
+      codingSmoke.workspaceChanges?.length === 4 &&
+        codingSmoke.workspaceChanges.every(({ kind }) => kind === "created"),
+      `${baseline}: missing structured workspace changes`,
+    );
+  }
   invariant(!secretPattern.test(JSON.stringify(codingSmoke)), `${baseline}: result looks like a real secret`);
   toolResults.push(codingSmoke);
 }

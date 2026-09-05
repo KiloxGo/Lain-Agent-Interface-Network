@@ -864,6 +864,7 @@ async fn execute_run(
                                     Ok(result) => Ok(ToolResult {
                                         content: result.model_content().to_string(),
                                         summary: format!("called MCP tool {}", call.name),
+                                        changes: Vec::new(),
                                     }),
                                     Err(error) => {
                                         tracing::warn!(
@@ -996,6 +997,55 @@ async fn execute_run(
                         }
                         Err(error) => Err(error),
                     },
+                    "apply_patch" => match workspace_tools.prepare_patch(call.clone()).await {
+                        Ok(patch) => {
+                            let approval = resolve_tool_approval(
+                                storage,
+                                incoming,
+                                outbound,
+                                ToolApprovalRequest {
+                                    run: &run,
+                                    invocation_id: &invocation_id,
+                                    call: &call,
+                                    action_hash: &patch.action_hash,
+                                    presentation: json!({
+                                        "paths": &patch.display_paths,
+                                        "diff": &patch.diff
+                                    }),
+                                },
+                                &cancellation,
+                                &mut client_gone,
+                            )
+                            .await;
+                            match approval {
+                                Ok(ApprovalOutcome::Approved) => {
+                                    workspace_tools.apply_patch(patch).await
+                                }
+                                Ok(ApprovalOutcome::Rejected) => Err(ToolError::ApprovalRejected),
+                                Ok(ApprovalOutcome::Unavailable) => {
+                                    Err(ToolError::ApprovalUnavailable)
+                                }
+                                Ok(ApprovalOutcome::RunCancelled) => {
+                                    cancellation.cancel();
+                                    return cancel_tool_run(
+                                        storage,
+                                        outbound,
+                                        &run,
+                                        &invocation_id,
+                                        &call,
+                                        "approval_cancelled",
+                                    )
+                                    .await;
+                                }
+                                Err(error) => {
+                                    tracing::error!(run_id = run.id, error = %error, "tool approval audit failed");
+                                    return fail_run(storage, outbound, &run, "storage_error")
+                                        .await;
+                                }
+                            }
+                        }
+                        Err(error) => Err(error),
+                    },
                     "run_check" | "shell" => {
                         let prepared = if call.name == "run_check" {
                             workspace_tools.prepare_check(call.clone()).await
@@ -1093,7 +1143,7 @@ async fn execute_run(
             };
             if mcp.is_none() {
                 match (call.name.as_str(), &result) {
-                    ("replace_text" | "create_file", Ok(_)) => {
+                    ("replace_text" | "create_file" | "apply_patch", Ok(_)) => {
                         workspace_changed_since_check = true;
                     }
                     ("run_check", Ok(result)) if command_exited_zero(result) => {
@@ -1104,7 +1154,7 @@ async fn execute_run(
                     _ => {}
                 }
             }
-            let (model_content, completed) = match result {
+            let (model_content, completed, changes) = match result {
                 Ok(result) => {
                     let event = storage
                         .complete_tool_invocation(
@@ -1120,7 +1170,7 @@ async fn execute_run(
                     } else {
                         untrusted_tool_output("workspace", &result.content)
                     };
-                    (model_content, event)
+                    (model_content, event, result.changes)
                 }
                 Err(error) => {
                     let summary = error.to_string();
@@ -1134,7 +1184,7 @@ async fn execute_run(
                             Err((code, &summary)),
                         )
                         .await;
-                    (format!("Tool failed: {summary}"), event)
+                    (format!("Tool failed: {summary}"), event, Vec::new())
                 }
             };
             let completed = match completed {
@@ -1146,6 +1196,21 @@ async fn execute_run(
             };
             if !client_gone && send_json(outbound, &completed).await.is_err() {
                 client_gone = true;
+            }
+            if !changes.is_empty() {
+                let changed = match storage
+                    .append_workspace_changes(&run.id, &invocation_id, changes)
+                    .await
+                {
+                    Ok(event) => event,
+                    Err(error) => {
+                        tracing::error!(run_id = run.id, error = %error, "workspace change audit failed");
+                        return fail_run(storage, outbound, &run, "storage_error").await;
+                    }
+                };
+                if !client_gone && send_json(outbound, &changed).await.is_err() {
+                    client_gone = true;
+                }
             }
             request
                 .messages
@@ -1473,7 +1538,10 @@ async fn await_tool_approval(
 fn tool_risk(name: &str, is_mcp: bool) -> ToolRisk {
     if is_mcp || name == "shell" {
         ToolRisk::ExternalSideEffect
-    } else if matches!(name, "replace_text" | "create_file" | "run_check") {
+    } else if matches!(
+        name,
+        "replace_text" | "create_file" | "apply_patch" | "run_check"
+    ) {
         ToolRisk::WorkspaceWrite
     } else {
         ToolRisk::ReadOnly
@@ -1800,10 +1868,12 @@ mod tests {
         assert!(command_exited_zero(&ToolResult {
             content: "[exit code: 0]\n[stdout]\nok".to_string(),
             summary: "node --test exited 0".to_string(),
+            changes: Vec::new(),
         }));
         assert!(!command_exited_zero(&ToolResult {
             content: "[exit code: 1]\n[stderr]\nfailed".to_string(),
             summary: "node --test exited 1".to_string(),
+            changes: Vec::new(),
         }));
     }
 

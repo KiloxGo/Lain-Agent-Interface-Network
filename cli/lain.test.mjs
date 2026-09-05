@@ -96,6 +96,17 @@ test("negotiates v1 and streams one turn", async () => {
   });
   socket.packet({
     v: 1,
+    type: "workspace.changed",
+    run_id: "run-1",
+    payload: {
+      changes: [
+        { kind: "created", path: "index.html" },
+        { kind: "updated", path: "README.md" },
+      ],
+    },
+  });
+  socket.packet({
+    v: 1,
     type: "run.completed",
     run_id: "run-1",
     payload: { usage: { input_tokens: 3, output_tokens: 1, cached_input_tokens: 2 } },
@@ -111,6 +122,7 @@ test("negotiates v1 and streams one turn", async () => {
   assert.match(output, /lain › hi/);
   assert.match(output, /tool › read_file/);
   assert.match(output, /state › curious/);
+  assert.match(output, /changes › created "index\.html", updated "README\.md"/);
   assert.doesNotMatch(output, /state › tense/);
   assert.match(client.status(), /state tense/);
   assert.deepEqual(
@@ -163,4 +175,15 @@ test("shows MCP server, tool, and exact arguments before approval", () => {
   assert.match(prompt.detail, /fixture__echo/);
   assert.match(prompt.detail, /"message": "hello"/);
   assert.equal(prompt.question, "Call this external tool? [y/N] ");
+});
+
+test("shows every batch patch path before one approval", () => {
+  const prompt = approvalPrompt({
+    paths: ["index.html", "css/style.css"],
+    diff: "--- /dev/null\n+++ index.html",
+  });
+  assert.match(prompt.detail, /2 files/);
+  assert.match(prompt.detail, /"index\.html"/);
+  assert.match(prompt.detail, /"css\/style\.css"/);
+  assert.equal(prompt.question, "Apply this change? [y/N] ");
 });

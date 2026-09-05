@@ -6,7 +6,7 @@ use std::{
 };
 
 use chrono::{SecondsFormat, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 use tokio::{
@@ -17,6 +17,7 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::{
+    domain::event::{WorkspaceChange, WorkspaceChangeKind},
     identity::sha256_hex,
     provider::ToolDefinition,
     storage::{Storage, StorageError},
@@ -29,6 +30,8 @@ const DEFAULT_LIST_LIMIT: usize = 200;
 const DEFAULT_SEARCH_LIMIT: usize = 50;
 const DEFAULT_READ_LINES: usize = 200;
 const MAX_DIFF_BYTES: usize = 32 * 1024;
+const MAX_PATCH_BYTES: usize = 4 * 1024 * 1024;
+const MAX_PATCH_FILES: usize = 8;
 const MAX_COMMAND_BYTES: usize = 4 * 1024;
 const MAX_PROJECT_INSTRUCTION_BYTES: u64 = 32 * 1024;
 const CHECK_TIMEOUT: Duration = Duration::from_secs(300);
@@ -44,6 +47,7 @@ pub struct ToolCall {
 pub struct ToolResult {
     pub content: String,
     pub summary: String,
+    pub changes: Vec<WorkspaceChange>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +67,20 @@ pub struct PendingCreate {
     pub action_hash: String,
     path: PathBuf,
     content: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingPatch {
+    pub display_paths: Vec<String>,
+    pub diff: String,
+    pub action_hash: String,
+    operations: Vec<PendingPatchOperation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PendingPatchOperation {
+    Replace(PendingEdit),
+    Create(PendingCreate),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,6 +123,14 @@ pub enum ToolError {
     PathAlreadyExists,
     #[error("file changed after approval was requested")]
     FileChanged,
+    #[error("patch must contain between 1 and {MAX_PATCH_FILES} changes")]
+    InvalidPatchSize,
+    #[error("patch arguments exceed {MAX_PATCH_BYTES} bytes")]
+    PatchTooLarge,
+    #[error("patch contains the same path more than once: {0}")]
+    DuplicatePatchPath(String),
+    #[error("patch target conflicts with another target: {0}")]
+    ConflictingPatchPath(String),
     #[error("check command timed out after 300 seconds")]
     CommandTimedOut,
     #[error("check command was cancelled")]
@@ -191,6 +217,7 @@ pub fn execute_builtin(
     Ok(ToolResult {
         content: content.to_string(),
         summary,
+        changes: Vec::new(),
     })
 }
 
@@ -257,6 +284,7 @@ pub async fn execute_memory(
             Ok(ToolResult {
                 summary: format!("found {} memory item(s)", content.len()),
                 content: cap_output(serde_json::to_string(&content)?),
+                changes: Vec::new(),
             })
         }
         "memory_get" => {
@@ -271,6 +299,7 @@ pub async fn execute_memory(
             Ok(ToolResult {
                 summary: format!("loaded memory {}", item.id),
                 content: cap_output(serde_json::to_string(&item)?),
+                changes: Vec::new(),
             })
         }
         _ => Err(ToolError::UnknownTool(call.name)),
@@ -365,6 +394,48 @@ impl WorkspaceTools {
                 strict: false,
             },
             ToolDefinition {
+                name: "apply_patch".to_string(),
+                description: "Create or exactly replace text in up to 8 UTF-8 workspace files with one merged diff and one approval. All paths and current file hashes are validated before the first write. Prefer this over repeated create_file or replace_text calls for multi-file work.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": MAX_PATCH_FILES,
+                            "items": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "kind": {"const": "create"},
+                                            "path": {"type": "string"},
+                                            "content": {"type": "string"}
+                                        },
+                                        "required": ["kind", "path", "content"],
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "kind": {"const": "replace"},
+                                            "path": {"type": "string"},
+                                            "old_text": {"type": "string", "minLength": 1},
+                                            "new_text": {"type": "string"}
+                                        },
+                                        "required": ["kind", "path", "old_text", "new_text"],
+                                        "additionalProperties": false
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "required": ["changes"],
+                    "additionalProperties": false
+                }),
+                strict: false,
+            },
+            ToolDefinition {
                 name: "run_check".to_string(),
                 description: "Run one predefined local project check after one-shot user approval. No free-form command or arguments are accepted.".to_string(),
                 parameters: json!({
@@ -450,7 +521,7 @@ impl WorkspaceTools {
             "list_files" => self.list_files(serde_json::from_str(&call.arguments)?),
             "read_file" => self.read_file(serde_json::from_str(&call.arguments)?),
             "search_text" => self.search_text(serde_json::from_str(&call.arguments)?),
-            "replace_text" | "create_file" | "run_check" | "shell" => {
+            "replace_text" | "create_file" | "apply_patch" | "run_check" | "shell" => {
                 Err(ToolError::ApprovalRequired)
             }
             _ => Err(ToolError::UnknownTool(call.name)),
@@ -476,6 +547,14 @@ impl WorkspaceTools {
             return Err(ToolError::UnknownTool(call.name));
         }
         let input: ReplaceTextInput = serde_json::from_str(&call.arguments)?;
+        self.prepare_replace_input(input, &call.arguments)
+    }
+
+    fn prepare_replace_input(
+        &self,
+        input: ReplaceTextInput,
+        action_arguments: &str,
+    ) -> Result<PendingEdit, ToolError> {
         if input.old_text.is_empty() {
             return Err(ToolError::EmptyOldText);
         }
@@ -493,7 +572,7 @@ impl WorkspaceTools {
         let original_hash = sha256(&original);
         let action_hash = sha256(&format!(
             "replace_text\0{display_path}\0{}\0{original_hash}",
-            call.arguments
+            action_arguments
         ));
         Ok(PendingEdit {
             diff: replacement_preview(&display_path, &input.old_text, &input.new_text),
@@ -610,6 +689,11 @@ impl WorkspaceTools {
     }
 
     fn apply_replace_blocking(&self, edit: PendingEdit) -> Result<ToolResult, ToolError> {
+        self.validate_edit(&edit)?;
+        self.write_edit(edit)
+    }
+
+    fn validate_edit(&self, edit: &PendingEdit) -> Result<(), ToolError> {
         let path = self.resolve(&edit.display_path)?;
         if path != edit.path {
             return Err(ToolError::FileChanged);
@@ -618,10 +702,18 @@ impl WorkspaceTools {
         if sha256(&current) != edit.original_hash {
             return Err(ToolError::FileChanged);
         }
-        replace_file(&path, edit.replacement.as_bytes(), &edit.original_hash)?;
+        Ok(())
+    }
+
+    fn write_edit(&self, edit: PendingEdit) -> Result<ToolResult, ToolError> {
+        replace_file(&edit.path, edit.replacement.as_bytes(), &edit.original_hash)?;
         Ok(ToolResult {
             content: format!("updated {}", edit.display_path),
             summary: format!("updated {}", edit.display_path),
+            changes: vec![WorkspaceChange {
+                path: edit.display_path,
+                kind: WorkspaceChangeKind::Updated,
+            }],
         })
     }
 
@@ -644,6 +736,10 @@ impl WorkspaceTools {
             return Err(ToolError::UnknownTool(call.name));
         }
         let input: CreateFileInput = serde_json::from_str(&call.arguments)?;
+        self.prepare_create_input(input)
+    }
+
+    fn prepare_create_input(&self, input: CreateFileInput) -> Result<PendingCreate, ToolError> {
         if input.content.len() as u64 > MAX_FILE_BYTES {
             return Err(ToolError::ReplacementTooLarge);
         }
@@ -660,13 +756,22 @@ impl WorkspaceTools {
     }
 
     fn apply_create_blocking(&self, create: PendingCreate) -> Result<ToolResult, ToolError> {
+        self.validate_create(&create)?;
+        self.write_create(create)
+    }
+
+    fn validate_create(&self, create: &PendingCreate) -> Result<(), ToolError> {
         let path = self.resolve_new_file(&create.display_path)?;
         if path != create.path {
             return Err(ToolError::FileChanged);
         }
+        Ok(())
+    }
+
+    fn write_create(&self, create: PendingCreate) -> Result<ToolResult, ToolError> {
         // ponytail: a failed final publish may leave empty new parents; add a rollback journal
         // only if real failures make those harmless directories operationally significant.
-        create_parent_directories(&self.root, &path)?;
+        create_parent_directories(&self.root, &create.path)?;
         let path = self.resolve_new_file(&create.display_path)?;
         if path != create.path {
             return Err(ToolError::FileChanged);
@@ -675,6 +780,125 @@ impl WorkspaceTools {
         Ok(ToolResult {
             content: format!("created {}", create.display_path),
             summary: format!("created {}", create.display_path),
+            changes: vec![WorkspaceChange {
+                path: create.display_path,
+                kind: WorkspaceChangeKind::Created,
+            }],
+        })
+    }
+
+    pub async fn prepare_patch(&self, call: ToolCall) -> Result<PendingPatch, ToolError> {
+        let tools = self.clone();
+        tokio::task::spawn_blocking(move || tools.prepare_patch_blocking(call))
+            .await
+            .map_err(|_| ToolError::TaskFailed)?
+    }
+
+    pub async fn apply_patch(&self, patch: PendingPatch) -> Result<ToolResult, ToolError> {
+        let tools = self.clone();
+        tokio::task::spawn_blocking(move || tools.apply_patch_blocking(patch))
+            .await
+            .map_err(|_| ToolError::TaskFailed)?
+    }
+
+    fn prepare_patch_blocking(&self, call: ToolCall) -> Result<PendingPatch, ToolError> {
+        if call.name != "apply_patch" {
+            return Err(ToolError::UnknownTool(call.name));
+        }
+        if call.arguments.len() > MAX_PATCH_BYTES {
+            return Err(ToolError::PatchTooLarge);
+        }
+        let input: ApplyPatchInput = serde_json::from_str(&call.arguments)?;
+        if input.changes.is_empty() || input.changes.len() > MAX_PATCH_FILES {
+            return Err(ToolError::InvalidPatchSize);
+        }
+
+        let mut operations = Vec::with_capacity(input.changes.len());
+        let mut display_paths = Vec::with_capacity(input.changes.len());
+        let mut diffs = Vec::with_capacity(input.changes.len());
+        let mut path_keys = Vec::with_capacity(input.changes.len());
+        for change in input.changes {
+            let operation = match change {
+                PatchChangeInput::Replace {
+                    path,
+                    old_text,
+                    new_text,
+                } => {
+                    let input = ReplaceTextInput {
+                        path,
+                        old_text,
+                        new_text,
+                    };
+                    let arguments = serde_json::to_string(&input)?;
+                    PendingPatchOperation::Replace(self.prepare_replace_input(input, &arguments)?)
+                }
+                PatchChangeInput::Create { path, content } => PendingPatchOperation::Create(
+                    self.prepare_create_input(CreateFileInput { path, content })?,
+                ),
+            };
+            let (display_path, diff) = match &operation {
+                PendingPatchOperation::Replace(edit) => (&edit.display_path, &edit.diff),
+                PendingPatchOperation::Create(create) => (&create.display_path, &create.diff),
+            };
+            let path_key = if cfg!(windows) {
+                display_path.to_lowercase()
+            } else {
+                display_path.clone()
+            };
+            if path_keys.iter().any(|existing| existing == &path_key) {
+                return Err(ToolError::DuplicatePatchPath(display_path.clone()));
+            }
+            if path_keys.iter().any(|existing| {
+                Path::new(existing).starts_with(Path::new(&path_key))
+                    || Path::new(&path_key).starts_with(Path::new(existing))
+            }) {
+                return Err(ToolError::ConflictingPatchPath(display_path.clone()));
+            }
+            path_keys.push(path_key);
+            display_paths.push(display_path.clone());
+            diffs.push(diff.clone());
+            operations.push(operation);
+        }
+
+        Ok(PendingPatch {
+            display_paths,
+            diff: cap_at(diffs.join("\n"), MAX_DIFF_BYTES, "\n[diff truncated]"),
+            action_hash: sha256(&format!("apply_patch\0{}", call.arguments)),
+            operations,
+        })
+    }
+
+    fn apply_patch_blocking(&self, patch: PendingPatch) -> Result<ToolResult, ToolError> {
+        for operation in &patch.operations {
+            match operation {
+                PendingPatchOperation::Replace(edit) => self.validate_edit(edit)?,
+                PendingPatchOperation::Create(create) => self.validate_create(create)?,
+            }
+        }
+
+        // ponytail: validation failures are zero-write; add a rollback journal only if
+        // real mid-write I/O or hostile filesystem races require full transactionality.
+        let mut changes = Vec::with_capacity(patch.operations.len());
+        for operation in patch.operations {
+            let result = match operation {
+                PendingPatchOperation::Replace(edit) => self.write_edit(edit)?,
+                PendingPatchOperation::Create(create) => self.write_create(create)?,
+            };
+            changes.extend(result.changes);
+        }
+        let summary = format!(
+            "changed {} file{}",
+            changes.len(),
+            if changes.len() == 1 { "" } else { "s" }
+        );
+        Ok(ToolResult {
+            content: changes
+                .iter()
+                .map(|change| format!("{} {}", change.kind.as_str(), change.path))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            summary,
+            changes,
         })
     }
 
@@ -697,6 +921,7 @@ impl WorkspaceTools {
                 if truncated { " (limit reached)" } else { "" }
             ),
             content,
+            changes: Vec::new(),
         })
     }
 
@@ -715,6 +940,7 @@ impl WorkspaceTools {
         Ok(ToolResult {
             summary: format!("read {} line(s) from {}", selected.len(), input.path),
             content: cap_output(selected.join("\n")),
+            changes: Vec::new(),
         })
     }
 
@@ -766,6 +992,7 @@ impl WorkspaceTools {
         Ok(ToolResult {
             summary: format!("found {} match(es)", matches.len()),
             content: cap_output(matches.join("\n")),
+            changes: Vec::new(),
         })
     }
 
@@ -947,7 +1174,7 @@ struct MemoryGetInput {
 #[serde(deny_unknown_fields)]
 struct EmptyInput {}
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct ReplaceTextInput {
     path: String,
@@ -955,11 +1182,31 @@ struct ReplaceTextInput {
     new_text: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct CreateFileInput {
     path: String,
     content: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ApplyPatchInput {
+    changes: Vec<PatchChangeInput>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+enum PatchChangeInput {
+    Create {
+        path: String,
+        content: String,
+    },
+    Replace {
+        path: String,
+        old_text: String,
+        new_text: String,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -1421,6 +1668,7 @@ async fn run_bounded_command(
     Ok(ToolResult {
         summary: format!("{} exited {exit}", check.display_command),
         content: cap_output(content),
+        changes: Vec::new(),
     })
 }
 
@@ -1884,6 +2132,139 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+
+    #[tokio::test]
+    async fn patch_changes_multiple_files_and_preflights_before_writing() {
+        let fixture = TempDir::new().expect("fixture");
+        let tools = WorkspaceTools::new(fixture.path()).expect("tools");
+        let create = ToolCall {
+            id: "patch-create".to_string(),
+            name: "apply_patch".to_string(),
+            arguments: serde_json::json!({
+                "changes": [
+                    {"kind":"create", "path":"index.html", "content":"<main>Lain</main>\n"},
+                    {"kind":"create", "path":"css/style.css", "content":"main { color: navy; }\n"},
+                    {"kind":"create", "path":"js/main.js", "content":"console.log('wired');\n"},
+                    {"kind":"create", "path":"README.md", "content":"# Gallery\n"}
+                ]
+            })
+            .to_string(),
+        };
+        assert!(matches!(
+            tools.execute(create.clone()).await,
+            Err(ToolError::ApprovalRequired)
+        ));
+        let create = tools.prepare_patch(create).await.expect("patch preview");
+        assert_eq!(create.display_paths.len(), 4);
+        assert!(create.diff.contains("+++ index.html"));
+        assert!(!fixture.path().join("index.html").exists());
+        let result = tools.apply_patch(create).await.expect("apply patch");
+        assert_eq!(result.changes.len(), 4);
+        assert!(
+            result
+                .changes
+                .iter()
+                .all(|change| change.kind == WorkspaceChangeKind::Created)
+        );
+
+        let update = tools
+            .prepare_patch(ToolCall {
+                id: "patch-update".to_string(),
+                name: "apply_patch".to_string(),
+                arguments: serde_json::json!({
+                    "changes": [
+                        {"kind":"replace", "path":"index.html", "old_text":"Lain", "new_text":"LAIN"},
+                        {"kind":"replace", "path":"README.md", "old_text":"Gallery", "new_text":"Exhibition"}
+                    ]
+                })
+                .to_string(),
+            })
+            .await
+            .expect("update preview");
+        let result = tools.apply_patch(update).await.expect("apply update");
+        assert_eq!(result.changes.len(), 2);
+        assert!(
+            result
+                .changes
+                .iter()
+                .all(|change| change.kind == WorkspaceChangeKind::Updated)
+        );
+
+        let stale = tools
+            .prepare_patch(ToolCall {
+                id: "patch-stale".to_string(),
+                name: "apply_patch".to_string(),
+                arguments: serde_json::json!({
+                    "changes": [
+                        {"kind":"replace", "path":"index.html", "old_text":"LAIN", "new_text":"Lain"},
+                        {"kind":"replace", "path":"README.md", "old_text":"Exhibition", "new_text":"Gallery"}
+                    ]
+                })
+                .to_string(),
+            })
+            .await
+            .expect("stale preview");
+        fs::write(fixture.path().join("README.md"), "external\n").expect("external edit");
+        assert!(matches!(
+            tools.apply_patch(stale).await,
+            Err(ToolError::FileChanged)
+        ));
+        assert_eq!(
+            fs::read_to_string(fixture.path().join("index.html")).expect("first unchanged"),
+            "<main>LAIN</main>\n"
+        );
+
+        let duplicate = tools
+            .prepare_patch(ToolCall {
+                id: "patch-duplicate".to_string(),
+                name: "apply_patch".to_string(),
+                arguments: serde_json::json!({
+                    "changes": [
+                        {"kind":"create", "path":"same.txt", "content":"one"},
+                        {"kind":"create", "path":"same.txt", "content":"two"}
+                    ]
+                })
+                .to_string(),
+            })
+            .await;
+        assert!(matches!(duplicate, Err(ToolError::DuplicatePatchPath(_))));
+        assert!(!fixture.path().join("same.txt").exists());
+
+        let conflict = tools
+            .prepare_patch(ToolCall {
+                id: "patch-conflict".to_string(),
+                name: "apply_patch".to_string(),
+                arguments: serde_json::json!({
+                    "changes": [
+                        {"kind":"create", "path":"parent", "content":"file"},
+                        {"kind":"create", "path":"parent/child.txt", "content":"child"}
+                    ]
+                })
+                .to_string(),
+            })
+            .await;
+        assert!(matches!(conflict, Err(ToolError::ConflictingPatchPath(_))));
+        assert!(!fixture.path().join("parent").exists());
+
+        #[cfg(windows)]
+        {
+            let case_alias = tools
+                .prepare_patch(ToolCall {
+                    id: "patch-case-alias".to_string(),
+                    name: "apply_patch".to_string(),
+                    arguments: serde_json::json!({
+                        "changes": [
+                            {"kind":"create", "path":"case.txt", "content":"lower"},
+                            {"kind":"create", "path":"CASE.txt", "content":"upper"}
+                        ]
+                    })
+                    .to_string(),
+                })
+                .await;
+            assert!(matches!(case_alias, Err(ToolError::DuplicatePatchPath(_))));
+            assert!(!fixture.path().join("case.txt").exists());
+        }
     }
 
     #[tokio::test]

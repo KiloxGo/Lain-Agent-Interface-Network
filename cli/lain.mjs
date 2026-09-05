@@ -48,8 +48,11 @@ export function approvalPrompt(approval) {
       question: "Call this external tool? [y/N] ",
     };
   }
+  const target = Array.isArray(approval.paths)
+    ? `${approval.paths.length} files\n${approval.paths.map((path) => JSON.stringify(path)).join("\n")}`
+    : approval.path ?? "";
   return {
-    detail: `${dim(approval.path ?? "")}\n${approval.diff ?? ""}`,
+    detail: `${dim(target)}\n${approval.diff ?? ""}`,
     question: "Apply this change? [y/N] ",
   };
 }
@@ -74,6 +77,7 @@ export class LainClient {
     this.messages = [];
     this.pending = null;
     this.startedReply = false;
+    this.runChanges = [];
   }
 
   connect() {
@@ -153,6 +157,7 @@ export class LainClient {
     const payload = packet.payload ?? {};
     if (packet.type === "run.queued" || packet.type === "run.started") {
       this.activeRunId = packet.run_id;
+      if (packet.type === "run.queued") this.runChanges = [];
     } else if (packet.type === "state.changed" && AFFECTS.has(payload.affect)) {
       this.affect = payload.affect;
       if (this.activeRunId) this.write(`${dim(`state › ${this.affect}`)}\n`);
@@ -163,6 +168,13 @@ export class LainClient {
       this.write(`\n${dim(`◇ tool › ${payload.name ?? "unknown"}`)}\n`);
     } else if (packet.type === "tool.completed") {
       this.write(`${dim(`  ${payload.status ?? "unknown"}: ${payload.summary ?? ""}`)}\n`);
+    } else if (packet.type === "workspace.changed" && Array.isArray(payload.changes)) {
+      this.runChanges.push(
+        ...payload.changes.filter(
+          ({ path, kind }) =>
+            typeof path === "string" && (kind === "created" || kind === "updated"),
+        ),
+      );
     } else if (packet.type === "tool.approval_required") {
       void this.respondToApproval(payload);
     } else if (
@@ -203,8 +215,20 @@ export class LainClient {
   finish(error, usage) {
     const pending = this.pending;
     if (!pending) return;
-    this.write("\n");
+    if (this.runChanges.length) {
+      const unique = new Map();
+      for (const change of this.runChanges) {
+        const previous = unique.get(change.path);
+        unique.set(change.path, previous?.kind === "created" ? previous : change);
+      }
+      this.write(
+        `${dim(`changes › ${[...unique.values()].map(({ kind, path }) => `${kind} ${JSON.stringify(path)}`).join(", ")}`)}\n`,
+      );
+    } else {
+      this.write("\n");
+    }
     this.activeRunId = null;
+    this.runChanges = [];
     this.pending = null;
     if (error) pending.reject(error);
     else pending.resolve(usage ?? null);

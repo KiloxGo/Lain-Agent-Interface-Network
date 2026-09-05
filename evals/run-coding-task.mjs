@@ -159,6 +159,13 @@ function approvalAllowed(item, payload) {
   if (["replace_text", "create_file"].includes(payload.name)) {
     return item.approval.paths.includes(payload.path);
   }
+  if (payload.name === "apply_patch") {
+    return (
+      Array.isArray(payload.paths) &&
+      payload.paths.length > 0 &&
+      payload.paths.every((path) => item.approval.paths.includes(path))
+    );
+  }
   if (["run_check", "shell"].includes(payload.name)) {
     return item.approval.commands.some(
       ({ cwd, command }) => cwd === payload.cwd && command === payload.command,
@@ -176,6 +183,7 @@ async function connect(url, item, decisions) {
       decisions.push({
         name: payload.name,
         path: payload.path,
+        paths: payload.paths,
         cwd: payload.cwd,
         command: payload.command,
         server: payload.server,
@@ -222,6 +230,21 @@ async function score(item, workspace, client, usage, decisions, postCheck) {
   if (item.expected.max_tool_calls !== undefined && tools.length > item.expected.max_tool_calls) {
     failures.push(`tool count: ${tools.length}`);
   }
+  for (const [name, count] of Object.entries(item.expected.tool_counts ?? {})) {
+    const actual = tools.filter((tool) => tool === name).length;
+    if (actual !== count) failures.push(`${name} count: ${actual}`);
+  }
+  for (const [name, count] of Object.entries(item.expected.completed_tool_counts ?? {})) {
+    const actual = client.events.filter(
+      ({ type, payload }) =>
+        type === "tool.completed" && payload.name === name && payload.status === "completed",
+    ).length;
+    if (actual !== count) failures.push(`completed ${name} count: ${actual}`);
+  }
+  for (const [name, count] of Object.entries(item.expected.approval_counts ?? {})) {
+    const actual = decisions.filter((decision) => decision.name === name).length;
+    if (actual !== count) failures.push(`approved ${name} count: ${actual}`);
+  }
   if (!isSubsequence(item.expected.exit_codes, exitCodes)) failures.push(`exit codes: ${exitCodes.join(",")}`);
   if (item.expected.final_equals !== undefined) {
     if (final !== item.expected.final_equals) failures.push(`final response: ${final}`);
@@ -258,8 +281,14 @@ async function score(item, workspace, client, usage, decisions, postCheck) {
     failures,
     tools,
     toolEvents,
+    toolSummaries: client.events
+      .filter(({ type }) => type === "tool.completed")
+      .map(({ payload }) => ({ name: payload.name, status: payload.status, summary: payload.summary })),
     exitCodes,
     approvals: decisions,
+    workspaceChanges: client.events
+      .filter(({ type }) => type === "workspace.changed")
+      .flatMap(({ payload }) => payload.changes ?? []),
     final,
     usage,
     postCheck,

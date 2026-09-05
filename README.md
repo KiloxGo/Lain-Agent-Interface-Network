@@ -17,7 +17,7 @@
 - 记忆：Memory v1 将模型抽取先写为候选，由 Rust 策略校验证据、敏感度和指令污染；只有已提交 item 会通过有来源的 FTS5 evidence 进入 Context Compiler。
 - 身份与上下文：`identity/v1` 资产启动时校验 manifest/schema/hash；Context Compiler v2 会有界读取 workspace 根目录的标准 `AGENTS.md`，每个 v1 run 在模型调用前保存 identity/compiler version、ContextPlan、prompt hash、预算选择与 drop reason。
 - 人格状态：每个 run 由 host 将 chat/task/maintenance 及最终 success/failure/cancellation 归约为十分钟有效的有限 SelfState，原子保存 `state.changed`，并只通过固定 voice directive 影响表达，不影响权限、事实或工具策略。
-- 工具：CLI 自动启动的 kernel 提供只读 `memory_search`/`memory_get` 与 workspace `list_files`、`read_file`、`search_text`、`replace_text`、`create_file`、`run_check`、`shell`；记忆工具继承 scope、状态和 `never_recall` 策略。精确写入、可安全建立父目录的 no-clobber 创建、八种预定义 Cargo/Node/npm 检查和 shell 命令必须先展示 diff 或精确 command/cwd 并取得一次性 `y/N` 授权；写入和检查失败会触发宿主拥有的复查/恢复质量门，shell 使用宿主账户权限且没有 OS sandbox。
+- 工具：CLI 自动启动的 kernel 提供只读 `memory_search`/`memory_get` 与 workspace `list_files`、`read_file`、`search_text`、`replace_text`、`create_file`、`apply_patch`、`run_check`、`shell`；记忆工具继承 scope、状态和 `never_recall` 策略。`apply_patch` 可在一次合并 diff/一次授权中创建或精确更新最多 8 个文件，并在首次写入前预检全部路径与现有文件 hash；成功后持久化 `workspace.changed` 并由 CLI 汇总变更文件。所有写入、八种预定义 Cargo/Node/npm 检查和 shell 命令都必须取得一次性 `y/N` 授权；写入和检查失败会触发宿主拥有的复查/恢复质量门，shell 使用宿主账户权限且没有 OS sandbox。
 - 测试：配置/启动/关闭、SSE 分块、provider 错误/重试/超时/取消、SQLite 事务/迁移/并发 seq、协议 DTO 与 Markdown 迁移已有离线契约测试。
 
 完整现状、目标架构、ADR 和 213 项实施任务见 [TECHNICAL_IMPLEMENTATION_PLAN.md](TECHNICAL_IMPLEMENTATION_PLAN.md)。

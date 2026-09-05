@@ -15,7 +15,7 @@ use uuid::Uuid;
 use crate::{
     context::{ContextPlan, RelationshipState, SelfState},
     domain::{
-        event::{EventEnvelope, PROTOCOL_VERSION, PersistedEvent, ToolRisk},
+        event::{EventEnvelope, PROTOCOL_VERSION, PersistedEvent, ToolRisk, WorkspaceChange},
         run::RunState,
     },
     identity::IdentityKernel,
@@ -504,6 +504,29 @@ impl Storage {
                 name: name.to_string(),
                 status: status.to_string(),
                 summary: summary.to_string(),
+            },
+        )
+        .await?;
+        tx.commit().await?;
+        Ok(event)
+    }
+
+    pub async fn append_workspace_changes(
+        &self,
+        run_id: &str,
+        invocation_id: &str,
+        changes: Vec<WorkspaceChange>,
+    ) -> Result<EventEnvelope, StorageError> {
+        let mut tx = self.pool.begin().await?;
+        let run = fetch_run(&mut tx, run_id).await?;
+        let event = append_event(
+            &mut tx,
+            &self.scope.instance_id,
+            &run.session_id,
+            Some(run_id),
+            &PersistedEvent::WorkspaceChanged {
+                invocation_id: invocation_id.to_string(),
+                changes,
             },
         )
         .await?;
@@ -3207,6 +3230,21 @@ mod tests {
             .expect("decide approval");
         assert_eq!(decided.event_type, "tool.approval_decided");
         assert_eq!(decided.payload["outcome"], "approved");
+        let changed = storage
+            .append_workspace_changes(
+                &accepted.run.id,
+                &edit_invocation_id,
+                vec![WorkspaceChange {
+                    path: "note.txt".to_string(),
+                    kind: crate::domain::event::WorkspaceChangeKind::Updated,
+                }],
+            )
+            .await
+            .expect("record workspace change");
+        assert_eq!(changed.event_type, "workspace.changed");
+        assert_eq!(changed.payload["invocation_id"], edit_invocation_id);
+        assert_eq!(changed.payload["changes"][0]["path"], "note.txt");
+        assert_eq!(changed.payload["changes"][0]["kind"], "updated");
         assert!(matches!(
             storage
                 .decide_tool_approval(&accepted.run.id, &approval_id, "approved")
