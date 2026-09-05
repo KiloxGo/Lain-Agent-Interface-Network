@@ -17,7 +17,8 @@
 - 已有：workspace canonical 边界、exact-once replacement、内容 hash 乐观并发、no-clobber 创建、一次性 diff/command 审批、工具/审批/assistant step 持久化、检查 exit code 回执。
 - 本次增加：`create_file` 在审批成功后逐级创建缺失父目录，并拒绝 symlink、非目录、保留名与竞态目标；成功写入后由 host 注入可信复查指令，`run_check` 非零或工具失败后注入可信恢复指令。
 - 后续增加：coding runner 可在 agent turn 完成后写入模型不可见的 Node test 文件并独立执行；hidden fixture 必须与可见 fixture 不重名，执行限时 30 秒、输出最多保留 16 KiB，并清除 API key/token/credential 等敏感环境变量，结果作为 `postCheck` 进入 baseline 和 CI 校验。grader 仍运行在宿主账户下且没有 OS sandbox，只用于受控本地合成 fixture。
-- 仍延期：多文件 patch、TurnDiff、session checkpoint。它们需要合并预览、逐目标 precondition、部分提交恢复或 rollback journal；单文件创建/替换尚未证明这些复杂度必要。
+- 已完成：最多 8 文件的 create/replace 批量 patch、合并预览、逐目标 precondition、父子目标冲突检查、结构化 `workspace.changed`；宿主确认精确写入后不再要求模型无价值地复读文件。
+- 仍延期：完整 TurnDiff、session 文件 checkpoint，以及 delete/move 和极端中途 I/O 失败的 rollback journal。
 
 ## 验收含义
 

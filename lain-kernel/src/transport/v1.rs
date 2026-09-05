@@ -45,7 +45,7 @@ const MAX_TOOL_ROUNDS: usize = 8;
 const MAX_TOOL_CALLS: usize = 16;
 const APPROVAL_TIMEOUT: Duration = Duration::from_secs(300);
 const TOOL_LIMIT_HANDOFF: &str = "The tool execution limit has been reached for this turn. Tools are disabled. Give the user a concise handoff stating what was completed, what remains, and that they can ask you to continue. Do not claim unverified work.";
-const WORKSPACE_CHANGED_GUIDANCE: &str = "Host quality gate: a workspace write succeeded. Before finishing, inspect the resulting file state and run the most relevant available check when practical. Report only checks that actually completed.";
+const WORKSPACE_CHANGED_GUIDANCE: &str = "Host quality gate: a workspace write succeeded and the host verified the exact bytes written. Do not reread files only to confirm the write. Run the most relevant available project check when practical; if none applies, finish with an accurate change summary. Report only checks that actually completed.";
 const CHECK_FAILED_GUIDANCE: &str = "Host quality gate: a project check exited non-zero. Do not report completion. Inspect the failure, make the smallest justified fix, and rerun the relevant check unless blocked; if blocked, report the exact blocker.";
 
 #[derive(Debug, Default)]

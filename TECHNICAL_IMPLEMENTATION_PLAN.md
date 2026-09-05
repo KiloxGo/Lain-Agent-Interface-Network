@@ -2393,19 +2393,20 @@ Playwright：
 - [ ] P6-011 前端 approval UI。（按 terminal-first 产品决策延期；CLI 审批链已验收。）
 - [x] P6-012 内置 read-only memory_search/memory_get 工具。（复用 Memory v1 检索；按 user/session/status/never_recall fail closed。）
 - [x] P6-013 内置 time_now 和 instance_status 工具。（返回 UTC/Unix 时间与非敏感实例版本状态；复用只读审计链路。）
-- [x] P6-014 工具 schema 按 mode 最小化注入。（配置 workspace 的 chat mode 注入两个只读记忆、三个只读 workspace、两个审批文件写入、一个预定义检查和一个 shell schema；complex-task 在 reasoning replay 完成前不注入。）
+- [x] P6-014 工具 schema 按 mode 最小化注入。（配置 workspace 的 chat mode 注入两个只读记忆、三个只读 workspace、三个审批文件写入、一个预定义检查和一个 shell schema；complex-task 在 reasoning replay 完成前不注入。）
 - [x] P6-015 仅对安全只读工具启用 parallel calls。（显式安全名单；全只读批次并行执行，审计与 provider results 保持模型顺序，混合批次串行。）
 - [x] P6-016 实现 MCP stdio client 和 lifecycle。（单个 opt-in 本地 server；2026-07-28 discovery 与旧 initialize fallback；有界 framing、敏感环境过滤及 EOF/kill shutdown。）
 - [x] P6-017 实现 namespaced tools/list/tools/call。（连接时有界分页读取目录；工具名映射到 DeepSeek-safe server namespace；仅允许调用已发现工具；模型暴露与 host policy 已由 P6-018/P6-019 完成。）
 - [x] P6-018 MCP metadata/output 标记 untrusted。（工具说明带 host 生成的不可信来源标签并限制 2 KiB；schema 剥离展示型元数据；目录元数据总计 256 KiB；返回内容统一带 namespace 来源并限制 64 KiB。）
 - [x] P6-019 建立最小 scope 和 approval 映射。（chat mode 注入已发现的 namespaced MCP 工具；全部按 `external_side_effect` 串行处理并复用一次性审批/审计链，不采信 server annotations；审批超时、断线、拒绝及未知工具均 fail closed。）
-- [x] P6-020 增加 balanced tool eval suite。（10 个互补类别全部保留在线基线：失败恢复、创建、精确编辑、间接注入、记忆、运行时信息、no-tool 负向选择、MCP echo、shell 和 workspace discovery；5 个需审批、5 个无审批。CI 离线强制案例/结果一一覆盖、环境断言、工具轨迹、授权和 secret hygiene。）
+- [x] P6-020 增加 balanced tool eval suite。（14 个互补类别全部保留在线基线，其中 9 个需审批、5 个无审批；CI 离线强制案例/结果一一覆盖、环境断言、工具轨迹、授权和 secret hygiene。）
 - [x] P6-021 对 tool output prompt injection 做 red-team。（workspace v0：统一 untrusted 标签、canary 泄露检测与未授权写入检测；MCP client 覆盖恶意目录/输出 fixture，balanced suite 覆盖恶意 metadata 下的模型 → 审批 → MCP 端到端调用。）
 - [x] P6-022 实现一次性审批的宿主 shell。（单行 4 KiB command、workspace cwd、`external_side_effect`、敏感环境清理、64 KiB 输出、300 秒超时、取消和 Windows Job Object/Unix process group 后代回收；无 OS sandbox。）
 - [x] P6-023 提供全局 `lain` 命令。（根包使用标准 npm `bin` + `npm link`；真实路径入口兼容 Windows junction，从任意目录启动时仍以调用目录作为 workspace。）
 - [x] P6-024 按 workspace 隔离稳定 session。（规范化绝对路径只以 SHA-256 标题进入 SQLite；同项目复用 session，不同项目不串上下文，同时保留共享 instance/user 人格与记忆。）
 - [x] P6-025 完成外部项目工作闭环 v1。（根级 `AGENTS.md` 有界加载并进入 ContextPlan；固定 inspect/edit/check/report 契约；8 轮/16 调用；真实临时 Node 项目完成规则读取、精确修复、检查和收尾报告。）
 - [x] P6-026 增加宿主写后质量门与嵌套文件创建。（写成功后可信提示复查/验证；检查失败后可信提示恢复；`create_file` 审批后安全创建缺失父目录；真实绿地任务不用 shell 完成创建与复读。）
+- [x] P6-027 实现批量 workspace patch 与结构化变更回执。（最多 8 个 create/replace 操作共享合并 diff 和一次审批；全部路径/hash/父子冲突在首次写入前预检；成功后持久化 `workspace.changed`。宿主确认精确写入后不再要求模型机械复读；四文件隐藏验收只需 1 次工具调用，input tokens 从 14,798 降至 6,712。）
 
 完成门：所有副作用可审计；破坏性工具零未授权执行；MCP 失效不影响普通聊天。
 
