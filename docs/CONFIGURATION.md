@@ -314,3 +314,31 @@ Do not implement automatic smart routing before explicit profiles are reliable.
 - never log the resolved worker environment;
 - do not blindly inherit the daemon's full environment;
 - validate executable selection and workspace paths.
+
+## 21. Phase 1 daemon configuration
+
+Phase 1 resolves built-in defaults followed by explicit environment overrides.
+It does not yet load TOML, resolve RuntimeProfiles, import global worker config,
+or instantiate a general Secret Store. Only these settings are read:
+
+| Variable | Default / requirement |
+|---|---|
+| `LAIN_DATABASE_PATH` | `data/lain.sqlite3`, relative to daemon working directory; parent directories created |
+| `LAIN_LISTEN` | `127.0.0.1:8787`; numeric loopback IPv4/IPv6 socket address only; port 0 supported |
+| `LAIN_API_TOKEN` | Required, 32–256 ASCII letters/digits/`-`/`_`; use a securely generated random value |
+| `LAIN_LOG` | `info`; one tracing level (`error`, `warn`, `info`, `debug`, `trace`) |
+
+The API credential is resolved separately from domain configuration, held in a
+redacted, non-serializable type, and compared using `subtle` constant-time byte
+comparison for equal-length values. It is never persisted, emitted in events,
+or included in configuration errors/debug output. Supply it through the process
+environment; do not put raw credentials in ordinary checked-in files. Its
+deployment-level secret backend and rotation flow remain future work. All HTTP
+routes require `Authorization: Bearer <token>`; query parameters are not accepted
+as credentials. Responses use `Cache-Control: no-store`.
+
+The daemon does not log request headers, request URLs, configuration values, or
+environment dumps. JSON lifecycle logs go to stderr and include session IDs/state
+and failure context, not session payloads. Configure retention externally.
+Use a stable absolute database path for a service; changing its working directory
+with the default relative path selects a different database.

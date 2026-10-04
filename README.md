@@ -2,7 +2,7 @@
 
 > A persistent personal resident agent and control plane for long-running AI workers.
 
-**Status:** architecture reboot / foundation phase.
+**Status:** Phase 1 Kernel skeleton implemented; worker integration starts in Phase 2.
 
 Lain is designed to live continuously on a personal server. You can talk to her directly, but she is also able to create, supervise, configure, observe, steer, and summarize long-running worker-agent sessions such as Codex, Claude Code, and DeepSeek Harness.
 
@@ -159,6 +159,22 @@ Lain is not intended to become:
 
 ## Development
 
-The rewrite has not yet frozen the final crate layout or public API.
+The workspace currently contains one `lain-kernel` crate with a reusable library
+and the `laind` binary. It provides durable session metadata, conservative restart
+recovery, an in-process event bus, and an authenticated local read-only HTTP API.
+It does not start workers or invoke models yet.
 
+Quick start (PowerShell):
+
+```powershell
+$env:LAIN_API_TOKEN = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N')
+cargo run --bin laind
+```
+
+The default listener is `127.0.0.1:8787`; the default database is
+`data/lain.sqlite3` relative to the working directory. All endpoints require
+`Authorization: Bearer <LAIN_API_TOKEN>`. Stop with Ctrl-C.
+
+See [the development guide](docs/DEVELOPMENT.md#7-phase-1-workspace-and-local-operation)
+for Linux commands, API examples, checks, storage ownership, and limitations.
 Before implementing new architecture, read `AGENTS.md` and `ROADMAP.md`.

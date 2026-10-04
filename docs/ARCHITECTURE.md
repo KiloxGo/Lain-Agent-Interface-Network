@@ -513,3 +513,47 @@ Current references:
 - ACP Rust SDK: https://github.com/agentclientprotocol/rust-sdk
 - DeepSeek Harness ACP: https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/acp/acp
 - Claude Code LLM gateway configuration: https://docs.anthropic.com/en/docs/claude-code/llm-gateway
+
+## 15. Implemented Phase 1 boundary
+
+The initial workspace contains one crate, `crates/lain-kernel`, with a library
+and `laind` binary. Modules preserve the boundaries without empty services or
+one-implementation repository/backend traits:
+
+| Module | Current responsibility |
+|---|---|
+| `domain` | Strong IDs, WorkSession, state transition rules, timestamps |
+| `persistence` (private) | SQLite schema migration, snapshots, atomic recovery |
+| `kernel` | Session ownership, committed in-memory projection, lifecycle |
+| `events` | Normalized session event payloads |
+| `config` | Daemon-only settings and redacted API credential |
+| `api` | Authenticated HTTP queries and bounded graceful HTTP shutdown |
+| `main` | Configuration, logging, signal registration, startup and teardown |
+
+Future adapters will occupy their own modules/crates; none are instantiated yet.
+The Kernel is the initial Session Supervisor boundary. Only its methods may
+commit session changes. A single mutex orders storage writes, projection updates,
+and publication. These mutation methods are synchronous; async callers must use
+a blocking task once backend writes are introduced. Current HTTP queries read
+the projection and do not execute SQL.
+
+SQLite stores versioned WorkSession JSON snapshots keyed by Lain ID. The schema
+is owned by persistence, not by the public API. Snapshot decoding and domain
+validation happen before recovery commits. Snapshots intentionally avoid a full
+relational schema before the first worker exists; add indexed columns through
+migrations when queries require them. This is operational storage only.
+
+The event bus uses a bounded Tokio broadcast channel (256 events). Initial kinds
+are `SessionCreated` and `SessionStateChanged`. Publishing follows a successful
+durable commit and projection update, under the same Kernel lock. No subscribers
+is normal; a slow subscriber receives `Lagged` and must resnapshot. Subscribe
+before taking a snapshot and tolerate already-reflected events. There is no
+durable event replay, outbox, or exactly-once promise. A crash between commit and
+publication is resolved by querying the authoritative session snapshot. Recovery
+does not replay or publish historical changes.
+
+The local API uses Axum, binds only to loopback in Phase 1, and requires a bearer
+token even for probes. It does not accept session creation, prompts, approvals,
+or cancellation commands. API authentication is distinct from future worker
+approval policy. Remote exposure and TLS/auth deployment need a security design
+before relaxing this binding restriction.

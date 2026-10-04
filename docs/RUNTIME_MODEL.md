@@ -385,3 +385,33 @@ V1 runtime should stay small:
 - bounded completion summaries;
 - no distributed deployment;
 - no high availability cluster.
+
+## 20. Phase 1 lifecycle and recovery
+
+The implemented subset is configuration/logging, operational SQLite, WorkSession
+recovery, and a local HTTP server. No worker, scheduler, world, or Lain Actor
+is started. Startup fails before serving if configuration, signals, storage,
+migration, persisted records, or the listener cannot be initialized.
+
+`Booting` opens storage. `Recovering` loads and validates all session snapshots
+in one transaction. Starting, Ready, Running, WaitingForApproval, Idle, and
+Disconnected become Unknown because no live backend can confirm their state.
+Created, Unknown, Completed, Cancelled, Failed, and Archived remain unchanged.
+Recovery is idempotent, is persisted before serving, and does not infer worker
+failure or completion. Invalid data aborts recovery rather than being skipped.
+
+`Ready` is entered only after recovery commits and the API listener binds.
+`GET /ready` returns 200 only in this state, otherwise 503 while a listener is
+available. During boot/recovery the daemon has no listener; `/health` reports
+only HTTP liveness. Both endpoints require authentication. No `Degraded` state
+is needed until independently failing services/backends exist.
+
+SIGINT/SIGTERM on Unix and Ctrl-C/Ctrl-Break on Windows enter `ShuttingDown`.
+New internal mutations are rejected, the HTTP listener stops accepting, and
+in-flight requests may drain for at most five seconds. Exceeding that bound
+returns a failure exit status. Each mutation is already committed synchronously;
+there is no pending write queue to flush. Dropping Kernel ownership closes SQLite
+and releases its OS file lock. The `.lock` sidecar is retained on disk; the OS
+releases the held lock on process exit, including a crash. Do not delete it while
+the daemon is running. One Kernel owns a database at a time. Aliased hard links
+and network-filesystem locking are outside the supported local-file deployment.

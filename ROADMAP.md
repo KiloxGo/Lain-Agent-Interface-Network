@@ -24,7 +24,7 @@ Deliverables:
 - [x] docs/CONFIGURATION.md
 - [x] archive the old prototype on `legacy/v0` and restart from a clean implementation tree
 - [ ] add initial ADRs for major architecture decisions
-- [ ] freeze initial Rust workspace/crate layout
+- [x] freeze initial Rust workspace/crate layout
 
 Exit criteria:
 
@@ -38,16 +38,21 @@ Exit criteria:
 
 Deliverables:
 
-- [ ] Rust workspace for the new Kernel
-- [ ] configuration loading
-- [ ] tracing/logging
-- [ ] SQLite persistence bootstrap/migrations
-- [ ] strongly typed domain IDs
-- [ ] basic WorkSession repository
-- [ ] in-process Event Bus
-- [ ] health/readiness endpoints
-- [ ] authenticated local API skeleton
-- [ ] graceful shutdown
+- [x] Rust workspace for the new Kernel
+- [x] configuration loading
+- [x] tracing/logging
+- [x] SQLite persistence bootstrap/migrations
+- [x] strongly typed domain IDs
+- [x] basic WorkSession repository
+- [x] in-process Event Bus
+- [x] health/readiness endpoints
+- [x] authenticated local API skeleton
+- [x] graceful shutdown
+
+Implemented as one `lain-kernel` library + `laind` binary, with Axum and
+rusqlite. Session creation/transitions are internal foundation operations;
+the public API is read-only. See `docs/DEVELOPMENT.md` for operation and checks.
+Phase 2 has not started.
 
 Non-goals:
 
@@ -334,11 +339,9 @@ Do not start by building memory or persona before worker supervision and durable
 
 Make these decisions when implementation evidence exists:
 
-- monolithic crate vs several Rust crates;
-- Axum vs another HTTP framework;
+- further crate extraction when real backend boundaries justify it (Phase 1 uses one crate);
 - exact WebSocket/SSE split;
 - direct Codex App Server vs Codex ACP as initial driver;
-- SQLite library/ORM choice;
 - world filesystem schema;
 - exact Lain model/provider;
 - embedding/vector search necessity;
@@ -347,3 +350,6 @@ Make these decisions when implementation evidence exists:
 - worker process detach semantics on Kernel shutdown.
 
 Do not prematurely freeze choices that do not affect current architecture.
+
+Phase 1 resolves the initial HTTP/storage choices to Axum and rusqlite with
+bundled SQLite. These are implementation choices, not new domain contracts.

@@ -1,0 +1,103 @@
+use std::{
+    ffi::OsString,
+    fmt,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::PathBuf,
+    str::FromStr,
+};
+
+use subtle::ConstantTimeEq;
+use thiserror::Error;
+
+/// Resolved only at the API boundary; never serialized or stored in the domain.
+#[derive(Clone)]
+pub struct ApiToken(String);
+
+impl FromStr for ApiToken {
+    type Err = ConfigError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if !(32..=256).contains(&value.len())
+            || !value
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
+        {
+            return Err(ConfigError::Invalid(
+                "LAIN_API_TOKEN (32–256 letters, digits, '-' or '_')",
+            ));
+        }
+        Ok(Self(value.to_owned()))
+    }
+}
+
+impl fmt::Debug for ApiToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("ApiToken([REDACTED])")
+    }
+}
+
+impl ApiToken {
+    pub(crate) fn matches(&self, candidate: &str) -> bool {
+        bool::from(self.0.as_bytes().ct_eq(candidate.as_bytes()))
+    }
+}
+
+#[derive(Debug)]
+pub struct Config {
+    pub database_path: PathBuf,
+    pub listen: SocketAddr,
+    pub api_token: ApiToken,
+    pub log_level: tracing::Level,
+}
+
+#[derive(Debug, Error)]
+pub enum ConfigError {
+    #[error("missing required setting {0}")]
+    Missing(&'static str),
+    #[error("invalid setting {0}")]
+    Invalid(&'static str),
+}
+
+impl Config {
+    pub fn load() -> Result<Self, ConfigError> {
+        Self::from_lookup(|key| std::env::var_os(key))
+    }
+
+    pub fn from_lookup(lookup: impl Fn(&str) -> Option<OsString>) -> Result<Self, ConfigError> {
+        let text = |key| {
+            lookup(key)
+                .map(|v| v.into_string().map_err(|_| ConfigError::Invalid(key)))
+                .transpose()
+        };
+        let database_path = lookup("LAIN_DATABASE_PATH")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("data/lain.sqlite3"));
+        if database_path.as_os_str().is_empty()
+            || database_path == std::path::Path::new(":memory:")
+            || database_path.file_name().is_none()
+        {
+            return Err(ConfigError::Invalid("LAIN_DATABASE_PATH"));
+        }
+        let listen = text("LAIN_LISTEN")?
+            .map(|v| v.parse().map_err(|_| ConfigError::Invalid("LAIN_LISTEN")))
+            .transpose()?
+            .unwrap_or(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8787));
+        if !listen.ip().is_loopback() {
+            return Err(ConfigError::Invalid(
+                "LAIN_LISTEN (Phase 1 requires loopback)",
+            ));
+        }
+        let api_token = text("LAIN_API_TOKEN")?
+            .ok_or(ConfigError::Missing("LAIN_API_TOKEN"))?
+            .parse()?;
+        let log_level = text("LAIN_LOG")?
+            .unwrap_or_else(|| "info".to_owned())
+            .parse()
+            .map_err(|_| ConfigError::Invalid("LAIN_LOG"))?;
+        Ok(Self {
+            database_path,
+            listen,
+            api_token,
+            log_level,
+        })
+    }
+}
