@@ -53,6 +53,10 @@ For task sequencing and scope, read:
 
 - `ROADMAP.md`
 
+For implementation history and the latest completed milestone, read:
+
+- `DEVLOG.md`
+
 ## 3. Architectural invariants
 
 The following are repository-level invariants. Do not violate them without an explicit architecture decision and documentation update.

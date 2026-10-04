@@ -123,7 +123,8 @@ The rewrite is documentation-first:
 - `docs/AGENT_BACKENDS.md` — worker backend integration rules;
 - `docs/MEMORY.md` — Lain's independent memory;
 - `docs/CONFIGURATION.md` — runtime profiles and provider routing;
-- `ROADMAP.md` — staged implementation plan.
+- `ROADMAP.md` — staged implementation plan;
+- `DEVLOG.md` — milestone history, decisions, problems, and next-step handoff.
 
 ## Expected deployment
 
