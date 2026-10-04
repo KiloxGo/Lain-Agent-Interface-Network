@@ -109,9 +109,9 @@ See `docs/ARCHITECTURE.md` for the normative architecture.
 
 ## Repository status
 
-The existing `lain-kernel/` and `frontend/` directories come from the previous prototype and are retained as implementation history during the reboot.
+The project has entered a clean architecture reboot.
 
-Do not assume the old memory implementation or WebSocket chat loop represents the new architecture.
+The pre-reboot implementation is preserved in the `legacy/v0` branch. The active rewrite intentionally does **not** carry the old Rust kernel, React frontend, chat loop, or memory implementation forward.
 
 The rewrite is documentation-first:
 

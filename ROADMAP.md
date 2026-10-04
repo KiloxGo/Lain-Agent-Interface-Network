@@ -22,7 +22,7 @@ Deliverables:
 - [x] docs/AGENT_BACKENDS.md
 - [x] docs/MEMORY.md
 - [x] docs/CONFIGURATION.md
-- [ ] decide rewrite strategy for the old prototype: replace in-place vs archive branch
+- [x] archive the old prototype on `legacy/v0` and restart from a clean implementation tree
 - [ ] add initial ADRs for major architecture decisions
 - [ ] freeze initial Rust workspace/crate layout
 

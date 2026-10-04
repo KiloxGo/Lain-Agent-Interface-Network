@@ -132,7 +132,37 @@ When changing behavior:
 
 Normative project behavior belongs in Lain documents, not only in comments copied from an upstream API.
 
-## 6. Testing expectations
+## 6. Testing and CI expectations
+
+New domain behavior should have tests.
+
+### 6.1 Local-first validation
+
+The default expectation is that coding agents run deterministic validation locally before finishing a change.
+
+Prefer:
+- targeted unit/integration tests;
+- `cargo fmt --check`;
+- `cargo clippy` when relevant;
+- targeted frontend lint/typecheck when frontend code exists.
+
+Do not compensate for weak local validation by creating an expensive CI pipeline.
+
+### 6.2 GitHub Actions policy
+
+GitHub Actions must remain intentionally lightweight.
+
+Do NOT add:
+- LLM/agent invocations on every push or pull request;
+- token-consuming automated code review agents;
+- large model evaluation suites in routine CI;
+- oversized OS/toolchain matrices without demonstrated need;
+- duplicated tests that materially increase CI time without increasing confidence;
+- frequent scheduled workflows merely to "keep checking" the repository.
+
+If GitHub Actions are introduced, prefer cheap deterministic checks and narrow triggers. Expensive or token-consuming workflows should be manual (`workflow_dispatch`) or explicitly approved for a concrete reason.
+
+The repository should be pleasant to iterate on from a local Codex session without waiting on slow remote automation.
 
 New domain behavior should have tests.
 
@@ -166,8 +196,24 @@ Before finishing:
 4. verify documentation remains accurate;
 5. summarize behavioral changes and known limitations.
 
-## 8. Current rewrite status
+## 8. Commit style
 
-The repository contains an earlier Rust/React prototype. It is useful as historical context but is **not automatically authoritative for the rewrite**.
+Ordinary implementation commits should be concise and descriptive.
 
-The foundation documents in `docs/` define the target direction. Reuse old code only when it cleanly fits the new architecture.
+Milestone commits may follow the project's established short, atmospheric style: a compact phase word followed by a quoted subtitle.
+
+Historical examples include:
+- `first echo: "Cogito, Ergo Sum"`
+- `birth eve: "I am that I am"`
+- `connection: "I and Thou"`
+- `woven: "The Thread of Memory"`
+
+Use this style for genuine milestones, not every small fix. The message should still correspond to a real architectural or product milestone.
+
+## 9. Current rewrite status
+
+The pre-reboot implementation is preserved on the `legacy/v0` branch.
+
+It is historical reference only and MUST NOT be treated as architectural precedent for v1.
+
+The active rewrite should start from the foundation documents in `docs/` and a clean implementation tree. Reuse legacy code only when a current design explicitly calls for it.
