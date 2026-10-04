@@ -1,35 +1,263 @@
-use std::{future::Future, sync::Arc, time::Duration};
+use std::{convert::Infallible, future::Future, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
-    extract::{Path, Request, State},
+    extract::{DefaultBodyLimit, FromRef, Path, Request, State},
     http::{StatusCode, header},
     middleware::{self, Next},
-    response::{IntoResponse, Response},
-    routing::get,
+    response::{
+        IntoResponse, Response, Sse,
+        sse::{Event as SseEvent, KeepAlive},
+    },
+    routing::{get, post},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 
 use crate::{
+    backend::{BackendInfo, ControlError, Supervisor},
     config::ApiToken,
-    domain::{WorkSession, WorkSessionId},
-    kernel::{Kernel, KernelState},
+    domain::{
+        Approval, ApprovalDecision, ApprovalId, SessionOptions, Turn, WorkSession, WorkSessionId,
+    },
+    kernel::{Kernel, KernelState, blocking},
 };
 
+#[derive(Clone)]
+struct ApiState {
+    kernel: Arc<Kernel>,
+    workers: Option<Arc<Supervisor>>,
+}
+
+impl FromRef<ApiState> for Arc<Kernel> {
+    fn from_ref(state: &ApiState) -> Self {
+        state.kernel.clone()
+    }
+}
+
+impl ApiState {
+    fn workers(&self) -> Result<&Arc<Supervisor>, ApiError> {
+        self.workers.as_ref().ok_or(ApiError(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "worker_unavailable",
+        ))
+    }
+}
+
 pub fn router(kernel: Arc<Kernel>, token: ApiToken) -> Router {
+    controlled_router(kernel, token, None)
+}
+
+pub fn controlled_router(
+    kernel: Arc<Kernel>,
+    token: ApiToken,
+    workers: Option<Arc<Supervisor>>,
+) -> Router {
     Router::new()
         .route(
             "/health",
             get(|| async { Json(serde_json::json!({"status": "ok"})) }),
         )
         .route("/ready", get(readiness))
-        .route("/v1/work-sessions", get(list_sessions))
+        .route("/v1/work-sessions", get(list_sessions).post(create_session))
         .route("/v1/work-sessions/{id}", get(inspect_session))
+        .route("/v1/work-sessions/{id}/turns", get(turns).post(prompt))
+        .route("/v1/work-sessions/{id}/approvals", get(approvals))
+        .route("/v1/work-sessions/{id}/cancel", post(cancel))
+        .route("/v1/work-sessions/{id}/resume", post(resume))
+        .route(
+            "/v1/work-sessions/{id}/approvals/{approval}/decision",
+            post(decide),
+        )
+        .route("/v1/backends", get(backends))
+        .route("/v1/events", get(events))
         .fallback(|| async { ApiError(StatusCode::NOT_FOUND, "not_found") })
-        .with_state(kernel)
+        .with_state(ApiState { kernel, workers })
+        .layer(DefaultBodyLimit::max(64 * 1024))
         .layer(middleware::from_fn_with_state(token, authenticate))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CreateSession {
+    workspace: PathBuf,
+    #[serde(default)]
+    options: SessionOptions,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Prompt {
+    text: String,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Decision {
+    decision: ApprovalDecision,
+}
+
+async fn create_session(
+    State(state): State<ApiState>,
+    Json(input): Json<CreateSession>,
+) -> Result<(StatusCode, Json<WorkSession>), ApiError> {
+    Ok((
+        StatusCode::CREATED,
+        Json(
+            state
+                .workers()?
+                .create(input.workspace, input.options)
+                .await
+                .map_err(control_error)?,
+        ),
+    ))
+}
+async fn prompt(
+    State(state): State<ApiState>,
+    Path(id): Path<WorkSessionId>,
+    Json(input): Json<Prompt>,
+) -> Result<(StatusCode, Json<Turn>), ApiError> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(
+            state
+                .workers()?
+                .prompt(id, input.text)
+                .await
+                .map_err(control_error)?,
+        ),
+    ))
+}
+async fn cancel(
+    State(state): State<ApiState>,
+    Path(id): Path<WorkSessionId>,
+) -> Result<(StatusCode, Json<Turn>), ApiError> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(state.workers()?.cancel(id).await.map_err(control_error)?),
+    ))
+}
+async fn resume(
+    State(state): State<ApiState>,
+    Path(id): Path<WorkSessionId>,
+) -> Result<Json<WorkSession>, ApiError> {
+    Ok(Json(
+        state.workers()?.resume(id).await.map_err(control_error)?,
+    ))
+}
+async fn decide(
+    State(state): State<ApiState>,
+    Path((id, approval)): Path<(WorkSessionId, ApprovalId)>,
+    Json(input): Json<Decision>,
+) -> Result<(StatusCode, Json<Approval>), ApiError> {
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(
+            state
+                .workers()?
+                .decide(id, approval, input.decision)
+                .await
+                .map_err(control_error)?,
+        ),
+    ))
+}
+async fn turns(
+    State(kernel): State<Arc<Kernel>>,
+    Path(id): Path<WorkSessionId>,
+) -> Result<Json<Vec<Turn>>, ApiError> {
+    if blocking(&kernel, move |k| k.session(id))
+        .await
+        .map_err(internal_error)?
+        .is_none()
+    {
+        return Err(ApiError(StatusCode::NOT_FOUND, "session_not_found"));
+    }
+    blocking(&kernel, move |k| k.turns(id))
+        .await
+        .map(Json)
+        .map_err(internal_error)
+}
+async fn approvals(
+    State(kernel): State<Arc<Kernel>>,
+    Path(id): Path<WorkSessionId>,
+) -> Result<Json<Vec<Approval>>, ApiError> {
+    if blocking(&kernel, move |k| k.session(id))
+        .await
+        .map_err(internal_error)?
+        .is_none()
+    {
+        return Err(ApiError(StatusCode::NOT_FOUND, "session_not_found"));
+    }
+    blocking(&kernel, move |k| k.approvals(id))
+        .await
+        .map(Json)
+        .map_err(internal_error)
+}
+async fn backends(State(state): State<ApiState>) -> Json<Vec<BackendInfo>> {
+    Json(
+        state
+            .workers
+            .as_ref()
+            .map(|s| vec![s.info()])
+            .unwrap_or_default(),
+    )
+}
+
+async fn events(State(kernel): State<Arc<Kernel>>) -> Result<impl IntoResponse, ApiError> {
+    // Durable mutations cannot interleave snapshot creation and subscription.
+    let (snapshot, mut events) = blocking(&kernel, Kernel::snapshot_and_subscribe)
+        .await
+        .map_err(internal_error)?;
+    let mut shutdown = kernel.subscribe_shutdown();
+    let (sender, receiver) = tokio::sync::mpsc::channel::<Result<SseEvent, Infallible>>(32);
+    let initial = SseEvent::default()
+        .event("snapshot")
+        .json_data(snapshot)
+        .map_err(|_| ApiError(StatusCode::INTERNAL_SERVER_ERROR, "serialization_error"))?;
+    tokio::spawn(async move {
+        if sender.send(Ok(initial)).await.is_err() {
+            return;
+        }
+        loop {
+            if *shutdown.borrow() {
+                break;
+            }
+            let (event, last) = tokio::select! {
+                _=shutdown.changed()=>break,
+                _=sender.closed()=>break,
+                event=events.recv()=>match event {
+                    Ok(event)=>(SseEvent::default().event("event").id(event.id.to_string()).json_data(event).expect("serializable event"),false),
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>(SseEvent::default().event("resync_required").data("take a fresh snapshot"),true),
+                    Err(_)=>break,
+                }
+            };
+            tokio::select! {_=shutdown.changed()=>break,result=sender.send(Ok(event))=>if result.is_err(){break;}}
+            if last {
+                break;
+            }
+        }
+    });
+    Ok(
+        Sse::new(tokio_stream::wrappers::ReceiverStream::new(receiver))
+            .keep_alive(KeepAlive::default()),
+    )
+}
+
+fn control_error(error: anyhow::Error) -> ApiError {
+    if let Some(error) = error.downcast_ref::<ControlError>() {
+        return match error {
+            ControlError::NotFound => ApiError(StatusCode::NOT_FOUND, "not_found"),
+            ControlError::Conflict => ApiError(StatusCode::CONFLICT, "state_conflict"),
+            ControlError::Unavailable => {
+                ApiError(StatusCode::SERVICE_UNAVAILABLE, "worker_unavailable")
+            }
+            ControlError::InvalidInput => ApiError(StatusCode::BAD_REQUEST, "invalid_input"),
+        };
+    }
+    if error.downcast_ref::<crate::domain::DomainError>().is_some() {
+        return ApiError(StatusCode::BAD_REQUEST, "invalid_workspace_or_state");
+    }
+    tracing::warn!(%error,"worker control operation failed");
+    ApiError(StatusCode::BAD_GATEWAY, "worker_operation_failed")
 }
 
 async fn authenticate(State(token): State<ApiToken>, request: Request, next: Next) -> Response {
@@ -63,7 +291,9 @@ struct Readiness {
 async fn readiness(
     State(kernel): State<Arc<Kernel>>,
 ) -> Result<(StatusCode, Json<Readiness>), ApiError> {
-    let state = kernel.state().map_err(internal_error)?;
+    let state = blocking(&kernel, Kernel::state)
+        .await
+        .map_err(internal_error)?;
     Ok((
         if state == KernelState::Ready {
             StatusCode::OK
@@ -77,7 +307,10 @@ async fn readiness(
 async fn list_sessions(
     State(kernel): State<Arc<Kernel>>,
 ) -> Result<Json<Vec<WorkSession>>, ApiError> {
-    kernel.list_sessions().map(Json).map_err(internal_error)
+    blocking(&kernel, Kernel::list_sessions)
+        .await
+        .map(Json)
+        .map_err(internal_error)
 }
 
 async fn inspect_session(
@@ -87,8 +320,8 @@ async fn inspect_session(
     let id: WorkSessionId = raw_id
         .parse()
         .map_err(|_| ApiError(StatusCode::BAD_REQUEST, "invalid_session_id"))?;
-    kernel
-        .session(id)
+    blocking(&kernel, move |k| k.session(id))
+        .await
         .map_err(internal_error)?
         .map(Json)
         .ok_or(ApiError(StatusCode::NOT_FOUND, "session_not_found"))
@@ -114,7 +347,17 @@ pub async fn serve(
     token: ApiToken,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<()> {
-    let app = router(kernel.clone(), token);
+    serve_with_workers(listener, kernel, token, None, shutdown).await
+}
+
+pub async fn serve_with_workers(
+    listener: TcpListener,
+    kernel: Arc<Kernel>,
+    token: ApiToken,
+    workers: Option<Arc<Supervisor>>,
+    shutdown: impl Future<Output = ()> + Send + 'static,
+) -> Result<()> {
+    let app = controlled_router(kernel.clone(), token, workers);
     kernel.mark_ready()?;
     let (draining, drained) = tokio::sync::oneshot::channel();
     let shutdown_kernel = kernel.clone();

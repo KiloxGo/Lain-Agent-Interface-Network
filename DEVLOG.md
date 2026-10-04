@@ -285,3 +285,109 @@ The next milestone must settle, with evidence:
 - how live worker events are exposed to future clients.
 
 Do not begin Claude Code, DeepSeek Harness, Lain memory, or UI work as part of Phase 2.
+
+---
+
+## 2026-10-04 — Phase 2: Codex worker control
+
+### Milestone
+
+`contact: "Across the Wired"`
+
+Lain now supervises real Codex work through authenticated domain APIs. Phase 3
+has not started.
+
+### Implemented behavior and decisions
+
+- Verified installed `codex-cli 0.160.0`, its generated schemas, official App
+  Server documentation/source and the current ACP adapter. Selected direct
+  App Server: the ACP adapter itself starts App Server, so an extra translation
+  does not help this first backend. Volatile facts are in `docs/backends/CODEX.md`.
+- Kept one Rust crate. Added a small supervisor plus private Codex/JSONL/process
+  modules; no generic worker framework, coding loop or mandatory ACP layer.
+- One owned process/task per WorkSession isolates failures and cancellation.
+  Processes have allowlisted environments, drained private stderr, bounded
+  frames/queues/RPC waits, and owned process-tree cleanup. Windows Job Objects
+  were exercised; Unix process-group cleanup still needs native validation.
+- Added Turn, Approval and explicit cancellation evidence. A completed, failed
+  or interrupted turn leaves the reusable WorkSession Idle. RPC acknowledgement
+  never substitutes for observed terminal state; a completed turn can coexist
+  with an acknowledged cancellation. Rejected cancellation can be retried.
+- Migration 002 preserves opaque provider thread/turn identities, selected
+  session options, turns and approvals separately from public Lain IDs. Atomic
+  recovery and mutations cover both session and worker metadata. No prompts or
+  worker transcript history are stored in Lain SQLite.
+- SQLite/projection access from async paths uses blocking tasks, including reads
+  that might wait behind a writer. The independent reader routes RPC responses
+  without SQLite waits. Output fragments publish counts without durable writes;
+  completed output is sanitized and bounded. Queue overflow loses certainty and
+  stops the affected runtime instead of dropping lifecycle observations silently.
+- Owner decisions support approve-once, deny and applicable cancel. Permission
+  requests grant only the requested subset for one turn. Unknown requests are
+  rejected; unresolved connection-local approvals expire/become Unknown on loss.
+- Added create/prompt/follow-up/cancel/resume/approval control, backend reporting,
+  turn/approval inspection and authenticated SSE. Snapshot and subscription are
+  established atomically against durable mutations. Lag requires a new snapshot;
+  EventId is not a replay cursor. Client disconnect does not stop the worker.
+- Restart restores the same Lain/provider identities and reconciles provider
+  history. Missing rollouts, lost submission identities and uncertain outcomes
+  remain explicit; no replacement thread is created silently.
+
+### Validation and problems resolved
+
+Local validation: 14 deterministic tests passed; `cargo fmt --all --check`,
+`cargo test --locked --workspace`, and
+`cargo clippy --locked --workspace --all-targets -- -D warnings` passed.
+Tests use a local Rust fake App Server; they do not require login or model tokens.
+Coverage includes migration/recovery rollback, notification-before-response
+ordering, numeric/string approval IDs, command/file/permission approvals, unknown
+requests, cancellation rejection/retry and completion races, two sessions,
+foreign-session events, secret fragments, malformed frames, bounded-queue overflow,
+crash/restart, API controls and SSE snapshot/lag/detachment.
+
+Real Windows acceptance used `scripts/codex_smoke.py --run-real`, the local
+ChatGPT login and `gpt-6-astra/high`. A complete successful run demonstrated:
+
+1. Two distinct real provider sessions in separate temporary workspaces.
+2. Initial turns, normalized progress/completion and same-session follow-up.
+3. Cancellation of one active session without stopping the other.
+4. SSE client disconnect/reconnect with continued worker ownership and snapshots.
+5. A real command approval routed through the owner API and resolved.
+6. Forced termination of one direct child of the test daemon, followed by
+   conservative disconnect and explicit resume of the same identity.
+7. Graceful daemon shutdown/restart, both provider identities unchanged, followed
+   by a new successful real turn. Shutdown exited 0; the API token was absent
+   from captured daemon logs. Temporary workspaces/databases were cleaned up.
+
+After moving asynchronous projection reads to blocking tasks, the final binary
+also passed a real HTTP/SSE prompt check: exact expected assistant text, correctly
+correlated Lain session/turn IDs, persisted Completed turn and Idle session.
+
+Implementation checks found and fixed a resume race after publishing disconnect,
+a snapshot/subscription stale-event window, non-atomic worker/session recovery,
+and protocol replies that could be interrupted by command selection. Test cleanup
+initially held its own SQLite connection open on Windows; the smoke now closes it
+explicitly and runs a private executable copy to avoid Cargo file-lock contention.
+One real run failed an immediate interrupt; active-work acceptance now waits for
+actual progress. The adapter still reports rejection/uncertainty rather than
+claiming cancellation succeeded.
+
+### Limitations and Phase 3 handoff
+
+- Supported protocol version is explicitly 0.160.0. Capability reporting reflects
+  verified adapter support, not a general server method negotiation mechanism.
+- An unused thread may have no resumable rollout. A turn whose native ID was lost
+  cannot safely be matched by text/order. Approval request IDs never survive a
+  process connection; external side effects may remain uncertain after loss.
+- Windows is the tested host. Linux needs native lifecycle tests and service
+  cgroup cleanup for hard daemon crashes; managed shutdown uses process groups.
+- Completed output is live-only and bounded; reconnect recovers operational
+  state, not a transcript. Known/pattern-based secret filtering cannot recognize
+  arbitrary unknown or encoded secrets. Credential retrieval remains prohibited.
+- Metadata uses whole-session snapshots; indexed turn/approval rows are deferred
+  until history size warrants them. Full profiles/SecretRefs, additional backends,
+  durable event replay, archive semantics, memory/world and UI remain deferred.
+- Phase 3 clients must handle Unknown, cancellation acknowledgement separately
+  from completion, approval expiry, SSE resync and refresh after BackendReconnected.
+  Decide transcript retention and profile configuration explicitly when needed;
+  do not turn these operational records into Lain memory.

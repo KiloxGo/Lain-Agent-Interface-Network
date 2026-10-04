@@ -315,9 +315,9 @@ Do not implement automatic smart routing before explicit profiles are reliable.
 - do not blindly inherit the daemon's full environment;
 - validate executable selection and workspace paths.
 
-## 21. Phase 1 daemon configuration
+## 21. Implemented daemon configuration
 
-Phase 1 resolves built-in defaults followed by explicit environment overrides.
+The daemon resolves built-in defaults followed by explicit environment overrides.
 It does not yet load TOML, resolve RuntimeProfiles, import global worker config,
 or instantiate a general Secret Store. Only these settings are read:
 
@@ -327,6 +327,7 @@ or instantiate a general Secret Store. Only these settings are read:
 | `LAIN_LISTEN` | `127.0.0.1:8787`; numeric loopback IPv4/IPv6 socket address only; port 0 supported |
 | `LAIN_API_TOKEN` | Required, 32–256 ASCII letters/digits/`-`/`_`; use a securely generated random value |
 | `LAIN_LOG` | `info`; one tracing level (`error`, `warn`, `info`, `debug`, `trace`) |
+| `LAIN_CODEX_PATH` | Optional native Codex executable; otherwise search PATH, including the Windows npm package's native binary |
 
 The API credential is resolved separately from domain configuration, held in a
 redacted, non-serializable type, and compared using `subtle` constant-time byte
@@ -342,3 +343,29 @@ environment dumps. JSON lifecycle logs go to stderr and include session IDs/stat
 and failure context, not session payloads. Configure retention externally.
 Use a stable absolute database path for a service; changing its working directory
 with the default relative path selects a different database.
+
+## 22. Phase 2 worker configuration
+
+Session creation accepts `options.model` (optional validated model identifier) and
+`options.sandbox` (`read_only`, the default, or `workspace_write`). These selected
+options persist with the provider binding and are reused on resume. Workspace
+must already exist. On Windows configure native `codex.exe`, not a `.cmd`/`.ps1` shim.
+Model/provider defaults and local authentication otherwise come from Codex itself;
+Lain does not edit global Codex files. This is not a fully frozen profile snapshot:
+changes to upstream defaults may affect a resumed session with unspecified options.
+
+The worker environment is cleared then populated from a small OS/path/locale,
+proxy and optional `CODEX_HOME` allowlist. `LAIN_API_TOKEN`, arbitrary credentials
+and the rest of the daemon environment are not inherited. API-key-only setups
+requiring additional environment values need a future explicit SecretRef flow;
+the verified setup uses Codex's existing ChatGPT login. Approval policy is owner
+review on request and never automatically accepts a backend permission request.
+
+Raw protocol messages, stderr and provider error strings are not logged. Known
+daemon credentials and recognizable credential/key patterns are blocked in
+prompts and redacted from completed output/approval descriptions. Fragment events
+carry counts, not raw text, to avoid split-token disclosure. This is a sanitizer,
+not a general secret detector: arbitrary unknown secret values or encoded secrets
+cannot be recognized reliably. Never ask a worker to retrieve/display credentials;
+keep credential files outside its permitted workspace. No transcripts or prompts
+are persisted by Lain, and no semantic memory exists in this milestone.

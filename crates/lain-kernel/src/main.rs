@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use lain_kernel::{api, config::Config, kernel::Kernel};
+use lain_kernel::{api, backend::Supervisor, config::Config, kernel::Kernel};
 
 #[tokio::main]
 async fn main() -> std::process::ExitCode {
@@ -34,13 +34,25 @@ async fn run() -> Result<()> {
         .await
         .context("bind local API")?;
     tracing::info!(address = %listener.local_addr()?, "API listener bound");
-    let result = api::serve(listener, kernel.clone(), config.api_token, shutdown).await;
+    let workers =
+        Supervisor::new(kernel.clone(), config.codex_path, config.api_token.clone()).await;
+    workers.recover().await;
+    let result = api::serve_with_workers(
+        listener,
+        kernel.clone(),
+        config.api_token,
+        Some(workers.clone()),
+        shutdown,
+    )
+    .await;
+    let worker_shutdown = workers.shutdown().await;
+    drop(workers);
     drop(kernel);
     match &result {
         Ok(()) => tracing::info!("laind stopped; storage closed"),
         Err(error) => tracing::error!(%error, "laind stopped with an error"),
     }
-    result
+    result.and(worker_shutdown)
 }
 
 #[cfg(unix)]

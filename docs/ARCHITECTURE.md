@@ -514,7 +514,7 @@ Current references:
 - DeepSeek Harness ACP: https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/acp/acp
 - Claude Code LLM gateway configuration: https://docs.anthropic.com/en/docs/claude-code/llm-gateway
 
-## 15. Implemented Phase 1 boundary
+## 15. Implemented Phase 2 boundary
 
 The initial workspace contains one crate, `crates/lain-kernel`, with a library
 and `laind` binary. Modules preserve the boundaries without empty services or
@@ -522,38 +522,54 @@ one-implementation repository/backend traits:
 
 | Module | Current responsibility |
 |---|---|
-| `domain` | Strong IDs, WorkSession, state transition rules, timestamps |
+| `domain` | Strong IDs, WorkSession, Turn, Approval, state and cancellation rules |
 | `persistence` (private) | SQLite schema migration, snapshots, atomic recovery |
 | `kernel` | Session ownership, committed in-memory projection, lifecycle |
-| `events` | Normalized session event payloads |
+| `events` | Normalized lifecycle, approval, output and tool events |
 | `config` | Daemon-only settings and redacted API credential |
-| `api` | Authenticated HTTP queries and bounded graceful HTTP shutdown |
+| `api` | Authenticated HTTP queries/commands, SSE and bounded HTTP shutdown |
+| `worker` (private) | Durable opaque provider identities and operational records |
+| `backend` | Per-session supervisor and command serialization |
+| `backend::codex/rpc/process` (private) | Codex translation, JSON framing and process ownership |
 | `main` | Configuration, logging, signal registration, startup and teardown |
 
-Future adapters will occupy their own modules/crates; none are instantiated yet.
-The Kernel is the initial Session Supervisor boundary. Only its methods may
-commit session changes. A single mutex orders storage writes, projection updates,
-and publication. These mutation methods are synchronous; async callers must use
-a blocking task once backend writes are introduced. Current HTTP queries read
-the projection and do not execute SQL.
+The supervisor owns one runtime task and one backend subprocess per WorkSession.
+The first adapter uses direct Codex App Server; there is no generic agent loop,
+plugin registry or backend trait with a single implementation. JSON-RPC objects
+stay in the adapter. Only Kernel methods commit domain changes. A single mutex
+orders storage writes, projection updates and durable event publication.
+Supervisor mutations and async projection reads run in `spawn_blocking`; reads
+can otherwise wait behind SQLite and occupy a runtime thread. No Kernel lock
+crosses an await. HTTP queries read committed projections and do not execute SQL.
 
 SQLite stores versioned WorkSession JSON snapshots keyed by Lain ID. The schema
 is owned by persistence, not by the public API. Snapshot decoding and domain
-validation happen before recovery commits. Snapshots intentionally avoid a full
-relational schema before the first worker exists; add indexed columns through
-migrations when queries require them. This is operational storage only.
+validation happen before recovery commits. Migration 002 adds a private
+`worker_state` snapshot per WorkSession containing provider bindings, selected
+session options, turns and approvals. Session and worker updates share one
+transaction, including recovery. No prompts or transcripts are stored here.
+Full snapshot writes are deliberately simple: history size affects write cost;
+introduce indexed turn/approval tables when measured history volume warrants it.
+This is operational storage only, not Lain memory.
 
-The event bus uses a bounded Tokio broadcast channel (256 events). Initial kinds
-are `SessionCreated` and `SessionStateChanged`. Publishing follows a successful
-durable commit and projection update, under the same Kernel lock. No subscribers
-is normal; a slow subscriber receives `Lagged` and must resnapshot. Subscribe
-before taking a snapshot and tolerate already-reflected events. There is no
-durable event replay, outbox, or exactly-once promise. A crash between commit and
-publication is resolved by querying the authoritative session snapshot. Recovery
-does not replay or publish historical changes.
+The event bus uses a bounded Tokio broadcast channel (256 events). Durable
+lifecycle/approval publication follows commit and projection update under the
+Kernel lock. Output progress and completed text/tool observations are live-only;
+they do not write SQLite. The dedicated protocol reader routes RPC responses
+independently of the supervisor/storage task and queues at most 512 notifications.
+Overflow stops that owned runtime and requires reconciliation instead of silently
+dropping lifecycle evidence. Message frames are bounded at 8 MiB.
 
-The local API uses Axum, binds only to loopback in Phase 1, and requires a bearer
-token even for probes. It does not accept session creation, prompts, approvals,
-or cancellation commands. API authentication is distinct from future worker
-approval policy. Remote exposure and TLS/auth deployment need a security design
-before relaxing this binding restriction.
+SSE establishes its snapshot and subscription under the same Kernel lock. There
+is no durable replay, outbox, or exactly-once promise. A slow subscriber receives
+`resync_required` and reconnects for a fresh snapshot; `Last-Event-ID` is not a
+replay cursor. A crash between commit and publication is resolved from snapshots.
+Recovery does not replay historical output; `BackendReconnected` tells an existing
+client to refresh turns and approvals after reconciliation. No subscribers is normal.
+
+The local API uses Axum, binds only to loopback, and requires a bearer token even
+for probes and SSE. It accepts session creation, initial/follow-up prompts,
+explicit approval decisions, cancellation and resume. Client lifetime is unrelated
+to worker lifetime. API authentication is distinct from worker approval policy.
+Remote exposure and TLS/auth deployment need a security design before relaxing
+this binding restriction. Lain Actor, memory, World and scheduling remain deferred.

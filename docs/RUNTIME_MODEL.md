@@ -339,7 +339,6 @@ Idle can mean:
 
 - a turn completed and the session is resumable;
 - waiting for another prompt;
-- waiting for approval;
 - connected with no active turn.
 
 Silence is not completion.
@@ -386,32 +385,57 @@ V1 runtime should stay small:
 - no distributed deployment;
 - no high availability cluster.
 
-## 20. Phase 1 lifecycle and recovery
+## 20. Implemented lifecycle and recovery
 
-The implemented subset is configuration/logging, operational SQLite, WorkSession
-recovery, and a local HTTP server. No worker, scheduler, world, or Lain Actor
+The implemented subset is configuration/logging, operational SQLite, worker
+supervision/recovery, and a local HTTP/SSE server. No scheduler, world, or Lain Actor
 is started. Startup fails before serving if configuration, signals, storage,
 migration, persisted records, or the listener cannot be initialized.
 
-`Booting` opens storage. `Recovering` loads and validates all session snapshots
+`Booting` opens storage. `Recovering` loads and validates session and worker snapshots
 in one transaction. Starting, Ready, Running, WaitingForApproval, Idle, and
 Disconnected become Unknown because no live backend can confirm their state.
 Created, Unknown, Completed, Cancelled, Failed, and Archived remain unchanged.
-Recovery is idempotent, is persisted before serving, and does not infer worker
-failure or completion. Invalid data aborts recovery rather than being skipped.
+Unfinished turns become Unknown; pending approvals expire, and decisions with
+uncertain delivery become Unknown. Recovery is persisted before serving and does
+not infer worker failure or completion. Invalid data aborts the whole recovery
+transaction rather than being skipped. The supervisor then attempts resume for
+persisted provider identities. Unresumable sessions stay Disconnected/Unknown;
+they are never silently replaced by a new provider session.
 
-`Ready` is entered only after recovery commits and the API listener binds.
+`Ready` is entered after recovery commits, the listener binds and resume attempts finish.
 `GET /ready` returns 200 only in this state, otherwise 503 while a listener is
-available. During boot/recovery the daemon has no listener; `/health` reports
-only HTTP liveness. Both endpoints require authentication. No `Degraded` state
-is needed until independently failing services/backends exist.
+available. During backend recovery a socket is bound but requests are not served
+yet. `/health` reports only HTTP liveness. Both endpoints require authentication.
+Missing/unsupported Codex leaves the query API ready; inspect `/v1/backends` for
+worker availability. Readiness does not promise that every backend is connected.
 
 SIGINT/SIGTERM on Unix and Ctrl-C/Ctrl-Break on Windows enter `ShuttingDown`.
-New internal mutations are rejected, the HTTP listener stops accepting, and
+New control commands are rejected, the HTTP listener stops accepting, SSE ends, and
 in-flight requests may drain for at most five seconds. Exceeding that bound
-returns a failure exit status. Each mutation is already committed synchronously;
-there is no pending write queue to flush. Dropping Kernel ownership closes SQLite
+returns a failure exit status. Owned workers are then stopped and their uncertain
+state persisted. Each in-flight RPC has a bounded write/response timeout, followed
+by EOF shutdown and forced process-tree termination if necessary. Shutdown does
+not manufacture successful cancellation. Dropping Kernel ownership closes SQLite
 and releases its OS file lock. The `.lock` sidecar is retained on disk; the OS
 releases the held lock on process exit, including a crash. Do not delete it while
 the daemon is running. One Kernel owns a database at a time. Aliased hard links
 and network-filesystem locking are outside the supported local-file deployment.
+
+## 21. Worker and client lifetimes
+
+One supervised task/process per WorkSession isolates failures and cancellation.
+A bounded command channel serializes prompt, cancel and approval operations for
+that session. After a command is queued, dropping the HTTP response or SSE client
+does not cancel it. The daemon owns the task and process independently.
+
+The stdout reader never awaits SQLite. It dispatches responses immediately and
+queues notifications for the session task. Durable state changes run on blocking
+tasks; progress fragments only publish live counts. A malformed/oversized frame,
+queue overflow, timeout or process loss stops the affected runtime and triggers
+conservative recovery. Pending approvals cannot be transferred to a new process.
+
+Windows workers belong to a kill-on-close Job Object. Unix workers belong to an
+owned process group, killed on managed shutdown. For Unix daemon SIGKILL/crashes,
+deploy under a service manager with control-group cleanup; Rust destructors cannot
+run after SIGKILL. Native Linux lifecycle validation remains outstanding.

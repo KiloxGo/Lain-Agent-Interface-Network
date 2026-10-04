@@ -102,7 +102,10 @@ impl WorkSessionState {
                 WaitingForApproval | Idle | Completed | Cancelled | Failed | Disconnected | Unknown
             ),
             WaitingForApproval => {
-                matches!(next, Running | Cancelled | Failed | Disconnected | Unknown)
+                matches!(
+                    next,
+                    Running | Idle | Cancelled | Failed | Disconnected | Unknown
+                )
             }
             Idle => matches!(
                 next,
@@ -146,6 +149,120 @@ impl WorkSessionState {
                 | Self::Disconnected
         )
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SandboxMode {
+    #[default]
+    ReadOnly,
+    WorkspaceWrite,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SessionOptions {
+    pub model: Option<String>,
+    #[serde(default)]
+    pub sandbox: SandboxMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TurnState {
+    Starting,
+    Running,
+    Completed,
+    Cancelled,
+    Failed,
+    Unknown,
+}
+
+impl TurnState {
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Completed | Self::Cancelled | Self::Failed)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CancellationState {
+    #[default]
+    NotRequested,
+    Requested,
+    Rejected,
+    Acknowledged,
+    Confirmed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Turn {
+    pub id: TurnId,
+    pub work_session_id: WorkSessionId,
+    pub state: TurnState,
+    pub cancellation: CancellationState,
+    pub created_at_ms: u64,
+    pub updated_at_ms: u64,
+    pub failure: Option<WorkerFailure>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureKind {
+    Unavailable,
+    Protocol,
+    Rejected,
+    Execution,
+    Storage,
+    Unsupported,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkerFailure {
+    pub kind: FailureKind,
+    /// A safe category/message, never a raw backend error payload.
+    pub message: String,
+    pub code: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalKind {
+    Command,
+    FileChange,
+    Permissions,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalDecision {
+    ApproveOnce,
+    Deny,
+    Cancel,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ApprovalStatus {
+    Pending,
+    Responding,
+    Resolved,
+    Expired,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Approval {
+    pub id: ApprovalId,
+    pub work_session_id: WorkSessionId,
+    pub turn_id: Option<TurnId>,
+    pub kind: ApprovalKind,
+    pub description: String,
+    pub decisions: Vec<ApprovalDecision>,
+    pub status: ApprovalStatus,
+    pub decision: Option<ApprovalDecision>,
+    pub created_at_ms: u64,
+    pub updated_at_ms: u64,
 }
 
 #[derive(Debug, Error)]

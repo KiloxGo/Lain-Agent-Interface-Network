@@ -47,7 +47,8 @@ Interactive terminal scraping is not a foundation because rendering is not a pro
 
 ## 4. Backend semantic contract
 
-The exact Rust trait is deferred, but the adapter layer should support the semantics of:
+The semantic boundary supports the following concepts; a generic Rust trait is
+deferred until a second backend justifies it:
 
 - probe backend health/version;
 - report capabilities;
@@ -131,7 +132,8 @@ As of 2026-10-04, Codex App Server provides a structured long-lived interface wi
 
 That maps naturally to Lain's needs.
 
-The first Codex adapter may speak App Server directly.
+The implemented Codex adapter speaks App Server directly. See
+[the verified contract and test results](backends/CODEX.md).
 
 ### Conceptual mapping
 
@@ -142,11 +144,16 @@ Codex item       -> normalized Event(s)
 approval request -> Approval
 ~~~
 
-The exact mapping must be verified against the installed Codex version during implementation.
+The mapping was verified against installed 0.160.0 on 2026-10-04. Lain persists
+opaque provider bindings separately from public WorkSession/Turn IDs.
 
 ### Configuration
 
-Resolve RuntimeProfile into launch/session configuration.
+Phase 2 supports selected model and sandbox options per session; full RuntimeProfile
+resolution remains Phase 5 work. The capability report describes the locally
+verified version's adapter operations, not remotely negotiated server permissions.
+Unknown versions are unavailable until their contract is verified. Session startup
+still performs initialization and can fail independently of the version probe.
 
 Prefer per-runtime/session overrides over rewriting global user config.
 

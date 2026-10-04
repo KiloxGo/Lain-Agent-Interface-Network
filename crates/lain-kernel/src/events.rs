@@ -1,6 +1,9 @@
 use serde::Serialize;
 
-use crate::domain::{EventId, TurnId, WorkSessionId, WorkSessionState};
+use crate::domain::{
+    Approval, ApprovalId, CancellationState, EventId, Turn, TurnId, WorkSessionId,
+    WorkSessionState, WorkerFailure,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Event {
@@ -19,5 +22,52 @@ pub enum EventKind {
     SessionStateChanged {
         from: WorkSessionState,
         to: WorkSessionState,
+    },
+    TurnStarted {
+        turn: Turn,
+    },
+    TurnCompleted {
+        turn: Turn,
+    },
+    CancellationChanged {
+        state: CancellationState,
+    },
+    OutputProgress {
+        category: String,
+        characters: usize,
+    },
+    AssistantMessageCompleted {
+        text: String,
+    },
+    CommandStarted {
+        command: String,
+    },
+    CommandCompleted {
+        command: String,
+        output: String,
+        exit_code: Option<i64>,
+    },
+    FileChanged {
+        paths: Vec<String>,
+    },
+    ToolActivity {
+        name: String,
+        completed: bool,
+    },
+    ApprovalRequested {
+        approval: Approval,
+    },
+    ApprovalResolved {
+        approval: Approval,
+    },
+    ApprovalDecisionSubmitted {
+        approval_id: ApprovalId,
+    },
+    BackendDisconnected {
+        failure: WorkerFailure,
+    },
+    BackendReconnected,
+    ErrorObserved {
+        failure: WorkerFailure,
     },
 }

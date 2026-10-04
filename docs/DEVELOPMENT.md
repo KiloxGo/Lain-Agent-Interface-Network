@@ -91,7 +91,7 @@ Legacy code may be consulted for:
 
 Any reused code must fit the current architecture rather than pulling the architecture back toward v0.
 
-## 7. Phase 1 workspace and local operation
+## 7. Workspace and local operation
 
 ```text
 Cargo.toml / Cargo.lock
@@ -100,14 +100,18 @@ crates/lain-kernel/
   src/
     lib.rs          library module boundary
     main.rs         laind binary
-    domain.rs       IDs, session state and validation
+    domain.rs       IDs, sessions, turns, approvals and validation
     persistence.rs  private SQLite repository and migrations
     kernel.rs       session projection, mutation and lifecycle ownership
     events.rs       normalized event payloads
     config.rs       daemon settings and API token
-    api.rs          authenticated read-only HTTP
-  migrations/001_sessions.sql
-  tests/foundation.rs
+    api.rs          authenticated HTTP control and SSE
+    worker.rs       private durable operational metadata
+    backend/        supervisor, Codex adapter, JSONL transport, process ownership
+  migrations/001_sessions.sql, 002_worker_state.sql
+  tests/foundation.rs, worker_control.rs
+  tests/support/app_server.rs   deterministic subprocess fixture
+scripts/codex_smoke.py          opt-in real daemon/Codex acceptance check
 ```
 
 Use stable Rust (the workspace language floor is 1.89; the locked dependencies
@@ -139,7 +143,7 @@ run transactionally using `PRAGMA user_version`; newer unknown schema versions
 are refused without downgrade. Back up with the daemon stopped, or use a SQLite
 consistent backup mechanism; do not copy only the main file while WAL is active.
 
-All four endpoints require the same bearer token:
+All endpoints require the same bearer token. Query endpoints:
 
 | GET endpoint | Response |
 |---|---|
@@ -152,8 +156,7 @@ Missing/incorrect credentials return 401. Session fields are `id`, `backend`,
 `runtime_profile_id`, `workspace`, `state`, `created_at_ms`, `updated_at_ms`.
 State names use snake_case. Session lists are ordered by UUID for deterministic
 snapshots, not creation time. Pagination is deferred until session volume warrants
-it. No create endpoint exists in Phase 1; tests exercise internal Kernel methods
-to persist representative sessions without inventing a fake worker.
+it. Provider-native identities are private metadata, not API fields.
 
 In a second shell with the same token available:
 
@@ -169,9 +172,10 @@ Invoke-RestMethod http://127.0.0.1:8787/v1/work-sessions -Headers $headers
 ```
 
 Stop with Ctrl-C (or SIGTERM on Unix). Run again with the same database path to
-recover sessions. There is no continuous polling or model invocation.
+recover sessions. Startup attempts to resume known Codex identities; this does not
+submit a new prompt. Model work starts only from explicit prompt commands.
 
-## 8. Phase 1 validation and deferred work
+## 8. Validation and deferred work
 
 ```sh
 cargo fmt --all --check
@@ -183,8 +187,12 @@ Tests use temporary databases and ephemeral loopback ports, with no external
 service or model dependency. They cover the state transition matrix, identifiers,
 configuration validation/redaction, persistence/restart, atomic recovery failures,
 single ownership, commit-before-event ordering and write failures, subscriber lag,
-API authentication/queries/errors, and real TCP shutdown/reopen. No CI workflow
-is added.
+API authentication/commands/SSE, and real TCP shutdown/reopen. The fake App Server
+also tests two sessions, follow-ups, numeric/string approval IDs, permission grants,
+cancel rejection/retry and completion races, malformed frames, process crash,
+restart/resume, secret fragments, and foreign-session notifications. Migration
+from schema 1 and recovery rollback on corrupt worker data are covered. Ordinary
+tests never invoke real Codex or a model. No CI workflow is added.
 
 The Phase 1 implementation was also smoke-tested as a Windows `laind.exe`
 process: two boots, authenticated probes/list/inspect, rejected unauthenticated
@@ -192,13 +200,67 @@ access, Ctrl-Break with exit code 0, JSON logs without the token, and committed
 Running-to-Unknown recovery. The Unix SIGINT/SIGTERM path still needs native
 Linux validation; no Linux Rust toolchain was available in this development run.
 
-Deferred: backend adapters and provider identity, session commands over HTTP,
-profile/SecretRef registry, durable event history and live transport, worker
-process supervision, memory/world, scheduling, Web/TUI, and remote deployment.
+Deferred: additional backends, profile/SecretRef registry, durable output history,
+memory/world, scheduling, Web/TUI, and remote deployment.
 The in-process event channel is a notification mechanism, not an audit log.
 
-Before Phase 2, verify the chosen backend's installed protocol/version and decide
-how confirmed session completion differs from turn idleness; how disconnects,
-cancellation acknowledgements and pending approvals reconcile; where adapter
-identity is persisted; and whether owned worker processes stop or detach during
-Kernel shutdown. Do not infer these contracts from this metadata-only skeleton.
+## 9. Worker control API
+
+Install/login to the supported Codex version listed in [CODEX.md](backends/CODEX.md).
+If discovery fails, set `LAIN_CODEX_PATH` to the native executable. Query
+`GET /v1/backends` for version, availability and adapter capabilities. Availability
+does not promise valid authentication or a usable model quota.
+
+| Method and path | Body / result |
+|---|---|
+| `POST /v1/work-sessions` | `{"workspace":"/absolute/existing/directory","options":{"sandbox":"read_only"}}`; 201 WorkSession |
+| `POST /v1/work-sessions/{id}/turns` | `{"text":"instruction"}`; 202 Turn; also used for follow-ups when Idle |
+| `GET /v1/work-sessions/{id}/turns` | All durable Turn records |
+| `POST /v1/work-sessions/{id}/cancel` | No body; 202 Turn with cancellation acknowledgement, not completion |
+| `GET /v1/work-sessions/{id}/approvals` | All Approval records; filter `status == pending` for decisions |
+| `POST /v1/work-sessions/{id}/approvals/{approval}/decision` | `{"decision":"approve_once"}`, `deny`, or `cancel` if offered; 202 Approval |
+| `POST /v1/work-sessions/{id}/resume` | Explicit retry for Unknown/Disconnected; 200 WorkSession |
+| `GET /v1/events` | Authenticated SSE: initial `snapshot`, then normalized `event` records |
+
+Optional model selection is `options.model`. Unknown JSON fields are rejected;
+request bodies are limited to 64 KiB and prompt text to 32 KiB. Invalid inputs
+return 400/422, absent IDs 404, state conflicts 409, unavailable workers 503, and
+backend operation failures 502 with safe error codes. Commands submitted during
+an active turn are rejected rather than silently steering/queuing another prompt.
+
+PowerShell example (same daemon token):
+
+```powershell
+$headers = @{ Authorization = "Bearer $env:LAIN_API_TOKEN" }
+$body = @{workspace = (Get-Location).Path; options = @{sandbox = 'read_only'}} | ConvertTo-Json
+$session = Invoke-RestMethod http://127.0.0.1:8787/v1/work-sessions -Method Post -Headers $headers -ContentType application/json -Body $body
+$body = @{text = 'Explain the files in this workspace. Do not modify them.'} | ConvertTo-Json
+Invoke-RestMethod "http://127.0.0.1:8787/v1/work-sessions/$($session.id)/turns" -Method Post -Headers $headers -ContentType application/json -Body $body
+```
+
+SSE clients must use an HTTP client that can send the Authorization header (for
+example browser `fetch` streaming; native EventSource cannot set it). Closing a
+stream does not stop worker work. Apply the initial snapshot before live events.
+On `resync_required`, disconnect and open a new stream; Last-Event-ID does not
+replay output. Durable snapshots include sessions/turns/approvals, not transcripts.
+On `backend_reconnected`, refresh that session's turns and approvals. Character
+progress is live-only; completed text is sanitized and bounded.
+
+## 10. Optional real Codex smoke
+
+This explicitly consumes model quota and uses the local Codex login/default model.
+It creates only temporary workspaces and its own database/token; Codex may retain
+its native rollout history in its own home. It never rewrites global config.
+Use Windows or Linux, Python 3 and the supported authenticated native Codex binary:
+
+```sh
+cargo build --locked --bin laind
+python scripts/codex_smoke.py --run-real
+```
+
+The script exercises HTTP/SSE, two real provider sessions, initial/follow-up turns,
+scoped cancellation, owner approval, client detach/reconnect, owned process crash,
+resume, daemon restart and identity preservation. It uses a private executable
+copy so Windows builds remain possible while it runs. Approval generation is
+model-dependent; failure to request approval fails the smoke rather than silently
+skipping that acceptance check. Do not include this command in ordinary CI.

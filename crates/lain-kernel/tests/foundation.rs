@@ -85,7 +85,7 @@ fn ids_and_complete_transition_matrix() {
         ),
         (
             WaitingForApproval,
-            vec![Running, Cancelled, Failed, Disconnected, Unknown],
+            vec![Running, Idle, Cancelled, Failed, Disconnected, Unknown],
         ),
         (
             Idle,
@@ -363,7 +363,7 @@ fn migration_and_corrupt_recovery_fail_closed() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        1
+        2
     );
     db.execute(
         "INSERT INTO work_sessions VALUES (?1, ?2)",
@@ -407,6 +407,49 @@ fn event_lag_is_explicit_and_no_subscribers_is_normal() {
     }
     assert!(matches!(events.try_recv(), Err(TryRecvError::Lagged(_))));
     assert_eq!(kernel.session(session.id()).unwrap().unwrap().state(), Idle);
+}
+
+#[test]
+fn phase_one_migration_and_worker_recovery_are_atomic() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join("state.sqlite3");
+    let original = kernel(&dir);
+    let session = create(&original, &dir);
+    original.transition_session(session.id(), Starting).unwrap();
+    drop(original);
+    let db = rusqlite::Connection::open(&path).unwrap();
+    // Reconstruct the exact schema of an existing Phase 1 database.
+    db.execute_batch("DROP TABLE worker_state; PRAGMA user_version = 1;")
+        .unwrap();
+    let migrated = Kernel::open(&path).unwrap();
+    assert_eq!(
+        migrated.session(session.id()).unwrap().unwrap().state(),
+        Unknown
+    );
+    assert!(migrated.turns(session.id()).unwrap().is_empty());
+    migrated.mark_ready().unwrap();
+    migrated.transition_session(session.id(), Running).unwrap();
+    drop(migrated);
+    db.execute(
+        "INSERT INTO worker_state VALUES (?1, '{}')",
+        [session.id().to_string()],
+    )
+    .unwrap();
+    assert!(Kernel::open(&path).is_err());
+    let snapshot: String = db
+        .query_row("SELECT snapshot FROM work_sessions", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<WorkSession>(&snapshot)
+            .unwrap()
+            .state(),
+        Running
+    );
+    assert_eq!(
+        db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
+            .unwrap(),
+        2
+    );
 }
 
 async fn request(

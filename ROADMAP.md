@@ -50,9 +50,9 @@ Deliverables:
 - [x] graceful shutdown
 
 Implemented as one `lain-kernel` library + `laind` binary, with Axum and
-rusqlite. Session creation/transitions are internal foundation operations;
-the public API is read-only. See `docs/DEVELOPMENT.md` for operation and checks.
-Phase 2 has not started.
+rusqlite. Phase 1 established read-only APIs and internal metadata operations;
+Phase 2 extends these with real worker control. See `docs/DEVELOPMENT.md` for
+current operation and checks.
 
 Non-goals:
 
@@ -77,19 +77,28 @@ Preferred initial integration:
 
 Deliverables:
 
-- [ ] Codex executable/version probe
-- [ ] runtime process supervisor
-- [ ] Codex driver
-- [ ] create WorkSession
-- [ ] send prompt / create Turn
-- [ ] structured event normalization
-- [ ] cancellation
-- [ ] approval routing
-- [ ] provider session ID persistence
-- [ ] resume/recovery where supported
-- [ ] multiple simultaneous sessions
-- [ ] session inspection API
-- [ ] backend capability reporting
+- [x] Codex executable/version probe
+- [x] runtime process supervisor
+- [x] Codex driver
+- [x] create WorkSession
+- [x] send prompt / create Turn
+- [x] structured event normalization
+- [x] cancellation
+- [x] approval routing
+- [x] provider session ID persistence
+- [x] resume/recovery where supported
+- [x] multiple simultaneous sessions
+- [x] session inspection API
+- [x] backend capability reporting
+- [x] authenticated control API and snapshot-first SSE
+- [x] deterministic fake-process contracts and opt-in real acceptance script
+
+Verified on Windows with Codex 0.160.0 on 2026-10-04: two real sessions,
+follow-up turns, scoped cancellation, explicit approval, frontend detach,
+owned-process crash/resume and daemon restart with unchanged provider identities.
+Uses direct App Server, one owned process per session and migration 002. See
+`docs/backends/CODEX.md` for contract/limitations and `DEVLOG.md` for evidence.
+Native Linux lifecycle validation remains outstanding. Phase 3 has not started.
 
 Exit criteria:
 

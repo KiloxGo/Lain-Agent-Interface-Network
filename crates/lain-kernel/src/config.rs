@@ -9,7 +9,7 @@ use std::{
 use subtle::ConstantTimeEq;
 use thiserror::Error;
 
-/// Resolved only at the API boundary; never serialized or stored in the domain.
+/// Used for API authentication and output redaction; never serialized or persisted.
 #[derive(Clone)]
 pub struct ApiToken(String);
 
@@ -36,6 +36,9 @@ impl fmt::Debug for ApiToken {
 }
 
 impl ApiToken {
+    pub(crate) fn redaction_values(&self) -> Vec<String> {
+        vec![self.0.clone()]
+    }
     pub(crate) fn matches(&self, candidate: &str) -> bool {
         bool::from(self.0.as_bytes().ct_eq(candidate.as_bytes()))
     }
@@ -47,6 +50,7 @@ pub struct Config {
     pub listen: SocketAddr,
     pub api_token: ApiToken,
     pub log_level: tracing::Level,
+    pub codex_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Error)]
@@ -82,9 +86,7 @@ impl Config {
             .transpose()?
             .unwrap_or(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8787));
         if !listen.ip().is_loopback() {
-            return Err(ConfigError::Invalid(
-                "LAIN_LISTEN (Phase 1 requires loopback)",
-            ));
+            return Err(ConfigError::Invalid("LAIN_LISTEN (requires loopback)"));
         }
         let api_token = text("LAIN_API_TOKEN")?
             .ok_or(ConfigError::Missing("LAIN_API_TOKEN"))?
@@ -98,6 +100,7 @@ impl Config {
             listen,
             api_token,
             log_level,
+            codex_path: lookup("LAIN_CODEX_PATH").map(PathBuf::from),
         })
     }
 }
