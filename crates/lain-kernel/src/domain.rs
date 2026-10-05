@@ -73,6 +73,17 @@ macro_rules! named_id {
 named_id!(RuntimeProfileId);
 named_id!(BackendKind);
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeAttachment {
+    #[default]
+    Detached,
+    Starting,
+    Attached,
+    Stopping,
+    Lost,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkSessionState {
@@ -96,7 +107,10 @@ impl WorkSessionState {
         match self {
             Created => matches!(next, Starting | Cancelled | Failed),
             Starting => matches!(next, Ready | Cancelled | Failed | Disconnected | Unknown),
-            Ready => matches!(next, Running | Cancelled | Failed | Disconnected | Unknown),
+            Ready => matches!(
+                next,
+                Idle | Running | Cancelled | Failed | Disconnected | Unknown
+            ),
             Running => matches!(
                 next,
                 WaitingForApproval | Idle | Completed | Cancelled | Failed | Disconnected | Unknown
@@ -301,6 +315,8 @@ pub struct WorkSession {
     pub(crate) runtime_profile_id: RuntimeProfileId,
     pub(crate) workspace: PathBuf,
     pub(crate) state: WorkSessionState,
+    #[serde(default)]
+    pub(crate) runtime: RuntimeAttachment,
     pub(crate) created_at_ms: u64,
     pub(crate) updated_at_ms: u64,
 }
@@ -322,6 +338,7 @@ impl WorkSession {
             runtime_profile_id,
             workspace,
             state: WorkSessionState::Created,
+            runtime: RuntimeAttachment::Detached,
             created_at_ms: now,
             updated_at_ms: now,
         })
@@ -332,6 +349,9 @@ impl WorkSession {
     }
     pub fn state(&self) -> WorkSessionState {
         self.state
+    }
+    pub fn runtime(&self) -> RuntimeAttachment {
+        self.runtime
     }
 
     pub(crate) fn validate(&self) -> Result<(), DomainError> {

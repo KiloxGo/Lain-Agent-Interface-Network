@@ -108,10 +108,16 @@ crates/lain-kernel/
     api.rs          authenticated HTTP control and SSE
     worker.rs       private durable operational metadata
     backend/        supervisor, Codex adapter, JSONL transport, process ownership
-  migrations/001_sessions.sql, 002_worker_state.sql
+  migrations/001_sessions.sql, 002_worker_state.sql, 003_history.sql
   tests/foundation.rs, worker_control.rs
   tests/support/app_server.rs   deterministic subprocess fixture
 scripts/codex_smoke.py          opt-in real daemon/Codex acceptance check
+crates/lain-client/
+  src/main.rs                  lain commands; environment-only client config
+  src/api.rs                   authenticated HTTP/SSE and client wire views
+  src/tui.rs                   terminal guard, disposable views and rendering
+  tests/cli.rs                 quota-free mock HTTP command acceptance
+scripts/terminal_smoke.py       optional Windows ConPTY + fixture acceptance
 ```
 
 Use stable Rust (the workspace language floor is 1.89; the locked dependencies
@@ -154,6 +160,7 @@ All endpoints require the same bearer token. Query endpoints:
 
 Missing/incorrect credentials return 401. Session fields are `id`, `backend`,
 `runtime_profile_id`, `workspace`, `state`, `created_at_ms`, `updated_at_ms`.
+`runtime` reports detached/starting/attached/stopping/lost separately from `state`.
 State names use snake_case. Session lists are ordered by UUID for deterministic
 snapshots, not creation time. Pagination is deferred until session volume warrants
 it. Provider-native identities are private metadata, not API fields.
@@ -172,7 +179,8 @@ Invoke-RestMethod http://127.0.0.1:8787/v1/work-sessions -Headers $headers
 ```
 
 Stop with Ctrl-C (or SIGTERM on Unix). Run again with the same database path to
-recover sessions. Startup attempts to resume known Codex identities; this does not
+recover sessions. Startup resumes only uncertain provider-backed work; known idle
+work stays detached. This does not
 submit a new prompt. Model work starts only from explicit prompt commands.
 
 ## 8. Validation and deferred work
@@ -200,8 +208,8 @@ access, Ctrl-Break with exit code 0, JSON logs without the token, and committed
 Running-to-Unknown recovery. The Unix SIGINT/SIGTERM path still needs native
 Linux validation; no Linux Rust toolchain was available in this development run.
 
-Deferred: additional backends, profile/SecretRef registry, durable output history,
-memory/world, scheduling, Web/TUI, and remote deployment.
+Deferred: additional backends, profile/SecretRef registry, memory/world, scheduling,
+Web, automatic history pruning and remote deployment.
 The in-process event channel is a notification mechanism, not an audit log.
 
 ## 9. Worker control API
@@ -219,7 +227,7 @@ does not promise valid authentication or a usable model quota.
 | `POST /v1/work-sessions/{id}/cancel` | No body; 202 Turn with cancellation acknowledgement, not completion |
 | `GET /v1/work-sessions/{id}/approvals` | All Approval records; filter `status == pending` for decisions |
 | `POST /v1/work-sessions/{id}/approvals/{approval}/decision` | `{"decision":"approve_once"}`, `deny`, or `cancel` if offered; 202 Approval |
-| `POST /v1/work-sessions/{id}/resume` | Explicit retry for Unknown/Disconnected; 200 WorkSession |
+| `POST /v1/work-sessions/{id}/resume` | Explicit attach/reconcile for Unknown/Disconnected/Idle/Ready; 200 WorkSession |
 | `GET /v1/events` | Authenticated SSE: initial `snapshot`, then normalized `event` records |
 
 Optional model selection is `options.model`. Unknown JSON fields are rejected;
@@ -242,9 +250,10 @@ SSE clients must use an HTTP client that can send the Authorization header (for
 example browser `fetch` streaming; native EventSource cannot set it). Closing a
 stream does not stop worker work. Apply the initial snapshot before live events.
 On `resync_required`, disconnect and open a new stream; Last-Event-ID does not
-replay output. Durable snapshots include sessions/turns/approvals, not transcripts.
-On `backend_reconnected`, refresh that session's turns and approvals. Character
-progress is live-only; completed text is sanitized and bounded.
+replay output. Snapshots include sessions/turns/approvals and a history_cursor.
+Fetch history through that cursor, merge overlapping EventIds in history_order,
+and apply current state from the authoritative snapshot/live events. History
+records must not overwrite newer projections. Character progress remains live-only.
 
 ## 10. Optional real Codex smoke
 
@@ -264,3 +273,129 @@ resume, daemon restart and identity preservation. It uses a private executable
 copy so Windows builds remain possible while it runs. Approval generation is
 model-dependent; failure to request approval fails the smoke rather than silently
 skipping that acceptance check. Do not include this command in ordinary CI.
+
+## 11. Operational history
+
+`GET /v1/work-sessions/{id}/history` requires bearer authentication. Schema 003
+stores indexed rows with global `sequence`, unique EventId, session, optional turn,
+timestamp, kind and bounded normalized JSON payload. Public `history_order` is the
+row sequence; it can have gaps within one session and is not a timestamp. IDs and
+orders remain stable across detach/restart. Session/worker state and associated
+history share one SQLite commit; observation-only history commits before SSE too.
+Recovery records are committed with recovery state. No outbox/exactly-once claim.
+
+| Query | Meaning |
+|---|---|
+| `after=N` | Exclusive lower order; default 0, return oldest matching records first |
+| `before=N` | Exclusive upper order; mutually exclusive with after, select nearest older records |
+| `until=N` | Inclusive upper watermark; optional, otherwise current high-water mark |
+| `limit=N` | 1–200 records, default 100 |
+
+All returned events are ascending in server order, including `before` pages.
+Response is `{events, next_cursor, has_more}`. For forward pagination use
+`after=next_cursor`. For older pagination use `before=events[0].history_order`;
+`has_more` then means older records remain. `next_cursor` is always the last
+returned order, or the requested forward cursor if empty. Malformed/oversized
+cursors, conflicting directions and invalid limits return 400. Unknown sessions
+return 404. Session isolation is applied in SQL. `until` freezes a scan while
+other work continues; an SSE snapshot supplies the normal reconnect watermark.
+
+Every normalized event except OutputProgress is durable. Assistant completed
+text is limited to 32 KiB UTF-8; command text to 4 KiB and completed output to
+16 KiB; file changes to 16 paths of 1 KiB each; tool name to 1 KiB; approval
+description to 16 KiB; safe failure messages to 4 KiB. UTF-8 truncation preserves
+character boundaries; event `truncated` marks reduced payloads, and pre-bounded
+approval descriptions explicitly say truncated. SQLite additionally rejects a
+serialized row over 256 KiB (allowing JSON escaping). Sanitize the complete record
+before truncation so a credential beyond the visible limit still redacts it.
+
+Raw JSON-RPC, raw provider errors, reasoning, token/output fragments, file diffs,
+credential/env dumps and raw prompts are excluded. Pattern/known-value redaction
+cannot recognize arbitrary unknown or encoded secrets. History is retained
+indefinitely for now; payloads are bounded but total rows/disk usage can grow.
+Future pruning must be explicit; summaries and Lain memory are separate features.
+Pre-Phase-3 live output cannot be reconstructed retrospectively by migration.
+
+## 12. Terminal client
+
+Build `cargo build --locked --bin laind --bin lain`. Run the daemon as above,
+then set the same `LAIN_API_TOKEN` in the client shell, and optionally `LAIN_URL`.
+Workspace paths belong to the server and must exist there; the client does not
+resolve them using its own filesystem.
+
+```sh
+lain status
+lain work start --workspace /absolute/path/on/daemon/host
+lain work list
+lain work show <session-uuid>
+lain work attach <session-uuid>
+lain work send <session-uuid> "continue and run the tests again"
+lain work cancel <session-uuid>
+lain work resume <session-uuid>
+lain work history <session-uuid> --after 0 --limit 100
+lain approval list <session-uuid>
+lain approval approve <session-uuid> <approval-uuid>
+lain approval deny <session-uuid> <approval-uuid>
+lain approval cancel <session-uuid> <approval-uuid>
+lain --json work list
+```
+
+`--json` is global and available for every non-interactive command; history JSON
+includes pagination metadata. Start optionally accepts `--model` and
+`--sandbox read-only|workspace-write`. Approval operations recheck Pending and
+offered decisions before submitting; the Kernel still authoritatively validates
+races. Normal errors show HTTP status/category without echoing credentials or raw
+backend response bodies. `lain` without a subcommand opens the work list TUI.
+
+| TUI keys | Operation |
+|---|---|
+| Up/Down, Enter (list) | Select and observe a WorkSession |
+| Enter (detail) | Send edited follow-up only while Idle/Ready and connected |
+| Left/Right/Home/End, Backspace/Delete, Ctrl-U | UTF-8 input editing / clear |
+| PgUp/PgDn, Ctrl-End | Scroll timeline / follow latest |
+| Ctrl-P | Load an older history page within the bounded window |
+| Tab, F2 | Next pending approval / full scrollable description |
+| Ctrl-A / Ctrl-D / Ctrl-X | Approve once / deny / cancel, only if offered |
+| Ctrl-K / Ctrl-R | Cancel active turn / explicitly resume |
+| Esc | Close approval details or return to list |
+| q (list), Ctrl-Q, Ctrl-C | Exit client; worker remains Kernel-owned |
+
+Attach observes logical work, never a worker terminal. Idle + Detached remains
+detached until a prompt/resume requires it. The TUI uses only HTTP/SSE, starts with
+the stream's atomic snapshot, loads the latest 200 historical records and merges
+by EventId/history_order. It catches up from its last known order on reconnect,
+refreshes the authoritative snapshot, and ignores superseded history requests.
+Historical records never roll back current projections. It caps the recent window
+at 1000 records; CLI/API pagination accesses older rows. This is a disposable view,
+not an authoritative second runtime or a transcript database.
+
+Rendering uses Ratatui 0.30.2 + Crossterm 0.29, compatible with the Rust 1.89
+floor, per [upstream installation docs](https://ratatui.rs/installation/) verified
+2026-10-04. HTTP/SSE uses Reqwest 0.13.5 with Rustls; parsing/CLI uses Clap 4.
+Terminal raw/alternate/paste modes restore on normal exits, error returns and panic
+hooks. SIGKILL/process termination cannot run restoration. Worker ESC/C1 control
+and bidi sequences render as escaped text. Resizing and Unicode editing are tested
+with Ratatui's deterministic backend; real Windows ConPTY acceptance is optional:
+
+```powershell
+cargo build --locked --bin laind --bin lain --bin lain-test-app-server
+python -m venv target/terminal-check-env
+target/terminal-check-env/Scripts/python.exe -m pip install pywinpty
+target/terminal-check-env/Scripts/python.exe scripts/terminal_smoke.py
+```
+
+The ConPTY check also executes the ignored terminal guard test in a native
+terminal, covering error returns and caught panic cleanup. It uses the
+deterministic worker, no login/model quota. Ordinary
+Rust tests need no Python package. Linux terminal/signal/process-group checks
+remain native host acceptance work; the available WSL environment lacked a Rust
+toolchain in this run. To opt into two real model turns and validate unused detach,
+lazy identity-preserving follow-up, CLI history and idle daemon reboot:
+
+```sh
+cargo build --locked --bin laind --bin lain
+python scripts/codex_smoke.py --run-real --phase3
+```
+
+To verify unused Codex binding persistence without inference:
+`cargo test -p lain-kernel probe_unused_thread_persistence -- --ignored`.

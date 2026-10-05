@@ -9,10 +9,8 @@ use serde::Serialize;
 use tokio::sync::broadcast;
 
 use crate::{
-    domain::{
-        BackendKind, EventId, RuntimeProfileId, WorkSession, WorkSessionId, WorkSessionState,
-    },
-    events::{Event, EventKind},
+    domain::{BackendKind, RuntimeProfileId, WorkSession, WorkSessionId, WorkSessionState},
+    events::{Event, EventKind, HistoryPage},
     persistence::Store,
     worker::WorkerState,
 };
@@ -43,6 +41,7 @@ pub struct Kernel {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Snapshot {
+    pub history_cursor: u64,
     pub sessions: Vec<WorkSession>,
     pub turns: Vec<crate::domain::Turn>,
     pub approvals: Vec<crate::domain::Approval>,
@@ -131,6 +130,7 @@ impl Kernel {
         let events = self.events.subscribe();
         Ok((
             Snapshot {
+                history_cursor: inner.store.history_cursor()?,
                 sessions: inner.sessions.values().cloned().collect(),
                 turns: inner
                     .workers
@@ -190,25 +190,63 @@ impl Kernel {
             .context("session not found")?
             .clone();
         let from = session.state;
+        let runtime_from = session.runtime;
         let mut worker = inner.workers.get(&id).cloned().unwrap_or_default();
-        let events = change(&mut session, &mut worker)?;
+        let mut kinds = change(&mut session, &mut worker)?;
+        // Reconciliation and pre-submission transitions also need durable turn
+        // observations; do not rely on a frontend refresh after transport changes.
+        for record in &worker.turns {
+            let before = inner
+                .workers
+                .get(&id)
+                .and_then(|w| w.turns.iter().find(|r| r.turn.id == record.turn.id));
+            if before.is_none_or(|r| r.turn.state != record.turn.state)
+                && !kinds.iter().any(|kind| matches!(kind, EventKind::TurnStarted {turn} | EventKind::TurnCompleted {turn} | EventKind::TurnStateChanged {turn} if turn.id == record.turn.id)) {
+                kinds.push(EventKind::TurnStateChanged { turn: record.turn.clone() });
+            }
+        }
         session.updated_at_ms = crate::domain::now_ms()?.max(session.updated_at_ms);
         session.validate()?;
-        inner.store.save_worker(&session, &worker)?;
-        inner.sessions.insert(id, session.clone());
-        inner.workers.insert(id, worker);
+        let mut events = Vec::new();
         if from != session.state {
-            self.publish(
-                &session,
+            events.push(Event::new(
+                id,
+                None,
+                session.updated_at_ms,
                 EventKind::SessionStateChanged {
                     from,
                     to: session.state,
                 },
-            );
+            ));
         }
-        for kind in events {
-            self.publish_for_turn(&session, turn_id, kind);
+        if runtime_from != session.runtime {
+            events.push(Event::new(
+                id,
+                None,
+                session.updated_at_ms,
+                EventKind::RuntimeAttachmentChanged {
+                    from: runtime_from,
+                    to: session.runtime,
+                },
+            ));
         }
+        events.extend(kinds.into_iter().map(|kind| {
+            let turn = turn_id.or(match &kind {
+                EventKind::ApprovalDecisionSubmitted { approval_id } => worker
+                    .approvals
+                    .iter()
+                    .find(|a| a.id == *approval_id)
+                    .and_then(|a| a.turn_id),
+                _ => None,
+            });
+            Event::new(id, turn, session.updated_at_ms, kind)
+        }));
+        inner
+            .store
+            .save(&session, Some(&worker), false, &mut events)?;
+        inner.sessions.insert(id, session);
+        inner.workers.insert(id, worker);
+        self.publish(events);
         Ok(())
     }
 
@@ -218,14 +256,81 @@ impl Kernel {
         turn_id: Option<crate::domain::TurnId>,
         kind: EventKind,
     ) -> Result<()> {
-        let _ = self.events.send(Event {
-            id: EventId::new(),
-            timestamp_ms: crate::domain::now_ms()?,
-            work_session_id: id,
-            turn_id,
-            kind,
-        });
+        ensure!(
+            matches!(kind, EventKind::OutputProgress { .. }),
+            "only progress is ephemeral"
+        );
+        let _ = self
+            .events
+            .send(Event::new(id, turn_id, crate::domain::now_ms()?, kind));
         Ok(())
+    }
+
+    pub(crate) fn observe(
+        &self,
+        id: WorkSessionId,
+        turn_id: Option<crate::domain::TurnId>,
+        kind: EventKind,
+    ) -> Result<()> {
+        let mut inner = self.lock()?;
+        ensure!(inner.sessions.contains_key(&id), "session not found");
+        let mut events = vec![Event::new(id, turn_id, crate::domain::now_ms()?, kind)];
+        inner.store.append_events(&mut events)?;
+        self.publish(events);
+        Ok(())
+    }
+
+    pub fn history(
+        &self,
+        id: WorkSessionId,
+        after: u64,
+        until: Option<u64>,
+        limit: usize,
+    ) -> Result<HistoryPage> {
+        ensure!(
+            (1..=200).contains(&limit),
+            "history limit must be between 1 and 200"
+        );
+        ensure!(
+            after <= i64::MAX as u64 && until.is_none_or(|n| n <= i64::MAX as u64),
+            "invalid history cursor"
+        );
+        let inner = self.lock()?;
+        ensure!(inner.sessions.contains_key(&id), "session not found");
+        inner.store.history(
+            id,
+            after,
+            until.unwrap_or(inner.store.history_cursor()?),
+            limit,
+            false,
+        )
+    }
+
+    pub fn history_before(
+        &self,
+        id: WorkSessionId,
+        before: u64,
+        until: Option<u64>,
+        limit: usize,
+    ) -> Result<HistoryPage> {
+        ensure!(
+            (1..=200).contains(&limit)
+                && before > 0
+                && before <= i64::MAX as u64
+                && until.is_none_or(|n| n <= i64::MAX as u64),
+            "invalid history query"
+        );
+        let inner = self.lock()?;
+        ensure!(inner.sessions.contains_key(&id), "session not found");
+        inner.store.history(
+            id,
+            0,
+            until
+                .unwrap_or(inner.store.history_cursor()?)
+                .min(before.saturating_sub(1)),
+            limit,
+            true,
+        )
     }
 
     /// Internal foundation operation; creates metadata, never starts a worker.
@@ -241,9 +346,17 @@ impl Kernel {
             inner.state == KernelState::Ready,
             "Kernel is not ready for mutations"
         );
-        inner.store.insert(&session)?;
+        let mut events = vec![Event::new(
+            session.id,
+            None,
+            session.updated_at_ms,
+            EventKind::SessionCreated {
+                session: session.clone(),
+            },
+        )];
+        inner.store.save(&session, None, true, &mut events)?;
         inner.sessions.insert(session.id, session.clone());
-        self.publish(&session, EventKind::SessionCreated);
+        self.publish(events);
         Ok(session)
     }
 
@@ -266,30 +379,22 @@ impl Kernel {
             .clone();
         let from = session.state;
         session.transition(next)?;
-        inner.store.update(&session)?;
+        let mut events = vec![Event::new(
+            id,
+            None,
+            session.updated_at_ms,
+            EventKind::SessionStateChanged { from, to: next },
+        )];
+        inner.store.save(&session, None, false, &mut events)?;
         inner.sessions.insert(id, session.clone());
-        self.publish(&session, EventKind::SessionStateChanged { from, to: next });
+        self.publish(events);
         Ok(session)
     }
 
-    fn publish(&self, session: &WorkSession, kind: EventKind) {
-        tracing::info!(session_id = %session.id, state = ?session.state, "session committed");
-        self.publish_for_turn(session, None, kind);
-    }
-
-    fn publish_for_turn(
-        &self,
-        session: &WorkSession,
-        turn_id: Option<crate::domain::TurnId>,
-        kind: EventKind,
-    ) {
+    fn publish(&self, events: Vec<Event>) {
         // No listeners is normal. Slow subscribers receive Lagged and must resnapshot.
-        let _ = self.events.send(Event {
-            id: EventId::new(),
-            timestamp_ms: session.updated_at_ms,
-            work_session_id: session.id,
-            turn_id,
-            kind,
-        });
+        for event in events {
+            let _ = self.events.send(event);
+        }
     }
 }

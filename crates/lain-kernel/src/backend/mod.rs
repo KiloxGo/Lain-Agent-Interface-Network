@@ -12,8 +12,8 @@ use crate::{
 use anyhow::{Context, Result, ensure};
 use codex::{Codex, Notice, ObservedTurn, Redactor};
 use serde::Serialize;
-use std::{collections::BTreeMap, path::PathBuf, sync::Arc};
-use tokio::sync::{Mutex, mpsc, oneshot};
+use std::{collections::BTreeMap, path::PathBuf, sync::Arc, time::Duration};
+use tokio::sync::{Mutex, mpsc, oneshot, watch};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ControlError {
@@ -44,11 +44,15 @@ enum Command {
         oneshot::Sender<Result<Approval>>,
     ),
     Stop(oneshot::Sender<Result<()>>),
+    Detach(oneshot::Sender<Result<()>>),
 }
 
 struct Runtime {
+    generation: uuid::Uuid,
     sender: mpsc::Sender<Command>,
     task: tokio::task::JoinHandle<()>,
+    ready: watch::Receiver<Option<bool>>,
+    done: watch::Receiver<bool>,
 }
 
 pub struct Supervisor {
@@ -57,6 +61,7 @@ pub struct Supervisor {
     info: BackendInfo,
     redactor: Redactor,
     runtimes: Mutex<BTreeMap<WorkSessionId, Runtime>>,
+    idle_timeout: Duration,
 }
 
 impl Supervisor {
@@ -64,6 +69,7 @@ impl Supervisor {
         kernel: Arc<Kernel>,
         executable: Option<PathBuf>,
         api_token: crate::config::ApiToken,
+        idle_timeout: Duration,
     ) -> Arc<Self> {
         let probe = async {
             let path = codex::discover(executable)?;
@@ -102,6 +108,7 @@ impl Supervisor {
             info,
             redactor: Redactor::new(api_token.redaction_values()),
             runtimes: Mutex::new(BTreeMap::new()),
+            idle_timeout,
         })
     }
 
@@ -109,7 +116,11 @@ impl Supervisor {
         self.info.clone()
     }
 
-    pub async fn create(&self, workspace: PathBuf, options: SessionOptions) -> Result<WorkSession> {
+    pub async fn create(
+        self: &Arc<Self>,
+        workspace: PathBuf,
+        options: SessionOptions,
+    ) -> Result<WorkSession> {
         ensure!(self.executable.is_some(), ControlError::Unavailable);
         ensure!(
             options.model.as_ref().is_none_or(|model| !model.is_empty()
@@ -137,7 +148,7 @@ impl Supervisor {
             .context("created session missing")
     }
 
-    pub async fn resume(&self, id: WorkSessionId) -> Result<WorkSession> {
+    pub async fn resume(self: &Arc<Self>, id: WorkSessionId) -> Result<WorkSession> {
         ensure!(
             blocking(&self.kernel, Kernel::state).await? == KernelState::Ready,
             ControlError::Unavailable
@@ -148,7 +159,10 @@ impl Supervisor {
         ensure!(
             matches!(
                 session.state(),
-                WorkSessionState::Unknown | WorkSessionState::Disconnected
+                WorkSessionState::Unknown
+                    | WorkSessionState::Disconnected
+                    | WorkSessionState::Idle
+                    | WorkSessionState::Ready
             ),
             ControlError::Conflict
         );
@@ -158,7 +172,7 @@ impl Supervisor {
             .context("resumed session missing")
     }
 
-    pub async fn recover(&self) {
+    pub async fn recover(self: &Arc<Self>) {
         for session in blocking(&self.kernel, Kernel::list_sessions)
             .await
             .unwrap_or_default()
@@ -169,20 +183,47 @@ impl Supervisor {
                 .ok()
                 .is_some_and(|w| w.provider_session_id.is_some())
                 && session.state() == WorkSessionState::Unknown
-                && let Err(error) = self.launch(session.id(), true).await
             {
-                tracing::warn!(session_id=%session.id(),error=%error,"worker resume failed; uncertainty retained");
+                match self.launch(id, true).await {
+                    Ok(()) => {
+                        let _ = self.detach(id).await;
+                    }
+                    Err(error) => {
+                        tracing::warn!(session_id=%id,error=%error,"worker resume failed; uncertainty retained")
+                    }
+                }
             }
         }
     }
 
-    async fn launch(&self, id: WorkSessionId, resume: bool) -> Result<()> {
+    async fn launch(self: &Arc<Self>, id: WorkSessionId, resume: bool) -> Result<()> {
         let path = self.executable.clone().ok_or(ControlError::Unavailable)?;
-        let mut runtimes = self.runtimes.lock().await;
-        ensure!(
-            !runtimes.get(&id).is_some_and(|r| !r.sender.is_closed()),
-            ControlError::Conflict
-        );
+        let mut runtimes = loop {
+            let runtimes = self.runtimes.lock().await;
+            if let Some(runtime) = runtimes.get(&id) {
+                if !runtime.sender.is_closed() {
+                    let mut ready = runtime.ready.clone();
+                    drop(runtimes);
+                    let value = ready
+                        .wait_for(|ready| ready.is_some())
+                        .await
+                        .context("worker startup stopped")?;
+                    ensure!(*value == Some(true), ControlError::Unavailable);
+                    return Ok(());
+                }
+                let mut done = runtime.done.clone();
+                drop(runtimes);
+                done.wait_for(|done| *done)
+                    .await
+                    .context("worker teardown stopped")?;
+                let mut runtimes = self.runtimes.lock().await;
+                if runtimes.get(&id).is_some_and(|r| r.sender.is_closed()) {
+                    runtimes.remove(&id);
+                }
+                continue;
+            }
+            break runtimes;
+        };
         let session = blocking(&self.kernel, move |k| k.session(id))
             .await?
             .ok_or(ControlError::NotFound)?;
@@ -190,10 +231,20 @@ impl Supervisor {
         if resume {
             ensure!(state.provider_session_id.is_some(), ControlError::Conflict);
         }
+        mutate(&self.kernel, id, None, |session, _| {
+            session.runtime = RuntimeAttachment::Starting;
+            Ok(vec![])
+        })
+        .await?;
         let (sender, receiver) = mpsc::channel(16);
         let (started, ready) = oneshot::channel();
         let kernel = self.kernel.clone();
         let redactor = self.redactor.clone();
+        let owner = Arc::downgrade(self);
+        let generation = uuid::Uuid::new_v4();
+        let idle_timeout = self.idle_timeout;
+        let (ready_tx, ready_rx) = watch::channel(None);
+        let (done_tx, done_rx) = watch::channel(false);
         let task = tokio::spawn(async move {
             let connected = Codex::connect(
                 &path,
@@ -211,6 +262,7 @@ impl Supervisor {
                     let result =
                         mutate(&kernel, id, None, move |session, worker| {
                             worker.provider_session_id = Some(identity);
+                            session.runtime = RuntimeAttachment::Attached;
                             for observed in history {
                                 let state = if observed.state == TurnState::Running && !active {
                                     TurnState::Unknown
@@ -247,13 +299,16 @@ impl Supervisor {
                                     });
                                 }
                             }
-                            session.transition(if active {
+                            let next = if active {
                                 WorkSessionState::Running
                             } else if resume {
                                 WorkSessionState::Idle
                             } else {
                                 WorkSessionState::Ready
-                            })?;
+                            };
+                            if session.state() != next {
+                                session.transition(next)?;
+                            }
                             Ok(if resume {
                                 vec![EventKind::BackendReconnected]
                             } else {
@@ -262,9 +317,10 @@ impl Supervisor {
                         })
                         .await;
                     let successful = result.is_ok();
+                    ready_tx.send_replace(Some(successful));
                     let _ = started.send(result);
                     if successful {
-                        run(kernel, id, connected.worker, receiver).await;
+                        run(kernel, id, connected.worker, receiver, idle_timeout).await;
                     } else {
                         let _ = connected.worker.shutdown().await;
                     }
@@ -272,16 +328,41 @@ impl Supervisor {
                 Err(error) => {
                     drop(receiver);
                     let _ = disconnected(&kernel, id).await;
+                    ready_tx.send_replace(Some(false));
                     let _ = started.send(Err(error));
                 }
             }
+            done_tx.send_replace(true);
+            if let Some(owner) = owner.upgrade() {
+                let mut runtimes = owner.runtimes.lock().await;
+                if runtimes
+                    .get(&id)
+                    .is_some_and(|r| r.generation == generation)
+                {
+                    runtimes.remove(&id);
+                }
+            }
         });
-        runtimes.insert(id, Runtime { sender, task });
+        runtimes.insert(
+            id,
+            Runtime {
+                generation,
+                sender,
+                task,
+                ready: ready_rx,
+                done: done_rx,
+            },
+        );
         drop(runtimes);
         ready.await.context("worker startup task stopped")?
     }
 
-    async fn send(&self, id: WorkSessionId, command: Command) -> Result<()> {
+    async fn send(
+        self: &Arc<Self>,
+        id: WorkSessionId,
+        mut command: Command,
+        attach: bool,
+    ) -> Result<()> {
         ensure!(
             blocking(&self.kernel, Kernel::state).await? == KernelState::Ready,
             ControlError::Unavailable
@@ -292,16 +373,30 @@ impl Supervisor {
                 .is_some(),
             ControlError::NotFound
         );
-        let runtimes = self.runtimes.lock().await;
-        let runtime = runtimes.get(&id).ok_or(ControlError::Unavailable)?;
-        runtime
-            .sender
-            .try_send(command)
-            .map_err(|_| ControlError::Unavailable)?;
-        Ok(())
+        loop {
+            if attach {
+                self.launch(id, true).await?;
+            }
+            let runtimes = self.runtimes.lock().await;
+            let Some(runtime) = runtimes.get(&id) else {
+                if attach {
+                    drop(runtimes);
+                    continue;
+                }
+                return Err(ControlError::Unavailable.into());
+            };
+            match runtime.sender.try_send(command) {
+                Ok(()) => return Ok(()),
+                Err(mpsc::error::TrySendError::Closed(returned)) if attach => {
+                    command = returned;
+                    drop(runtimes);
+                }
+                Err(_) => return Err(ControlError::Unavailable.into()),
+            }
+        }
     }
 
-    pub async fn prompt(&self, id: WorkSessionId, text: String) -> Result<Turn> {
+    pub async fn prompt(self: &Arc<Self>, id: WorkSessionId, text: String) -> Result<Turn> {
         ensure!(
             !text.trim().is_empty()
                 && text.len() <= 32 * 1024
@@ -310,24 +405,39 @@ impl Supervisor {
             ControlError::InvalidInput
         );
         let (reply, result) = oneshot::channel();
-        self.send(id, Command::Prompt(text, reply)).await?;
+        self.send(id, Command::Prompt(text, reply), true).await?;
         result.await.context("worker stopped during prompt")?
     }
-    pub async fn cancel(&self, id: WorkSessionId) -> Result<Turn> {
+    pub async fn cancel(self: &Arc<Self>, id: WorkSessionId) -> Result<Turn> {
         let (reply, result) = oneshot::channel();
-        self.send(id, Command::Cancel(reply)).await?;
+        self.send(id, Command::Cancel(reply), false).await?;
         result.await.context("worker stopped during cancellation")?
     }
     pub async fn decide(
-        &self,
+        self: &Arc<Self>,
         id: WorkSessionId,
         approval: ApprovalId,
         decision: ApprovalDecision,
     ) -> Result<Approval> {
         let (reply, result) = oneshot::channel();
-        self.send(id, Command::Decide(approval, decision, reply))
+        self.send(id, Command::Decide(approval, decision, reply), false)
             .await?;
         result.await.context("worker stopped during approval")?
+    }
+    pub async fn detach(self: &Arc<Self>, id: WorkSessionId) -> Result<()> {
+        let (reply, result) = oneshot::channel();
+        let sender = self
+            .runtimes
+            .lock()
+            .await
+            .get(&id)
+            .map(|r| r.sender.clone())
+            .ok_or(ControlError::Unavailable)?;
+        sender
+            .send(Command::Detach(reply))
+            .await
+            .map_err(|_| ControlError::Unavailable)?;
+        result.await.context("worker stopped during detach")?
     }
     pub async fn shutdown(&self) -> Result<()> {
         let runtimes = std::mem::take(&mut *self.runtimes.lock().await);
@@ -363,11 +473,54 @@ fn failure() -> WorkerFailure {
 
 async fn disconnected(kernel: &Arc<Kernel>, id: WorkSessionId) -> Result<()> {
     mutate(kernel, id, None, |session, worker| {
-        worker.recover(now_ms()?);
-        if session.state() != WorkSessionState::Disconnected {
-            session.transition(WorkSessionState::Disconnected)?;
+        let idle = is_idle(session, worker);
+        let mut events = worker.recover(now_ms()?);
+        session.runtime = RuntimeAttachment::Lost;
+        if !idle && session.state() != WorkSessionState::Unknown {
+            session.transition(WorkSessionState::Unknown)?;
         }
-        Ok(vec![EventKind::BackendDisconnected { failure: failure() }])
+        events.push(EventKind::BackendDisconnected { failure: failure() });
+        Ok(events)
+    })
+    .await
+}
+
+fn is_idle(session: &WorkSession, worker: &WorkerState) -> bool {
+    matches!(
+        session.state(),
+        WorkSessionState::Idle | WorkSessionState::Ready
+    ) && worker.provider_session_id.is_some()
+        && worker.turns.iter().all(|r| r.turn.state.is_terminal())
+        && !worker.approvals.iter().any(|a| {
+            matches!(
+                a.status,
+                ApprovalStatus::Pending | ApprovalStatus::Responding
+            )
+        })
+}
+
+async fn idle(kernel: &Arc<Kernel>, id: WorkSessionId) -> Result<bool> {
+    blocking(kernel, move |k| {
+        let session = k.session(id)?.context("session missing")?;
+        Ok(is_idle(&session, &k.worker_state(id)?))
+    })
+    .await
+}
+
+async fn detached(kernel: &Arc<Kernel>, id: WorkSessionId) -> Result<()> {
+    mutate(kernel, id, None, |session, worker| {
+        let mut events = Vec::new();
+        let next = if is_idle(session, worker) {
+            WorkSessionState::Idle
+        } else {
+            events = worker.recover(now_ms()?);
+            WorkSessionState::Unknown
+        };
+        session.runtime = RuntimeAttachment::Detached;
+        if session.state() != next {
+            session.transition(next)?;
+        }
+        Ok(events)
     })
     .await
 }
@@ -377,9 +530,32 @@ async fn run(
     id: WorkSessionId,
     mut worker: Codex,
     mut commands: mpsc::Receiver<Command>,
+    idle_timeout: Duration,
 ) {
+    let mut planned = false;
+    let mut detach_reply = None;
+    let mut idle_deadline = None;
     loop {
+        match idle(&kernel, id).await {
+            Ok(true) => {
+                idle_deadline.get_or_insert_with(|| tokio::time::Instant::now() + idle_timeout);
+            }
+            Ok(false) => idle_deadline = None,
+            Err(_) => break,
+        }
         let result = tokio::select! {
+            biased;
+            command=commands.recv()=>match command {
+                Some(Command::Prompt(text,reply))=>{let result=prompt(&kernel,id,&worker,text).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} idle_deadline=None; Ok(())},
+                Some(Command::Cancel(reply))=>{let result=cancel(&kernel,id,&worker).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} Ok(())},
+                Some(Command::Decide(approval,decision,reply))=>{let result=decide(&kernel,id,&worker,approval,decision).await;let fatal=is_fatal(&result);let _=reply.send(result);if fatal {break;} Ok(())},
+                Some(Command::Stop(reply))=>{planned=true;detach_reply=Some(reply);break;},
+                Some(Command::Detach(reply))=>{
+                    if idle(&kernel,id).await.unwrap_or(false) {planned=true;detach_reply=Some(reply);break;}
+                    let _=reply.send(Err(ControlError::Conflict.into())); Ok(())
+                },
+                None=>{planned=true;break;},
+            },
             incoming=worker.receive()=>match incoming {
                 Ok(incoming)=>match worker.decode(incoming).await {
                     Ok(Some(notice))=>apply_notice(&kernel,id,notice).await,
@@ -388,23 +564,33 @@ async fn run(
                 },
                 Err(error)=>Err(error),
             },
-            command=commands.recv()=>match command {
-                Some(Command::Prompt(text,reply))=>{let result=prompt(&kernel,id,&worker,text).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} Ok(())},
-                Some(Command::Cancel(reply))=>{let result=cancel(&kernel,id,&worker).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} Ok(())},
-                Some(Command::Decide(approval,decision,reply))=>{let result=decide(&kernel,id,&worker,approval,decision).await;let fatal=is_fatal(&result);let _=reply.send(result);if fatal {break;} Ok(())},
-                Some(Command::Stop(reply))=>{let result=worker.shutdown().await;let _=reply.send(result);break;},
-                None=>break,
-            }
+            _=async {match idle_deadline {Some(deadline)=>tokio::time::sleep_until(deadline).await,None=>std::future::pending().await}}=>{planned=true;break;},
         };
         if let Err(error) = result {
             tracing::warn!(session_id=%id,error=%error,"worker supervision stopped");
             break;
         }
     }
-    let _ = worker.shutdown().await;
+    commands.close();
+    if planned {
+        let _ = mutate(&kernel, id, None, |session, _| {
+            session.runtime = RuntimeAttachment::Stopping;
+            Ok(vec![])
+        })
+        .await;
+    }
+    let shutdown = worker.shutdown().await;
     drop(commands);
-    if let Err(error) = disconnected(&kernel, id).await {
-        tracing::error!(session_id=%id,error=%error,"cannot persist disconnected worker state");
+    let result = if planned && shutdown.is_ok() {
+        detached(&kernel, id).await
+    } else {
+        disconnected(&kernel, id).await
+    };
+    if let Err(error) = &result {
+        tracing::error!(session_id=%id,error=%error,"cannot persist worker attachment state");
+    }
+    if let Some(reply) = detach_reply {
+        let _ = reply.send(shutdown.and(result));
     }
 }
 
@@ -630,7 +816,11 @@ async fn apply_notice(kernel: &Arc<Kernel>, id: WorkSessionId, notice: Notice) -
                 }))
             })
             .await?;
-            kernel.publish_live(id, turn, kind)
+            if matches!(kind, EventKind::OutputProgress { .. }) {
+                kernel.publish_live(id, turn, kind)
+            } else {
+                blocking(kernel, move |k| k.observe(id, turn, kind)).await
+            }
         }
         Notice::Approval {
             provider_turn_id,

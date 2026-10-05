@@ -2,7 +2,7 @@
 
 > A persistent personal resident agent and control plane for long-running AI workers.
 
-**Status:** Phase 2 Codex worker control; see the verified backend contract and roadmap.
+**Status:** Phase 3 durable work, operational history and terminal CLI/TUI.
 
 Lain is designed to live continuously on a personal server. You can talk to her directly, but she is also able to create, supervise, configure, observe, steer, and summarize long-running worker-agent sessions such as Codex, Claude Code, and DeepSeek Harness.
 
@@ -160,10 +160,11 @@ Lain is not intended to become:
 
 ## Development
 
-The workspace currently contains one `lain-kernel` crate with a reusable library
-and the `laind` binary. It supervises real Codex workers with durable sessions,
-turns and approvals, conservative restart recovery, authenticated HTTP control,
-and live SSE events. Worker execution remains owned by Codex.
+The workspace contains `lain-kernel` (library and `laind`) and `lain-client`
+(`lain`, HTTP/SSE only). It supervises real Codex workers with durable sessions,
+detachable runtimes, turns, approvals and indexed operational history. Idle workers
+release their process; follow-ups resume the same session lazily. Worker execution
+remains owned by Codex.
 
 Quick start (PowerShell):
 
@@ -175,6 +176,12 @@ cargo run --bin laind
 The default listener is `127.0.0.1:8787`; the default database is
 `data/lain.sqlite3` relative to the working directory. All endpoints require
 `Authorization: Bearer <LAIN_API_TOKEN>`. Stop with Ctrl-C.
+
+In a second shell with the same token, run `cargo run --bin lain` for the session
+list TUI, or `cargo run --bin lain -- work list --json` for automation. Set
+`LAIN_URL` when using another Kernel URL. `lain work attach <uuid>` observes the
+logical session; it does not start an idle worker. See the
+[terminal guide](docs/DEVELOPMENT.md#12-terminal-client) for commands and keys.
 
 See [the development guide](docs/DEVELOPMENT.md#7-workspace-and-local-operation)
 for Linux commands, API examples, checks, storage ownership, and limitations.

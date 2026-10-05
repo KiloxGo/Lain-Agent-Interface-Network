@@ -68,7 +68,7 @@ class Stream:
 
 
 class Daemon:
-    def __init__(self, root, binary):
+    def __init__(self, root, binary, idle_timeout=300):
         self.root, self.binary = root, binary
         self.token = secrets.token_hex(32)
         with socket.socket() as sock:
@@ -76,11 +76,13 @@ class Daemon:
             self.port = sock.getsockname()[1]
         self.log = []
         self.process = None
+        self.idle_timeout = idle_timeout
 
     def start(self):
         env = dict(os.environ, LAIN_API_TOKEN=self.token,
                    LAIN_DATABASE_PATH=str(self.root / "state.sqlite3"),
-                   LAIN_LISTEN=f"127.0.0.1:{self.port}")
+                   LAIN_LISTEN=f"127.0.0.1:{self.port}",
+                   LAIN_WORKER_IDLE_TIMEOUT=str(self.idle_timeout))
         self.process = subprocess.Popen([str(self.binary)], env=env, stdout=subprocess.DEVNULL,
                                         stderr=subprocess.PIPE,
                                         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0)
@@ -225,7 +227,8 @@ def run(binary):
             daemon.crash_worker()
             event = stream.wait(lambda kind, e: kind == "event" and e.get("kind") == "backend_disconnected")
             crashed = f"/v1/work-sessions/{event['work_session_id']}"
-            assert daemon.call("GET", crashed)["state"] == "disconnected"
+            lost = daemon.call("GET", crashed)
+            assert lost["state"] == "idle" and lost["runtime"] == "lost"
             daemon.call("POST", crashed + "/resume")
             assert daemon.identities() == identities
             print("PASS: owned Codex process crash and explicit resume", flush=True)
@@ -251,9 +254,79 @@ def run(binary):
             daemon.stop()
 
 
+def run_phase3(binary, client):
+    """Two short real turns; empty detach, CLI lazy resume, history and restart."""
+    with tempfile.TemporaryDirectory(prefix="lain-presence-smoke-") as directory:
+        root = Path(directory)
+        private_binary = root / binary.name
+        shutil.copy2(binary, private_binary)
+        daemon = Daemon(root, private_binary, idle_timeout=2)
+        streams = []
+        def cli(*args):
+            output = subprocess.run([str(client), "--json", *args],
+                                    env=dict(os.environ, LAIN_URL=f"http://127.0.0.1:{daemon.port}", LAIN_API_TOKEN=daemon.token),
+                                    capture_output=True, timeout=90, check=True)
+            assert daemon.token.encode() not in output.stdout + output.stderr
+            return json.loads(output.stdout)
+        def detached(path):
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                value = daemon.call("GET", path)
+                if value["runtime"] == "detached":
+                    assert value["state"] == "idle"
+                    return
+                time.sleep(0.1)
+            raise TimeoutError("idle worker did not detach")
+        try:
+            daemon.start()
+            workspace = root / "workspace"
+            workspace.mkdir()
+            session = cli("work", "start", "--workspace", str(workspace))
+            sid = session["id"]
+            path = f"/v1/work-sessions/{sid}"
+            identity = daemon.identities()
+            detached(path)
+            assert cli("work", "show", sid)["runtime"] == "detached"
+            assert cli("work", "list")[0]["runtime"] == "detached"
+            print("PASS: unused real thread survives idle detach; CLI inspection leaves it detached", flush=True)
+            for marker in ("LainPresence", "LainStillHere"):
+                stream = daemon.stream()
+                streams.append(stream)
+                stream.wait(lambda kind, _: kind == "snapshot")
+                turn = cli("work", "send", sid, f"Reply exactly {marker}. Do not call tools.")
+                result = stream.wait(lambda kind, e: kind == "event" and e.get("kind") == "turn_completed" and e["turn"]["id"] == turn["id"])
+                assert result["turn"]["state"] == "completed"
+                detached(path)
+                assert daemon.identities() == identity
+                history = cli("work", "history", sid)["events"]
+                assert any(e["kind"] == "assistant_message_completed" and marker in e["text"] for e in history)
+                assert all(e["kind"] != "output_progress" and e["history_order"] for e in history)
+                assert len({e["id"] for e in history}) == len(history)
+                stream.close()
+                daemon.stop()
+                daemon.start()
+                assert daemon.identities() == identity
+                assert cli("work", "show", sid)["runtime"] == "detached"
+                recovered = cli("work", "history", sid)["events"]
+                assert recovered == history
+                print("PASS: CLI lazy real follow-up, durable completed output, idle reboot without attachment", flush=True)
+        except BaseException:
+            daemon.diagnostics()
+            raise
+        finally:
+            for stream in streams:
+                stream.close()
+            daemon.stop()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-real", action="store_true", required=True)
     parser.add_argument("--binary", type=Path, default=Path("target/debug/laind.exe" if os.name == "nt" else "target/debug/laind"))
+    parser.add_argument("--phase3", action="store_true", help="focused idle/history/CLI acceptance with two short real turns")
+    parser.add_argument("--client", type=Path, default=Path("target/debug/lain.exe" if os.name == "nt" else "target/debug/lain"))
     args = parser.parse_args()
-    run(args.binary.resolve())
+    if args.phase3:
+        run_phase3(args.binary.resolve(), args.client.resolve())
+    else:
+        run(args.binary.resolve())

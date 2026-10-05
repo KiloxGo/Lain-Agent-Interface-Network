@@ -86,6 +86,11 @@ fn main() {
                 result(id, json!({"turn":turn}));
                 let turn_id = turn["id"].clone();
                 match mode.as_str() {
+                    "idle-crash" => {
+                        finish(&workspace, &thread, &mut turns, "completed");
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                        std::process::exit(17);
+                    }
                     "wait" | "cancel-race" | "reject-cancel" | "crash" | "bad-frame"
                     | "overflow" => {}
                     "unsupported" => {
@@ -112,6 +117,28 @@ fn main() {
                         );
                     }
                     _ => {
+                        if mode == "history-output" {
+                            note(
+                                "item/started",
+                                json!({"threadId":thread,"turnId":turn_id,"item":{"type":"commandExecution","command":"echo safe"}}),
+                            );
+                            note(
+                                "item/completed",
+                                json!({"threadId":thread,"turnId":turn_id,"item":{"type":"commandExecution","command":"echo safe","aggregatedOutput":"文".repeat(20_000),"exitCode":0}}),
+                            );
+                            note(
+                                "item/completed",
+                                json!({"threadId":thread,"turnId":turn_id,"item":{"type":"commandExecution","command":"echo redacted","aggregatedOutput":format!("{}sk-secret-after-output-limit", "a".repeat(40_000)),"exitCode":0}}),
+                            );
+                            note(
+                                "item/completed",
+                                json!({"threadId":thread,"turnId":turn_id,"item":{"type":"fileChange","status":"completed","changes":(0..32).map(|n|json!({"path":format!("file-{n}.txt")})).collect::<Vec<_>>()}}),
+                            );
+                            note(
+                                "item/completed",
+                                json!({"threadId":thread,"turnId":turn_id,"item":{"type":"mcpToolCall","tool":"fixture-tool"}}),
+                            );
+                        }
                         note(
                             "item/agentMessage/delta",
                             json!({"threadId":thread,"turnId":turn_id,"delta":"sk-secret-"}),
@@ -126,11 +153,27 @@ fn main() {
                         );
                         note(
                             "item/completed",
-                            json!({"threadId":thread,"turnId":turn_id,"item":{"type":"agentMessage","id":"message-1","text":mode}}),
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"type":"agentMessage","id":"message-1","text":if mode == "history-output" {"中".repeat(40_000)} else {mode.clone()}}}),
                         );
                         finish(&workspace, &thread, &mut turns, "completed");
                     }
                 }
+            }
+            Some("thread/fork") => {
+                assert_eq!(params["threadId"], thread);
+                assert_eq!(params["ephemeral"], false);
+                thread = uuid::Uuid::new_v4().to_string();
+                persist(&workspace, &thread, &turns);
+                result(
+                    id,
+                    json!({"thread":{"id":thread,"turns":turns,"status":{"type":"idle"}}}),
+                );
+            }
+            Some("thread/read") => {
+                result(
+                    id,
+                    json!({"thread":{"id":thread,"turns":turns,"status":{"type":"idle"}}}),
+                );
             }
             Some("turn/interrupt") => {
                 assert_eq!(params["threadId"], thread);

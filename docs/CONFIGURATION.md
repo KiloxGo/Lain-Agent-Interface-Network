@@ -328,6 +328,7 @@ or instantiate a general Secret Store. Only these settings are read:
 | `LAIN_API_TOKEN` | Required, 32–256 ASCII letters/digits/`-`/`_`; use a securely generated random value |
 | `LAIN_LOG` | `info`; one tracing level (`error`, `warn`, `info`, `debug`, `trace`) |
 | `LAIN_CODEX_PATH` | Optional native Codex executable; otherwise search PATH, including the Windows npm package's native binary |
+| `LAIN_WORKER_IDLE_TIMEOUT` | `300`; integer seconds, 1–86400; only eligible idle runtimes detach |
 
 The API credential is resolved separately from domain configuration, held in a
 redacted, non-serializable type, and compared using `subtle` constant-time byte
@@ -368,4 +369,18 @@ carry counts, not raw text, to avoid split-token disclosure. This is a sanitizer
 not a general secret detector: arbitrary unknown secret values or encoded secrets
 cannot be recognized reliably. Never ask a worker to retrieve/display credentials;
 keep credential files outside its permitted workspace. No transcripts or prompts
-are persisted by Lain, and no semantic memory exists in this milestone.
+are persisted as raw transcripts by Lain; Phase 3 stores bounded, sanitized
+completed observations in operational history. No semantic memory exists.
+
+## 23. Terminal client configuration
+
+`lain` reads `LAIN_URL` (default `http://127.0.0.1:8787`) and the same required
+`LAIN_API_TOKEN`. HTTP and HTTPS URLs may include a reverse-proxy path prefix,
+but cannot include user credentials, query or fragment. Authentication uses only
+the bearer header, redirects are disabled, and errors do not print request URLs
+or credentials. The client has bounded connection/read/request waits and reconnects
+SSE after stream loss. Tokens are neither command arguments nor normal output.
+Worker workspace arguments are sent verbatim to the server, without local path
+canonicalization. Use an existing absolute path on the daemon host; shell tilde
+expansion belongs to that shell, not a remote server-path resolution feature.
+Daemon binding remains loopback; remote transport/TLS deployment remains future work.

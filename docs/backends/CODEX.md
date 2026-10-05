@@ -68,7 +68,8 @@ supervisor's command-vs-notification selection so a command cannot truncate a re
 
 Thread creation sets cwd, selected optional model, sandbox (`read-only` by default,
 or `workspace-write`), `approvalPolicy: on-request`, `approvalsReviewer: user`, and
-`ephemeral: false`. Resume reapplies the selected options and verifies the returned
+`ephemeral: false`. Phase 3 then materializes an unused durable binding before
+exposing successful creation; see below. Resume reapplies the selected options and verifies the returned
 thread identity. No global config is rewritten. The allowlisted environment uses
 Codex's existing local authentication; see [configuration](../CONFIGURATION.md).
 
@@ -95,10 +96,11 @@ SIGKILL. Native Windows shutdown has been exercised; native Linux remains unveri
 | Transport loss / closed thread | BackendDisconnected; unfinished turns Unknown |
 
 Public IDs are always Lain IDs. Private migration-002 metadata preserves provider
-thread/turn IDs and selected options. No prompts or transcripts are stored by
+thread/turn IDs and selected options. Raw prompts/transcripts are not stored by
 Lain. File diffs, reasoning fragments, token usage and unsupported item types are
-not mirrored into the domain. Progress/command/text observations are live-only;
-life-cycle and approval metadata commit before publication.
+not mirrored into the domain. Only progress counts are live-only. Meaningful
+completed output, lifecycle, tools and approvals commit to migration-003 history
+before publication; state and associated history are atomic.
 
 ## Approvals and cancellation
 
@@ -132,7 +134,8 @@ reconciles known turns from provider history, and returns Idle/Running only with
 backend evidence. A returned historical inProgress turn in an idle thread remains
 Unknown. Never silently create a replacement thread when resume fails.
 
-An unused thread can lack a rollout. A submission lost before its native turn ID
+A bare unused thread/start can lack a rollout. Phase 3 handles new creation as
+described below. A submission lost before its native turn ID
 was bound cannot be safely matched to a later history entry by order or text;
 that original Lain turn remains Unknown. Codex owns its rollout storage, and
 resumability depends on that storage and account/config remaining available.
@@ -146,8 +149,8 @@ interrupt acknowledgement cannot prove an external side effect did/did not occur
 Known credentials and recognizable key/token patterns are blocked/redacted, and
 raw deltas are not forwarded. Unknown/encoded secrets cannot be detected reliably;
 do not expose credential files or request their contents. Completed output is
-capped at 32 Ki characters and is not replayed on SSE reconnect. See the documented
-[snapshot/reconnect contract](../DEVELOPMENT.md#9-worker-control-api).
+bounded by UTF-8 byte limits and fetched through indexed history on reconnect,
+not SSE replay. See the [history contract](../DEVELOPMENT.md#11-operational-history).
 
 ## Validation
 
@@ -166,3 +169,31 @@ client detach/reconnect, explicit owner approval, owned-process crash/resume, an
 daemon restart followed by a resumed turn with both provider IDs unchanged.
 The local model configuration was `gpt-6-astra` with high reasoning and ChatGPT
 authentication. Final checks and milestone details are in `DEVLOG.md`.
+
+## Phase 3 unused-thread persistence (verified 2026-10-04/05, Codex 0.160.0)
+
+A bare `thread/start` followed immediately by `thread/fork` failed with no rollout
+in the installed native build. A metadata-only read did not solve it. In this
+verified version, a full `thread/read` with `includeTurns: true` initializes the
+default history storage, even when it returns -32601 (`list_turns` unsupported).
+A subsequent non-ephemeral `thread/fork` materializes a persistent empty rollout.
+This agrees with the upstream persistent-fork materialization implementation in
+the [thread processor](https://github.com/openai/codex/blob/main/codex-rs/app-server/src/request_processors/thread_processor.rs).
+The read side effect is a version-specific empirical compatibility behavior,
+not a generic upstream guarantee. The adapter accepts only that read's -32601
+limitation; other failures abort creation. The existing exact version gate remains.
+
+Creation binds Lain only to the successfully materialized fork ID, before reporting
+success. It never rebinds an existing session, injects invalid items or submits a
+synthetic prompt. The unused seed is Codex-owned storage; its retention is Codex's
+responsibility. A native no-inference ignored test creates, closes and resumes
+the same unused binding through a fresh process. The focused real smoke additionally
+proved first and follow-up model turns on that binding after idle detach/restart.
+Do not extend version support without repeating these checks.
+
+Idle timeout and normal idle shutdown leave Idle + Detached. Unexpected idle loss
+leaves Idle + Lost; active unconfirmed loss/shutdown leaves Unknown. Known idle
+sessions do not spawn Codex at boot; uncertain provider-backed work reconciles
+selectively and releases its runtime if idle. Historical connection-local approvals
+are never replayed. Provider rollout removal, account changes, workspace removal
+and unbound uncertain turn IDs can still prevent successful recovery.

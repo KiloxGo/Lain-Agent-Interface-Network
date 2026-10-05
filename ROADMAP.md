@@ -1,7 +1,7 @@
 # Roadmap
 
 **Status:** working plan  
-**Last reviewed:** 2026-10-04
+**Last reviewed:** 2026-10-05
 
 This roadmap defines implementation order for the Lain architecture reboot.
 
@@ -23,7 +23,7 @@ Deliverables:
 - [x] docs/MEMORY.md
 - [x] docs/CONFIGURATION.md
 - [x] archive the old prototype on `legacy/v0` and restart from a clean implementation tree
-- [ ] add initial ADRs for major architecture decisions
+- [x] add initial ADRs for major architecture decisions
 - [x] freeze initial Rust workspace/crate layout
 
 Exit criteria:
@@ -98,7 +98,8 @@ follow-up turns, scoped cancellation, explicit approval, frontend detach,
 owned-process crash/resume and daemon restart with unchanged provider identities.
 Uses direct App Server, one owned process per session and migration 002. See
 `docs/backends/CODEX.md` for contract/limitations and `DEVLOG.md` for evidence.
-Native Linux lifecycle validation remains outstanding. Phase 3 has not started.
+Native Linux lifecycle validation remains outstanding. Phase 3 extends this
+foundation with temporary runtimes and durable operational history.
 
 Exit criteria:
 
@@ -107,32 +108,52 @@ Exit criteria:
 - Kernel can restart and represent/recover session state correctly;
 - no terminal UI scraping is required.
 
-## Phase 3 — Headless CLI and TUI
+## Phase 3 — Durable work, operational history, CLI and TUI
 
-**Goal:** make terminal users first-class before building a complex graphical frontend.
+**Goal:** establish process-independent work and reconnectable history, then make
+terminal users first-class before building a graphical frontend.
 
-Target CLI surface may include:
+Ordered deliverables:
+
+1. [x] WorkSession / temporary WorkerRuntime separation, public attachment state,
+   event-driven idle detach, lazy identity-preserving resume, selective boot
+   reconciliation and truthful graceful shutdown.
+2. [x] Indexed migration-003 operational history, bounded sanitized meaningful
+   observations, state/history atomic commits, stable EventId/order and paginated API.
+3. [x] Separate API-only `lain` client, non-interactive JSON commands, session list
+   and detail TUI, approvals, input editing, scrolling, resize, history/live dedup,
+   reconnect/resync and terminal restoration.
+
+Implemented CLI:
 
 ~~~text
 lain status
 lain work list
-lain work start
+lain work start --workspace <server-path>
+lain work show <id>
 lain work attach <id>
 lain work send <id>
 lain work cancel <id>
-lain work logs <id>
-lain profile list
+lain work resume <id>
+lain work history <id>
+lain approval list/approve/deny/cancel <session> [approval]
+lain --json work list
 ~~~
 
-TUI target:
+TUI:
 
 - active session list;
 - session timeline;
 - approval view;
-- prompt/steer input;
+- follow-up input when Idle/Ready and explicit cancel;
 - profile/backend information.
 
 The TUI talks only to the public Kernel API.
+Profile/backend labels are visible; a full profile registry remains Phase 5.
+Ratatui 0.30.2/Crossterm 0.29 implement the terminal. Windows ConPTY and real
+Codex 0.160.0 acceptance cover detached follow-up, history/reboot continuity
+and unchanged provider identity. See DEVLOG and the development guide for
+validation and known Linux/native-host limits. Phase 4 is not started.
 
 Exit criteria:
 
@@ -355,10 +376,11 @@ Make these decisions when implementation evidence exists:
 - exact Lain model/provider;
 - embedding/vector search necessity;
 - frontend framework;
-- TUI framework;
-- worker process detach semantics on Kernel shutdown.
+- native Linux terminal/process lifecycle validation.
 
 Do not prematurely freeze choices that do not affect current architecture.
 
 Phase 1 resolves the initial HTTP/storage choices to Axum and rusqlite with
 bundled SQLite. These are implementation choices, not new domain contracts.
+Phase 3 resolves temporary runtime ownership, history ordering/retention and
+terminal technology in [ADR 001](docs/adr/001-durable-work-and-runtime-attachment.md).

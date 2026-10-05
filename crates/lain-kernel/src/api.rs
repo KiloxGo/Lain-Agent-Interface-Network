@@ -3,7 +3,7 @@ use std::{convert::Infallible, future::Future, path::PathBuf, sync::Arc, time::D
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, FromRef, Path, Request, State},
+    extract::{DefaultBodyLimit, FromRef, Path, Query, Request, State},
     http::{StatusCode, header},
     middleware::{self, Next},
     response::{
@@ -64,6 +64,7 @@ pub fn controlled_router(
         .route("/v1/work-sessions/{id}", get(inspect_session))
         .route("/v1/work-sessions/{id}/turns", get(turns).post(prompt))
         .route("/v1/work-sessions/{id}/approvals", get(approvals))
+        .route("/v1/work-sessions/{id}/history", get(history))
         .route("/v1/work-sessions/{id}/cancel", post(cancel))
         .route("/v1/work-sessions/{id}/resume", post(resume))
         .route(
@@ -94,6 +95,47 @@ struct Prompt {
 #[serde(deny_unknown_fields)]
 struct Decision {
     decision: ApprovalDecision,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct HistoryQuery {
+    after: Option<u64>,
+    before: Option<u64>,
+    until: Option<u64>,
+    limit: Option<usize>,
+}
+async fn history(
+    State(kernel): State<Arc<Kernel>>,
+    Path(id): Path<WorkSessionId>,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<crate::events::HistoryPage>, ApiError> {
+    let limit = query.limit.unwrap_or(100);
+    if !(1..=200).contains(&limit)
+        || (query.after.is_some() && query.before.is_some())
+        || query.before.is_some_and(|n| n == 0 || n > i64::MAX as u64)
+        || query.after.is_some_and(|n| n > i64::MAX as u64)
+        || query.until.is_some_and(|n| n > i64::MAX as u64)
+    {
+        return Err(ApiError(StatusCode::BAD_REQUEST, "invalid_history_query"));
+    }
+    if blocking(&kernel, move |k| k.session(id))
+        .await
+        .map_err(internal_error)?
+        .is_none()
+    {
+        return Err(ApiError(StatusCode::NOT_FOUND, "session_not_found"));
+    }
+    blocking(&kernel, move |k| {
+        if let Some(before) = query.before {
+            k.history_before(id, before, query.until, limit)
+        } else {
+            k.history(id, query.after.unwrap_or(0), query.until, limit)
+        }
+    })
+    .await
+    .map(Json)
+    .map_err(internal_error)
 }
 
 async fn create_session(

@@ -34,8 +34,13 @@ async fn run() -> Result<()> {
         .await
         .context("bind local API")?;
     tracing::info!(address = %listener.local_addr()?, "API listener bound");
-    let workers =
-        Supervisor::new(kernel.clone(), config.codex_path, config.api_token.clone()).await;
+    let workers = Supervisor::new(
+        kernel.clone(),
+        config.codex_path,
+        config.api_token.clone(),
+        config.worker_idle_timeout,
+    )
+    .await;
     workers.recover().await;
     let result = api::serve_with_workers(
         listener,

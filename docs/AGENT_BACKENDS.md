@@ -336,3 +336,20 @@ Re-verify before implementation:
 - Codex ACP adapter: https://github.com/agentclientprotocol/codex-acp
 - Claude ACP adapter: https://github.com/agentclientprotocol/claude-agent-acp
 - DeepSeek Harness: https://github.com/deepseek-ai/deepseek-harness
+
+## 19. Durable work and temporary runtimes (Phase 3)
+
+Adapters must keep provider bindings distinct from runtime/process ownership.
+Idle release and lazy resume retain logical WorkSession identity, without
+synthetic model prompts. New unused sessions must be proved resumable before an
+adapter advertises safe detach. The current Codex-specific creation materialization
+sequence and verified version are documented in [CODEX.md](backends/CODEX.md).
+Only uncertain provider-backed sessions reconcile at boot. Connection-local
+approvals cannot be transferred to another runtime; planned idle release requires
+none unresolved. Planned release/shutdown and unexpected transport loss have
+different domain semantics; public runtime observations never expose process IDs.
+
+Normalized completed observations commit to operational history before live
+publication. Raw fragments, reasoning, protocol objects and private diagnostics
+stay in the adapter and never become history. A terminal client uses these same
+provider-neutral APIs; it does not add a second backend implementation.

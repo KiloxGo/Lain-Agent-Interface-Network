@@ -51,6 +51,7 @@ pub struct Config {
     pub api_token: ApiToken,
     pub log_level: tracing::Level,
     pub codex_path: Option<PathBuf>,
+    pub worker_idle_timeout: std::time::Duration,
 }
 
 #[derive(Debug, Error)]
@@ -95,12 +96,23 @@ impl Config {
             .unwrap_or_else(|| "info".to_owned())
             .parse()
             .map_err(|_| ConfigError::Invalid("LAIN_LOG"))?;
+        let idle_seconds = text("LAIN_WORKER_IDLE_TIMEOUT")?
+            .map(|v| v.parse::<u64>())
+            .transpose()
+            .map_err(|_| ConfigError::Invalid("LAIN_WORKER_IDLE_TIMEOUT"))?
+            .unwrap_or(300);
+        if !(1..=86400).contains(&idle_seconds) {
+            return Err(ConfigError::Invalid(
+                "LAIN_WORKER_IDLE_TIMEOUT (1–86400 seconds)",
+            ));
+        }
         Ok(Self {
             database_path,
             listen,
             api_token,
             log_level,
             codex_path: lookup("LAIN_CODEX_PATH").map(PathBuf::from),
+            worker_idle_timeout: std::time::Duration::from_secs(idle_seconds),
         })
     }
 }

@@ -78,7 +78,7 @@ impl Redactor {
             return "[sensitive output redacted]".to_owned();
         }
         // Completed records only: no secret can slip through split token fragments.
-        text.chars().take(32 * 1024).collect()
+        text.to_owned()
     }
 }
 
@@ -100,7 +100,7 @@ fn credential_redaction_checks_complete_records_before_truncating() {
         "[sensitive output redacted]"
     );
     assert_eq!(redactor.text("safe output"), "safe output");
-    assert_eq!(redactor.text(&"a".repeat(40_000)).len(), 32 * 1024);
+    assert_eq!(redactor.text(&"a".repeat(40_000)).len(), 40_000);
 }
 
 pub(super) fn discover(explicit: Option<PathBuf>) -> Result<PathBuf> {
@@ -193,6 +193,31 @@ impl Codex {
             "thread/start"
         };
         let response = rpc.request(method, params).await?;
+        // 0.160.0's default history initialization needs a full read before an
+        // unused thread can be forked durably. Its unimplemented turns listing can
+        // return -32601 after initialization; all other failures remain fatal.
+        // Bind only the durable fork, without synthetic user turns/inference.
+        let response = if previous.is_none() {
+            let seed = identity(&response["thread"]["id"])?;
+            if let Err(error) = rpc
+                .request("thread/read", json!({"threadId":seed,"includeTurns":true}))
+                .await
+            {
+                ensure!(
+                    error
+                        .downcast_ref::<rpc::Rejected>()
+                        .is_some_and(|e| e.code == -32601),
+                    error
+                );
+            }
+            rpc.request(
+                "thread/fork",
+                json!({"threadId":seed,"cwd":workspace,"ephemeral":false}),
+            )
+            .await?
+        } else {
+            response
+        };
         let thread = &response["thread"];
         let id = identity(&thread["id"])?;
         ensure!(
@@ -343,11 +368,20 @@ impl Codex {
                     permissions,
                 },
             );
+            let mut description = self.redactor.text(&description);
+            if description.len() > 16 * 1024 {
+                let mut end = 16 * 1024 - 32;
+                while !description.is_char_boundary(end) {
+                    end -= 1;
+                }
+                description.truncate(end);
+                description.push_str("\n[description truncated]");
+            }
             return Ok(Some(Notice::Approval {
                 provider_turn_id: identity(&p["turnId"])?,
                 id,
                 kind,
-                description: self.redactor.text(&description),
+                description,
                 decisions,
             }));
         }
@@ -444,4 +478,31 @@ impl Codex {
             kind,
         }))
     }
+}
+
+#[cfg(test)]
+#[tokio::test]
+#[ignore = "manual real Codex protocol probe; no inference"]
+async fn probe_unused_thread_persistence() {
+    let path = discover(None).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let options = SessionOptions::default();
+    let mut created = Codex::connect(&path, dir.path(), &options, None, Redactor::new(vec![]))
+        .await
+        .unwrap();
+    let identity = created.worker.identity.clone();
+    assert!(created.history.is_empty());
+    created.worker.shutdown().await.unwrap();
+    let mut resumed = Codex::connect(
+        &path,
+        dir.path(),
+        &options,
+        Some(&identity),
+        Redactor::new(vec![]),
+    )
+    .await
+    .unwrap();
+    assert_eq!(resumed.worker.identity, identity);
+    assert!(resumed.history.is_empty());
+    resumed.worker.shutdown().await.unwrap();
 }

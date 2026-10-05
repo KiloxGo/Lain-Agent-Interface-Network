@@ -391,3 +391,73 @@ claiming cancellation succeeded.
   from completion, approval expiry, SSE resync and refresh after BackendReconnected.
   Decide transcript retention and profile configuration explicitly when needed;
   do not turn these operational records into Lain memory.
+
+## 2026-10-05 — Phase 3: presence
+
+Phase 3 is implemented in its required order: durable WorkSession and detachable
+WorkerRuntime, persistent operational history, then an independent CLI/TUI.
+Phase 4 has not begun. The architecture decision is recorded in ADR 001.
+
+- Added separate Detached/Starting/Attached/Stopping/Lost runtime observations.
+  An event-driven 300-second default idle timer releases only safe idle workers;
+  active turns, connection-local approvals and serialized operations prevent it.
+  Lazy prompt/resume uses the existing provider identity. Known idle boot does
+  not spawn workers; uncertain work selectively reconciles. Planned idle/shutdown
+  keeps Idle + Detached; unexpected idle loss keeps Idle + Lost; active unconfirmed
+  loss/shutdown makes the session/turn Unknown. Processes remain Kernel-owned.
+- Verified that an unused Codex 0.160.0 thread is not resumable by thread/start
+  alone. A full read initializes this version's default history (including its
+  -32601 list_turns limitation), and a persistent fork creates a resumable empty
+  rollout. Bind only the successful fork at initial creation, never replace an
+  existing binding, and never submit synthetic model work. This empirical,
+  version-gated behavior and native seed-retention tradeoff are explicit in CODEX.md.
+- Migration 003 stores normalized history in indexed rows separate from worker
+  snapshots. Stable EventIds and global monotonic order unify live and stored
+  events. State/history commit together before publication, including reconciliation
+  and recovery turn changes. Only OutputProgress stays ephemeral. Byte-bounded
+  completed output and safe metadata are retained indefinitely initially; raw
+  prompts/protocol/reasoning and semantic memory remain excluded. Future pruning
+  is explicit maintenance, not implicit summarization.
+- Added authenticated forward/backward history pagination and snapshot watermark.
+  Reconnect combines current snapshots, frozen history and live EventIds without
+  an exactly-once promise. Historical output cannot roll newer projections back.
+- Added `lain-client` with no Kernel/backend/SQLite dependency: HTTP/SSE only,
+  environment URL/token, full control command surface and JSON output. The Ratatui
+  0.30.2/Crossterm 0.29 TUI has list/detail views, current turn, recent/older history,
+  visible offered approvals with scrollable details, UTF-8 prompt editing, scoped
+  cancel/resume, resize and reconnect/resync. Terminal escape/bidi controls render
+  as text; guards/panic hooks restore terminal modes. Its view window is capped
+  at 1000 records, with CLI/API pagination for older history.
+
+Validation: 26 deterministic Rust tests passed. Two native checks (Codex
+no-inference persistence and terminal error/panic restoration) are ignored by
+default and passed when explicitly run. Formatting and
+Clippy with warnings denied passed. Tests cover idle/active/approval lifetimes,
+lazy binding continuity, known-idle boot, active shutdown and idle loss, history
+durability/order/isolation, state/history rollback without broadcast, UTF-8/output
+bounds, whole-record redaction beyond truncation limits, API pagination/auth,
+remote path preservation, offered approval decisions, fragmented SSE/reconnect,
+snapshot ordering/dedup, deterministic resize/rendering and restoration commands.
+No expensive CI or model automation was added.
+
+Focused real Windows acceptance (`codex_smoke.py --run-real --phase3`) passed
+unused-thread idle detach, CLI inspection without attachment, two short successful
+model turns through lazy resume, stable provider identity, history surviving two
+daemon restarts and Idle + Detached boot. Completed output/IDs/order were unchanged
+after reboot and the daemon token was absent from captured output/logs.
+Windows ConPTY acceptance with the deterministic subprocess passed attach without
+worker launch, actual keyboard follow-up on detached work, resize, approval denial,
+and alternate-screen restoration on exit. A native terminal guard test also
+confirmed raw-mode restoration after an error return and a caught panic.
+The helper dependency was installed only
+in an ignored isolated test environment. No global worker config was changed.
+
+Native Linux was not claimed: the available WSL Ubuntu has a C compiler but no
+Rust toolchain. Unix signal/process-group and terminal acceptance remain host
+validation work, and SIGKILL requires service-manager cgroup cleanup/terminal
+reset. Other limits: exact Codex version gating and provider-owned rollout storage,
+unknown/unbound submission outcomes, unknown/encoded secrets, pre-Phase-3 output
+not backfilled, whole turn/approval snapshot write cost, bounded client response
+and view sizes, indefinite total history growth until pruning, and loopback daemon
+binding. Full profiles/SecretRefs, Web, additional backends, Lain memory/personality
+and background cognition remain later phases.

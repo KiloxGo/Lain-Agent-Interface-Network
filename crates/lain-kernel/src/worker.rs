@@ -58,11 +58,15 @@ impl WorkerState {
         Ok(())
     }
 
-    pub fn recover(&mut self, now: u64) {
+    pub fn recover(&mut self, now: u64) -> Vec<crate::events::EventKind> {
+        let mut events = Vec::new();
         for record in &mut self.turns {
-            if !record.turn.state.is_terminal() {
+            if !record.turn.state.is_terminal() && record.turn.state != TurnState::Unknown {
                 record.turn.state = TurnState::Unknown;
                 record.turn.updated_at_ms = now.max(record.turn.updated_at_ms);
+                events.push(crate::events::EventKind::TurnStateChanged {
+                    turn: record.turn.clone(),
+                });
             }
         }
         for approval in &mut self.approvals {
@@ -72,6 +76,10 @@ impl WorkerState {
                 _ => continue,
             }
             approval.updated_at_ms = now.max(approval.updated_at_ms);
+            events.push(crate::events::EventKind::ApprovalStateChanged {
+                approval: approval.clone(),
+            });
         }
+        events
     }
 }

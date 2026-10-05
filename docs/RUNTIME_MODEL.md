@@ -393,14 +393,17 @@ is started. Startup fails before serving if configuration, signals, storage,
 migration, persisted records, or the listener cannot be initialized.
 
 `Booting` opens storage. `Recovering` loads and validates session and worker snapshots
-in one transaction. Starting, Ready, Running, WaitingForApproval, Idle, and
-Disconnected become Unknown because no live backend can confirm their state.
+in one transaction. Known idle (including unused Ready) provider-backed sessions
+with confirmed terminal turns recover as Idle + Detached without spawning a worker.
+Starting, Running, WaitingForApproval, Disconnected and other uncertain sessions
+become Unknown because no live backend can confirm their state.
 Created, Unknown, Completed, Cancelled, Failed, and Archived remain unchanged.
 Unfinished turns become Unknown; pending approvals expire, and decisions with
 uncertain delivery become Unknown. Recovery is persisted before serving and does
 not infer worker failure or completion. Invalid data aborts the whole recovery
-transaction rather than being skipped. The supervisor then attempts resume for
-persisted provider identities. Unresumable sessions stay Disconnected/Unknown;
+transaction rather than being skipped. Associated recovery history commits in the
+same transaction. The supervisor attempts resume only for uncertain sessions with
+persisted provider identities and detaches again if idle. Unresumable sessions stay Unknown;
 they are never silently replaced by a new provider session.
 
 `Ready` is entered after recovery commits, the listener binds and resume attempts finish.
@@ -413,8 +416,11 @@ worker availability. Readiness does not promise that every backend is connected.
 SIGINT/SIGTERM on Unix and Ctrl-C/Ctrl-Break on Windows enter `ShuttingDown`.
 New control commands are rejected, the HTTP listener stops accepting, SSE ends, and
 in-flight requests may drain for at most five seconds. Exceeding that bound
-returns a failure exit status. Owned workers are then stopped and their uncertain
-state persisted. Each in-flight RPC has a bounded write/response timeout, followed
+returns a failure exit status. Owned workers are then stopped: idle work becomes
+Idle + Detached; interrupted, unconfirmed active work and turns become Unknown.
+Pending approvals expire and possibly delivered decisions remain Unknown. A normal
+shutdown is a planned stop, without a synthetic BackendDisconnected failure.
+Each in-flight RPC has a bounded write/response timeout, followed
 by EOF shutdown and forced process-tree termination if necessary. Shutdown does
 not manufacture successful cancellation. Dropping Kernel ownership closes SQLite
 and releases its OS file lock. The `.lock` sidecar is retained on disk; the OS
@@ -424,7 +430,7 @@ and network-filesystem locking are outside the supported local-file deployment.
 
 ## 21. Worker and client lifetimes
 
-One supervised task/process per WorkSession isolates failures and cancellation.
+At most one supervised task/process per attached WorkSession isolates failures and cancellation.
 A bounded command channel serializes prompt, cancel and approval operations for
 that session. After a command is queued, dropping the HTTP response or SSE client
 does not cancel it. The daemon owns the task and process independently.
@@ -434,6 +440,16 @@ queues notifications for the session task. Durable state changes run on blocking
 tasks; progress fragments only publish live counts. A malformed/oversized frame,
 queue overflow, timeout or process loss stops the affected runtime and triggers
 conservative recovery. Pending approvals cannot be transferred to a new process.
+
+An event-driven idle timer defaults to 300 seconds (`LAIN_WORKER_IDLE_TIMEOUT`,
+1–86400 integer seconds). It runs only with no active turn, unresolved
+connection-local approval or current serialized operation. It gracefully closes
+the process, removes supervisor attachment, retains the provider ID and leaves
+Idle + Detached. Observation/attach clients do not reset it or start processes.
+Prompt and explicit resume lazily attach and reconcile the existing binding;
+concurrent requests share the attachment/startup result. A closing runtime finishes
+teardown before its replacement starts. Invalid prompts cannot trigger model work.
+Unexpected active loss uses Unknown plus Lost; idle loss keeps Idle plus Lost.
 
 Windows workers belong to a kill-on-close Job Object. Unix workers belong to an
 owned process group, killed on managed shutdown. For Unix daemon SIGKILL/crashes,

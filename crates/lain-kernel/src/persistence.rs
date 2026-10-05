@@ -8,7 +8,8 @@ use anyhow::{Context, Result, ensure};
 use rusqlite::Connection;
 
 use crate::{
-    domain::{WorkSession, WorkSessionId, WorkSessionState, now_ms},
+    domain::{RuntimeAttachment, WorkSession, WorkSessionId, WorkSessionState, now_ms},
+    events::{Event, EventKind, HistoryPage},
     worker::WorkerState,
 };
 
@@ -49,7 +50,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 2,
+            version <= 3,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -61,6 +62,11 @@ impl Store {
             transaction
                 .execute_batch(include_str!("../migrations/002_worker_state.sql"))
                 .context("apply migration 002")?;
+        }
+        if version < 3 {
+            transaction
+                .execute_batch(include_str!("../migrations/003_history.sql"))
+                .context("apply migration 003")?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
@@ -116,38 +122,66 @@ impl Store {
             "orphaned worker state"
         );
         for session in &mut sessions {
-            if session.state.needs_reconciliation() {
+            let from = session.state;
+            let runtime_from = session.runtime;
+            let known_idle = matches!(
+                session.state,
+                WorkSessionState::Idle | WorkSessionState::Ready
+            ) && workers.get(&session.id).is_some_and(|w| {
+                w.provider_session_id.is_some()
+                    && w.turns.iter().all(|r| r.turn.state.is_terminal())
+                    && w.approvals.iter().all(|a| {
+                        !matches!(
+                            a.status,
+                            crate::domain::ApprovalStatus::Pending
+                                | crate::domain::ApprovalStatus::Responding
+                        )
+                    })
+            });
+            let runtime_changed = session.runtime != RuntimeAttachment::Detached;
+            session.runtime = RuntimeAttachment::Detached;
+            if known_idle && session.state == WorkSessionState::Ready {
+                session.transition(WorkSessionState::Idle)?;
+            }
+            if session.state.needs_reconciliation() && !known_idle {
                 session.transition(WorkSessionState::Unknown)?;
+            }
+            if runtime_changed
+                || from != session.state
+                || session.state == WorkSessionState::Unknown
+            {
                 transaction.execute(
                     "UPDATE work_sessions SET snapshot = ?1 WHERE id = ?2",
                     (serde_json::to_string(session)?, session.id.to_string()),
                 )?;
             }
+            let mut events = Vec::new();
+            if from != session.state {
+                events.push(Event::new(
+                    session.id,
+                    None,
+                    session.updated_at_ms,
+                    EventKind::SessionStateChanged {
+                        from,
+                        to: session.state,
+                    },
+                ));
+            }
+            if runtime_changed {
+                events.push(Event::new(
+                    session.id,
+                    None,
+                    now_ms()?,
+                    EventKind::RuntimeAttachmentChanged {
+                        from: runtime_from,
+                        to: session.runtime,
+                    },
+                ));
+            }
+            Self::write_events(&transaction, &mut events)?;
         }
         transaction.commit().context("commit session recovery")?;
         Ok((sessions, workers))
-    }
-
-    pub fn insert(&self, session: &WorkSession) -> Result<()> {
-        self.connection
-            .execute(
-                "INSERT INTO work_sessions (id, snapshot) VALUES (?1, ?2)",
-                (session.id.to_string(), serde_json::to_string(session)?),
-            )
-            .context("insert session")?;
-        Ok(())
-    }
-
-    pub fn update(&self, session: &WorkSession) -> Result<()> {
-        let changed = self
-            .connection
-            .execute(
-                "UPDATE work_sessions SET snapshot = ?1 WHERE id = ?2",
-                (serde_json::to_string(session)?, session.id.to_string()),
-            )
-            .context("persist session transition")?;
-        ensure!(changed == 1, "session missing from durable storage");
-        Ok(())
     }
 
     pub fn recover_workers(
@@ -164,7 +198,13 @@ impl Store {
                 let mut worker: WorkerState = serde_json::from_str(&snapshot)
                     .map_err(|_| anyhow::anyhow!("invalid persisted worker state"))?;
                 worker.validate(id)?;
-                worker.recover(now_ms()?);
+                let now = now_ms()?;
+                let mut events: Vec<_> = worker
+                    .recover(now)
+                    .into_iter()
+                    .map(|kind| Event::new(id, None, now, kind))
+                    .collect();
+                Self::write_events(tx, &mut events)?;
                 workers.insert(id, worker);
             }
         }
@@ -177,20 +217,111 @@ impl Store {
         Ok(workers)
     }
 
-    pub fn save_worker(&mut self, session: &WorkSession, worker: &WorkerState) -> Result<()> {
+    pub fn save(
+        &mut self,
+        session: &WorkSession,
+        worker: Option<&WorkerState>,
+        create: bool,
+        events: &mut [Event],
+    ) -> Result<()> {
         // ponytail: whole metadata snapshots cost O(history); use indexed turn/approval
         // rows when measured session history makes these infrequent commits expensive.
-        worker.validate(session.id)?;
+        if let Some(worker) = worker {
+            worker.validate(session.id)?;
+        }
         let tx = self.connection.transaction()?;
         ensure!(
             tx.execute(
-                "UPDATE work_sessions SET snapshot = ?1 WHERE id = ?2",
+                if create {
+                    "INSERT INTO work_sessions (snapshot, id) VALUES (?1, ?2)"
+                } else {
+                    "UPDATE work_sessions SET snapshot = ?1 WHERE id = ?2"
+                },
                 (serde_json::to_string(session)?, session.id.to_string())
             )? == 1,
             "session missing from durable storage"
         );
-        tx.execute("INSERT INTO worker_state (session_id, snapshot) VALUES (?1, ?2) ON CONFLICT(session_id) DO UPDATE SET snapshot = excluded.snapshot", (session.id.to_string(), serde_json::to_string(worker)?))?;
+        if let Some(worker) = worker {
+            tx.execute("INSERT INTO worker_state (session_id, snapshot) VALUES (?1, ?2) ON CONFLICT(session_id) DO UPDATE SET snapshot = excluded.snapshot", (session.id.to_string(), serde_json::to_string(worker)?))?;
+        }
+        Self::write_events(&tx, events)?;
         tx.commit().context("commit worker state")?;
         Ok(())
+    }
+
+    fn write_events(tx: &rusqlite::Transaction<'_>, events: &mut [Event]) -> Result<()> {
+        for event in events {
+            ensure!(
+                !matches!(event.kind, EventKind::OutputProgress { .. }),
+                "ephemeral progress cannot be persisted"
+            );
+            let kind = serde_json::to_value(&event.kind)?["kind"]
+                .as_str()
+                .context("missing event kind")?
+                .to_owned();
+            tx.execute("INSERT INTO operational_history (event_id, session_id, turn_id, timestamp_ms, kind, payload) VALUES (?1, ?2, ?3, ?4, ?5, ?6)", rusqlite::params![event.id.to_string(), event.work_session_id.to_string(), event.turn_id.map(|id| id.to_string()), i64::try_from(event.timestamp_ms)?, kind, serde_json::to_string(event)?])?;
+            event.history_order = Some(tx.last_insert_rowid().try_into()?);
+        }
+        Ok(())
+    }
+
+    pub fn append_events(&mut self, events: &mut [Event]) -> Result<()> {
+        let tx = self.connection.transaction()?;
+        Self::write_events(&tx, events)?;
+        tx.commit().context("commit operational history")?;
+        Ok(())
+    }
+
+    pub fn history_cursor(&self) -> Result<u64> {
+        Ok(self
+            .connection
+            .query_row(
+                "SELECT coalesce(max(sequence), 0) FROM operational_history",
+                [],
+                |row| row.get::<_, i64>(0),
+            )?
+            .try_into()?)
+    }
+
+    pub fn history(
+        &self,
+        id: WorkSessionId,
+        after: u64,
+        until: u64,
+        limit: usize,
+        before: bool,
+    ) -> Result<HistoryPage> {
+        let mut statement = self.connection.prepare("SELECT sequence, payload FROM operational_history WHERE session_id = ?1 AND sequence > ?2 AND sequence <= ?3 ORDER BY sequence LIMIT ?4")?;
+        if before {
+            statement = self.connection.prepare("SELECT sequence, payload FROM operational_history WHERE session_id = ?1 AND sequence > ?2 AND sequence <= ?3 ORDER BY sequence DESC LIMIT ?4")?;
+        }
+        let rows = statement.query_map(
+            rusqlite::params![
+                id.to_string(),
+                i64::try_from(after)?,
+                i64::try_from(until)?,
+                i64::try_from(limit + 1)?
+            ],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+        )?;
+        let mut events = Vec::new();
+        for row in rows {
+            let (order, payload) = row?;
+            let mut event: Event = serde_json::from_str(&payload)
+                .map_err(|_| anyhow::anyhow!("invalid operational history encoding"))?;
+            event.history_order = Some(order.try_into()?);
+            events.push(event);
+        }
+        let has_more = events.len() > limit;
+        events.truncate(limit);
+        if before {
+            events.reverse();
+        }
+        let next_cursor = events.last().and_then(|e| e.history_order).unwrap_or(after);
+        Ok(HistoryPage {
+            events,
+            next_cursor,
+            has_more,
+        })
     }
 }

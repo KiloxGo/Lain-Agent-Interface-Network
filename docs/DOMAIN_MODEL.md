@@ -459,7 +459,7 @@ characters in nonempty slash-separated segments containing letters, digits,
 underscore, hyphen, or period. A profile registry remains deferred.
 
 A WorkSession stores ID, backend, runtime profile ID, canonical absolute workspace
-path, state, and created/updated UTC Unix milliseconds. Creation requires an
+path, logical state, runtime attachment, and created/updated UTC Unix milliseconds. Creation requires an
 existing directory with a UTF-8 path. Recovery validates the record without
 requiring that the workspace still exists. Timestamps never move backward on
 transitions, even if the host clock does. Provider-native session/turn identities
@@ -473,7 +473,7 @@ The candidate state names in section 9 are adopted. Exact allowed transitions:
 |---|---|
 | Created | Starting, Cancelled, Failed |
 | Starting | Ready, Cancelled, Failed, Disconnected, Unknown |
-| Ready | Running, Cancelled, Failed, Disconnected, Unknown |
+| Ready | Running, Idle, Cancelled, Failed, Disconnected, Unknown |
 | Running | WaitingForApproval, Idle, Completed, Cancelled, Failed, Disconnected, Unknown |
 | WaitingForApproval | Running, Idle, Cancelled, Failed, Disconnected, Unknown |
 | Idle | Running, Completed, Cancelled, Failed, Disconnected, Unknown |
@@ -516,9 +516,35 @@ it Resolved. Resolution means the request was handled, not that a tool succeeded
 Lost connections expire unanswered requests and mark possibly delivered decisions
 Unknown. Connection-local request IDs are not replayed after restart.
 
-Events carry EventId, UTC timestamp, WorkSessionId and optional TurnId. Lifecycle
+Events carry EventId, UTC timestamp, WorkSessionId and optional TurnId. Durable
+events additionally have history_order and bounded payload truncation metadata. Lifecycle
 and approval events carry normalized domain values. Live observations include
 OutputProgress (character counts), AssistantMessageCompleted, CommandStarted,
 CommandCompleted, successful FileChanged, ToolActivity and ErrorObserved.
 BackendDisconnected and BackendReconnected describe transport ownership. Raw
 provider request objects and secret-bearing protocol diagnostics are excluded.
+
+## 25. Runtime attachment and operational history
+
+WorkSession is durable logical work; WorkerRuntime is temporary infrastructure.
+Public `runtime` has Detached, Starting, Attached, Stopping and Lost observations,
+independent of WorkSessionState. Process IDs are never public identity. Idle plus
+Detached is healthy; a prompt/resume uses the same Lain ID and private provider
+binding. Planned detach emits runtime changes rather than BackendDisconnected.
+Unexpected idle loss can retain Idle plus Lost; active unconfirmed loss is Unknown.
+
+Operational history is an indexed normalized timeline, not a worker transcript,
+SessionSummary or Lain semantic memory. Stable EventIds are reused in SSE and
+history. `history_order` is a database-wide increasing sequence, so a session's
+orders can have gaps. Timestamp is display information, not the ordering clock.
+Meaningful state/turn/cancellation/approval changes, completed assistant messages,
+commands, successful file changes, tools and safe errors are durable. Unknown turn
+and expired/uncertain approval recovery use TurnStateChanged/ApprovalStateChanged;
+they do not fabricate completion. SessionCreated includes the initial Lain snapshot.
+Only OutputProgress is ephemeral, with no history_order or replay guarantee.
+
+State and associated events commit atomically before publication. Observation-only
+events commit their own row before publication. The history remains useful after
+worker detach and daemon restart. Retention is indefinite in this milestone with
+bounded individual payloads; pruning is future explicit maintenance. See the
+[query/bounds contract](DEVELOPMENT.md#11-operational-history).

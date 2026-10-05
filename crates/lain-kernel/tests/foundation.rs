@@ -69,7 +69,7 @@ fn ids_and_complete_transition_matrix() {
         ),
         (
             Ready,
-            vec![Running, Cancelled, Failed, Disconnected, Unknown],
+            vec![Idle, Running, Cancelled, Failed, Disconnected, Unknown],
         ),
         (
             Running,
@@ -138,6 +138,10 @@ fn config_defaults_overrides_validation_and_redaction() {
     let lookup = |key: &str| (key == "LAIN_API_TOKEN").then(|| OsString::from(TOKEN));
     let config = Config::from_lookup(lookup).unwrap();
     assert_eq!(config.listen.to_string(), "127.0.0.1:8787");
+    assert_eq!(
+        config.worker_idle_timeout,
+        std::time::Duration::from_secs(300)
+    );
     assert_eq!(config.database_path.to_str().unwrap(), "data/lain.sqlite3");
     assert!(!format!("{config:?}").contains(TOKEN));
     assert!(Config::from_lookup(|_| None).is_err());
@@ -148,6 +152,9 @@ fn config_defaults_overrides_validation_and_redaction() {
         ("LAIN_DATABASE_PATH", ":memory:"),
         ("LAIN_LOG", "bad"),
         ("LAIN_API_TOKEN", "bad-secret"),
+        ("LAIN_WORKER_IDLE_TIMEOUT", "0"),
+        ("LAIN_WORKER_IDLE_TIMEOUT", "86401"),
+        ("LAIN_WORKER_IDLE_TIMEOUT", "invalid"),
     ] {
         let error = Config::from_lookup(|k| {
             if k == key {
@@ -164,10 +171,15 @@ fn config_defaults_overrides_validation_and_redaction() {
         "LAIN_LISTEN" => Some("[::1]:0".into()),
         "LAIN_DATABASE_PATH" => Some("custom/state.db".into()),
         "LAIN_LOG" => Some("debug".into()),
+        "LAIN_WORKER_IDLE_TIMEOUT" => Some("5".into()),
         _ => lookup(key),
     })
     .unwrap();
     assert_eq!(config.listen.to_string(), "[::1]:0");
+    assert_eq!(
+        config.worker_idle_timeout,
+        std::time::Duration::from_secs(5)
+    );
     assert_eq!(config.database_path.to_str().unwrap(), "custom/state.db");
     assert!("x".repeat(257).parse::<ApiToken>().is_err());
 }
@@ -292,7 +304,12 @@ fn mutations_commit_before_events_and_fail_without_publishing() {
     let session = create(&kernel, &dir);
     let event = first.try_recv().unwrap();
     assert_eq!(event, second.try_recv().unwrap());
-    assert_eq!(event.kind, EventKind::SessionCreated);
+    assert_eq!(
+        event.kind,
+        EventKind::SessionCreated {
+            session: session.clone()
+        }
+    );
     assert_eq!(
         kernel.session(event.work_session_id).unwrap(),
         Some(session.clone())
@@ -363,7 +380,7 @@ fn migration_and_corrupt_recovery_fail_closed() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        2
+        3
     );
     db.execute(
         "INSERT INTO work_sessions VALUES (?1, ?2)",
@@ -410,6 +427,40 @@ fn event_lag_is_explicit_and_no_subscribers_is_normal() {
 }
 
 #[test]
+fn failed_history_commit_rolls_back_state_and_does_not_publish() {
+    let dir = TempDir::new().unwrap();
+    let kernel = kernel(&dir);
+    let session = create(&kernel, &dir);
+    let before = kernel.history(session.id(), 0, None, 100).unwrap();
+    let mut events = kernel.subscribe();
+    let db = rusqlite::Connection::open(dir.path().join("state.sqlite3")).unwrap();
+    db.execute_batch("CREATE TRIGGER reject_history BEFORE INSERT ON operational_history BEGIN SELECT RAISE(ABORT, 'fixture failure'); END;").unwrap();
+    assert!(kernel.transition_session(session.id(), Starting).is_err());
+    assert_eq!(
+        kernel.session(session.id()).unwrap().unwrap().state(),
+        Created
+    );
+    assert!(events.try_recv().is_err());
+    assert_eq!(
+        kernel.history(session.id(), 0, None, 100).unwrap().events,
+        before.events
+    );
+    let snapshot: String = db
+        .query_row(
+            "SELECT snapshot FROM work_sessions WHERE id = ?1",
+            [session.id().to_string()],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<WorkSession>(&snapshot)
+            .unwrap()
+            .state(),
+        Created
+    );
+}
+
+#[test]
 fn phase_one_migration_and_worker_recovery_are_atomic() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().join("state.sqlite3");
@@ -419,8 +470,10 @@ fn phase_one_migration_and_worker_recovery_are_atomic() {
     drop(original);
     let db = rusqlite::Connection::open(&path).unwrap();
     // Reconstruct the exact schema of an existing Phase 1 database.
-    db.execute_batch("DROP TABLE worker_state; PRAGMA user_version = 1;")
-        .unwrap();
+    db.execute_batch(
+        "DROP TABLE operational_history; DROP TABLE worker_state; PRAGMA user_version = 1;",
+    )
+    .unwrap();
     let migrated = Kernel::open(&path).unwrap();
     assert_eq!(
         migrated.session(session.id()).unwrap().unwrap().state(),
@@ -448,7 +501,7 @@ fn phase_one_migration_and_worker_recovery_are_atomic() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        2
+        3
     );
 }
 

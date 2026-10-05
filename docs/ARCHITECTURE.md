@@ -514,10 +514,10 @@ Current references:
 - DeepSeek Harness ACP: https://github.com/deepseek-ai/deepseek-harness/tree/master/packages/acp/acp
 - Claude Code LLM gateway configuration: https://docs.anthropic.com/en/docs/claude-code/llm-gateway
 
-## 15. Implemented Phase 2 boundary
+## 15. Implemented Phase 3 boundary
 
-The initial workspace contains one crate, `crates/lain-kernel`, with a library
-and `laind` binary. Modules preserve the boundaries without empty services or
+The workspace contains `crates/lain-kernel` (library and `laind`) and
+`crates/lain-client` (`lain`, no Kernel dependency). Modules preserve boundaries without empty services or
 one-implementation repository/backend traits:
 
 | Module | Current responsibility |
@@ -533,7 +533,9 @@ one-implementation repository/backend traits:
 | `backend::codex/rpc/process` (private) | Codex translation, JSON framing and process ownership |
 | `main` | Configuration, logging, signal registration, startup and teardown |
 
-The supervisor owns one runtime task and one backend subprocess per WorkSession.
+The supervisor owns at most one temporary runtime task/subprocess per WorkSession.
+RuntimeAttachment is separate from logical state: Detached, Starting, Attached,
+Stopping or Lost. Idle work normally has no process after its idle timeout.
 The first adapter uses direct Codex App Server; there is no generic agent loop,
 plugin registry or backend trait with a single implementation. JSON-RPC objects
 stay in the adapter. Only Kernel methods commit domain changes. A single mutex
@@ -547,25 +549,31 @@ is owned by persistence, not by the public API. Snapshot decoding and domain
 validation happen before recovery commits. Migration 002 adds a private
 `worker_state` snapshot per WorkSession containing provider bindings, selected
 session options, turns and approvals. Session and worker updates share one
-transaction, including recovery. No prompts or transcripts are stored here.
+transaction, including recovery. Migration 003 adds indexed operational history;
+it is separate from worker context, summaries and Lain memory. Raw prompts,
+protocol frames and reasoning are not stored.
 Full snapshot writes are deliberately simple: history size affects write cost;
 introduce indexed turn/approval tables when measured history volume warrants it.
 This is operational storage only, not Lain memory.
 
 The event bus uses a bounded Tokio broadcast channel (256 events). Durable
 lifecycle/approval publication follows commit and projection update under the
-Kernel lock. Output progress and completed text/tool observations are live-only;
-they do not write SQLite. The dedicated protocol reader routes RPC responses
+Kernel lock. Meaningful completed text/tool observations also commit before
+publication; associated state and history share one transaction. OutputProgress
+is intentionally live-only and does not write SQLite. The dedicated protocol reader routes RPC responses
 independently of the supervisor/storage task and queues at most 512 notifications.
 Overflow stops that owned runtime and requires reconciliation instead of silently
 dropping lifecycle evidence. Message frames are bounded at 8 MiB.
 
 SSE establishes its snapshot and subscription under the same Kernel lock. There
-is no durable replay, outbox, or exactly-once promise. A slow subscriber receives
+is no SSE replay, outbox, or exactly-once promise. A slow subscriber receives
 `resync_required` and reconnects for a fresh snapshot; `Last-Event-ID` is not a
-replay cursor. A crash between commit and publication is resolved from snapshots.
-Recovery does not replay historical output; `BackendReconnected` tells an existing
-client to refresh turns and approvals after reconciliation. No subscribers is normal.
+replay cursor. Snapshots include a history high-water cursor. Query indexed
+history through that cursor, then merge overlapping live EventIds in server order.
+A crash between commit and publication is repaired from history and snapshots.
+On reconnect the authoritative snapshot replaces session/turn/approval views;
+history contributes timeline entries and must not roll current state backward.
+No subscribers is normal. See [the protocol](DEVELOPMENT.md#11-operational-history).
 
 The local API uses Axum, binds only to loopback, and requires a bearer token even
 for probes and SSE. It accepts session creation, initial/follow-up prompts,
@@ -573,3 +581,9 @@ explicit approval decisions, cancellation and resume. Client lifetime is unrelat
 to worker lifetime. API authentication is distinct from worker approval policy.
 Remote exposure and TLS/auth deployment need a security design before relaxing
 this binding restriction. Lain Actor, memory, World and scheduling remain deferred.
+
+The terminal client uses authenticated HTTP/SSE exclusively. It never opens
+SQLite, reads daemon files or starts a worker. Its rendering/selection/history
+window is disposable. Attach means observe logical work, and sending a prompt
+asks the Kernel to lazily resume the same provider binding. Closing the client
+only closes its own subscriptions. See [ADR 001](adr/001-durable-work-and-runtime-attachment.md).
