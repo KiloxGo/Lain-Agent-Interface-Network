@@ -5,8 +5,9 @@ export interface Session {
 }
 export interface Turn {
   id: string; work_session_id: string; state: string; cancellation: string;
-  created_at_ms: number; updated_at_ms: number;
+  created_at_ms: number; updated_at_ms: number; failure?: WorkerFailure;
 }
+export interface WorkerFailure { kind: string; message: string }
 export type Decision = 'approve_once' | 'deny' | 'cancel';
 export interface Approval {
   id: string; work_session_id: string; turn_id: string | null; kind: string;
@@ -19,7 +20,7 @@ export interface WorkEvent {
   session?: Session; turn?: Turn; approval?: Approval; approval_id?: string;
   to?: string; state?: string; text?: string; command?: string; output?: string;
   exit_code?: number | null; paths?: string[]; name?: string; completed?: boolean;
-  category?: string; characters?: number; failure?: { kind: string };
+  category?: string; characters?: number; failure?: WorkerFailure;
 }
 export interface Snapshot { history_cursor: number; sessions: Session[]; turns: Turn[]; approvals: Approval[] }
 export interface HistoryPage { events: WorkEvent[]; next_cursor: number; has_more: boolean }
@@ -63,7 +64,12 @@ export function parseSession(value: unknown): Session {
 export function parseTurn(value: unknown): Turn {
   const v = object(value);
   return { id: id(v.id), work_session_id: id(v.work_session_id), state: text(v.state),
-    cancellation: text(v.cancellation), created_at_ms: timestamp(v.created_at_ms), updated_at_ms: timestamp(v.updated_at_ms) };
+    cancellation: text(v.cancellation), created_at_ms: timestamp(v.created_at_ms), updated_at_ms: timestamp(v.updated_at_ms),
+    ...(v.failure == null ? {} : { failure: parseFailure(v.failure) }) };
+}
+function parseFailure(value: unknown): WorkerFailure {
+  const v = object(value);
+  return { kind: text(v.kind), message: text(v.message) };
 }
 export function parseApproval(value: unknown): Approval {
   const v = object(value);
@@ -92,7 +98,7 @@ export function parseEvent(value: unknown): WorkEvent {
     if (v.exit_code !== null && (typeof v.exit_code !== 'number' || !Number.isSafeInteger(v.exit_code))) throw invalid();
     event.exit_code = v.exit_code as number | null;
   }
-  if (v.failure !== undefined) event.failure = { kind: text(object(v.failure).kind) };
+  if (v.failure !== undefined) event.failure = parseFailure(v.failure);
   return event;
 }
 export function parseSnapshot(value: unknown): Snapshot {

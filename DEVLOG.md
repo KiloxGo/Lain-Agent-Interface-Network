@@ -522,3 +522,16 @@ ceiling, and a bounded view rather than the full worker transcript. Native Linux
 worker/terminal lifecycle remains unverified. Before Phase 5, settle profile
 capability/resolved-view contracts and remote authentication/rotation/security if
 needed. See `docs/WEB.md` for commands, recovery and actual deployment limits.
+
+### 2026-10-05 — Web worker error explanations
+
+A real Codex turn emitted retryable errors and subsequently completed, but the
+Web parser discarded the Kernel's safe `worker error; backend will retry`
+explanation. The timeline now preserves and displays normalized failure messages
+for error observations, disconnects and turn failures; the latest turn's failure
+also remains visible after snapshot reconstruction. Messages use the existing
+bounded text renderer. Error observations do not alter session/turn state, and raw
+provider diagnostics remain private. A focused frontend regression covers retry
+semantics, snapshot failure parsing, malformed messages and safe text rendering.
+Validation: all 11 frontend tests, TypeScript and the production build passed;
+`git diff --check` passed. No Kernel or worker lifecycle change was required.

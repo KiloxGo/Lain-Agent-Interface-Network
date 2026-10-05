@@ -37,6 +37,10 @@ pending approval count and the Kernel's update timestamp. Detail shows full ID,
 daemon-host workspace, backend/profile, latest turn, cancellation evidence,
 pending approvals, timeline and follow-up composer. There are no native thread IDs.
 Kernel readiness and backend availability are separate from browser connectivity.
+Timeline errors and turn failures display the Kernel's normalized safe explanation,
+including backend retry notices. An observed error does not imply a failed turn;
+terminal state still comes from Kernel turn evidence. Raw provider diagnostics are
+not exposed.
 On phones, list and detail occupy separate screens with a back button; timeline,
 approval descriptions and command output scroll in bounded regions. Keyboard focus,
 semantic buttons, labels and text state labels supplement color. No animations or

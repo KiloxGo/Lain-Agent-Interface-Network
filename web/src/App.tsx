@@ -86,6 +86,7 @@ function SessionDetail({ session, turn, approvals, plane, client, busy, action }
     <dl className="metadata"><div><dt>Workspace</dt><dd>{safeText(session.workspace)}</dd></div><div><dt>Backend / profile</dt><dd>{safeText(session.backend)} / {safeText(session.runtime_profile_id)}</dd></div>
       <div><dt>WorkSession ID</dt><dd>{session.id}</dd></div><div><dt>Latest turn</dt><dd>{turn ? `${turn.id.slice(0, 8)} · ${label(turn.state)}` : 'No turns yet'}</dd></div></dl>
     {explanation && <p className={`state-explanation ${['unknown', 'disconnected'].includes(session.state) ? 'uncertain' : ''}`}>{explanation}</p>}
+    {turn?.failure && <p className="state-explanation">{safeText(turn.failure.message)}</p>}
     {cancelled && cancelled !== 'not_requested' && <p className="state-explanation">Cancellation {label(cancelled).toLowerCase()}{cancelled !== 'confirmed' && ' — interruption is not confirmed.'}</p>}
     {!!approvals.length && <section className="approvals" aria-label="Pending approvals">{approvals.map(approval => <ApprovalCard key={approval.id} approval={approval} disabled={!enabled}
       decide={decision => void action(() => client.decide(session.id, approval.id, decision))} />)}</section>}

@@ -4,7 +4,7 @@ import { ApiError, Client, observe, SseDecoder } from '../src/api';
 import { ApprovalCard, StateBadges } from '../src/App';
 import { EventContent } from '../src/Timeline';
 import { emptyProjection, fromSnapshot, mergeHistory, offeredDecisions, parseBackends, parseEvent, parseHistory,
-  parseSession, parseSnapshot, projectEvent, safeText, stateExplanation } from '../src/model';
+  parseSession, parseSnapshot, parseTurn, projectEvent, safeText, stateExplanation } from '../src/model';
 import type { Approval, Session, WorkEvent } from '../src/model';
 
 const sid = '11111111-1111-4111-8111-111111111111';
@@ -78,6 +78,22 @@ describe('public protocol and disposable state', () => {
     expect(safeText('a'.repeat(100000))).toHaveLength(65536 + '\n[Display truncated]'.length);
     const command = renderToStaticMarkup(<EventContent event={event(2, { kind: 'command_completed', command: 'cargo test', output: malicious, exit_code: 101 })} />);
     expect(command).toContain('exit 101'); expect(command).toContain('<details>'); expect(command).not.toContain('<script>');
+  });
+  it('shows normalized retry and turn failure explanations without declaring observed errors terminal', () => {
+    const retry = parseEvent(event(11, { kind: 'error_observed', failure: { kind: 'execution', message: 'worker error; backend will retry' } }));
+    expect(renderToStaticMarkup(<EventContent event={retry} />)).toContain('backend will retry');
+    const running = fromSnapshot({ ...snapshot, sessions: [{ ...session, state: 'running' }], turns: [{ ...turn, state: 'running' }] }, 1);
+    const observed = projectEvent(running, retry);
+    expect(observed.sessions[sid].state).toBe('running'); expect(observed.turns[tid].state).toBe('running');
+    const failure = { kind: 'execution', message: '<script>bad()</script>\x1b' };
+    const failed = parseTurn({ ...turn, state: 'failed', failure });
+    expect(parseSnapshot({ ...snapshot, turns: [failed] }).turns[0].failure).toEqual(failure);
+    for (const e of [parseEvent(event(12, { kind: 'turn_completed', turn: failed })), parseEvent(event(13, { kind: 'backend_disconnected', failure }))]) {
+      const markup = renderToStaticMarkup(<EventContent event={e} />);
+      expect(markup).toContain('&lt;script&gt;'); expect(markup).toContain('\\u001b'); expect(markup).not.toContain('<script>');
+    }
+    expect(parseTurn({ ...turn, failure: null })).toEqual(turn);
+    expect(() => parseEvent({ ...retry, failure: { kind: 'execution', message: 42 } })).toThrow('Invalid Kernel response');
   });
 });
 

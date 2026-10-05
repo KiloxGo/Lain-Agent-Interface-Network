@@ -11,7 +11,8 @@ export function EventContent({ event: e }: { event: WorkEvent }) {
       {!!e.output && <details><summary>Command output</summary><pre className="worker-text output">{safeText(e.output)}</pre></details>}</>;
     case 'file_changed': return <><span className="event-label">Files changed</span><ul className="file-paths">{e.paths?.map((path, i) => <li key={i}><code>{safeText(path)}</code></li>)}</ul></>;
     case 'turn_started': case 'turn_completed': case 'turn_state_changed': return <><span className="event-label">Turn {label(e.turn?.state ?? 'unknown')}</span>
-      <span className="event-note">{e.turn?.id.slice(0, 8)}{e.turn?.cancellation !== 'not_requested' && ` · cancellation ${label(e.turn?.cancellation ?? 'unknown')}`}</span></>;
+      <span className="event-note">{e.turn?.id.slice(0, 8)}{e.turn?.cancellation !== 'not_requested' && ` · cancellation ${label(e.turn?.cancellation ?? 'unknown')}`}</span>
+      {e.turn?.failure && <div className="worker-text">{safeText(e.turn.failure.message)}</div>}</>;
     case 'cancellation_changed': return <><span className="event-label">Cancellation {label(e.state ?? 'unknown')}</span>
       <span className="event-note">{e.state === 'confirmed' ? 'Worker interruption confirmed' : 'A request or acknowledgement does not confirm interruption'}</span></>;
     case 'approval_requested': return <><span className="event-label">Approval requested · {label(e.approval?.kind ?? 'operation')}</span><div className="worker-text">{safeText(e.approval?.description ?? '')}</div></>;
@@ -21,9 +22,9 @@ export function EventContent({ event: e }: { event: WorkEvent }) {
     case 'runtime_attachment_changed': return <span className="event-note">Runtime {label(e.to ?? 'unknown')}</span>;
     case 'session_state_changed': return <span className="event-note">Session {label(e.to ?? 'unknown')}</span>;
     case 'session_created': return <span className="event-note">WorkSession created</span>;
-    case 'backend_disconnected': return <span className="event-label">Backend connection lost · {label(e.failure?.kind ?? 'unknown')}</span>;
+    case 'backend_disconnected': case 'error_observed': return <><span className="event-label">{e.kind === 'backend_disconnected' ? 'Backend connection lost' : 'Worker error'} · {label(e.failure?.kind ?? 'unknown')}</span>
+      {e.failure && <div className="worker-text">{safeText(e.failure.message)}</div>}</>;
     case 'backend_reconnected': return <span className="event-note">Backend reconnected · state reconciled by Kernel</span>;
-    case 'error_observed': return <span className="event-label">Worker error · {label(e.failure?.kind ?? 'unknown')}</span>;
     case 'tool_activity': return <span className="event-note">Tool {safeText(e.name ?? '')} · {e.completed ? 'completed' : 'started'}</span>;
     default: return <span className="event-note">{safeText(label(e.kind))}</span>;
   }
