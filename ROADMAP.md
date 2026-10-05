@@ -153,7 +153,7 @@ Profile/backend labels are visible; a full profile registry remains Phase 5.
 Ratatui 0.30.2/Crossterm 0.29 implement the terminal. Windows ConPTY and real
 Codex 0.160.0 acceptance cover detached follow-up, history/reboot continuity
 and unchanged provider identity. See DEVLOG and the development guide for
-validation and known Linux/native-host limits. Phase 4 is not started.
+validation and known Linux/native-host limits. Phase 4 adds a browser client.
 
 Exit criteria:
 
@@ -166,16 +166,25 @@ Exit criteria:
 
 Deliverables:
 
-- [ ] authenticated Web client
-- [ ] live WorkSession dashboard
-- [ ] session detail/timeline
-- [ ] approvals
-- [ ] reconnect/state resync
-- [ ] create/steer/cancel sessions
-- [ ] profile selection
-- [ ] responsive mobile layout
+- [x] authenticated Web client (explicit page-memory token; refresh re-entry)
+- [x] live WorkSession list with separate logical/runtime state
+- [x] session detail and normalized durable timeline
+- [x] offered approval decisions only
+- [x] snapshot/history/SSE reconnect and resync
+- [x] create/follow-up/cancel/reconcile through existing APIs
+- [x] responsive mobile list/detail layout
+- [x] optional same-origin built static assets and documented remote boundaries
+- [x] deterministic frontend tests and opt-in fake-worker browser acceptance
 
-Visual direction can become more Lain-like after the operational UI is reliable.
+React + TypeScript + Vite implement a disposable browser projection. Session
+creation uses the existing supported model/sandbox options; profile selection
+belongs to Phase 5, not this milestone. The daemon remains loopback-only and API
+authentication remains required. Page-memory bearer authentication is an interim
+flow, not public Internet readiness. See [WEB.md](docs/WEB.md) and ADR 002.
+Phase 5 is not started.
+
+The initial visual identity uses restrained dark neutrals, readable timeline
+details and explicit status labels. More expressive identity remains future work.
 
 Exit criteria:
 
@@ -370,12 +379,12 @@ Do not start by building memory or persona before worker supervision and durable
 Make these decisions when implementation evidence exists:
 
 - further crate extraction when real backend boundaries justify it (Phase 1 uses one crate);
-- exact WebSocket/SSE split;
+- remote browser session authentication, TLS/origin/CSRF and credential rotation;
 - direct Codex App Server vs Codex ACP as initial driver;
 - world filesystem schema;
 - exact Lain model/provider;
 - embedding/vector search necessity;
-- frontend framework;
+- profile capability and resolved-configuration APIs for Web/TUI;
 - native Linux terminal/process lifecycle validation.
 
 Do not prematurely freeze choices that do not affect current architecture.
@@ -384,3 +393,5 @@ Phase 1 resolves the initial HTTP/storage choices to Axum and rusqlite with
 bundled SQLite. These are implementation choices, not new domain contracts.
 Phase 3 resolves temporary runtime ownership, history ordering/retention and
 terminal technology in [ADR 001](docs/adr/001-durable-work-and-runtime-attachment.md).
+Phase 4 resolves same-origin static delivery and interim browser authentication
+in [ADR 002](docs/adr/002-web-origin-and-authentication.md).

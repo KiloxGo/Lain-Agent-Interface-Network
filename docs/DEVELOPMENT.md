@@ -149,7 +149,7 @@ run transactionally using `PRAGMA user_version`; newer unknown schema versions
 are refused without downgrade. Back up with the daemon stopped, or use a SQLite
 consistent backup mechanism; do not copy only the main file while WAL is active.
 
-All endpoints require the same bearer token. Query endpoints:
+All API endpoints require the same bearer token. Query endpoints:
 
 | GET endpoint | Response |
 |---|---|
@@ -399,3 +399,45 @@ python scripts/codex_smoke.py --run-real --phase3
 
 To verify unused Codex binding persistence without inference:
 `cargo test -p lain-kernel probe_unused_thread_persistence -- --ignored`.
+
+## 13. Web client
+
+`web/` contains the React/TypeScript/Vite control plane. It uses the same bearer
+HTTP/SSE APIs as `lain`, with no backend logic or persistent browser credential
+store. Read [WEB.md](WEB.md) for the actual authentication, state-reconstruction,
+history pagination, production serving and remote-access boundaries.
+
+Run a daemon with `LAIN_API_TOKEN`, then inside `web`:
+
+```sh
+npm ci
+npm run dev
+npm run typecheck
+npm run test
+npm run build
+```
+
+Vite binds loopback and proxies the Kernel API; `LAIN_DEV_KERNEL_URL` changes its
+server-only proxy target. For built serving, set daemon `LAIN_WEB_DIR` to the
+absolute `web/dist` directory and open the daemon's root URL. All API routes still
+require authentication; static assets alone are public. The UI asks for a token
+which remains page-memory-only and is lost on refresh. No TLS/session-cookie/public
+Internet readiness is claimed. Phase 5 profiles are not implemented.
+
+Deterministic browser acceptance is opt-in and does not consume model quota:
+
+```sh
+cargo build --locked --bin laind --bin lain --bin lain-test-app-server
+cd web
+npx playwright install chromium
+npm run test:e2e
+```
+
+This uses a private real Kernel, fake worker, temporary data and random credentials;
+no existing user service/configuration is mutated. Playwright screenshots are local
+ignored artifacts and trace recording is off. Rust/CLI/TUI checks remain the usual
+workspace tests and optional terminal smoke. On Windows an active daemon can lock
+the normal binary: use `--target-dir target/phase4` and set `LAIN_TEST_BIN_DIR` to
+that absolute debug directory for acceptance. Set the matching `CARGO_TARGET_DIR`
+when the terminal smoke builds its native guard test. Do not stop a user daemon
+merely to overwrite a build artifact.

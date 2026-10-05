@@ -73,6 +73,11 @@ pub fn controlled_router(
         )
         .route("/v1/backends", get(backends))
         .route("/v1/events", get(events))
+        .route(
+            "/v1/{*path}",
+            get(|| async { ApiError(StatusCode::NOT_FOUND, "not_found") })
+                .post(|| async { ApiError(StatusCode::NOT_FOUND, "not_found") }),
+        )
         .fallback(|| async { ApiError(StatusCode::NOT_FOUND, "not_found") })
         .with_state(ApiState { kernel, workers })
         .layer(DefaultBodyLimit::max(64 * 1024))
@@ -400,6 +405,32 @@ pub async fn serve_with_workers(
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<()> {
     let app = controlled_router(kernel.clone(), token, workers);
+    serve_router(listener, kernel, app, shutdown).await
+}
+
+/// Static files are public; API routes retain their bearer authentication.
+pub fn web_router(
+    kernel: Arc<Kernel>,
+    token: ApiToken,
+    workers: Option<Arc<Supervisor>>,
+    directory: PathBuf,
+) -> Router {
+    use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer};
+    controlled_router(kernel, token, workers)
+        .fallback_service(ServeDir::new(directory))
+        .layer(SetResponseHeaderLayer::overriding(header::CONTENT_SECURITY_POLICY, axum::http::HeaderValue::from_static(
+            "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")))
+        .layer(SetResponseHeaderLayer::overriding(header::X_CONTENT_TYPE_OPTIONS, axum::http::HeaderValue::from_static("nosniff")))
+        .layer(SetResponseHeaderLayer::overriding(header::REFERRER_POLICY, axum::http::HeaderValue::from_static("no-referrer")))
+        .layer(SetResponseHeaderLayer::overriding(header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-store")))
+}
+
+pub async fn serve_router(
+    listener: TcpListener,
+    kernel: Arc<Kernel>,
+    app: Router,
+    shutdown: impl Future<Output = ()> + Send + 'static,
+) -> Result<()> {
     kernel.mark_ready()?;
     let (draining, drained) = tokio::sync::oneshot::channel();
     let shutdown_kernel = kernel.clone();

@@ -329,6 +329,7 @@ or instantiate a general Secret Store. Only these settings are read:
 | `LAIN_LOG` | `info`; one tracing level (`error`, `warn`, `info`, `debug`, `trace`) |
 | `LAIN_CODEX_PATH` | Optional native Codex executable; otherwise search PATH, including the Windows npm package's native binary |
 | `LAIN_WORKER_IDLE_TIMEOUT` | `300`; integer seconds, 1–86400; only eligible idle runtimes detach |
+| `LAIN_WEB_DIR` | Optional built Web asset directory containing `index.html`; absent keeps headless serving |
 
 The API credential is resolved separately from domain configuration, held in a
 redacted, non-serializable type, and compared using `subtle` constant-time byte
@@ -336,7 +337,7 @@ comparison for equal-length values. It is never persisted, emitted in events,
 or included in configuration errors/debug output. Supply it through the process
 environment; do not put raw credentials in ordinary checked-in files. Its
 deployment-level secret backend and rotation flow remain future work. All HTTP
-routes require `Authorization: Bearer <token>`; query parameters are not accepted
+API routes require `Authorization: Bearer <token>`; optional static Web assets are public. Query parameters are not accepted
 as credentials. Responses use `Cache-Control: no-store`.
 
 The daemon does not log request headers, request URLs, configuration values, or
@@ -384,3 +385,11 @@ Worker workspace arguments are sent verbatim to the server, without local path
 canonicalization. Use an existing absolute path on the daemon host; shell tilde
 expansion belongs to that shell, not a remote server-path resolution feature.
 Daemon binding remains loopback; remote transport/TLS deployment remains future work.
+
+## 24. Web client configuration
+
+The browser uses same-origin API paths and page-memory-only bearer authentication.
+`LAIN_WEB_DIR` is a daemon-only, opt-in static directory, validated at startup.
+The development Vite process optionally reads `LAIN_DEV_KERNEL_URL`; it never reads
+or injects `LAIN_API_TOKEN`. No browser credentials are persisted by default.
+Deployment/authentication limitations are in [WEB.md](WEB.md) and ADR 002.

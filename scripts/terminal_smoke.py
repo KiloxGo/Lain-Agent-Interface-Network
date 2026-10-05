@@ -42,7 +42,7 @@ def run():
         print("PASS: native terminal raw mode restored after error and caught panic", flush=True)
     finally:
         guard.close(force=True)
-    binaries = Path("target/debug").resolve()
+    binaries = Path(os.environ.get("LAIN_TEST_BIN_DIR", "target/debug")).resolve()
     os.environ["LAIN_CODEX_PATH"] = str(binaries / "lain-test-app-server.exe")
     with tempfile.TemporaryDirectory(prefix="lain-terminal-smoke-") as directory:
         root = Path(directory)

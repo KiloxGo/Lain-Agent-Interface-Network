@@ -30,7 +30,7 @@ The core rule is:
              +---------------+---------------+
                              |
                     Lain public API
-                    HTTP + WebSocket
+                    HTTP + SSE
                              |
 +----------------------------------------------------------------+
 |                          Lain Kernel                           |
@@ -94,7 +94,8 @@ Responsibilities:
 
 The API must expose Lain domain objects, not raw provider protocol objects.
 
-WebSocket is appropriate for live events. HTTP is appropriate for request/response and state snapshots. Exact endpoints are deferred until the domain model stabilizes.
+HTTP handles request/response and state snapshots. The implemented live transport
+is authenticated SSE with explicit resnapshot/history catch-up; no WebSocket is required.
 
 ### 4.2 Lain Actor
 
@@ -587,3 +588,19 @@ SQLite, reads daemon files or starts a worker. Its rendering/selection/history
 window is disposable. Attach means observe logical work, and sending a prompt
 asks the Kernel to lazily resume the same provider binding. Closing the client
 only closes its own subscriptions. See [ADR 001](adr/001-durable-work-and-runtime-attachment.md).
+
+## 16. Implemented Web boundary (Phase 4)
+
+`web/` is a React/TypeScript/Vite client of the same authenticated public HTTP/SSE
+API used by `lain`. Its session/turn/approval projection is disposable; normalized
+operational history is fetched from Kernel SQLite through the paginated API, never
+stored as an authoritative browser transcript. Historical records cannot roll live
+state back. Closing or multiplying observers does not launch/stop worker runtimes.
+
+`LAIN_WEB_DIR` optionally serves public built assets on the existing loopback
+listener while all API routes retain bearer authentication. Without it the daemon
+remains headless. The browser token is explicit page-memory-only input; production
+cookie/session/TLS/CSRF design remains a separate remote-deployment decision.
+Static serving uses Tower HTTP and first-party CSP/security headers. The current
+Web build assumes origin-root hosting. See [WEB.md](WEB.md) and
+[ADR 002](adr/002-web-origin-and-authentication.md). Phase 5 is not implemented.

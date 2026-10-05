@@ -52,6 +52,7 @@ pub struct Config {
     pub log_level: tracing::Level,
     pub codex_path: Option<PathBuf>,
     pub worker_idle_timeout: std::time::Duration,
+    pub web_dir: Option<PathBuf>,
 }
 
 #[derive(Debug, Error)]
@@ -113,6 +114,19 @@ impl Config {
             log_level,
             codex_path: lookup("LAIN_CODEX_PATH").map(PathBuf::from),
             worker_idle_timeout: std::time::Duration::from_secs(idle_seconds),
+            web_dir: lookup("LAIN_WEB_DIR")
+                .map(|value| {
+                    let path = PathBuf::from(value)
+                        .canonicalize()
+                        .map_err(|_| ConfigError::Invalid("LAIN_WEB_DIR"))?;
+                    if !path.is_dir() || !path.join("index.html").is_file() {
+                        return Err(ConfigError::Invalid(
+                            "LAIN_WEB_DIR (requires built index.html)",
+                        ));
+                    }
+                    Ok(path)
+                })
+                .transpose()?,
         })
     }
 }

@@ -265,7 +265,7 @@ later reconnect
 authoritative snapshot + live events
 ~~~
 
-Clients should not depend on an unbroken WebSocket history from daemon startup.
+Clients should not depend on an unbroken event stream from daemon startup.
 
 ## 12. Worker runtime lifecycle
 
@@ -455,3 +455,15 @@ Windows workers belong to a kill-on-close Job Object. Unix workers belong to an
 owned process group, killed on managed shutdown. For Unix daemon SIGKILL/crashes,
 deploy under a service manager with control-group cleanup; Rust destructors cannot
 run after SIGKILL. Native Linux lifecycle validation remains outstanding.
+
+## 22. Browser observation (Phase 4)
+
+The Web client opens authenticated fetch SSE, takes its fresh atomic snapshot and
+merges indexed history through the snapshot watermark with live events. Reconnect,
+resync, online and visibility-return events reconstruct the disposable projection.
+Network loss changes browser connectivity only, not WorkSession/Turn truth.
+History pagination never starts or resets a worker idle timer; only normal prompt
+or explicit resume APIs request attachment. Closing/reloading/two browser tabs
+have no worker-lifecycle effect. Refresh drops credentials and requires re-entry;
+the selected public ID can remain in the hash. Optional static asset serving adds
+no resident cognition, backend privileges or second runtime. See [WEB.md](WEB.md).

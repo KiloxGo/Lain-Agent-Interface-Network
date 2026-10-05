@@ -91,6 +91,7 @@ impl Supervisor {
             capabilities: if executable.is_some() {
                 vec![
                     "session_create",
+                    "model_selection",
                     "session_resume",
                     "turns",
                     "cancel_turn",

@@ -2,7 +2,7 @@
 
 > A persistent personal resident agent and control plane for long-running AI workers.
 
-**Status:** Phase 3 durable work, operational history and terminal CLI/TUI.
+**Status:** Phase 4 Web control plane, durable work/history and terminal CLI/TUI.
 
 Lain is designed to live continuously on a personal server. You can talk to her directly, but she is also able to create, supervise, configure, observe, steer, and summarize long-running worker-agent sessions such as Codex, Claude Code, and DeepSeek Harness.
 
@@ -77,7 +77,7 @@ Continuous residency must not imply continuous model inference.
                   | Web / TUI / future   |
                   +----------+-----------+
                              |
-                       HTTP / WS
+                       HTTP / SSE
                              |
 +--------------------------------------------------------+
 |                      Lain Kernel                       |
@@ -138,7 +138,7 @@ systemd / container
       |-- SQLite / durable state
       |-- Lain world directory
       |-- worker subprocesses / adapters
-      `-- HTTP + WebSocket API
+      `-- HTTP + SSE API / optional built Web assets
 
 browser -----------+
 terminal TUI ------+--> laind
@@ -174,7 +174,7 @@ cargo run --bin laind
 ```
 
 The default listener is `127.0.0.1:8787`; the default database is
-`data/lain.sqlite3` relative to the working directory. All endpoints require
+`data/lain.sqlite3` relative to the working directory. All API endpoints require
 `Authorization: Bearer <LAIN_API_TOKEN>`. Stop with Ctrl-C.
 
 In a second shell with the same token, run `cargo run --bin lain` for the session
@@ -182,6 +182,28 @@ list TUI, or `cargo run --bin lain -- work list --json` for automation. Set
 `LAIN_URL` when using another Kernel URL. `lain work attach <uuid>` observes the
 logical session; it does not start an idle worker. See the
 [terminal guide](docs/DEVELOPMENT.md#12-terminal-client) for commands and keys.
+
+The React/TypeScript Web client uses those same APIs. For local development, run
+`npm ci` and `npm run dev` inside `web`, then enter the daemon token in the browser.
+For built same-origin serving:
+
+```powershell
+cd web
+npm ci
+npm run build
+cd ..
+$env:LAIN_WEB_DIR = Join-Path $PWD 'web/dist'
+cargo run --locked --bin laind
+```
+
+Open `http://127.0.0.1:8787`. Static assets are public; API authentication stays
+enabled. Credentials remain only in page memory and must be re-entered after a
+refresh. Browser closure never cancels work. Desktop/mobile views support session
+creation, history, live observation, follow-up, cancellation and offered approvals.
+See [the Web guide](docs/WEB.md) for reconstruction, tests and deployment limits.
+The daemon still binds loopback: remote use requires trusted transport such as an
+SSH tunnel. Public Internet/session-cookie authentication is not implemented.
+Phase 5 has not started.
 
 See [the development guide](docs/DEVELOPMENT.md#7-workspace-and-local-operation)
 for Linux commands, API examples, checks, storage ownership, and limitations.

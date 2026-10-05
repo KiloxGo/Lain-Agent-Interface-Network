@@ -73,3 +73,5 @@ coverage/
 .temp/
 __pycache__/
 *.py[cod]
+web/test-results/
+web/playwright-report/

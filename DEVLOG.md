@@ -461,3 +461,64 @@ not backfilled, whole turn/approval snapshot write cost, bounded client response
 and view sizes, indefinite total history growth until pruning, and loopback daemon
 binding. Full profiles/SecretRefs, Web, additional backends, Lain memory/personality
 and background cognition remain later phases.
+
+## 2026-10-05 — Phase 4: Web control plane
+
+Milestone: `window: "Present Day, Present Time"`. Phase 5 has not started.
+
+- Added a fresh React 19 / TypeScript 5 / Vite 8 client in `web/`; no legacy
+  frontend, Redux, WebSocket, browser orchestration or transcript database.
+  Connection, list, New Work, detail, timeline, composer and approval cards use
+  the same public HTTP/SSE API as the terminal. Backend model selection is now
+  explicitly advertised for the already-supported session-options API.
+- Chose explicit page-memory-only bearer entry and optional same-origin built
+  assets from `LAIN_WEB_DIR`. All API routes retain authentication; public assets
+  use first-party CSP, no-store, nosniff and no-referrer. Loopback binding remains.
+  Refresh requires re-entry; only a public selected ID persists in the URL hash.
+  ADR 002 records the interim choice and future TLS/session/Origin/CSRF boundary.
+- Browser state is disposable. Fresh snapshots replace authoritative projections;
+  paginated history merges only timeline entries by stable EventId/server order.
+  Reconnect catches up from the last fully fetched history watermark, not the
+  largest live event. Generation/abort guards reject stale history work. The
+  recent 200-record view can page older within a 1000-record window.
+- Logical state, runtime attachment and browser connectivity have separate labels.
+  Unknown is not Failed; detached is healthy; cancellation acknowledgement is not
+  confirmation. Creation/follow-up/cancel/reconcile and only actually offered
+  approval decisions go through Kernel APIs. No concurrent prompt queue exists.
+- Desktop sidebar/detail and phone list/detail layouts prioritize operational
+  information. React text rendering, escaped terminal/bidi controls, bounded
+  text/scroll containers and semantic focused controls protect worker output.
+
+Validation: 28 deterministic Rust tests passed (2 optional checks ignored by
+default), including new static/auth/config boundary tests. Clippy with warnings
+denied passed. Ten frontend deterministic tests, TypeScript and production build
+passed. Browser acceptance uses a private real daemon and deterministic worker:
+creation, commands/files, model option, deny/approve-once, cancellation, two
+observers, closure during active work, refresh, daemon restart, idle detach/lazy
+follow-up, historical pagination, network loss/catch-up, Unknown/reconcile, safe
+text and desktop/phone screenshots. Windows ConPTY and native terminal error/panic
+guard regression passed. No real Codex/model call was made in Phase 4; no CI
+workflow was added. Final audit: all three browser acceptance scenarios passed,
+including independent unreachable/readiness/backend-availability UI states.
+Formatting passed, and locked dependency metadata retains the Rust 1.89 floor.
+Browser layouts were checked at desktop, laptop, tablet and phone widths without
+horizontal overflow; desktop and phone screenshots were visually inspected.
+
+The completion audit found a selection gap: a newly created or previously
+unselected session could have durable activity after the initial stream snapshot.
+Initial history now freezes the highest observed server order, retains live events
+during selection, and advances coverage only after the frozen fetch completes.
+Browser acceptance explicitly checks creation history and work while unselected.
+
+The in-app Browser had no connected browser instance. Local Chromium/Playwright
+provided opt-in acceptance and screenshots, which were visually inspected. An
+existing user daemon locked the default Windows executable; validation used
+`target/phase4` and private copies without stopping that service. Acceptance scripts
+accept `LAIN_TEST_BIN_DIR` for this normal concurrent-development case.
+
+Limitations: root-origin Web hosting, explicit credential re-entry, no public
+Internet/TLS/cookie-session/CSRF design implemented, JavaScript safe-integer cursor
+ceiling, and a bounded view rather than the full worker transcript. Native Linux
+worker/terminal lifecycle remains unverified. Before Phase 5, settle profile
+capability/resolved-view contracts and remote authentication/rotation/security if
+needed. See `docs/WEB.md` for commands, recovery and actual deployment limits.

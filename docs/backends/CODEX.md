@@ -1,6 +1,9 @@
 # Codex worker adapter
 
 Status: Phase 2 implemented and real Windows acceptance passed.
+Phase 4 (2026-10-05) explicitly advertises `model_selection` in the provider-neutral
+capability report for the existing validated session `options.model` support.
+This adds no new provider protocol or version support.
 Verified: 2026-10-04. Installed CLI: `codex-cli 0.160.0` (Windows x64).
 
 ## Evidence and transport choice

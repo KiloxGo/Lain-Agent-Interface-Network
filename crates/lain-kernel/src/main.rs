@@ -42,14 +42,17 @@ async fn run() -> Result<()> {
     )
     .await;
     workers.recover().await;
-    let result = api::serve_with_workers(
-        listener,
-        kernel.clone(),
-        config.api_token,
-        Some(workers.clone()),
-        shutdown,
-    )
-    .await;
+    let app = if let Some(directory) = config.web_dir {
+        api::web_router(
+            kernel.clone(),
+            config.api_token,
+            Some(workers.clone()),
+            directory,
+        )
+    } else {
+        api::controlled_router(kernel.clone(), config.api_token, Some(workers.clone()))
+    };
+    let result = api::serve_router(listener, kernel.clone(), app, shutdown).await;
     let worker_shutdown = workers.shutdown().await;
     drop(workers);
     drop(kernel);
