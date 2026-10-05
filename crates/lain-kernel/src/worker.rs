@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct WorkerState {
     pub provider_session_id: Option<String>,
     pub options: SessionOptions,
+    #[serde(default)]
+    pub resolved_profile: Option<crate::profiles::ResolvedRuntimeProfile>,
     pub turns: Vec<TurnRecord>,
     pub approvals: Vec<Approval>,
 }
@@ -19,6 +21,9 @@ pub(crate) struct TurnRecord {
 impl WorkerState {
     pub fn validate(&self, session: WorkSessionId) -> anyhow::Result<()> {
         use anyhow::ensure;
+        if let Some(profile) = &self.resolved_profile {
+            profile.validate()?;
+        }
         let mut turns = std::collections::BTreeSet::new();
         let mut provider_turns = std::collections::BTreeSet::new();
         for record in &self.turns {

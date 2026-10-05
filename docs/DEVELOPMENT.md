@@ -105,10 +105,11 @@ crates/lain-kernel/
     kernel.rs       session projection, mutation and lifecycle ownership
     events.rs       normalized event payloads
     config.rs       daemon settings and API token
+    profiles.rs     registry definitions, frozen resolution and namespaced secrets
     api.rs          authenticated HTTP control and SSE
     worker.rs       private durable operational metadata
     backend/        supervisor, Codex adapter, JSONL transport, process ownership
-  migrations/001_sessions.sql, 002_worker_state.sql, 003_history.sql
+  migrations/001_sessions.sql, 002_worker_state.sql, 003_history.sql, 004_profiles.sql
   tests/foundation.rs, worker_control.rs
   tests/support/app_server.rs   deterministic subprocess fixture
 scripts/codex_smoke.py          opt-in real daemon/Codex acceptance check
@@ -208,8 +209,8 @@ access, Ctrl-Break with exit code 0, JSON logs without the token, and committed
 Running-to-Unknown recovery. The Unix SIGINT/SIGTERM path still needs native
 Linux validation; no Linux Rust toolchain was available in this development run.
 
-Deferred: additional backends, profile/SecretRef registry, memory/world, scheduling,
-Web, automatic history pruning and remote deployment.
+Deferred: additional backends, memory/world, scheduling, automatic history pruning
+and remote deployment. Phase 5 profiles and Web are implemented.
 The in-process event channel is a notification mechanism, not an audit log.
 
 ## 9. Worker control API
@@ -422,7 +423,7 @@ server-only proxy target. For built serving, set daemon `LAIN_WEB_DIR` to the
 absolute `web/dist` directory and open the daemon's root URL. All API routes still
 require authentication; static assets alone are public. The UI asks for a token
 which remains page-memory-only and is lost on refresh. No TLS/session-cookie/public
-Internet readiness is claimed. Phase 5 profiles are not implemented.
+Internet readiness is claimed. Phase 5 adds profile selection and frozen inspection.
 
 Deterministic browser acceptance is opt-in and does not consume model quota:
 
@@ -441,3 +442,66 @@ the normal binary: use `--target-dir target/phase4` and set `LAIN_TEST_BIN_DIR` 
 that absolute debug directory for acceptance. Set the matching `CARGO_TARGET_DIR`
 when the terminal smoke builds its native guard test. Do not stop a user daemon
 merely to overwrite a build artifact.
+
+## 14. Profile and workspace owner API
+
+All routes use the same required owner bearer credential and no-store policy.
+Profile IDs may contain slashes, so inspect uses a query argument.
+
+| Method / path | Body / result |
+|---|---|
+| GET `/v1/runtime-profiles` | Definitions, revisions, local health/explanation, secret status, supported overrides and global-default marker |
+| GET `/v1/runtime-profiles/inspect?id=codex/gateway-a` | Current registry view; 404 if absent |
+| POST `/v1/runtime-profiles` | ProfileDefinition; 201 definition/revision; duplicate 409 |
+| PUT `/v1/runtime-profiles` | `{definition: <full definition>, expected_revision: N}`; new revision or 409 |
+| POST `/v1/runtime-profiles/validate` | `{id: "codex/gateway-a"}`; local prerequisites only, zero inference |
+| GET `/v1/work-sessions/{id}/resolved-profile` | Frozen session revision/configuration and current SecretRef availability; no provider-native IDs or values |
+| GET `/v1/workspace-profile-policy?workspace=<URL-encoded daemon path>` | Canonical policy or null |
+| PUT `/v1/workspace-profile-policy` | `{workspace, default_profile, allowed_profiles}`; canonical saved policy |
+
+Create work with `{workspace, profile_id?, options?: {model?, sandbox?}}`.
+Omitted/null sandbox now uses the selected profile default, preserving old explicit
+read_only/workspace_write requests. The profile determines backend. Disallowed
+workspace selection returns 403, absent profile 404, missing credential/backend
+503; schema/value failures return safe 400/422. Framework extractor errors are
+replaced with safe error codes instead of echoing user values. Metadata-only
+historical sessions without a worker snapshot return 404 for resolved-profile
+inspection while their ordinary session/history views remain available.
+
+Terminal commands:
+
+```sh
+lain profile list
+lain profile show codex/gateway-a
+lain profile validate codex/gateway-a
+lain work start --workspace /daemon/project --profile codex/gateway-a
+lain --json profile show codex/gateway-a
+```
+
+CLI profile mutations/secret inputs and an interactive TUI profile editor are not
+implemented. Owner registry/policy writes use the HTTP API. List/show/attach and
+safe failure rendering remain API-only. Web New Work fetches profiles from Kernel,
+shows local health/model/endpoint/revision and offers advertised overrides. Session
+detail shows its frozen snapshot, distinct from the mutable registry.
+
+Build fixture binaries, then deterministic end-to-end profile acceptance:
+
+```sh
+cargo build --locked --bin laind --bin lain --bin lain-test-app-server
+python scripts/profiles_smoke.py
+```
+
+The test uses its own process environment, private daemon, temporary database and
+fake worker. It validates privileged CRUD/revisions, safe malformed input errors,
+missing credentials, workspace restrictions, CLI inspection, profile editing,
+idle resume and daemon restart with credential rotation and unchanged bindings.
+No model quota or real account is used. Rust profiles tests additionally exercise
+two simultaneous endpoints/secrets, redaction before history/SSE, and upgrading a
+schema-3 database shaped like Phase 4. A failed migration rolls back schema 004.
+
+Native Codex 0.160.0 configuration verification without inference is opt-in:
+`cargo test -p lain-kernel probe_profile_launch_configuration -- --ignored`.
+It starts two real App Servers with dummy credentials and checks separate model,
+provider/base URL/effort configuration through config/read. It does not prove
+real provider authentication or model access. No second real gateway credential
+was available for paid two-provider acceptance; that check remains unclaimed.

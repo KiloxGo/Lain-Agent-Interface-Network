@@ -2,7 +2,7 @@
 
 > A persistent personal resident agent and control plane for long-running AI workers.
 
-**Status:** Phase 4 Web control plane, durable work/history and terminal CLI/TUI.
+**Status:** Phase 5 runtime profiles and SecretRefs, Web control plane and terminal CLI/TUI.
 
 Lain is designed to live continuously on a personal server. You can talk to her directly, but she is also able to create, supervise, configure, observe, steer, and summarize long-running worker-agent sessions such as Codex, Claude Code, and DeepSeek Harness.
 
@@ -203,7 +203,14 @@ creation, history, live observation, follow-up, cancellation and offered approva
 See [the Web guide](docs/WEB.md) for reconstruction, tests and deployment limits.
 The daemon still binds loopback: remote use requires trusted transport such as an
 SSH tunnel. Public Internet/session-cookie authentication is not implemented.
-Phase 5 has not started.
+Named profiles now select model/provider/endpoint, sandbox and authentication per
+session. `lain profile list`, `lain profile show <id>` and
+`lain work start --workspace <server-path> --profile <id>` use the Kernel registry;
+Web New Work offers the same profiles. Existing `codex/local` work remains usable.
+Profile edits affect new sessions; old sessions retain their resolved revision.
+See [profiles and SecretRefs](docs/CONFIGURATION.md#25-implemented-phase-5-profiles)
+for owner APIs, environment-backed credentials and workspace policy. Phase 6 has
+not started.
 
 See [the development guide](docs/DEVELOPMENT.md#7-workspace-and-local-operation)
 for Linux commands, API examples, checks, storage ownership, and limitations.

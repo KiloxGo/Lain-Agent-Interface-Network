@@ -178,7 +178,7 @@ pub enum SandboxMode {
 pub struct SessionOptions {
     pub model: Option<String>,
     #[serde(default)]
-    pub sandbox: SandboxMode,
+    pub sandbox: Option<SandboxMode>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -229,6 +229,13 @@ pub enum FailureKind {
     Execution,
     Storage,
     Unsupported,
+    AuthenticationFailed,
+    RateLimited,
+    ProviderUnavailable,
+    PermissionDenied,
+    SessionNotFound,
+    SessionNotResumable,
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -237,6 +244,8 @@ pub struct WorkerFailure {
     /// A safe category/message, never a raw backend error payload.
     pub message: String,
     pub code: Option<i64>,
+    #[serde(default)]
+    pub retryable: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

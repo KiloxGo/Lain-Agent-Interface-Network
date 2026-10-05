@@ -50,7 +50,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 3,
+            version <= 4,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -67,6 +67,48 @@ impl Store {
             transaction
                 .execute_batch(include_str!("../migrations/003_history.sql"))
                 .context("apply migration 003")?;
+        }
+        if version < 4 {
+            transaction.execute_batch(include_str!("../migrations/004_profiles.sql"))?;
+            let local = crate::profiles::RuntimeProfile {
+                definition: crate::profiles::ProfileDefinition::local(),
+                revision: 1,
+            };
+            transaction.execute(
+                "INSERT INTO runtime_profiles VALUES (?1, ?2)",
+                (
+                    local.definition.id.to_string(),
+                    serde_json::to_string(&local)?,
+                ),
+            )?;
+            let mut rows = transaction.prepare("SELECT w.session_id, w.snapshot, s.snapshot FROM worker_state w JOIN work_sessions s ON s.id = w.session_id")?;
+            let records = rows
+                .query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                    ))
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            drop(rows);
+            for (id, state, session) in records {
+                let mut worker: WorkerState = serde_json::from_str(&state)
+                    .map_err(|_| anyhow::anyhow!("invalid legacy worker state"))?;
+                let session: WorkSession = serde_json::from_str(&session)
+                    .map_err(|_| anyhow::anyhow!("invalid legacy session"))?;
+                if session.runtime_profile_id.to_string() == "codex/local"
+                    && worker.resolved_profile.is_none()
+                {
+                    worker.resolved_profile = Some(
+                        crate::profiles::ResolvedRuntimeProfile::legacy(&worker.options)?,
+                    );
+                    transaction.execute(
+                        "UPDATE worker_state SET snapshot = ?1 WHERE session_id = ?2",
+                        (serde_json::to_string(&worker)?, id),
+                    )?;
+                }
+            }
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
@@ -182,6 +224,68 @@ impl Store {
         }
         transaction.commit().context("commit session recovery")?;
         Ok((sessions, workers))
+    }
+
+    pub fn profiles(&self) -> Result<Vec<crate::profiles::RuntimeProfile>> {
+        let mut query = self
+            .connection
+            .prepare("SELECT snapshot FROM runtime_profiles ORDER BY id")?;
+        let rows = query.query_map([], |r| r.get::<_, String>(0))?;
+        let mut profiles = Vec::new();
+        for row in rows {
+            let p: crate::profiles::RuntimeProfile = serde_json::from_str(&row?)
+                .map_err(|_| anyhow::anyhow!("invalid persisted profile"))?;
+            p.definition.validate()?;
+            ensure!(p.revision > 0, "invalid profile revision");
+            profiles.push(p);
+        }
+        Ok(profiles)
+    }
+    pub fn save_profile(
+        &mut self,
+        profile: &crate::profiles::RuntimeProfile,
+        create: bool,
+    ) -> Result<()> {
+        let tx = self.connection.transaction()?;
+        ensure!(
+            tx.execute(
+                if create {
+                    "INSERT INTO runtime_profiles VALUES (?1, ?2)"
+                } else {
+                    "UPDATE runtime_profiles SET snapshot = ?2 WHERE id = ?1"
+                },
+                (
+                    profile.definition.id.to_string(),
+                    serde_json::to_string(profile)?
+                )
+            )? == 1,
+            "profile not found"
+        );
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn policy(&self, workspace: &Path) -> Result<Option<crate::profiles::WorkspacePolicy>> {
+        use rusqlite::OptionalExtension;
+        let snapshot: Option<String> = self
+            .connection
+            .query_row(
+                "SELECT snapshot FROM workspace_profile_policies WHERE workspace = ?1",
+                [workspace.to_str().context("non-UTF8 workspace")?],
+                |r| r.get(0),
+            )
+            .optional()?;
+        snapshot
+            .map(|s| {
+                serde_json::from_str(&s)
+                    .map_err(|_| anyhow::anyhow!("invalid workspace profile policy"))
+            })
+            .transpose()
+    }
+    pub fn save_policy(&mut self, policy: &crate::profiles::WorkspacePolicy) -> Result<()> {
+        let tx = self.connection.transaction()?;
+        tx.execute("INSERT INTO workspace_profile_policies VALUES (?1, ?2) ON CONFLICT(workspace) DO UPDATE SET snapshot = excluded.snapshot", (policy.workspace.to_str().context("non-UTF8 workspace")?, serde_json::to_string(policy)?))?;
+        tx.commit()?;
+        Ok(())
     }
 
     pub fn recover_workers(

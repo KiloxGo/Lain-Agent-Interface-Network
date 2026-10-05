@@ -70,9 +70,13 @@ pub fn event_text(event: &Event) -> String {
             .get("turn")
             .map(|turn| {
                 format!(
-                    "{} {}",
+                    "{} {}{}",
                     turn["id"].as_str().unwrap_or(""),
-                    turn["state"].as_str().unwrap_or("")
+                    turn["state"].as_str().unwrap_or(""),
+                    turn["failure"]["message"]
+                        .as_str()
+                        .map(|s| format!("\n{s}"))
+                        .unwrap_or_default()
                 )
             })
             .unwrap_or_default(),
@@ -697,7 +701,16 @@ fn draw(frame: &mut ratatui::Frame, view: &mut View) {
                     .values()
                     .filter(|t| t.work_session_id == id)
                     .max_by_key(|t| t.created_at_ms)
-                    .map(|t| format!("{} / {}", t.state, t.cancellation))
+                    .map(|t| format!(
+                        "{} / {}{}",
+                        t.state,
+                        t.cancellation,
+                        t.failure
+                            .as_ref()
+                            .and_then(|f| f["message"].as_str())
+                            .map(|s| format!(" · {s}"))
+                            .unwrap_or_default()
+                    ))
                     .unwrap_or_else(|| "none".into())
             )
         })
@@ -915,6 +928,32 @@ mod tests {
                 assert!(rendered.contains("runtime: detached") && rendered.contains("Enter send"));
             }
         }
+        let failure = json!({"kind":"authentication_failed","message":"worker authentication failed","code":401,"retryable":false});
+        let turn: Turn = serde_json::from_value(json!({"id":id,"work_session_id":id,"state":"failed","cancellation":"none","created_at_ms":1,"failure":failure})).unwrap();
+        view.snapshot(Snapshot {
+            history_cursor: 1,
+            sessions: view.sessions.values().cloned().collect(),
+            turns: vec![turn.clone()],
+            approvals: vec![],
+        });
+        let mut terminal = Terminal::new(TestBackend::new(120, 35)).unwrap();
+        terminal.draw(|f| draw(f, &mut view)).unwrap();
+        let rendered: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect();
+        assert!(
+            rendered.contains("worker authentication failed") && rendered.contains("codex/local")
+        );
+        let mut failed = event(2);
+        failed.kind = "turn_completed".into();
+        failed
+            .data
+            .insert("turn".into(), serde_json::to_value(turn).unwrap());
+        assert!(event_text(&failed).contains("worker authentication failed"));
         view.approvals.insert(
             id,
             Approval {

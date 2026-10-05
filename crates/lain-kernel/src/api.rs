@@ -19,7 +19,8 @@ use crate::{
     backend::{BackendInfo, ControlError, Supervisor},
     config::ApiToken,
     domain::{
-        Approval, ApprovalDecision, ApprovalId, SessionOptions, Turn, WorkSession, WorkSessionId,
+        Approval, ApprovalDecision, ApprovalId, RuntimeProfileId, SessionOptions, Turn,
+        WorkSession, WorkSessionId,
     },
     kernel::{Kernel, KernelState, blocking},
 };
@@ -72,6 +73,20 @@ pub fn controlled_router(
             post(decide),
         )
         .route("/v1/backends", get(backends))
+        .route(
+            "/v1/runtime-profiles",
+            get(profiles).post(create_profile).put(update_profile),
+        )
+        .route("/v1/runtime-profiles/inspect", get(inspect_profile))
+        .route("/v1/runtime-profiles/validate", post(validate_profile))
+        .route(
+            "/v1/workspace-profile-policy",
+            get(workspace_policy).put(update_policy),
+        )
+        .route(
+            "/v1/work-sessions/{id}/resolved-profile",
+            get(resolved_profile),
+        )
         .route("/v1/events", get(events))
         .route(
             "/v1/{*path}",
@@ -88,6 +103,7 @@ pub fn controlled_router(
 #[serde(deny_unknown_fields)]
 struct CreateSession {
     workspace: PathBuf,
+    profile_id: Option<RuntimeProfileId>,
     #[serde(default)]
     options: SessionOptions,
 }
@@ -152,7 +168,7 @@ async fn create_session(
         Json(
             state
                 .workers()?
-                .create(input.workspace, input.options)
+                .create_with_profile(input.workspace, input.profile_id, input.options)
                 .await
                 .map_err(control_error)?,
         ),
@@ -249,6 +265,121 @@ async fn backends(State(state): State<ApiState>) -> Json<Vec<BackendInfo>> {
     )
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProfileQuery {
+    id: RuntimeProfileId,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProfileUpdate {
+    definition: crate::profiles::ProfileDefinition,
+    expected_revision: u64,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WorkspaceQuery {
+    workspace: PathBuf,
+}
+async fn profiles(
+    State(state): State<ApiState>,
+) -> Result<Json<Vec<crate::profiles::ProfileView>>, ApiError> {
+    state
+        .workers()?
+        .profiles()
+        .await
+        .map(Json)
+        .map_err(internal_error)
+}
+async fn inspect_profile(
+    State(state): State<ApiState>,
+    Query(query): Query<ProfileQuery>,
+) -> Result<Json<crate::profiles::ProfileView>, ApiError> {
+    state
+        .workers()?
+        .profiles()
+        .await
+        .map_err(internal_error)?
+        .into_iter()
+        .find(|p| p.profile.definition.id == query.id)
+        .map(Json)
+        .ok_or(ApiError(StatusCode::NOT_FOUND, "profile_not_found"))
+}
+async fn validate_profile(
+    State(state): State<ApiState>,
+    Json(query): Json<ProfileQuery>,
+) -> Result<Json<crate::profiles::ProfileView>, ApiError> {
+    inspect_profile(State(state), Query(query)).await
+}
+async fn create_profile(
+    State(state): State<ApiState>,
+    Json(definition): Json<crate::profiles::ProfileDefinition>,
+) -> Result<(StatusCode, Json<crate::profiles::RuntimeProfile>), ApiError> {
+    state
+        .workers()?
+        .safe_configuration(&definition)
+        .map_err(|_| ApiError(StatusCode::BAD_REQUEST, "invalid_or_sensitive_profile"))?;
+    let profile = blocking(&state.kernel, move |k| k.save_profile(definition, None))
+        .await
+        .map_err(control_error)?;
+    Ok((StatusCode::CREATED, Json(profile)))
+}
+async fn update_profile(
+    State(state): State<ApiState>,
+    Json(input): Json<ProfileUpdate>,
+) -> Result<Json<crate::profiles::RuntimeProfile>, ApiError> {
+    state
+        .workers()?
+        .safe_configuration(&input.definition)
+        .map_err(|_| ApiError(StatusCode::BAD_REQUEST, "invalid_or_sensitive_profile"))?;
+    blocking(&state.kernel, move |k| {
+        k.save_profile(input.definition, Some(input.expected_revision))
+    })
+    .await
+    .map(Json)
+    .map_err(control_error)
+}
+async fn workspace_policy(
+    State(kernel): State<Arc<Kernel>>,
+    Query(query): Query<WorkspaceQuery>,
+) -> Result<Json<Option<crate::profiles::WorkspacePolicy>>, ApiError> {
+    blocking(&kernel, move |k| k.workspace_policy(query.workspace))
+        .await
+        .map(Json)
+        .map_err(control_error)
+}
+async fn update_policy(
+    State(kernel): State<Arc<Kernel>>,
+    Json(policy): Json<crate::profiles::WorkspacePolicy>,
+) -> Result<Json<crate::profiles::WorkspacePolicy>, ApiError> {
+    policy
+        .validate()
+        .map_err(|_| ApiError(StatusCode::BAD_REQUEST, "invalid_workspace_policy"))?;
+    blocking(&kernel, move |k| k.save_workspace_policy(policy))
+        .await
+        .map(Json)
+        .map_err(control_error)
+}
+async fn resolved_profile(
+    State(kernel): State<Arc<Kernel>>,
+    Path(id): Path<WorkSessionId>,
+) -> Result<Json<crate::profiles::ResolvedProfileView>, ApiError> {
+    if blocking(&kernel, move |k| k.session(id))
+        .await
+        .map_err(internal_error)?
+        .is_none()
+    {
+        return Err(ApiError(StatusCode::NOT_FOUND, "session_not_found"));
+    }
+    let resolved = blocking(&kernel, move |k| k.resolved_profile(id))
+        .await
+        .map_err(control_error)?;
+    Ok(Json(crate::profiles::ResolvedProfileView {
+        secret_status: crate::profiles::secret_status(resolved.secret_ref.as_ref()),
+        resolved,
+    }))
+}
+
 async fn events(State(kernel): State<Arc<Kernel>>) -> Result<impl IntoResponse, ApiError> {
     // Durable mutations cannot interleave snapshot creation and subscription.
     let (snapshot, mut events) = blocking(&kernel, Kernel::snapshot_and_subscribe)
@@ -298,6 +429,9 @@ fn control_error(error: anyhow::Error) -> ApiError {
                 ApiError(StatusCode::SERVICE_UNAVAILABLE, "worker_unavailable")
             }
             ControlError::InvalidInput => ApiError(StatusCode::BAD_REQUEST, "invalid_input"),
+            ControlError::ProfileDenied => {
+                ApiError(StatusCode::FORBIDDEN, "workspace_profile_denied")
+            }
         };
     }
     if error.downcast_ref::<crate::domain::DomainError>().is_some() {
@@ -316,7 +450,21 @@ async fn authenticate(State(token): State<ApiToken>, request: Request, next: Nex
         .is_some_and(|v| token.matches(v))
         && headers.next().is_none();
     let mut response = if valid {
-        next.run(request).await
+        let response = next.run(request).await;
+        // Axum extractor diagnostics can echo rejected user values. Preserve our
+        // JSON error codes, replace framework text before it reaches any client.
+        if matches!(
+            response.status(),
+            StatusCode::BAD_REQUEST | StatusCode::UNPROCESSABLE_ENTITY
+        ) && response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .is_none_or(|v| v != "application/json")
+        {
+            ApiError(response.status(), "invalid_input_format").into_response()
+        } else {
+            response
+        }
     } else {
         let mut response = ApiError(StatusCode::UNAUTHORIZED, "unauthorized").into_response();
         response

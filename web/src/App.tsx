@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Client, errorMessage } from './api';
+import { ApiError, Client, errorMessage } from './api';
 import { Timeline } from './Timeline';
 import { useControlPlane } from './useControlPlane';
 import { canCancel, canSend, decisionLabel, label, offeredDecisions, projectName, safeText, stateExplanation } from './model';
-import type { Approval, Backend, Decision, Session, Turn } from './model';
+import type { Approval, Backend, Decision, RuntimeProfile, ResolvedProfile, WorkspacePolicy, Session, Turn } from './model';
 
 function hashSession(): string | null {
   const value = window.location.hash.slice(1);
@@ -45,21 +45,35 @@ function Connection({ connect }: { connect: (client: Client) => void }) {
       </form><div className="connection-footer"><span className="small muted">Same-origin connection</span><span className="small">HTTP + SSE</span></div>
     </section></main>;
 }
-function NewWork({ backend, disabled, create }: { backend?: Backend; disabled: boolean;
-  create: (workspace: string, model: string, sandbox: string) => Promise<void> }) {
-  const [workspace, setWorkspace] = useState(''); const [model, setModel] = useState(''); const [sandbox, setSandbox] = useState('read_only');
-  const modelSupported = backend?.capabilities.includes('model_selection');
+function NewWork({ backends, profiles, client, disabled, create }: { backends: Backend[]; profiles: RuntimeProfile[]; client: Client; disabled: boolean;
+  create: (workspace: string, model: string, sandbox: string, profile: string) => Promise<void> }) {
+  const [workspace, setWorkspace] = useState(''); const [model, setModel] = useState(''); const [sandbox, setSandbox] = useState('');
+  const [profileId, setProfileId] = useState(''); const [policy, setPolicy] = useState<WorkspacePolicy | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null); const checkedWorkspace = useRef('');
+  const profile = profiles.find(p => p.id === (profileId || policy?.default_profile)) ?? (!profileId && !policy ? profiles.find(p => p.is_default) : undefined);
+  const backend = backends.find(b => b.backend === profile?.backend);
+  const modelSupported = profile?.supported_overrides.includes('model') && backend?.capabilities.includes('model_selection');
   return <section className="new-work"><p className="eyebrow">NEW WORKSESSION</p><h1>Make room for work.</h1>
     <p className="muted">The Kernel owns this session. It will remain available after you leave.</p>
-    <form onSubmit={event => { event.preventDefault(); void create(workspace, modelSupported ? model : '', sandbox); }}>
-      <label htmlFor="workspace">Workspace on daemon host</label><input id="workspace" required maxLength={4096} value={workspace} onChange={e => setWorkspace(e.target.value)} placeholder="/home/you/projects/example" autoFocus />
+    <form onSubmit={event => { event.preventDefault(); void create(workspace, modelSupported ? model : '', sandbox, profileId); }}>
+      <label htmlFor="workspace">Workspace on daemon host</label><input id="workspace" required maxLength={4096} value={workspace} onChange={e => { setWorkspace(e.target.value); checkedWorkspace.current = e.target.value; setPolicy(null); setPolicyError(null); }}
+        onBlur={() => { const checked = workspace; checkedWorkspace.current = checked; if (checked) void client.workspacePolicy(checked).then(p => { if (checkedWorkspace.current === checked) { setPolicy(p); setPolicyError(null); } }).catch(e => { if (checkedWorkspace.current === checked) setPolicyError(errorMessage(e)); }); }} placeholder="/home/you/projects/example" autoFocus />
       <p className="small muted">An existing directory on the computer running laind. Browser files are not used.</p>
+      <label htmlFor="profile">Runtime profile</label><select id="profile" value={profileId} onChange={e => { setProfileId(e.target.value); setModel(''); setSandbox(''); }}><option value="">Workspace / Kernel default</option>
+        {profiles.map(p => <option key={p.id} value={p.id} disabled={p.health !== 'valid' || !!policy && !policy.allowed_profiles.includes(p.id)}>{p.id} · {p.backend} · {p.health}</option>)}</select>
+      {profile && <ProfileInfo profile={profile} />}
+      {policyError && <p className="error">{policyError}</p>}
       {modelSupported && <><label htmlFor="model">Model <span className="muted">(optional)</span></label><input id="model" maxLength={128} value={model} onChange={e => setModel(e.target.value)} placeholder="Use runtime default" /></>}
-      <label htmlFor="sandbox">Sandbox</label><select id="sandbox" value={sandbox} onChange={e => setSandbox(e.target.value)}><option value="read_only">Read only</option><option value="workspace_write">Workspace write</option></select>
-      <p className="small muted">Backend: {backend?.backend ?? 'Codex'} · profile: codex/local. Runtime profiles arrive in Phase 5.</p>
-      {!backend?.available && <p className="error">Codex backend unavailable. Existing history remains readable.</p>}
-      <button className="primary" disabled={disabled || !backend?.available || !backend.capabilities.includes('session_create')}>Create WorkSession →</button>
+      {profile?.supported_overrides.includes('sandbox') && <><label htmlFor="sandbox">Sandbox</label><select id="sandbox" value={sandbox} onChange={e => setSandbox(e.target.value)}><option value="">Profile default ({label(profile.sandbox_default)})</option><option value="read_only">Read only</option><option value="workspace_write">Workspace write</option></select></>}
+      {!backend?.available && <p className="error">Worker backend unavailable. Existing history remains readable.</p>}
+      <button className="primary" disabled={disabled || profile?.health !== 'valid' || !!policyError || !!policy && !policy.allowed_profiles.includes(profile?.id ?? '') || !backend?.available || !backend.capabilities.includes('session_create')}>Create WorkSession →</button>
     </form></section>;
+}
+export function ProfileInfo({ profile }: { profile: RuntimeProfile }) {
+  return <dl className="metadata"><div><dt>Profile / revision</dt><dd>{safeText(profile.id)} / {profile.revision}</dd></div><div><dt>Backend / health</dt><dd>{safeText(profile.backend)} / {safeText(profile.health)}</dd></div>
+    <div><dt>Model / reasoning</dt><dd>{safeText(profile.model ?? 'Runtime default')} / {safeText(profile.reasoning_effort ?? 'Runtime default')}</dd></div>
+    <div><dt>Provider / endpoint</dt><dd>{safeText(profile.provider ?? 'Local authentication')} / {safeText(profile.base_url ?? (profile.provider ? 'Official endpoint' : 'Local runtime default'))}</dd></div>
+    <div><dt>Credential status</dt><dd>{safeText(profile.secret_status)}</dd></div><div><dt>Validation</dt><dd>{safeText(profile.explanation)}</dd></div></dl>;
 }
 function SessionDetail({ session, turn, approvals, plane, client, busy, action }: { session: Session; turn?: Turn; client: Client;
   approvals: Approval[]; plane: ReturnType<typeof useControlPlane>; busy: boolean;
@@ -70,6 +84,8 @@ function SessionDetail({ session, turn, approvals, plane, client, busy, action }
   const enabled = ready && !!backend?.available && !busy;
   const explanation = stateExplanation(session);
   const cancelled = latestTurn?.cancellation;
+  const [resolved, setResolved] = useState<ResolvedProfile | null>(null);
+  useEffect(() => { const controller = new AbortController(); if (plane.connected) void client.resolvedProfile(session.id, controller.signal).then(setResolved).catch(e => { if (!controller.signal.aborted && !(e instanceof ApiError && e.status === 404)) plane.setError(errorMessage(e)); }); return () => controller.abort(); }, [client, session.id, plane.connected, plane.projection.revision]);
   const submit = async (event: FormEvent) => {
     event.preventDefault(); if (!enabled || !backend?.capabilities.includes('turns') || !canSend(session) || !draft.trim()) return;
     if (new TextEncoder().encode(draft).length > 32768) { plane.setError('Prompt exceeds the Kernel limit of 32 KiB.'); return; }
@@ -85,6 +101,10 @@ function SessionDetail({ session, turn, approvals, plane, client, busy, action }
     </div></header>
     <dl className="metadata"><div><dt>Workspace</dt><dd>{safeText(session.workspace)}</dd></div><div><dt>Backend / profile</dt><dd>{safeText(session.backend)} / {safeText(session.runtime_profile_id)}</dd></div>
       <div><dt>WorkSession ID</dt><dd>{session.id}</dd></div><div><dt>Latest turn</dt><dd>{turn ? `${turn.id.slice(0, 8)} · ${label(turn.state)}` : 'No turns yet'}</dd></div></dl>
+    {resolved && <details><summary>Frozen profile · {safeText(resolved.profile_id)} / revision {resolved.revision}</summary><dl className="metadata">
+      <div><dt>Model / reasoning</dt><dd>{safeText(resolved.model ?? 'Local runtime default')} / {safeText(resolved.reasoning_effort ?? 'Runtime default')}</dd></div>
+      <div><dt>Provider / endpoint</dt><dd>{safeText(resolved.provider ?? 'Local authentication')} / {safeText(resolved.base_url ?? (resolved.provider ? 'Official endpoint' : 'Local runtime default'))}</dd></div>
+      <div><dt>Sandbox / approvals</dt><dd>{label(resolved.sandbox)} / {label(resolved.approval_policy)}</dd></div><div><dt>Credential status</dt><dd>{safeText(resolved.secret_status)}</dd></div></dl><p className="small muted">Configuration frozen at creation; referenced credentials resolve again when a runtime starts.</p></details>}
     {explanation && <p className={`state-explanation ${['unknown', 'disconnected'].includes(session.state) ? 'uncertain' : ''}`}>{explanation}</p>}
     {turn?.failure && <p className="state-explanation">{safeText(turn.failure.message)}</p>}
     {cancelled && cancelled !== 'not_requested' && <p className="state-explanation">Cancellation {label(cancelled).toLowerCase()}{cancelled !== 'confirmed' && ' — interruption is not confirmed.'}</p>}
@@ -122,7 +142,7 @@ function ControlPlane({ client, disconnect }: { client: Client; disconnect: () =
     <header className="global-header"><a className="wordmark" href="#" onClick={() => select(null)}>lain<span className="wordmark-square">▣</span></a>
       <span className="header-title">WORK / CONTROL PLANE</span><div className="kernel-status" role="status"><span className={`status-dot ${plane.connected ? 'online' : ''}`} aria-hidden="true" />
         <span>{plane.connected ? 'Connected' : 'Reconnecting'} · Kernel {label(plane.status.ready)}</span>
-        <span className="backend-status">Codex {plane.status.backends.find(b => b.backend === 'codex')?.available ? 'available' : 'unavailable'}</span></div>
+        <span className="backend-status">{plane.status.backends.map(b => `${label(b.backend)} ${b.available ? 'available' : 'unavailable'}`).join(' · ') || 'Checking backends'}</span></div>
       <button className="text-button" onClick={disconnect}>Disconnect</button>
     </header>
     <aside className="sidebar"><div className="section-bar"><h2>Work sessions</h2><span className="small muted">{sessions.length.toString().padStart(2, '0')}</span></div>
@@ -140,8 +160,8 @@ function ControlPlane({ client, disconnect }: { client: Client; disconnect: () =
     <main className="main-view"><button className="mobile-back text-button" onClick={() => select(null)}>← Work sessions</button>
       {plane.error && <div className="error-banner" role="alert"><span>{plane.error}</span><button className="text-button" onClick={plane.reconnect}>Reconnect</button></div>}
       {busy && <p className="action-status" role="status">Submitting to Kernel…</p>}
-      {newWork ? <NewWork backend={plane.status.backends.find(b => b.backend === 'codex')} disabled={!plane.connected || busy || plane.status.ready !== 'ready'}
-        create={async (workspace, model, sandbox) => { await action(async () => { const s = await client.create(workspace, model, sandbox); select(s.id); }); }} />
+      {newWork ? <NewWork backends={plane.status.backends} profiles={plane.status.profiles} client={client} disabled={!plane.connected || busy || plane.status.ready !== 'ready'}
+        create={async (workspace, model, sandbox, profile) => { await action(async () => { const s = await client.create(workspace, model, sandbox, profile); select(s.id); }); }} />
         : session ? <SessionDetail key={session.id} session={session} turn={turns[0]} approvals={approvals.filter(a => a.work_session_id === session.id && a.status === 'pending')}
           plane={plane} client={client} busy={busy} action={action} />
           : <section className="welcome"><p className="eyebrow">PRESENT DAY / PRESENT TIME</p><h1>A window into<br />persistent work.</h1><p className="muted">{selected && plane.connected ? 'This session is not in the current Kernel snapshot.' : 'Select a session to follow its activity, or create a place for something new.'}</p>

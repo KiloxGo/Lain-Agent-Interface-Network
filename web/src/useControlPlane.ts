@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, Client, errorMessage, observe } from './api';
 import { emptyProjection, fromSnapshot, mergeHistory, projectEvent } from './model';
-import type { Backend, Projection, WorkEvent } from './model';
+import type { Backend, RuntimeProfile, Projection, WorkEvent } from './model';
 
 interface TimelineState {
   session: string | null; events: WorkEvent[]; coveredThrough: number | null;
@@ -14,7 +14,7 @@ export function useControlPlane(client: Client, selected: string | null) {
   const [projection, setProjection] = useState<Projection>(emptyProjection);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<{ ready: string; backends: Backend[] }>({ ready: 'checking', backends: [] });
+  const [status, setStatus] = useState<{ ready: string; backends: Backend[]; profiles: RuntimeProfile[] }>({ ready: 'checking', backends: [], profiles: [] });
   const [timeline, setTimeline] = useState<TimelineState>(() => emptyTimeline(selected));
   const [progress, setProgress] = useState<{ session: string; category: string } | null>(null);
   const [reload, setReload] = useState(0);

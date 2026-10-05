@@ -81,9 +81,11 @@ pub(super) fn command(executable: &Path) -> Command {
 }
 
 impl Rpc {
-    pub async fn spawn(executable: &Path) -> Result<Self> {
-        let mut child = command(executable)
-            .args(["app-server", "--listen", "stdio://"])
+    pub async fn spawn(executable: &Path, launch: &super::codex::CodexLaunchSpec) -> Result<Self> {
+        let mut command = command(executable);
+        command.args(["app-server", "--listen", "stdio://"]);
+        launch.apply(&mut command);
+        let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())

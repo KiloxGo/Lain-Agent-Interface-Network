@@ -535,3 +535,77 @@ provider diagnostics remain private. A focused frontend regression covers retry
 semantics, snapshot failure parsing, malformed messages and safe text rendering.
 Validation: all 11 frontend tests, TypeScript and the production build passed;
 `git diff --check` passed. No Kernel or worker lifecycle change was required.
+
+## 2026-10-05 — Phase 5: Runtime profiles, SecretRefs and provider switching
+
+Milestone: `identity: "Who Are You?"`. Phase 6 has not started.
+
+- Added the Kernel-owned SQLite profile registry and canonical workspace default/
+  allowlist policy. Migration 004 is transactional, seeds `codex/local`, and adds
+  revision-0 compatibility snapshots to existing Codex workers without changing
+  public IDs, native thread/turn identities, approvals or history. Invalid legacy
+  worker metadata rolls back the migration. No profile deletion cascades exist.
+- Definitions start at revision 1; owner replacements require the expected
+  revision. Disabled profiles reject new creation while existing work continues
+  with its persisted snapshot. Selection uses explicit ID, workspace default,
+  then Kernel default; policy denial is explicit with no fallback. Policy is
+  checked on future prompts and attachment, including already attached workers.
+- Non-secret resolved configuration is committed atomically with session creation
+  in `worker_state.resolved_profile`: profile/revision, backend/driver, model,
+  provider/endpoint, effort, sandbox, approvals and SecretRef. Defaults precede
+  profile values and narrow model/sandbox overrides. Initial structured responses
+  capture unspecified local model/effort. Registry edits never rewrite snapshots,
+  restart workers or alter history. Managed official endpoints resolve explicitly.
+- The first Secret Store permits only `secret://env/<lowercase-hyphen-name>` to
+  `LAIN_SECRET_<UPPER_UNDERSCORE_NAME>`. No arbitrary env/argv public surface,
+  credential persistence or plaintext CLI argument exists. Missing credentials
+  fail before session creation. Values live in non-serializable zeroizing launch
+  and runtime redaction buffers; each cleared/allowlisted child receives only its
+  required `LAIN_PROFILE_CREDENTIAL`. Ordinary Codex tool environments exclude it.
+- Verified the existing exact Codex 0.160.0 gate with installed help, regenerated
+  structured schemas and native probes. Adapter-owned launch specs use process
+  `-c` provider/model/effort settings and thread start/fork/resume model, provider,
+  sandbox and owner approval settings. Managed providers speak Responses over
+  HTTP. Global Codex config/authentication is never rewritten. Existing local
+  authentication and unmanaged tool/home/endpoint settings remain externally owned.
+- Profile inspection/validation reports safe local prerequisites and credential
+  status, consuming no provider/model quota. Owner CRUD, workspace policy and
+  frozen-session inspection APIs distinguish current registry and actual session
+  revision. Invalid extractor values return safe JSON without echoing secrets.
+  CLI adds profile list/show/validate and work start --profile. Web selection uses
+  Kernel profiles, policy and advertised overrides; detail shows the frozen
+  revision. TUI still renders old sessions and safe reconstructed turn failures.
+- Worker failures now distinguish reliable structured authentication, rate limit,
+  permission, provider connection/server and execution evidence, with unknown as
+  fallback. Malformed known variants also remain unknown. Optional retryable
+  decodes absent fields in old records; intermediate observations never terminate
+  a turn. Raw provider prose is discarded. Redaction includes known daemon secrets
+  and the runtime credential before commands, outputs, approvals, history and SSE.
+
+Validation: 34 deterministic Rust tests passed, including Phase 4 migration and
+rollback fixtures, new revision versus frozen sessions, disable/resume, concurrent
+profiles with distinct endpoints/models/secrets/effort/approvals, redaction and
+safe error reconstruction. Workspace formatting and all-target Clippy with
+warnings denied passed. TypeScript, 12 frontend tests and production build passed;
+all four private-daemon browser acceptance scenarios passed. Desktop and phone
+screenshots were inspected. Native Windows ConPTY/terminal restoration passed.
+The deterministic API/CLI smoke passed owner CRUD, safe errors, workspace policy,
+detach/lazy resume, daemon restart and credential rotation under the same handle,
+checking SQLite, CLI/API output and logs for fixture-secret leakage.
+
+Two opt-in native Codex checks passed without inference: simultaneous App Server
+config/read isolation and unused durable thread fork/resume. No second real
+gateway credential was supplied, so paid two-provider/model access is unverified
+and unclaimed. Ordinary tests consume zero model quota; no CI workflow was added.
+Validation used `target/phase4` and private executable copies because an existing
+user daemon can lock the default Windows binary; that daemon was not stopped.
+
+Limits: one implemented worker family; namespaced environment secrets require a
+daemon restart for rotation; configuration isolation is not an OS secret vault.
+Local Codex auth/tool/endpoint defaults are not a full copied/frozen Codex home.
+No arbitrary headers/auth commands, Chat Completions provider, live session
+reconfiguration or automatic provider selection. Before Phase 6, decide the Lain
+Actor's model/auth/budget boundary independently from worker profiles; retain
+explicit owner-only profile mutation and no raw credentials in Actor/memory.
+Remote browser authentication/TLS remains the separate ADR 002 decision.
+ADR 003 records mutable definitions, frozen resolved snapshots and runtime refs.

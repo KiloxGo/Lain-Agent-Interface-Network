@@ -149,8 +149,8 @@ opaque provider bindings separately from public WorkSession/Turn IDs.
 
 ### Configuration
 
-Phase 2 supports selected model and sandbox options per session; full RuntimeProfile
-resolution remains Phase 5 work. The capability report describes the locally
+Phase 5 resolves named profile configuration and freezes non-secret session
+snapshots, including selected model/sandbox overrides. The capability report describes the locally
 verified version's adapter operations, not remotely negotiated server permissions.
 Unknown versions are unavailable until their contract is verified. Session startup
 still performs initialization and can fail independently of the version probe.
@@ -353,3 +353,19 @@ Normalized completed observations commit to operational history before live
 publication. Raw fragments, reasoning, protocol objects and private diagnostics
 stay in the adapter and never become history. A terminal client uses these same
 provider-neutral APIs; it does not add a second backend implementation.
+
+## 20. Profile configuration and diagnostic evidence (Phase 5)
+
+A profile determines backend/driver; a session does not independently select an
+inconsistent backend. The verified Codex adapter translates a resolved profile
+into process-scoped settings and a dedicated child credential variable. Concurrent
+runtimes do not share mutable configuration. Profile-supported overrides are
+advertised in registry views, alongside local health and secret availability.
+No generic backend plugin trait or new worker intelligence was introduced.
+
+Structured Codex error discriminants and recognized HTTP status fields map into
+Lain-owned failure kinds and optional retryability. Raw diagnostics are discarded.
+Unknown evidence remains Unknown. Error observations do not replace final turn
+evidence. Credential redaction includes namespaced daemon values and the current
+runtime's resolved secret before approval/output/history/SSE. Exact version and
+mapping limits remain documented in [CODEX.md](backends/CODEX.md).

@@ -529,7 +529,8 @@ one-implementation repository/backend traits:
 | `events` | Normalized lifecycle, approval, output and tool events |
 | `config` | Daemon-only settings and redacted API credential |
 | `api` | Authenticated HTTP queries/commands, SSE and bounded HTTP shutdown |
-| `worker` (private) | Durable opaque provider identities and operational records |
+| `worker` (private) | Durable opaque provider identities, frozen resolved profiles and operational records |
+| `profiles` | Profile definitions/revisions, resolution, workspace policy and namespaced SecretRefs |
 | `backend` | Per-session supervisor and command serialization |
 | `backend::codex/rpc/process` (private) | Codex translation, JSON framing and process ownership |
 | `main` | Configuration, logging, signal registration, startup and teardown |
@@ -603,4 +604,21 @@ remains headless. The browser token is explicit page-memory-only input; producti
 cookie/session/TLS/CSRF design remains a separate remote-deployment decision.
 Static serving uses Tower HTTP and first-party CSP/security headers. The current
 Web build assumes origin-root hosting. See [WEB.md](WEB.md) and
-[ADR 002](adr/002-web-origin-and-authentication.md). Phase 5 is not implemented.
+[ADR 002](adr/002-web-origin-and-authentication.md).
+
+## 17. Implemented profile boundary (Phase 5)
+
+The Kernel's SQLite registry stores definitions/revisions and canonical workspace
+policies. Owner APIs manage these explicitly; worker-editable files cannot modify
+them. Creation resolves selection and allowed model/sandbox overrides and commits
+a non-secret resolved snapshot with the session under the existing storage lock.
+Attached, detached and historical work retain that snapshot after registry edits.
+Workspace restrictions apply to later prompts/attachment, while history stays
+readable. Profiles cannot supply arbitrary argv, executable paths or environment.
+
+The adapter translates resolved configuration into a private CodexLaunchSpec,
+keeps env_clear and injects only the referenced credential into the child. The
+environment-backed Secret Store restricts handles to LAIN_SECRET names. Resolution
+and redaction buffers are runtime-only; no values enter worker metadata. Migration
+004 adds profiles/policies and legacy local snapshots without changing bindings.
+Health APIs do no inference. See [ADR 003](adr/003-profiles-secrets-and-session-snapshots.md).

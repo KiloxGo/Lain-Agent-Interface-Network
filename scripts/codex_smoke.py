@@ -68,7 +68,7 @@ class Stream:
 
 
 class Daemon:
-    def __init__(self, root, binary, idle_timeout=300):
+    def __init__(self, root, binary, idle_timeout=300, extra_env=None):
         self.root, self.binary = root, binary
         self.token = secrets.token_hex(32)
         with socket.socket() as sock:
@@ -77,12 +77,14 @@ class Daemon:
         self.log = []
         self.process = None
         self.idle_timeout = idle_timeout
+        self.extra_env = dict(extra_env or {})
 
     def start(self):
         env = dict(os.environ, LAIN_API_TOKEN=self.token,
                    LAIN_DATABASE_PATH=str(self.root / "state.sqlite3"),
                    LAIN_LISTEN=f"127.0.0.1:{self.port}",
                    LAIN_WORKER_IDLE_TIMEOUT=str(self.idle_timeout))
+        env.update(self.extra_env)
         self.process = subprocess.Popen([str(self.binary)], env=env, stdout=subprocess.DEVNULL,
                                         stderr=subprocess.PIPE,
                                         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0)

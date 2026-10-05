@@ -1,7 +1,7 @@
 # Configuration and Runtime Profiles
 
 **Status:** normative foundation  
-**Last reviewed:** 2026-10-04
+**Last reviewed:** 2026-10-05
 
 ## 1. Purpose
 
@@ -16,6 +16,10 @@ This document defines the profile model.
 A profile describes how to start or control a worker. It does not contain raw secret values.
 
 ## 3. RuntimeProfile
+
+The following are architectural examples for future adapters, not the supported
+input format. Sections 25–28 define the implemented Phase 5 API and env-only
+SecretRef namespace; TOML loading and the other backends remain deferred.
 
 Conceptual examples:
 
@@ -318,8 +322,9 @@ Do not implement automatic smart routing before explicit profiles are reliable.
 ## 21. Implemented daemon configuration
 
 The daemon resolves built-in defaults followed by explicit environment overrides.
-It does not yet load TOML, resolve RuntimeProfiles, import global worker config,
-or instantiate a general Secret Store. Only these settings are read:
+It does not load Lain TOML or import/rewrite global worker configuration. Phase 5
+adds the SQLite RuntimeProfile registry and a namespaced environment Secret Store.
+Daemon settings remain:
 
 | Variable | Default / requirement |
 |---|---|
@@ -352,15 +357,16 @@ Session creation accepts `options.model` (optional validated model identifier) a
 `options.sandbox` (`read_only`, the default, or `workspace_write`). These selected
 options persist with the provider binding and are reused on resume. Workspace
 must already exist. On Windows configure native `codex.exe`, not a `.cmd`/`.ps1` shim.
-Model/provider defaults and local authentication otherwise come from Codex itself;
-Lain does not edit global Codex files. This is not a fully frozen profile snapshot:
-changes to upstream defaults may affect a resumed session with unspecified options.
+This was the Phase 2–4 configuration surface. Phase 5 adds profile selection and
+resolved snapshots. Existing unspecified upstream defaults cannot be recovered
+retroactively; model/effort are captured on the first successful reattachment.
+Lain does not edit global Codex files.
 
 The worker environment is cleared then populated from a small OS/path/locale,
 proxy and optional `CODEX_HOME` allowlist. `LAIN_API_TOKEN`, arbitrary credentials
-and the rest of the daemon environment are not inherited. API-key-only setups
-requiring additional environment values need a future explicit SecretRef flow;
-the verified setup uses Codex's existing ChatGPT login. Approval policy is owner
+and the rest of the daemon environment are not inherited. Phase 5 adds exactly
+one referenced child credential for a managed Responses provider; local profiles
+can continue using Codex's existing ChatGPT login. Approval policy is owner
 review on request and never automatically accepts a backend permission request.
 
 Raw protocol messages, stderr and provider error strings are not logged. Known
@@ -393,3 +399,119 @@ The browser uses same-origin API paths and page-memory-only bearer authenticatio
 The development Vite process optionally reads `LAIN_DEV_KERNEL_URL`; it never reads
 or injects `LAIN_API_TOKEN`. No browser credentials are persisted by default.
 Deployment/authentication limitations are in [WEB.md](WEB.md) and ADR 002.
+
+## 25. Implemented Phase 5 profiles
+
+Migration 004 stores `runtime_profiles(id, snapshot)` and
+`workspace_profile_policies(workspace, snapshot)` alongside the existing session,
+worker and history tables. The Kernel owns all writes. Profiles are definitions
+plus a revision, starting at 1 and incrementing on an accepted owner replacement.
+PUT requires `expected_revision`, rejecting stale updates/duplicates with 409.
+There is no hard deletion; set `enabled: false` to stop new use. Existing attached
+or detached sessions keep their snapshot even if the definition changes/disables.
+
+Current supported definition example (owner POST JSON, no secret value):
+
+```json
+{
+  "id": "codex/gateway-a",
+  "backend": "codex",
+  "driver": "app-server",
+  "enabled": true,
+  "model": "your-supported-model",
+  "provider": "gateway-a",
+  "base_url": "https://gateway.example.com/v1",
+  "reasoning_effort": "high",
+  "sandbox_default": "read_only",
+  "approval_policy": "on_request",
+  "secret_ref": "secret://env/gateway-a"
+}
+```
+
+Only Codex/app-server is implemented. Provider profiles require an explicit
+model and SecretRef. Omit base_url for the official `https://api.openai.com/v1`
+Responses endpoint. A completely local definition omits provider, base_url and
+SecretRef together. It retains existing Codex authentication and endpoint defaults.
+Optional reasoning accepts none/minimal/low/medium/high/xhigh/max/ultra; actual
+model acceptance is upstream-owned, not guaranteed by syntactic validation.
+Approval choices are on_request and untrusted, always with owner review; never,
+auto-review, unrestricted sandbox and arbitrary backend options are not offered.
+Sandbox choices are read_only and workspace_write. Model and sandbox are the only
+advertised per-session overrides. URLs require HTTPS except numeric loopback or
+localhost HTTP for local development, and reject credentials, query, fragment,
+whitespace/control characters, backslashes and overlong values.
+
+Owner profile APIs may explicitly pair an endpoint and a namespaced credential.
+There is no model-generated configuration path or arbitrary daemon env lookup.
+No paid/provider request occurs on registry list, validation, UI open or health
+inspection. `valid` means local prerequisites and translatability, not verified
+authentication, model entitlement or quota. Missing credentials, disabled profiles
+and unavailable executables have safe `unavailable` explanations. Unsupported or
+invalid definitions are rejected at write time. Invalid/unknown health vocabulary
+is retained for future adapters; this implementation does not invent remote health.
+
+## 26. Selection, resolution and frozen sessions
+
+No independent backend selector exists: the profile determines backend/driver.
+Creation uses an explicit profile ID, otherwise the canonical workspace policy's
+default, otherwise the built-in `codex/local` default. A disallowed/absent profile
+fails explicitly; no fallback occurs. The compatibility profile starts with
+verified local Codex, no endpoint override or raw credential, read-only sandbox
+and on-request owner approvals. Legacy sessions use a revision-0 snapshot of their
+previous selected options, preserving all public IDs, native bindings and history.
+
+Field precedence is built-in safe defaults < selected RuntimeProfile < explicit
+allowed model/sandbox overrides. Workspace policy selects/restricts profiles;
+it does not override model values in Phase 5. Daemon executable/process settings
+remain outside the profile. Selection, revision and initial non-secret snapshot
+are committed atomically with session creation. A structured initial thread
+response fills unspecified local model/effort before work is returned ready.
+
+The persisted private `worker_state.resolved_profile` contains profile_id,
+revision, backend, driver, model, provider, base_url, reasoning_effort, sandbox,
+approval_policy and secret_ref. It contains no credential value. Registry edits
+never rewrite it or reconfigure/restart workers. Idle detach, explicit resume,
+lazy follow-up and daemon recovery translate the same snapshot. The current
+registry view can have revision 2 while an old session still shows revision 1.
+Unmanaged Codex local authentication, local endpoint defaults, tools and other
+global CLI settings remain externally owned; this is not a full Codex-home copy.
+Use an explicit managed endpoint profile to freeze provider endpoint selection.
+
+## 27. Namespaced Secret Store and redaction
+
+`secret://env/gateway-a` maps only to `LAIN_SECRET_GATEWAY_A`. Names are 1–64
+lowercase ASCII letters/digits in nonempty hyphen-separated segments. They cannot
+name PATH, LAIN_API_TOKEN or arbitrary daemon variables. Missing, empty, non-UTF8,
+overlong or control-bearing credentials fail safely. API views return only the
+handle and `available`, `missing` or `not_required`; no secret_value field exists.
+
+The adapter resolves a reference for each new runtime, keeps the child env cleared
+and allowlisted, then injects its required value as `LAIN_PROFILE_CREDENTIAL`.
+Codex reads that provider env_key; a shell-environment exclusion prevents ordinary
+worker commands from inheriting it. No value in argv, profile/snapshot rows,
+prompts, API responses, CLI JSON, browser stores, TUI, normal logs or event history.
+Redaction includes daemon-known API/namespaced values plus the runtime's resolved
+credential. Completed output/commands/paths/tool names and approval descriptions
+are sanitized before bounds, persistence and SSE. Diagnostics use static safe
+messages derived from structured categories. Buffers held by launch/redaction
+use zeroize and clear on drop; the deployment's source environment remains the
+Secret Store. This is process configuration isolation, not an OS secret vault.
+
+Profile configuration freeze is not secret value freeze. The same handle resolves
+again when detached work attaches. Environment-backed rotation requires restarting
+the daemon with the new environment, preserving the database and references; it
+does not edit registry definitions or session identity. Never put credentials in
+normal CLI arguments or profile JSON. Configure the daemon environment through
+the owner's deployment secret mechanism. No global worker auth/config is rewritten.
+
+## 28. Workspace profile policy
+
+The owner PUTs a daemon-host workspace, default_profile and nonempty
+allowed_profiles (up to 64). The Kernel canonicalizes the existing directory and
+requires known profiles and a default included in allowed_profiles. Policies are
+stored in SQLite, not automatically read from worker-editable repository files.
+They apply at creation and subsequent prompt/attach/resume, including attached
+workers. A newly forbidden profile's history remains readable; accepted work is
+not retroactively terminated, and cancellation/approval cleanup remains available.
+There is no policy language, automatic routing or workspace-setting overlay.
+See [the APIs and commands](DEVELOPMENT.md#14-profile-and-workspace-owner-api).

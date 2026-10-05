@@ -149,7 +149,7 @@ TUI:
 - profile/backend information.
 
 The TUI talks only to the public Kernel API.
-Profile/backend labels are visible; a full profile registry remains Phase 5.
+Profile/backend labels are visible; Phase 5 adds registry inspection and selection.
 Ratatui 0.30.2/Crossterm 0.29 implement the terminal. Windows ConPTY and real
 Codex 0.160.0 acceptance cover detached follow-up, history/reboot continuity
 and unchanged provider identity. See DEVLOG and the development guide for
@@ -181,7 +181,7 @@ creation uses the existing supported model/sandbox options; profile selection
 belongs to Phase 5, not this milestone. The daemon remains loopback-only and API
 authentication remains required. Page-memory bearer authentication is an interim
 flow, not public Internet readiness. See [WEB.md](docs/WEB.md) and ADR 002.
-Phase 5 is not started.
+Phase 5 adds profile selection while preserving these observation/auth boundaries.
 
 The initial visual identity uses restrained dark neutrals, readable timeline
 details and explicit status labels. More expressive identity remains future work.
@@ -200,14 +200,21 @@ Exit criteria:
 
 Deliverables:
 
-- [ ] RuntimeProfile registry
-- [ ] SecretRef integration
-- [ ] at least two Codex profiles
-- [ ] per-session profile selection
-- [ ] endpoint/provider override
-- [ ] redacted resolved-profile inspection
-- [ ] workspace default/allowed profile policy
-- [ ] profile validation/health
+- [x] durable owner-managed RuntimeProfile registry and revisions
+- [x] namespaced environment-backed SecretRef integration and runtime redaction
+- [x] at least two concurrent isolated Codex profiles
+- [x] per-session Web/CLI profile selection
+- [x] process-scoped Responses endpoint/provider/authentication override
+- [x] frozen session configuration and redacted resolved-profile inspection
+- [x] workspace default/allowed profile policy, checked on subsequent attachment
+- [x] profile validation/health without paid inference
+- [x] migration-004 local compatibility, safe failure categories and retry evidence
+
+SQLite definitions remain mutable; WorkSessions retain non-secret resolved
+snapshots and credential handles. Secret values resolve for each new runtime.
+The exact Codex 0.160.0 gate remains. Native configuration checks use no inference;
+different real provider accounts have not been tested. See ADR 003 and CODEX.md.
+Phase 6 remains unimplemented.
 
 Exit criteria:
 
@@ -384,7 +391,7 @@ Make these decisions when implementation evidence exists:
 - world filesystem schema;
 - exact Lain model/provider;
 - embedding/vector search necessity;
-- profile capability and resolved-configuration APIs for Web/TUI;
+- additional profile capabilities and explicit provider health probes;
 - native Linux terminal/process lifecycle validation.
 
 Do not prematurely freeze choices that do not affect current architecture.

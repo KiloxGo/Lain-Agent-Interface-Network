@@ -34,6 +34,8 @@ pub struct Turn {
     pub cancellation: String,
     #[serde(default)]
     pub created_at_ms: u64,
+    #[serde(default)]
+    pub failure: Option<Value>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Approval {

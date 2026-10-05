@@ -4,7 +4,7 @@ import { ApiError, Client, observe, SseDecoder } from '../src/api';
 import { ApprovalCard, StateBadges } from '../src/App';
 import { EventContent } from '../src/Timeline';
 import { emptyProjection, fromSnapshot, mergeHistory, offeredDecisions, parseBackends, parseEvent, parseHistory,
-  parseSession, parseSnapshot, parseTurn, projectEvent, safeText, stateExplanation } from '../src/model';
+  parseSession, parseSnapshot, parseTurn, parseProfiles, parseResolvedProfile, projectEvent, safeText, stateExplanation } from '../src/model';
 import type { Approval, Session, WorkEvent } from '../src/model';
 
 const sid = '11111111-1111-4111-8111-111111111111';
@@ -80,7 +80,8 @@ describe('public protocol and disposable state', () => {
     expect(command).toContain('exit 101'); expect(command).toContain('<details>'); expect(command).not.toContain('<script>');
   });
   it('shows normalized retry and turn failure explanations without declaring observed errors terminal', () => {
-    const retry = parseEvent(event(11, { kind: 'error_observed', failure: { kind: 'execution', message: 'worker error; backend will retry' } }));
+    const retry = parseEvent(event(11, { kind: 'error_observed', failure: { kind: 'provider_unavailable', message: 'worker error; backend will retry', retryable: true } }));
+    expect(retry.failure?.retryable).toBe(true);
     expect(renderToStaticMarkup(<EventContent event={retry} />)).toContain('backend will retry');
     const running = fromSnapshot({ ...snapshot, sessions: [{ ...session, state: 'running' }], turns: [{ ...turn, state: 'running' }] }, 1);
     const observed = projectEvent(running, retry);
@@ -94,6 +95,17 @@ describe('public protocol and disposable state', () => {
     }
     expect(parseTurn({ ...turn, failure: null })).toEqual(turn);
     expect(() => parseEvent({ ...retry, failure: { kind: 'execution', message: 42 } })).toThrow('Invalid Kernel response');
+    expect(() => parseEvent({ ...retry, failure: { kind: 'execution', message: 'safe', retryable: 'true' } })).toThrow('Invalid Kernel response');
+  });
+  it('parses registry and frozen session views separately and sends only a profile handle', async () => {
+    const definition = { id: 'codex/gateway-a', revision: 2, backend: 'codex', driver: 'app-server', enabled: true, model: 'model-new', provider: 'gateway-a', base_url: 'https://example.com/v1', reasoning_effort: 'high', sandbox_default: 'read_only', approval_policy: 'on_request', secret_ref: 'secret://env/gateway-a', health: 'valid', explanation: 'Local prerequisites valid', secret_status: 'available', is_default: false, supported_overrides: ['model', 'sandbox'] };
+    expect(parseProfiles([definition])[0]).toEqual(definition);
+    const frozen = { profile_id: definition.id, revision: 1, backend: 'codex', driver: 'app-server', model: 'model-old', provider: definition.provider, base_url: definition.base_url, reasoning_effort: 'high', sandbox: 'read_only', approval_policy: 'on_request', secret_ref: definition.secret_ref, secret_status: 'available' };
+    expect(parseResolvedProfile(frozen).model).toBe('model-old');
+    expect(() => parseProfiles([{ ...definition, revision: -1 }])).toThrow('Invalid Kernel response');
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(session), { headers: { 'content-type': 'application/json' } })); vi.stubGlobal('fetch', fetch);
+    await new Client(token).create('/daemon/project', '', '', definition.id);
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ workspace: '/daemon/project', profile_id: definition.id, options: { model: null, sandbox: null } });
   });
 });
 

@@ -25,6 +25,8 @@ pub enum ControlError {
     Unavailable,
     #[error("invalid or sensitive worker input")]
     InvalidInput,
+    #[error("workspace policy denies the requested profile")]
+    ProfileDenied,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -116,13 +118,59 @@ impl Supervisor {
     pub fn info(&self) -> BackendInfo {
         self.info.clone()
     }
+    pub async fn profiles(&self) -> Result<Vec<crate::profiles::ProfileView>> {
+        Ok(blocking(&self.kernel, Kernel::profiles).await?.into_iter().map(|profile| {
+            use crate::profiles::ProfileHealth;
+            let secret_status = crate::profiles::secret_status(profile.definition.secret_ref.as_ref());
+            let (health, explanation) = if !profile.definition.enabled { (ProfileHealth::Unavailable, "Profile disabled; existing session snapshots remain inspectable") }
+                else if secret_status == "missing" { (ProfileHealth::Unavailable, "Set the referenced LAIN_SECRET variable on the daemon") }
+                else if !self.info.available { (ProfileHealth::Unavailable, "Install the verified backend executable") }
+                else { (ProfileHealth::Valid, "Configuration and local prerequisites valid; provider access is not probed") };
+            let is_default = profile.definition.id == crate::profiles::ProfileDefinition::local().id;
+            crate::profiles::ProfileView { profile, health, explanation, secret_status, is_default, supported_overrides: vec!["model", "sandbox"] }
+        }).collect())
+    }
+    pub fn safe_configuration(
+        &self,
+        definition: &crate::profiles::ProfileDefinition,
+    ) -> Result<()> {
+        let text = serde_json::to_string(&(
+            &definition.id,
+            &definition.backend,
+            &definition.driver,
+            &definition.model,
+            &definition.provider,
+            &definition.base_url,
+            &definition.reasoning_effort,
+        ))?;
+        ensure!(
+            self.redactor.for_runtime(None).text(&text) == text,
+            ControlError::InvalidInput
+        );
+        definition.validate()
+    }
 
     pub async fn create(
         self: &Arc<Self>,
         workspace: PathBuf,
         options: SessionOptions,
     ) -> Result<WorkSession> {
+        self.create_with_profile(workspace, None, options).await
+    }
+    pub async fn create_with_profile(
+        self: &Arc<Self>,
+        workspace: PathBuf,
+        profile: Option<RuntimeProfileId>,
+        options: SessionOptions,
+    ) -> Result<WorkSession> {
         ensure!(self.executable.is_some(), ControlError::Unavailable);
+        ensure!(
+            options
+                .model
+                .as_ref()
+                .is_none_or(|s| self.redactor.for_runtime(None).text(s) == *s),
+            ControlError::InvalidInput
+        );
         ensure!(
             options.model.as_ref().is_none_or(|model| !model.is_empty()
                 && model.len() <= 128
@@ -133,12 +181,11 @@ impl Supervisor {
         );
         let kernel = self.kernel.clone();
         let session = tokio::task::spawn_blocking(move || {
-            kernel.create_session("codex".parse()?, "codex/local".parse()?, workspace)
+            kernel.create_profiled_session(workspace, profile, options)
         })
         .await??;
         let id = session.id();
-        mutate(&self.kernel, id, None, move |session, worker| {
-            worker.options = options;
+        mutate(&self.kernel, id, None, move |session, _| {
             session.transition(WorkSessionState::Starting)?;
             Ok(vec![])
         })
@@ -199,6 +246,13 @@ impl Supervisor {
 
     async fn launch(self: &Arc<Self>, id: WorkSessionId, resume: bool) -> Result<()> {
         let path = self.executable.clone().ok_or(ControlError::Unavailable)?;
+        let checked = blocking(&self.kernel, move |k| k.session(id))
+            .await?
+            .ok_or(ControlError::NotFound)?;
+        blocking(&self.kernel, move |k| {
+            k.check_workspace_profile(&checked.workspace, &checked.runtime_profile_id)
+        })
+        .await?;
         let mut runtimes = loop {
             let runtimes = self.runtimes.lock().await;
             if let Some(runtime) = runtimes.get(&id) {
@@ -229,6 +283,23 @@ impl Supervisor {
             .await?
             .ok_or(ControlError::NotFound)?;
         let state = blocking(&self.kernel, move |k| k.worker_state(id)).await?;
+        let profile = state
+            .resolved_profile
+            .clone()
+            .ok_or(ControlError::Unavailable)?;
+        let workspace = session.workspace.clone();
+        let profile_id = profile.profile_id.clone();
+        blocking(&self.kernel, move |k| {
+            k.check_workspace_profile(&workspace, &profile_id)
+        })
+        .await?;
+        let credential = profile
+            .secret_ref
+            .as_ref()
+            .map(crate::profiles::resolve_secret)
+            .transpose()?;
+        let redactor = self.redactor.for_runtime(credential.as_ref());
+        let launch = codex::CodexLaunchSpec::new(&profile, credential)?;
         if resume {
             ensure!(state.provider_session_id.is_some(), ControlError::Conflict);
         }
@@ -240,7 +311,6 @@ impl Supervisor {
         let (sender, receiver) = mpsc::channel(16);
         let (started, ready) = oneshot::channel();
         let kernel = self.kernel.clone();
-        let redactor = self.redactor.clone();
         let owner = Arc::downgrade(self);
         let generation = uuid::Uuid::new_v4();
         let idle_timeout = self.idle_timeout;
@@ -250,7 +320,8 @@ impl Supervisor {
             let connected = Codex::connect(
                 &path,
                 &session.workspace,
-                &state.options,
+                &profile,
+                launch,
                 state.provider_session_id.as_deref(),
                 redactor,
             )
@@ -260,9 +331,11 @@ impl Supervisor {
                     let identity = connected.worker.identity.clone();
                     let active = connected.active;
                     let history = connected.history;
+                    let resolved = connected.resolved;
                     let result =
                         mutate(&kernel, id, None, move |session, worker| {
                             worker.provider_session_id = Some(identity);
+                            worker.resolved_profile = Some(resolved);
                             session.runtime = RuntimeAttachment::Attached;
                             for observed in history {
                                 let state = if observed.state == TurnState::Running && !active {
@@ -402,7 +475,7 @@ impl Supervisor {
             !text.trim().is_empty()
                 && text.len() <= 32 * 1024
                 && !text.contains('\0')
-                && self.redactor.text(&text) == text,
+                && self.redactor.for_runtime(None).text(&text) == text,
             ControlError::InvalidInput
         );
         let (reply, result) = oneshot::channel();
@@ -469,6 +542,7 @@ fn failure() -> WorkerFailure {
         kind: FailureKind::Unavailable,
         message: "worker connection lost; outcome requires reconciliation".into(),
         code: None,
+        retryable: None,
     }
 }
 
@@ -681,6 +755,7 @@ async fn prompt(
                         kind: FailureKind::Rejected,
                         message: "worker rejected prompt".into(),
                         code: Some(code),
+                        retryable: Some(false),
                     });
                     session.transition(WorkSessionState::Idle)?;
                     Ok(vec![EventKind::TurnCompleted {

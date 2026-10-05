@@ -64,6 +64,7 @@ impl Kernel {
     pub fn open(path: &Path) -> Result<Self> {
         tracing::info!(state = ?KernelState::Booting, "opening operational storage");
         let mut store = Store::open(path)?;
+        store.profiles().context("load Profile Registry")?;
         tracing::info!(state = ?KernelState::Recovering, "recovering sessions");
         let (sessions, workers) = store.recover().context("recover Kernel state")?;
         tracing::info!(sessions = sessions.len(), "session recovery committed");
@@ -111,6 +112,170 @@ impl Kernel {
 
     pub fn list_sessions(&self) -> Result<Vec<WorkSession>> {
         Ok(self.lock()?.sessions.values().cloned().collect())
+    }
+
+    pub fn profiles(&self) -> Result<Vec<crate::profiles::RuntimeProfile>> {
+        self.lock()?.store.profiles()
+    }
+
+    pub fn save_profile(
+        &self,
+        definition: crate::profiles::ProfileDefinition,
+        expected_revision: Option<u64>,
+    ) -> Result<crate::profiles::RuntimeProfile> {
+        definition.validate()?;
+        crate::profiles::check_sensitive(&definition)?;
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            "Kernel is not ready for mutations"
+        );
+        let old = inner
+            .store
+            .profiles()?
+            .into_iter()
+            .find(|p| p.definition.id == definition.id);
+        ensure!(
+            old.as_ref().map(|p| p.revision) == expected_revision,
+            crate::backend::ControlError::Conflict
+        );
+        let revision = expected_revision
+            .unwrap_or(0)
+            .checked_add(1)
+            .context("profile revision exhausted")?;
+        let profile = crate::profiles::RuntimeProfile {
+            definition,
+            revision,
+        };
+        inner.store.save_profile(&profile, old.is_none())?;
+        Ok(profile)
+    }
+
+    pub fn workspace_policy(
+        &self,
+        workspace: PathBuf,
+    ) -> Result<Option<crate::profiles::WorkspacePolicy>> {
+        let workspace = workspace
+            .canonicalize()
+            .map_err(|_| crate::backend::ControlError::InvalidInput)?;
+        self.lock()?.store.policy(&workspace)
+    }
+    pub fn save_workspace_policy(
+        &self,
+        mut policy: crate::profiles::WorkspacePolicy,
+    ) -> Result<crate::profiles::WorkspacePolicy> {
+        policy.workspace = policy
+            .workspace
+            .canonicalize()
+            .map_err(|_| crate::backend::ControlError::InvalidInput)?;
+        ensure!(
+            policy.workspace.is_dir(),
+            crate::backend::ControlError::InvalidInput
+        );
+        policy.validate()?;
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            "Kernel is not ready for mutations"
+        );
+        let profiles = inner.store.profiles()?;
+        ensure!(
+            policy
+                .allowed_profiles
+                .iter()
+                .all(|id| profiles.iter().any(|p| p.definition.id == *id)),
+            crate::backend::ControlError::NotFound
+        );
+        inner.store.save_policy(&policy)?;
+        Ok(policy)
+    }
+    pub(crate) fn check_workspace_profile(
+        &self,
+        workspace: &Path,
+        profile: &RuntimeProfileId,
+    ) -> Result<()> {
+        if let Some(policy) = self.lock()?.store.policy(workspace)? {
+            policy.validate()?;
+            ensure!(
+                policy.allowed_profiles.contains(profile),
+                crate::backend::ControlError::ProfileDenied
+            );
+        }
+        Ok(())
+    }
+    /// Profile selection and frozen metadata commit under the same registry/storage lock.
+    pub(crate) fn create_profiled_session(
+        &self,
+        workspace: PathBuf,
+        requested: Option<RuntimeProfileId>,
+        options: crate::domain::SessionOptions,
+    ) -> Result<WorkSession> {
+        crate::profiles::check_sensitive(&options)?;
+        let workspace = workspace
+            .canonicalize()
+            .map_err(|_| crate::backend::ControlError::InvalidInput)?;
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        let policy = inner.store.policy(&workspace)?;
+        let profile_id = requested
+            .or_else(|| policy.as_ref().map(|p| p.default_profile.clone()))
+            .unwrap_or_else(|| crate::profiles::ProfileDefinition::local().id);
+        if let Some(policy) = policy {
+            policy.validate()?;
+            ensure!(
+                policy.allowed_profiles.contains(&profile_id),
+                crate::backend::ControlError::ProfileDenied
+            );
+        }
+        let profile = inner
+            .store
+            .profiles()?
+            .into_iter()
+            .find(|p| p.definition.id == profile_id)
+            .ok_or(crate::backend::ControlError::NotFound)?;
+        ensure!(
+            profile.definition.enabled,
+            crate::backend::ControlError::Unavailable
+        );
+        let resolved = profile.resolve(&options)?;
+        ensure!(
+            crate::profiles::secret_status(resolved.secret_ref.as_ref()) != "missing",
+            crate::backend::ControlError::Unavailable
+        );
+        let session = WorkSession::new(resolved.backend.clone(), profile_id, workspace)?;
+        let worker = WorkerState {
+            options,
+            resolved_profile: Some(resolved),
+            ..Default::default()
+        };
+        let mut events = vec![Event::new(
+            session.id,
+            None,
+            session.updated_at_ms,
+            EventKind::SessionCreated {
+                session: session.clone(),
+            },
+        )];
+        inner
+            .store
+            .save(&session, Some(&worker), true, &mut events)?;
+        inner.sessions.insert(session.id, session.clone());
+        inner.workers.insert(session.id, worker);
+        self.publish(events);
+        Ok(session)
+    }
+    pub fn resolved_profile(
+        &self,
+        id: WorkSessionId,
+    ) -> Result<crate::profiles::ResolvedRuntimeProfile> {
+        self.lock()?
+            .workers
+            .get(&id)
+            .and_then(|w| w.resolved_profile.clone())
+            .ok_or_else(|| crate::backend::ControlError::NotFound.into())
     }
 
     pub fn session(&self, id: WorkSessionId) -> Result<Option<WorkSession>> {

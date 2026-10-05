@@ -7,7 +7,19 @@ export interface Turn {
   id: string; work_session_id: string; state: string; cancellation: string;
   created_at_ms: number; updated_at_ms: number; failure?: WorkerFailure;
 }
-export interface WorkerFailure { kind: string; message: string }
+export interface WorkerFailure { kind: string; message: string; retryable?: boolean | null }
+export interface RuntimeProfile {
+  id: string; backend: string; driver: string; enabled: boolean; revision: number;
+  model: string | null; provider: string | null; base_url: string | null; reasoning_effort: string | null;
+  sandbox_default: string; approval_policy: string; secret_ref: string | null;
+  health: string; explanation: string; secret_status: string; is_default: boolean; supported_overrides: string[];
+}
+export interface ResolvedProfile {
+  profile_id: string; revision: number; backend: string; driver: string; model: string | null;
+  provider: string | null; base_url: string | null; reasoning_effort: string | null;
+  sandbox: string; approval_policy: string; secret_ref: string | null; secret_status: string;
+}
+export interface WorkspacePolicy { workspace: string; default_profile: string; allowed_profiles: string[] }
 export type Decision = 'approve_once' | 'deny' | 'cancel';
 export interface Approval {
   id: string; work_session_id: string; turn_id: string | null; kind: string;
@@ -69,7 +81,19 @@ export function parseTurn(value: unknown): Turn {
 }
 function parseFailure(value: unknown): WorkerFailure {
   const v = object(value);
-  return { kind: text(v.kind), message: text(v.message) };
+  return { kind: text(v.kind), message: text(v.message), ...(v.retryable === undefined ? {} : { retryable: v.retryable === null ? null : flag(v.retryable) }) };
+}
+const optionalText = (value: unknown): string | null => value == null ? null : text(value);
+export function parseProfiles(value: unknown): RuntimeProfile[] {
+  return list(value, value => { const v = object(value); return { id: text(v.id), backend: text(v.backend), driver: text(v.driver), enabled: flag(v.enabled), revision: count(v.revision), model: optionalText(v.model), provider: optionalText(v.provider), base_url: optionalText(v.base_url), reasoning_effort: optionalText(v.reasoning_effort), sandbox_default: text(v.sandbox_default), approval_policy: text(v.approval_policy), secret_ref: optionalText(v.secret_ref), health: text(v.health), explanation: text(v.explanation), secret_status: text(v.secret_status), is_default: flag(v.is_default), supported_overrides: list(v.supported_overrides, text) }; });
+}
+export function parseResolvedProfile(value: unknown): ResolvedProfile {
+  const v = object(value);
+  return { profile_id: text(v.profile_id), revision: count(v.revision), backend: text(v.backend), driver: text(v.driver), model: optionalText(v.model), provider: optionalText(v.provider), base_url: optionalText(v.base_url), reasoning_effort: optionalText(v.reasoning_effort), sandbox: text(v.sandbox), approval_policy: text(v.approval_policy), secret_ref: optionalText(v.secret_ref), secret_status: text(v.secret_status) };
+}
+export function parseWorkspacePolicy(value: unknown): WorkspacePolicy | null {
+  if (value === null) return null;
+  const v = object(value); return { workspace: text(v.workspace), default_profile: text(v.default_profile), allowed_profiles: list(v.allowed_profiles, text) };
 }
 export function parseApproval(value: unknown): Approval {
   const v = object(value);

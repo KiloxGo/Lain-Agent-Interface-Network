@@ -19,6 +19,10 @@ struct Args {
 #[derive(Subcommand)]
 enum Command {
     Status,
+    Profile {
+        #[command(subcommand)]
+        command: Profiles,
+    },
     Work {
         #[command(subcommand)]
         command: Work,
@@ -36,8 +40,10 @@ enum Work {
         workspace: String,
         #[arg(long)]
         model: Option<String>,
-        #[arg(long, value_enum, default_value = "read-only")]
-        sandbox: Sandbox,
+        #[arg(long)]
+        profile: Option<String>,
+        #[arg(long, value_enum)]
+        sandbox: Option<Sandbox>,
     },
     Show {
         session: Uuid,
@@ -77,6 +83,23 @@ enum Approvals {
     Deny { session: Uuid, approval: Uuid },
     Cancel { session: Uuid, approval: Uuid },
 }
+#[derive(Subcommand)]
+enum Profiles {
+    List,
+    Show { id: String },
+    Validate { id: String },
+}
+fn profile_id(value: &str) -> Result<&str> {
+    ensure!(
+        !value.is_empty()
+            && value.len() <= 128
+            && value.split('/').all(|s| !s.is_empty()
+                && s.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b))),
+        "invalid profile ID"
+    );
+    Ok(value)
+}
 
 #[tokio::main]
 async fn main() {
@@ -114,6 +137,30 @@ async fn run(args: Args) -> Result<()> {
     };
     let json_output = args.json;
     match command {
+        Command::Profile { command } => match command {
+            Profiles::List => emit(
+                &client.get::<Value>("v1/runtime-profiles").await?,
+                json_output,
+            ),
+            Profiles::Show { id } => emit(
+                &client
+                    .get::<Value>(&format!(
+                        "v1/runtime-profiles/inspect?id={}",
+                        profile_id(&id)?
+                    ))
+                    .await?,
+                json_output,
+            ),
+            Profiles::Validate { id } => emit(
+                &client
+                    .post::<Value>(
+                        "v1/runtime-profiles/validate",
+                        Some(json!({"id":profile_id(&id)?})),
+                    )
+                    .await?,
+                json_output,
+            ),
+        },
         Command::Status => {
             let health: Value = client.get("health").await?;
             let ready: Value = client.get("ready").await?;
@@ -151,10 +198,15 @@ async fn run(args: Args) -> Result<()> {
             Work::Start {
                 workspace,
                 model,
+                profile,
                 sandbox,
             } => {
                 // The path belongs to the server. Do not resolve/canonicalize it locally.
-                let value: Value = client.post("v1/work-sessions", Some(json!({"workspace":workspace,"options":{"model":model,"sandbox":match sandbox { Sandbox::ReadOnly=>"read_only", Sandbox::WorkspaceWrite=>"workspace_write" }}}))).await?;
+                if let Some(id) = &profile {
+                    profile_id(id)?;
+                }
+                // Resolve defaults in the Kernel, including workspace policy; no local profile list.
+                let value: Value = client.post("v1/work-sessions", Some(json!({"workspace":workspace,"profile_id":profile,"options":{"model":model,"sandbox":sandbox.map(|s| match s { Sandbox::ReadOnly=>"read_only", Sandbox::WorkspaceWrite=>"workspace_write" })}}))).await?;
                 emit(&value, json_output)
             }
             Work::Show { session } => emit(

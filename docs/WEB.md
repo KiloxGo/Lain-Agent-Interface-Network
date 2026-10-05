@@ -5,7 +5,8 @@ Status: implemented Phase 4. Verified 2026-10-05 on Windows / Chromium.
 The Web application is a disposable client of `laind`. It has no worker adapter,
 SQLite access, local transcript database, prompt queue or backend privileges.
 Closing, refreshing or opening another tab changes only browser observation.
-Phase 5 profiles and Lain Actor remain unimplemented.
+Phase 5 adds profile selection and frozen configuration inspection. Lain Actor
+remains unimplemented.
 
 ## Stack and layout
 
@@ -167,9 +168,13 @@ observe the same detached work without launching a runtime.
 
 ## Commands and domain semantics
 
-New Work sends a daemon-host workspace path, optional supported model, and
-read-only/workspace-write sandbox through the normal creation API. It performs
-no browser filesystem validation. The current profile label is `codex/local`.
+New Work obtains profiles from the Kernel registry and shows backend, health,
+model/effort, local/official/gateway endpoint distinction, credential availability
+and revision. Workspace blur fetches the canonical owner policy; default selection
+is resolved by the Kernel, and the UI disables disallowed/unavailable choices.
+Only advertised model/sandbox overrides are offered, with the profile sandbox as
+the default. It performs no browser filesystem validation. No secret values or
+hard-coded profile list exists in the browser. Reconnect refreshes registry views.
 Ready/Idle sessions allow a follow-up through the ordinary prompt endpoint;
 detached attachment is the Kernel's responsibility. Active turns disable concurrent
 submission; no frontend queue is introduced. Ctrl/Command+Enter submits; accepted
@@ -186,6 +191,16 @@ Unknown means unreliable knowledge, not failure. Disconnected means lost backend
 connection, not confirmed failure. Detached means temporary runtime released and
 can be healthy. Cancellation requested/acknowledged is distinct from confirmed
 interruption. Resume / reconcile explicitly requests the existing session's truth.
+
+Session detail separately fetches the frozen resolved profile and shows its
+revision, model/effort, endpoint, sandbox/approval policy and credential status.
+Changing registry revision 1 to 2 does not update an existing session's revision 1
+view or restart its worker. Refresh/reconnect reconstructs the frozen view through
+the ordinary API. Profiles can be inspected during creation; definition mutation
+uses explicit owner APIs, not a Web secret editor. Metadata-only historical sessions
+without worker snapshots still render; resolved-profile absence is not a fatal UI
+error. Normalized failure messages/retry evidence stay safe text, and an observed
+retry error does not become a terminal failure.
 
 Timeline renders completed assistant messages, expandable bounded command output
 and exit status, changed paths, turn/cancellation lifecycle, approvals, compact
@@ -229,6 +244,8 @@ Native phone hosting, public Internet authentication, multi-user access, session
 cookies, TLS termination, origin/CSRF policy and token rotation are not implemented
 or claimed reviewed. Native Linux worker/signal/terminal acceptance remains pending.
 
-Before Phase 5, settle profile capability/resolved-view APIs, browser session
-authentication/rotation if remote use is required, and a TLS/origin deployment
-security review. These questions do not justify implementing profiles in Phase 4.
+Phase 5 extends deterministic acceptance with profile selection, default sandbox,
+editing a definition during an active turn without reconfiguration, frozen revision
+after detach/refresh, retry followed by completion and failed-turn reconstruction.
+Browser session authentication/rotation and TLS/origin deployment security remain
+separate remote-use decisions. A larger profile editor is not required.

@@ -1,4 +1,4 @@
-import { object, parseBackends, parseEvent, parseHistory, parseSession, parseSnapshot } from './model';
+import { object, parseBackends, parseEvent, parseHistory, parseSession, parseSnapshot, parseProfiles, parseResolvedProfile, parseWorkspacePolicy } from './model';
 import type { Decision, HistoryPage, Session, Snapshot, WorkEvent } from './model';
 
 const MAX_BYTES = 32 * 1024 * 1024;
@@ -7,6 +7,7 @@ export class ApiError extends Error {
     super(({ 0: 'Kernel unreachable. Check that laind is running and the same-origin connection is available.',
       401: 'Credentials invalid. Reconnect with the Kernel API token.',
       400: 'Kernel rejected the input. Check the daemon workspace path and selected options.',
+      403: 'Workspace policy denies this profile. Choose an allowed profile.',
       404: 'This session or request no longer exists.',
       409: 'State changed before the action was accepted. Review the current session and try again.',
       422: 'Kernel rejected the input format.',
@@ -83,19 +84,22 @@ export class Client {
     } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
   }
   async status(signal?: AbortSignal) {
-    const [ready, backends] = await Promise.all([
+    const [ready, backends, profiles] = await Promise.all([
       this.request('/ready', signal).then(v => String(object(v).state)).catch(error => {
         if (error instanceof ApiError && error.status === 503) return 'not_ready';
         throw error;
       }),
       this.request('/v1/backends', signal).then(parseBackends),
+      this.request('/v1/runtime-profiles', signal).then(parseProfiles),
     ]);
-    return { ready, backends };
+    return { ready, backends, profiles };
   }
-  async create(workspace: string, model: string, sandbox: string): Promise<Session> {
-    return parseSession(await this.request('/v1/work-sessions', undefined, { workspace,
-      options: { model: model || null, sandbox } }));
+  async create(workspace: string, model: string, sandbox: string, profileId = ''): Promise<Session> {
+    return parseSession(await this.request('/v1/work-sessions', undefined, { workspace, profile_id: profileId || null,
+      options: { model: model || null, sandbox: sandbox || null } }));
   }
+  resolvedProfile(session: string, signal?: AbortSignal) { return this.request(`/v1/work-sessions/${session}/resolved-profile`, signal).then(parseResolvedProfile); }
+  workspacePolicy(workspace: string, signal?: AbortSignal) { return this.request(`/v1/workspace-profile-policy?workspace=${encodeURIComponent(workspace)}`, signal).then(parseWorkspacePolicy); }
   prompt(session: string, text: string) { return this.request(`/v1/work-sessions/${session}/turns`, undefined, { text }); }
   cancel(session: string) { return this.request(`/v1/work-sessions/${session}/cancel`, undefined, {}); }
   resume(session: string) { return this.request(`/v1/work-sessions/${session}/resume`, undefined, {}); }

@@ -11,7 +11,66 @@ use regex::Regex;
 use serde_json::{Value, json};
 
 use super::rpc::{self, Rpc};
+use crate::profiles::{ApprovalPolicy, ResolvedRuntimeProfile, SecretValue};
 use crate::{domain::*, events::EventKind};
+
+/// Validated adapter-owned translation; secret bytes never appear in argv.
+pub(super) struct CodexLaunchSpec {
+    config: Vec<String>,
+    credential: Option<SecretValue>,
+}
+impl CodexLaunchSpec {
+    pub fn new(profile: &ResolvedRuntimeProfile, credential: Option<SecretValue>) -> Result<Self> {
+        profile.validate()?;
+        ensure!(
+            credential.is_some() == profile.secret_ref.is_some(),
+            "profile credential resolution mismatch"
+        );
+        let mut config = Vec::new();
+        let mut set = |key: &str, value: &str| {
+            config.push(format!(
+                "{key}={}",
+                serde_json::to_string(value).expect("string encoding")
+            ));
+        };
+        if let Some(model) = &profile.model {
+            set("model", model);
+        }
+        if let Some(effort) = &profile.reasoning_effort {
+            set("model_reasoning_effort", effort);
+        }
+        if let Some(provider) = &profile.provider {
+            set("model_provider", "lain_runtime");
+            set("model_providers.lain_runtime.name", provider);
+            set(
+                "model_providers.lain_runtime.base_url",
+                profile
+                    .base_url
+                    .as_deref()
+                    .unwrap_or("https://api.openai.com/v1"),
+            );
+            set(
+                "model_providers.lain_runtime.env_key",
+                "LAIN_PROFILE_CREDENTIAL",
+            );
+            set("model_providers.lain_runtime.wire_api", "responses");
+            config.extend([
+                "model_providers.lain_runtime.requires_openai_auth=false".into(),
+                "model_providers.lain_runtime.supports_websockets=false".into(),
+                "shell_environment_policy.exclude=[\"LAIN_PROFILE_CREDENTIAL\"]".into(),
+            ]);
+        }
+        Ok(Self { config, credential })
+    }
+    pub fn apply(&self, command: &mut tokio::process::Command) {
+        for setting in &self.config {
+            command.arg("-c").arg(setting);
+        }
+        if let Some(value) = &self.credential {
+            command.env("LAIN_PROFILE_CREDENTIAL", value.0.as_str());
+        }
+    }
+}
 
 pub(super) struct Codex {
     rpc: Rpc,
@@ -34,6 +93,7 @@ pub(super) struct Connected {
     pub worker: Codex,
     pub active: bool,
     pub history: Vec<ObservedTurn>,
+    pub resolved: ResolvedRuntimeProfile,
 }
 
 // Opaque adapter message: supervision can select on reading without cancelling writes.
@@ -58,12 +118,22 @@ pub(super) enum Notice {
 
 #[derive(Clone)]
 pub(super) struct Redactor {
-    known: Vec<String>,
+    known: Vec<zeroize::Zeroizing<String>>,
 }
 
 impl Redactor {
     pub fn new(known: Vec<String>) -> Self {
-        Self { known }
+        Self {
+            known: known.into_iter().map(zeroize::Zeroizing::new).collect(),
+        }
+    }
+    pub fn for_runtime(&self, credential: Option<&SecretValue>) -> Self {
+        let mut result = self.clone();
+        result.known.extend(crate::profiles::known_secrets());
+        if let Some(value) = credential {
+            result.known.push(value.0.clone());
+        }
+        result
     }
     pub fn text(&self, text: &str) -> String {
         static SECRET: LazyLock<Regex> = LazyLock::new(|| {
@@ -72,7 +142,7 @@ impl Redactor {
         if self
             .known
             .iter()
-            .any(|secret| !secret.is_empty() && text.contains(secret))
+            .any(|secret| !secret.is_empty() && text.contains(secret.as_str()))
             || SECRET.is_match(text)
         {
             return "[sensitive output redacted]".to_owned();
@@ -154,6 +224,77 @@ fn identity(value: &Value) -> Result<String> {
     Ok(id.to_owned())
 }
 
+fn normalized_failure(error: &Value, retryable: Option<bool>) -> WorkerFailure {
+    let info = &error["codexErrorInfo"];
+    let connection = info
+        .as_object()
+        .filter(|o| o.len() == 1)
+        .and_then(|o| o.iter().next())
+        .filter(|(key, _)| {
+            matches!(
+                key.as_str(),
+                "httpConnectionFailed"
+                    | "responseStreamConnectionFailed"
+                    | "responseStreamDisconnected"
+                    | "responseTooManyFailedAttempts"
+            )
+        })
+        .and_then(|(_, v)| v.as_object())
+        .filter(|v| {
+            v.get("httpStatusCode")
+                .is_none_or(|s| s.is_null() || s.as_u64().is_some_and(|n| (100..=599).contains(&n)))
+        });
+    let status = connection
+        .and_then(|v| v.get("httpStatusCode"))
+        .and_then(Value::as_u64);
+    let kind = match (info.as_str(), status) {
+        (Some("unauthorized"), _) | (_, Some(401)) => FailureKind::AuthenticationFailed,
+        (Some("rateLimitExceeded" | "usageLimitExceeded"), _) | (_, Some(429)) => {
+            FailureKind::RateLimited
+        }
+        (Some("sandboxError" | "tooManyDenials" | "cyberPolicy"), _) | (_, Some(403)) => {
+            FailureKind::PermissionDenied
+        }
+        (Some("serverOverloaded" | "flexUnavailable" | "internalServerError"), _)
+        | (_, Some(500..=599)) => FailureKind::ProviderUnavailable,
+        (_, _) if connection.is_some() => FailureKind::ProviderUnavailable,
+        (
+            Some(
+                "badRequest"
+                | "contextWindowExceeded"
+                | "sessionBudgetExceeded"
+                | "misalignmentPolicyViolation",
+            ),
+            _,
+        ) => FailureKind::Execution,
+        _ => FailureKind::Unknown,
+    };
+    let description = match kind {
+        FailureKind::AuthenticationFailed => {
+            "worker authentication failed; check the profile authentication source"
+        }
+        FailureKind::RateLimited => "worker provider rate or usage limit reached",
+        FailureKind::PermissionDenied => "worker operation denied by permissions or policy",
+        FailureKind::ProviderUnavailable => {
+            "worker provider unavailable or response connection lost"
+        }
+        FailureKind::Execution => "worker execution failed",
+        _ => "worker reported an unclassified error",
+    };
+    WorkerFailure {
+        kind,
+        message: format!(
+            "{description}{}",
+            if retryable == Some(true) {
+                "; backend will retry"
+            } else {
+                ""
+            }
+        ),
+        code: status.map(|n| n as i64),
+        retryable,
+    }
+}
 fn turn(value: &Value) -> Result<ObservedTurn> {
     let state = match value["status"].as_str() {
         Some("inProgress") => TurnState::Running,
@@ -165,11 +306,8 @@ fn turn(value: &Value) -> Result<ObservedTurn> {
     Ok(ObservedTurn {
         identity: identity(&value["id"])?,
         state,
-        failure: (!value["error"].is_null()).then(|| WorkerFailure {
-            kind: FailureKind::Execution,
-            message: "worker reported a turn error".into(),
-            code: None,
-        }),
+        failure: (!value["error"].is_null() || state == TurnState::Failed)
+            .then(|| normalized_failure(&value["error"], Some(false))),
     })
 }
 
@@ -177,14 +315,22 @@ impl Codex {
     pub async fn connect(
         executable: &Path,
         workspace: &Path,
-        options: &SessionOptions,
+        profile: &ResolvedRuntimeProfile,
+        launch: CodexLaunchSpec,
         previous: Option<&str>,
         redactor: Redactor,
     ) -> Result<Connected> {
-        let rpc = Rpc::spawn(executable).await?;
+        let rpc = Rpc::spawn(executable, &launch).await?;
+        drop(launch);
         rpc.request("initialize", json!({"clientInfo":{"name":"lain","title":"Lain","version":env!("CARGO_PKG_VERSION")}})).await?;
         rpc.notify("initialized").await?;
-        let mut params = json!({"cwd":workspace,"model":options.model,"approvalPolicy":"on-request","approvalsReviewer":"user","sandbox":match options.sandbox {SandboxMode::ReadOnly=>"read-only",SandboxMode::WorkspaceWrite=>"workspace-write"}});
+        let mut params = json!({"cwd":workspace,"model":profile.model,"approvalPolicy":match profile.approval_policy { ApprovalPolicy::OnRequest=>"on-request", ApprovalPolicy::Untrusted=>"untrusted" },"approvalsReviewer":"user","sandbox":match profile.sandbox {SandboxMode::ReadOnly=>"read-only",SandboxMode::WorkspaceWrite=>"workspace-write"}});
+        if profile.provider.is_some() {
+            params["modelProvider"] = json!("lain_runtime");
+        }
+        if let Some(effort) = &profile.reasoning_effort {
+            params["config"] = json!({"model_reasoning_effort":effort});
+        }
         let method = if let Some(previous) = previous {
             params["threadId"] = json!(previous);
             "thread/resume"
@@ -192,7 +338,7 @@ impl Codex {
             params["ephemeral"] = json!(false);
             "thread/start"
         };
-        let response = rpc.request(method, params).await?;
+        let response = rpc.request(method, params.clone()).await?;
         // 0.160.0's default history initialization needs a full read before an
         // unused thread can be forked durably. Its unimplemented turns listing can
         // return -32601 after initialization; all other failures remain fatal.
@@ -210,11 +356,8 @@ impl Codex {
                     error
                 );
             }
-            rpc.request(
-                "thread/fork",
-                json!({"threadId":seed,"cwd":workspace,"ephemeral":false}),
-            )
-            .await?
+            params["threadId"] = json!(seed);
+            rpc.request("thread/fork", params).await?
         } else {
             response
         };
@@ -235,6 +378,44 @@ impl Codex {
             .iter()
             .map(turn)
             .collect::<Result<Vec<_>>>()?;
+        let mut resolved = profile.clone();
+        ensure!(
+            response["model"]
+                .as_str()
+                .is_some_and(crate::profiles::identifier),
+            "worker omitted effective model"
+        );
+        ensure!(
+            profile
+                .model
+                .as_deref()
+                .is_none_or(|model| response["model"] == model),
+            "worker did not apply requested model"
+        );
+        ensure!(
+            profile
+                .reasoning_effort
+                .as_deref()
+                .is_none_or(|effort| response["reasoningEffort"] == effort),
+            "worker did not apply requested reasoning effort"
+        );
+        if resolved.model.is_none() {
+            resolved.model = response["model"]
+                .as_str()
+                .filter(|s| crate::profiles::identifier(s))
+                .map(str::to_owned);
+        }
+        if resolved.reasoning_effort.is_none() {
+            resolved.reasoning_effort = response["reasoningEffort"].as_str().map(str::to_owned);
+        }
+        resolved.validate()?;
+        ensure!(
+            redactor.text(&serde_json::to_string(&(
+                &resolved.model,
+                &resolved.reasoning_effort
+            ))?) == serde_json::to_string(&(&resolved.model, &resolved.reasoning_effort))?,
+            "sensitive effective configuration rejected"
+        );
         Ok(Connected {
             worker: Self {
                 rpc,
@@ -244,6 +425,7 @@ impl Codex {
             },
             active,
             history,
+            resolved,
         })
     }
 
@@ -314,6 +496,7 @@ impl Codex {
                                 kind: FailureKind::Unsupported,
                                 message: "unsupported worker request declined".into(),
                                 code: Some(-32601),
+                                retryable: Some(false),
                             },
                         },
                     }));
@@ -459,16 +642,7 @@ impl Codex {
                     }
                 }
                 "error" => EventKind::ErrorObserved {
-                    failure: WorkerFailure {
-                        kind: FailureKind::Execution,
-                        message: if p["willRetry"].as_bool() == Some(true) {
-                            "worker error; backend will retry"
-                        } else {
-                            "worker reported an error"
-                        }
-                        .into(),
-                        code: None,
-                    },
+                    failure: normalized_failure(&p["error"], p["willRetry"].as_bool()),
                 },
                 "thread/closed" => bail!("worker closed the session"),
                 _ => return Ok(None),
@@ -486,23 +660,135 @@ impl Codex {
 async fn probe_unused_thread_persistence() {
     let path = discover(None).unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let options = SessionOptions::default();
-    let mut created = Codex::connect(&path, dir.path(), &options, None, Redactor::new(vec![]))
-        .await
-        .unwrap();
+    let options = ResolvedRuntimeProfile::legacy(&SessionOptions::default()).unwrap();
+    let mut created = Codex::connect(
+        &path,
+        dir.path(),
+        &options,
+        CodexLaunchSpec::new(&options, None).unwrap(),
+        None,
+        Redactor::new(vec![]),
+    )
+    .await
+    .unwrap();
     let identity = created.worker.identity.clone();
     assert!(created.history.is_empty());
+    let options = created.resolved.clone();
     created.worker.shutdown().await.unwrap();
     let mut resumed = Codex::connect(
         &path,
         dir.path(),
         &options,
+        CodexLaunchSpec::new(&options, None).unwrap(),
         Some(&identity),
         Redactor::new(vec![]),
     )
     .await
     .unwrap();
     assert_eq!(resumed.worker.identity, identity);
+    assert_eq!(resumed.resolved, options);
     assert!(resumed.history.is_empty());
     resumed.worker.shutdown().await.unwrap();
+}
+
+#[cfg(test)]
+#[test]
+fn error_normalization_never_uses_provider_prose() {
+    for error in [
+        Value::Null,
+        json!("raw-key"),
+        json!({"message":"raw-key","codexErrorInfo":"futureUnknownKind"}),
+        json!({"codexErrorInfo":{"unexpected":{"httpStatusCode":401}}}),
+        json!({"codexErrorInfo":{"httpConnectionFailed":"raw-key"}}),
+        json!({"codexErrorInfo":{"httpConnectionFailed":{"httpStatusCode":"401"}}}),
+        json!({"codexErrorInfo":{"httpConnectionFailed":{"httpStatusCode":999}}}),
+        json!({"codexErrorInfo":{"httpConnectionFailed":{},"unexpected":{}}}),
+    ] {
+        let failure = normalized_failure(&error, None);
+        assert_eq!(failure.kind, FailureKind::Unknown);
+        assert!(!failure.message.contains("raw-key"));
+    }
+    let failure = normalized_failure(
+        &json!({"codexErrorInfo":{"responseStreamDisconnected":{"httpStatusCode":429}},"message":"do-not-persist"}),
+        Some(true),
+    );
+    assert_eq!(failure.kind, FailureKind::RateLimited);
+    assert_eq!(failure.code, Some(429));
+    assert_eq!(failure.retryable, Some(true));
+    let old: WorkerFailure =
+        serde_json::from_value(json!({"kind":"execution","message":"old record","code":null}))
+            .unwrap();
+    assert_eq!(old.retryable, None);
+    let secret = SecretValue(zeroize::Zeroizing::new("fixture-private".into()));
+    assert!(!format!("{secret:?}").contains("fixture-private"));
+}
+
+#[cfg(test)]
+#[tokio::test]
+#[ignore = "native Codex profile config verification; no inference"]
+async fn probe_profile_launch_configuration() {
+    use crate::profiles::{ProfileDefinition, RuntimeProfile};
+    let path = discover(None).unwrap();
+    assert_eq!(probe(&path).await.unwrap(), "0.160.0");
+    let mut processes = Vec::new();
+    for (name, model, endpoint) in [
+        ("a", "fixture-model-a", "http://127.0.0.1:39001/v1"),
+        ("b", "fixture-model-b", "http://127.0.0.1:39002/v1"),
+    ] {
+        let definition = ProfileDefinition {
+            id: format!("codex/{name}").parse().unwrap(),
+            model: Some(model.into()),
+            provider: Some(format!("fixture-{name}")),
+            base_url: Some(endpoint.into()),
+            secret_ref: Some(format!("secret://env/fixture-{name}").parse().unwrap()),
+            reasoning_effort: Some("high".into()),
+            ..ProfileDefinition::local()
+        };
+        let profile = RuntimeProfile {
+            definition,
+            revision: 1,
+        }
+        .resolve(&SessionOptions::default())
+        .unwrap();
+        let spec = CodexLaunchSpec::new(
+            &profile,
+            Some(SecretValue(zeroize::Zeroizing::new(format!(
+                "dummy-private-{name}"
+            )))),
+        )
+        .unwrap();
+        let rpc = Rpc::spawn(&path, &spec).await.unwrap();
+        drop(spec);
+        rpc.request(
+            "initialize",
+            json!({"clientInfo":{"name":"lain-config-probe","version":"0.1.0"}}),
+        )
+        .await
+        .unwrap();
+        rpc.notify("initialized").await.unwrap();
+        let response = rpc
+            .request("config/read", json!({"includeLayers":false}))
+            .await
+            .unwrap();
+        assert_eq!(response["config"]["model"], model);
+        assert_eq!(response["config"]["model_provider"], "lain_runtime");
+        assert_eq!(response["config"]["model_reasoning_effort"], "high");
+        assert_eq!(
+            response["config"]["model_providers"]["lain_runtime"]["base_url"],
+            endpoint
+        );
+        let provider = &response["config"]["model_providers"]["lain_runtime"];
+        assert_eq!(provider["env_key"], "LAIN_PROFILE_CREDENTIAL");
+        assert_eq!(provider["wire_api"], "responses");
+        assert_eq!(provider["requires_openai_auth"], false);
+        assert_eq!(provider["supports_websockets"], false);
+        assert_eq!(
+            response["config"]["shell_environment_policy"]["exclude"],
+            json!(["LAIN_PROFILE_CREDENTIAL"])
+        );
+        processes.push(rpc);
+    }
+    for mut rpc in processes {
+        rpc.shutdown().await.unwrap();
+    }
 }

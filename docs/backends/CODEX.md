@@ -200,3 +200,74 @@ sessions do not spawn Codex at boot; uncertain provider-backed work reconciles
 selectively and releases its runtime if idle. Historical connection-local approvals
 are never replayed. Provider rollout removal, account changes, workspace removal
 and unbound uncertain turn IDs can still prevent successful recovery.
+
+## Phase 5 launch-scoped profiles (verified 2026-10-05, Codex 0.160.0)
+
+The installed native version still reports `codex-cli 0.160.0`; the exact gate
+has not been loosened. Its app-server help documents repeatable `-c key=value`
+TOML overrides. Schemas regenerated with `app-server generate-json-schema`
+confirm thread start/resume/fork model, modelProvider, sandbox, approvalPolicy,
+approvalsReviewer and config fields, response model/reasoningEffort, and structured
+CodexErrorInfo plus willRetry. Current official references are
+[App Server](https://learn.chatgpt.com/docs/app-server),
+[configuration](https://learn.chatgpt.com/docs/config-file/config-reference) and
+[Responses provider setup](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server).
+Installed help/schema and a native zero-inference probe establish this version's
+behavior; documentation alone does not expand compatibility.
+
+The adapter-owned CodexLaunchSpec maps:
+
+| Lain resolved field | Codex boundary |
+|---|---|
+| model | process `-c model`, plus explicit thread model |
+| reasoning_effort | process `model_reasoning_effort` and thread config override |
+| provider label + SecretRef | private `lain_runtime` Responses provider, thread modelProvider |
+| base_url | `model_providers.lain_runtime.base_url`; absent uses official API URL |
+| resolved credential | child-only `LAIN_PROFILE_CREDENTIAL` provider env_key |
+| managed provider auth | requires_openai_auth=false; HTTP transport (supports_websockets=false) |
+| sandbox | thread read-only/workspace-write |
+| approval_policy | thread on-request/untrusted; approvalsReviewer=user |
+| existing local auth | no endpoint/provider override or injected credential |
+
+No raw value in argv. The child retains env_clear and its OS/path/proxy/local-home
+allowlist; only its required profile credential is added. Shell environment policy
+excludes that dedicated variable from ordinary tool subprocesses. There is no
+global config/auth mutation, arbitrary env/argv surface or global active provider.
+Managed profiles use Responses only, not Chat Completions, dynamic auth commands,
+arbitrary HTTP headers or account switching. Model and effort access remain
+provider-dependent. Profile health never performs inference or an external probe.
+
+Start, durable fork and resume all receive selected thread options. The initial
+structured response fills unspecified local model/effort into the persisted
+snapshot. Subsequent attachment uses that snapshot and re-resolves SecretRef;
+registry edits do not alter it. Codex local tool/home settings and local endpoint
+defaults remain externally owned, not copied into Lain. Legacy revision-0 metadata
+keeps its old options and captures unknown safe defaults on successful attachment.
+
+Native `probe_profile_launch_configuration` passed with two simultaneous real
+App Servers, dummy credentials and separate loopback endpoint/model/effort
+configurations read through config/read, without any inference request. This
+verifies parsing/isolation of launch overrides; it does not verify two real
+provider accounts or model access. No second real gateway credential was supplied.
+Deterministic subprocess/API/browser acceptance is the profile-isolation proof;
+paid two-provider acceptance remains optional and unclaimed.
+
+## Phase 5 safe errors and credential redaction
+
+Error normalization uses only recognized structured discriminants/status fields:
+unauthorized/401 => authentication_failed, rate/usage limit/429 => rate_limited,
+sandbox/denial/policy/403 => permission_denied, overload/flex/server/5xx or known
+response connection failures => provider_unavailable, recognized request/context
+execution conditions => execution, otherwise unknown. Raw message, additional
+details and misalignment prose are discarded. HTTP 404 is not evidence of a missing
+Lain session. ErrorObserved carries optional retryable from willRetry and never
+changes turn state. Final failed turn evidence uses retryable=false; old persisted
+records decode with None. RPC rejection codes remain safe numeric codes.
+
+Each runtime redactor includes the daemon API token, namespaced daemon credentials
+and its resolved credential. Redaction happens on complete records before output
+bounds/history/SSE, including commands, approvals and file/tool observations.
+Buffers clear on drop. Unknown/encoded secrets remain outside reliable detection;
+do not expose credential files or retrieve environment dumps. Transport uncertainty
+still differs from proven execution failure, and intermediate retries cannot
+manufacture a terminal turn.

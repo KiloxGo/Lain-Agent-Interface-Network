@@ -28,6 +28,12 @@ fn main() {
     let mut turns = Vec::<Value>::new();
     let mut approval = Value::Null;
     let mut mode = String::new();
+    let args: Vec<String> = std::env::args().collect();
+    let config: Vec<String> = args
+        .windows(2)
+        .filter(|p| p[0] == "-c")
+        .map(|p| p[1].clone())
+        .collect();
     for line in io::stdin().lock().lines() {
         let request: Value = serde_json::from_str(&line.unwrap()).unwrap();
         let id = &request["id"];
@@ -47,9 +53,26 @@ fn main() {
             }
             Some("thread/start") | Some("thread/resume") => {
                 assert!(ready);
-                assert_eq!(params["approvalPolicy"], "on-request");
+                assert!(matches!(
+                    params["approvalPolicy"].as_str(),
+                    Some("on-request" | "untrusted")
+                ));
                 assert_eq!(params["approvalsReviewer"], "user");
                 workspace = PathBuf::from(params["cwd"].as_str().unwrap());
+                assert!(std::env::var_os("LAIN_API_TOKEN").is_none());
+                assert!(
+                    std::env::vars_os()
+                        .all(|(k, _)| !k.to_string_lossy().starts_with("LAIN_SECRET_"))
+                );
+                if params["modelProvider"] == "lain_runtime" {
+                    let credential = std::env::var("LAIN_PROFILE_CREDENTIAL").unwrap();
+                    match params["model"].as_str() {
+                        Some("model-a") => assert!(credential == "fixture-private-alpha-value"),
+                        Some("model-b") => assert!(credential == "fixture-private-beta-value"),
+                        _ => {}
+                    }
+                }
+                std::fs::write(workspace.join("fixture-config.json"), json!({"args":config,"model":params["model"],"provider":params["modelProvider"],"sandbox":params["sandbox"],"approval_policy":params["approvalPolicy"],"config":params["config"]}).to_string()).unwrap();
                 if request["method"] == "thread/resume" {
                     let saved: Value = serde_json::from_str(
                         &std::fs::read_to_string(workspace.join("fixture-history.json")).unwrap(),
@@ -68,7 +91,7 @@ fn main() {
                 }
                 result(
                     id,
-                    json!({"thread":{"id":thread,"turns":turns,"status":{"type":"idle"}}}),
+                    json!({"model":params["model"].as_str().unwrap_or("fixture-default"),"reasoningEffort":params["config"]["model_reasoning_effort"].as_str().unwrap_or("high"),"thread":{"id":thread,"turns":turns,"status":{"type":"idle"}}}),
                 );
             }
             Some("turn/start") => {
@@ -86,6 +109,50 @@ fn main() {
                 result(id, json!({"turn":turn}));
                 let turn_id = turn["id"].clone();
                 match mode.as_str() {
+                    "profile-echo" => {
+                        let credential = std::env::var("LAIN_PROFILE_CREDENTIAL").unwrap();
+                        note(
+                            "item/completed",
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"type":"agentMessage","text":credential}}),
+                        );
+                        note(
+                            "item/started",
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"type":"commandExecution","command":credential}}),
+                        );
+                        note(
+                            "item/completed",
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"type":"commandExecution","command":credential,"aggregatedOutput":credential,"exitCode":0}}),
+                        );
+                        emit(
+                            json!({"id":42,"method":"item/commandExecution/requestApproval","params":{"threadId":thread,"turnId":turn_id,"command":credential,"cwd":workspace}}),
+                        );
+                        approval = json!(42);
+                    }
+                    "retry-success" => {
+                        note(
+                            "error",
+                            json!({"threadId":thread,"turnId":turn_id,"willRetry":true,"error":{"message":"secret=hidden","codexErrorInfo":{"httpConnectionFailed":{"httpStatusCode":503}}}}),
+                        );
+                        finish(&workspace, &thread, &mut turns, "completed");
+                    }
+                    "auth-failure" => {
+                        turns.last_mut().unwrap()["error"] =
+                            json!({"message":"secret=hidden","codexErrorInfo":"unauthorized"});
+                        finish(&workspace, &thread, &mut turns, "failed");
+                    }
+                    "credential-generation" => {
+                        let credential = std::env::var("LAIN_PROFILE_CREDENTIAL").unwrap();
+                        let generation = match credential.as_str() {
+                            "fixture-rotation-old" => "old",
+                            "fixture-rotation-new" => "new",
+                            _ => panic!("unexpected fixture credential"),
+                        };
+                        note(
+                            "item/completed",
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"type":"agentMessage","text":format!("credential generation {generation}")}}),
+                        );
+                        finish(&workspace, &thread, &mut turns, "completed");
+                    }
                     "idle-crash" => {
                         finish(&workspace, &thread, &mut turns, "completed");
                         std::thread::sleep(std::time::Duration::from_millis(100));
@@ -166,7 +233,7 @@ fn main() {
                 persist(&workspace, &thread, &turns);
                 result(
                     id,
-                    json!({"thread":{"id":thread,"turns":turns,"status":{"type":"idle"}}}),
+                    json!({"model":params["model"].as_str().unwrap_or("fixture-default"),"reasoningEffort":params["config"]["model_reasoning_effort"].as_str().unwrap_or("high"),"thread":{"id":thread,"turns":turns,"status":{"type":"idle"}}}),
                 );
             }
             Some("thread/read") => {

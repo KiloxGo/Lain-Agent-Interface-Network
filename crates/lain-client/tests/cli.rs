@@ -78,12 +78,17 @@ async fn commands_use_authenticated_http_preserve_server_paths_and_check_offered
     });
     for args in [
         vec!["status"],
+        vec!["profile", "list"],
+        vec!["profile", "show", "codex/a"],
+        vec!["profile", "validate", "codex/a"],
         vec!["work", "list"],
         vec![
             "work",
             "start",
             "--workspace",
             "/server/exists-only-on-server",
+            "--profile",
+            "codex/a",
         ],
         vec!["work", "show", ID],
         vec!["work", "send", ID, "continue"],
@@ -105,6 +110,16 @@ async fn commands_use_authenticated_http_preserve_server_paths_and_check_offered
         assert!(!String::from_utf8_lossy(&output.stdout).contains(TOKEN));
     }
     let output = cli(port, &["approval", "approve", ID, APPROVAL]).await;
+    assert!(
+        calls
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|(method, path, body)| method == "POST"
+                && path == "/v1/work-sessions"
+                && body["profile_id"] == "codex/a"
+                && body["options"]["sandbox"].is_null())
+    );
     assert!(!output.status.success());
     assert!(!String::from_utf8_lossy(&output.stderr).contains(TOKEN));
     let decisions: Vec<_> = calls
