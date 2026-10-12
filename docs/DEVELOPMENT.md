@@ -505,3 +505,30 @@ It starts two real App Servers with dummy credentials and checks separate model,
 provider/base URL/effort configuration through config/read. It does not prove
 real provider authentication or model access. No second real gateway credential
 was available for paid two-provider acceptance; that check remains unclaimed.
+
+## Phase 6 CLI-first development and acceptance
+
+Web development is paused; do not require npm/browser work for Phase 6. The
+primary shared Rust commands are `lain setup --local`, `lain up`, `lain doctor`,
+`lain chat`, `lain ask` and existing explicit work/profile/approval commands.
+The local launcher is a native child process boundary, not an embedded Kernel.
+Windows PowerShell and macOS zsh are equal native targets; Linux stays compatible.
+
+Run `powershell -NoProfile -File scripts/check-native.ps1` on native Windows and
+`zsh scripts/check-native.zsh` on native macOS. Each runs native locked build,
+format/Clippy, deterministic Rust tests and `native_smoke.py` on the matching host.
+The smoke refuses OS emulation and validates permissions, setup/token reuse,
+identity/auth conflicts, foreground signals, restart, diagnostics, streamed fixture
+Responses mapping, typed confirmation and real fake-Codex work/session continuity.
+macOS additionally exercises PTY chat confirmation/exit/Ctrl-C. It consumes zero
+quota. The Windows-only ACL test runs only on Windows; Unix modes only on Unix.
+Actual host acceptance remains separately recorded in DEVLOG.md.
+
+Migration 005 adds indexed conversation/ActorTurn storage to the existing Store;
+Actor tests use injected deterministic models and the existing App Server fixture.
+The opt-in real `scripts/actor_smoke.py --run-real --workspace <daemon-path>` needs
+explicit real credentials and interactive delegation confirmation; it is never
+part of ordinary tests/CI. Worker completion, live chat and daemon-restart retention
+still require its documented manual final checks. No credential means unverified.
+See [CLI.md](CLI.md), [LAIN_ACTOR.md](LAIN_ACTOR.md), and ADR 004. Phase 7 remains
+unstarted; conversation records are operational history, not semantic memory.

@@ -582,7 +582,7 @@ for probes and SSE. It accepts session creation, initial/follow-up prompts,
 explicit approval decisions, cancellation and resume. Client lifetime is unrelated
 to worker lifetime. API authentication is distinct from worker approval policy.
 Remote exposure and TLS/auth deployment need a security design before relaxing
-this binding restriction. Lain Actor, memory, World and scheduling remain deferred.
+this binding restriction. Memory, World and scheduling remain deferred; the Phase 6 Actor boundary is documented below.
 
 The terminal client uses authenticated HTTP/SSE exclusively. It never opens
 SQLite, reads daemon files or starts a worker. Its rendering/selection/history
@@ -622,3 +622,25 @@ environment-backed Secret Store restricts handles to LAIN_SECRET names. Resoluti
 and redaction buffers are runtime-only; no values enter worker metadata. Migration
 004 adds profiles/policies and legacy local snapshots without changing bindings.
 Health APIs do no inference. See [ADR 003](adr/003-profiles-secrets-and-session-snapshots.md).
+
+## Phase 6 implemented Actor and local launcher boundary
+
+The shared Rust CLI may explicitly configure/launch the existing native laind in
+local mode; it never embeds a Kernel or launches workers directly. Remote CLI
+commands continue through HTTP/SSE, with no local filesystem assumptions. OS
+credential permission/signal handling is confined to narrow native boundaries.
+
+`actor/domain.rs` defines Lain-owned conversations/messages/actions/turns;
+`actor/model.rs` is the bounded direct Responses adapter; `actor/tools.rs` is a
+closed registry calling existing Kernel/Supervisor operations. `actor/mod.rs`
+owns on-demand turn lifecycle, context, confirmation and limits. The existing
+private Store applies migration 005 and transactionally persists conversation
+records. The model sees typed definitions and redacted data, never secrets,
+SQLite or generic coding tools. Model and worker profiles are independent.
+
+Every mutation is persisted as Proposed; explicit owner decision claims Executing
+before dispatch. Work creation persists the real session ID before task submission.
+Uncertain inference/actions remain Unknown, with no replay. Complete redacted
+records commit before revisioned SSE snapshots; disconnect does not cancel them.
+Web is frozen without Actor UI. Memory/World/scheduler remain deferred. Normative
+contracts and limits: [LAIN_ACTOR.md](LAIN_ACTOR.md), [ADR 004](adr/004-cli-first-actor-and-confirmed-tools.md).

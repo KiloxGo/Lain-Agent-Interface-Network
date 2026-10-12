@@ -221,3 +221,21 @@ The pre-reboot implementation is preserved on the `legacy/v0` branch.
 It is historical reference only and MUST NOT be treated as architectural precedent for v1.
 
 The active rewrite should start from the foundation documents in `docs/` and a clean implementation tree. Reuse legacy code only when a current design explicitly calls for it.
+
+## 10. Phase 6 working priorities
+
+Web is retained and frozen. Prioritize shared Rust CLI/Kernel functionality; do
+not add browser Actor chat, redesign Web or require npm for terminal development.
+A small bounded direct Actor conversation/tool adapter is permitted; coding tools
+and generic worker intelligence still belong exclusively to worker harnesses.
+LainConversation, ActorTurn, WorkSession, worker Operational History and future
+semantic Memory are separate. Every Actor mutation requires an explicit persisted
+owner confirmation through the authenticated Kernel boundary. Never auto-approve
+worker permissions or replay uncertain mutations. Keep Phase 7 deferred.
+
+Windows PowerShell and macOS zsh are equal native development targets. Keep one
+Rust implementation with narrow genuine OS boundaries for credentials/signals.
+Use owner-only Windows ACLs and Unix 0600 files/0700 directories. Never substitute
+emulation or cross-compilation for native build/test/CLI acceptance. Record each
+unavailable platform as unverified. Linux remains the eventual server target.
+See docs/CLI.md, docs/LAIN_ACTOR.md and ADR 004.

@@ -75,3 +75,6 @@ __pycache__/
 *.py[cod]
 web/test-results/
 web/playwright-report/
+
+# Local Kernel credentials are stored outside repositories; defense against accidental copying.
+kernel-token

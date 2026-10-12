@@ -609,3 +609,129 @@ Actor's model/auth/budget boundary independently from worker profiles; retain
 explicit owner-only profile mutation and no raw credentials in Actor/memory.
 Remote browser authentication/TLS remains the separate ADR 002 decision.
 ADR 003 records mutable definitions, frozen resolved snapshots and runtime refs.
+
+## 2026-10-12 — Phase 6: CLI-first Actor implementation
+
+Priority changed: Web is retained and frozen. Rust Kernel/CLI and Lain's own
+capabilities now lead development. Phase 7 has not begun. This is implementation
+progress, **not a completed cross-platform milestone**: native Windows acceptance
+and real-provider acceptance are still outstanding. A final atmospheric milestone
+such as `voice: "I Am Here"` should wait for the required evidence.
+
+### Implemented
+
+- `lain setup --local` creates per-user settings and a separate 256-bit OS-random
+  token, exclusively and outside Git. A setup lock serializes repeated setup;
+  existing credentials/settings are validated/reused, never silently overwritten.
+  Unix validates owner/single-link ordinary files and 0600/0700; Windows uses
+  native PowerShell/.NET current-SID owner-only DACLs, rejecting other access and
+  reparse/linked files. Environment token overrides and explicit remote client
+  mode remain available; local credentials are not forwarded to another URL.
+- Foreground `lain up` launches the existing native laind beside the CLI or from
+  LAIN_DAEMON_PATH. It supplies saved local token/listener/absolute database and
+  waits for native console/process-group graceful shutdown. Existing authenticated
+  compatible daemon returns already_running; mismatched auth/version or unrelated
+  port occupancy fails without killing any process. No embedded Kernel/service.
+- `doctor` reports CLI/PATH/executables, authenticated readiness, SQLite quick_check,
+  backend availability/version, Runtime Profiles, missing SecretRefs and independent
+  Actor setup, without model/provider calls. Explicit commands and remote HTTP/SSE
+  remain compatible. Added watch, chat/ask, conversations/conversation inspection,
+  actor show/cancel/approve/deny; JSON result/error semantics are documented.
+- Kernel `actor/` separates domain, direct Responses model adapter and closed typed
+  tool registry. Config is explicitly independent of Codex worker profiles/login;
+  SecretRef resolves credentials only for the provider header. Persona is the
+  versioned identity/persona.md with optional owner startup override. No coding
+  tools, shell/file/HTTP/SQL access, worker auto-approval or profile-mutation tool.
+- Migration 005 transactionally adds indexed Lain conversation and ActorTurn
+  records, with distinct conversation/turn/message/action UUIDs, timestamps,
+  request deduplication, revisioned states and tool provenance. Accepted user text
+  commits before inference. Same conversation/request ID/text returns the original
+  turn; changed payload conflicts. Restart marks unfinished execution Unknown and
+  never replays inference/mutations. Pending proposals remain reviewable.
+- A deterministic recent context window bounds history to 48 KiB/the latest 20
+  turns, plus stable persona and typed tools. The runtime bounds model requests,
+  tools/errors, active time, output/request/context/result/frame sizes and reported
+  usage. Genuine provider SSE is consumed, but only complete redacted committed
+  text/actions become public snapshots. No raw deltas, hidden reasoning or secrets
+  in storage/history/logs. Mid-generation continuation is not claimed.
+- Read tools reuse Kernel state; every mutating tool persists Proposed and requires
+  explicit owner confirmation. A duplicate decision conflicts. Existing Supervisor
+  validates workspace/profile policy and drives delegation. Real WorkSession ID
+  commits as a partial receipt before prompt submission; acceptance never means
+  worker completion. Partial/uncertain outcomes retain provenance and cannot be
+  replayed under the same action. Owner denial performs no mutation.
+- Documentation and ADR 004 describe commands, model/secret/persona boundaries,
+  storage/context/confirmation, native acceptance and deferred work. Web source
+  is untouched; existing Rust browser/API compatibility tests remain enabled.
+
+### Validation evidence
+
+Native macOS (Darwin, Rust 1.92.0), `zsh scripts/check-native.zsh`:
+locked workspace build, formatting, all-target Clippy with warnings denied,
+49 deterministic Rust tests passed; 3 existing opt-in tests remained ignored.
+Native CLI smoke passed local permissions/reuse, startup/already-running,
+auth mismatch/unrelated port, no-call doctor/PATH diagnostics, real local fixture
+Responses streaming, typed reads/proposals, restart-preserved confirmation,
+confirmed real fake-Codex WorkSession, session/history continuity, duplicate request,
+secret-free SQLite/logs and native graceful shutdown/reopen. macOS PTY acceptance
+also exercised chat resumption, exact-action owner confirmation, exit and Ctrl-C
+at an input prompt without hanging on stdin.
+
+The real-provider smoke entrypoint was verified to make no calls without its
+explicit `--run-real` flag. No real Actor credential was supplied/configured for
+acceptance, so paid Actor/Codex acceptance was **not run and is unverified**.
+`native_smoke.py --platform windows` correctly refuses a macOS host; this is an
+anti-emulation check, not Windows acceptance.
+
+| Platform / acceptance | Result |
+|---|---|
+| Native macOS build/test/CLI/PTY/permissions/signals | Passed, deterministic fixtures |
+| Native Windows PowerShell build/test/CLI/ACLs/Ctrl-Break | Unverified; no Windows host available |
+| Native Linux server build/test/process lifecycle | Unverified; no Linux host used |
+| Real Actor model + real Codex delegation/chat/restart | Unverified; explicit paid acceptance not run |
+| Cross-platform Phase 6 Definition of Done | Pending native Windows and real acceptance evidence |
+
+### Handoff / limits before Phase 7
+
+Run `powershell -NoProfile -File scripts/check-native.ps1` on Windows; do not
+substitute cross-compilation/emulation. Linux can run the locked Cargo checks and
+native_smoke.py --platform linux. Run the opt-in actor_smoke.py only with deliberate
+quota authorization and real model/Codex setup, then complete its documented live
+chat, independent worker execution and daemon-restart checks. No automatic CI or
+paid test was introduced.
+
+Complete-record streaming instead of token-by-token display, no true mid-inference
+resumption, environment-secret restart rotation, indefinite conversation retention,
+latest-100 conversation discovery, exact UUID work references and foreground-only
+launcher are current limits. Existing project databases need an intentional saved
+local database-path selection; setup does not silently move/import sessions.
+No semantic memory, MemoryCandidates, SessionSummary extraction, World, scheduler,
+automatic routing or other Phase 7 work was started. No milestone commit was made.
+
+### Local Codex refresh and additional macOS validation — 2026-10-12
+
+- Updated the owner's standalone Codex from 0.154.0 to the adapter's verified
+  0.160.0 using curl and the official OpenAI GitHub macOS ARM package, without npm.
+  Verified the package SHA-256 against release metadata before installing and
+  atomically switching the existing standalone current symlink. Retained 0.154.0.
+- Re-ran `zsh scripts/check-native.zsh` on native macOS with Rust 1.92.0:
+  locked build, formatting, warnings-denied Clippy, all 49 deterministic Rust
+  tests and native CLI/PTY smoke passed. Three opt-in tests remained ignored.
+- Explicitly ran `probe_profile_launch_configuration -- --ignored`: the real
+  Codex 0.160.0 App Server passed the two-profile configuration isolation check
+  without inference. A fresh authenticated Kernel reports this backend available.
+- Ran `python3 scripts/codex_smoke.py --run-real --phase3` with the owner's
+  existing ChatGPT login: passed unused-thread idle detach, two short real model
+  replies, same-session lazy follow-up, durable history, retained provider identity
+  and two daemon restart/recovery cycles. This is Worker acceptance only, not
+  combined Actor/Worker acceptance. The first run exposed a Python 3.14 SSE reader
+  close race after each successful turn; fixed the test helper to join its reader
+  after socket shutdown and before closing the HTTP connection. Verified the fix
+  with 30 local HTTP/SSE cycles and 30 real Kernel SSE/repeated-close cycles,
+  without reader failures or additional model calls.
+- An already-running daemon retains its startup-resolved old executable and
+  backend health until restarted; updating the standalone symlink alone does not
+  refresh that daemon. No owner daemon was interrupted by these private tests.
+- Real Actor credentials/configuration remain absent, so real Actor chat and
+  confirmed Actor-to-Codex delegation remain unverified. Native Windows and Linux
+  also remain unverified; cross-platform Phase 6 acceptance is still pending.

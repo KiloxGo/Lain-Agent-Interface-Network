@@ -1,7 +1,7 @@
 # Roadmap
 
 **Status:** working plan  
-**Last reviewed:** 2026-10-05
+**Last reviewed:** 2026-10-12
 
 This roadmap defines implementation order for the Lain architecture reboot.
 
@@ -214,40 +214,43 @@ SQLite definitions remain mutable; WorkSessions retain non-secret resolved
 snapshots and credential handles. Secret values resolve for each new runtime.
 The exact Codex 0.160.0 gate remains. Native configuration checks use no inference;
 different real provider accounts have not been tested. See ADR 003 and CODEX.md.
-Phase 6 remains unimplemented.
+Phase 6 implementation follows; native/real-provider acceptance remains explicit.
 
 Exit criteria:
 
 - two Codex sessions can run simultaneously with different profiles without mutating global Codex configuration.
 
-## Phase 6 — Lain Actor
+## Phase 6 — CLI-first Lain Actor
 
-**Goal:** bring back Lain herself on top of the working control plane.
+**Priority change:** Web development is paused. Keep `web/` and its existing API
+contracts, while prioritizing the Rust Kernel, terminal workflows and Lain herself.
+Windows PowerShell and macOS zsh are equal native targets; Linux stays compatible.
 
-Deliverables:
+- [x] private per-user `setup --local`, token reuse and environment overrides
+- [x] foreground native `up`, identity/auth/port checks and graceful shutdown
+- [x] safe quota-free `doctor`, PATH/executable/profile/Actor diagnostics
+- [x] CLI chat/ask, conversation inspection, explicit action decisions and watch
+- [x] Kernel-owned bounded Actor, separate Responses model config and SecretRef
+- [x] versioned persona with owner startup override
+- [x] migration-005 durable Lain conversations and request deduplication
+- [x] bounded context, strict typed reads/work tools using existing services
+- [x] persisted owner confirmation, partial delegation receipts and no replay
+- [x] committed SSE snapshots, observer disconnect independence and recovery
+- [x] deterministic model/fake-worker/permissions/lifecycle tests without quota
+- [x] native macOS build/test/CLI smoke, including PTY chat/confirmation/Ctrl-C
+- [ ] native Windows build/test/CLI smoke (unavailable on implementation host)
+- [ ] native Linux server lifecycle acceptance (unavailable)
+- [ ] opt-in real Actor/Codex model acceptance (no configured acceptance credential)
 
-- [ ] persona/identity definition
-- [ ] Lain conversation API
-- [ ] model adapter for Lain
-- [ ] typed tools/capabilities for work control
-- [ ] inspect/list/create/steer/cancel work through Lain
-- [ ] context builder
-- [ ] no raw secrets available to Lain
-- [ ] explicit distinction between direct answer and delegated work
+Implementation is available; **Phase 6 cross-platform acceptance is incomplete**.
+Use `scripts/check-native.ps1` and `scripts/check-native.zsh` on their actual hosts.
+No emulated platform results or fixture provider results count as real acceptance.
+No milestone completion claim until the required native evidence exists.
+See [CLI.md](docs/CLI.md), [LAIN_ACTOR.md](docs/LAIN_ACTOR.md) and ADR 004.
 
-Example:
-
-~~~text
-owner: Ask Codex to inspect Klog's auth tests.
-
-Lain:
-  work.create(profile=codex/official, workspace=Klog, ...)
-~~~
-
-Exit criteria:
-
-- owner can operate worker sessions conversationally through Lain;
-- Lain never implements the worker coding loop herself.
+Limits: complete-record streaming rather than raw token display; no mid-generation
+resumption, automatic mutation retries, profile mutations or worker auto-approval.
+Conversation persistence is not semantic memory. **Do not begin Phase 7 yet.**
 
 ## Phase 7 — Lain memory and private world
 

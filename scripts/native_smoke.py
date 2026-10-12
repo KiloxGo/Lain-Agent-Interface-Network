@@ -1,0 +1,246 @@
+"""Native Phase 6 CLI/daemon/model-adapter acceptance; fake providers, zero quota.
+
+Requires built workspace binaries. --platform must match the real host; this script
+never emulates another OS. Windows runs native .exe/PowerShell ACLs and Ctrl-Break.
+macOS runs Mach-O binaries, POSIX permissions and a real process-group signal.
+"""
+import argparse
+import http.client
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import os
+from pathlib import Path
+import signal
+import socket
+import sqlite3
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import uuid
+
+
+def run(platform):
+    actual = {"darwin": "macos", "win32": "windows"}.get(sys.platform, "linux")
+    if actual != platform:
+        raise SystemExit(f"Refusing emulation: host is {actual}, requested {platform}")
+    repo = Path(__file__).resolve().parents[1]
+    bins = Path(os.environ.get("LAIN_TEST_BIN_DIR", repo / "target/debug"))
+    suffix = ".exe" if os.name == "nt" else ""
+    lain, laind, codex = (bins / (name + suffix) for name in ("lain", "laind", "lain-test-app-server"))
+    for binary in (lain, laind, codex):
+        assert binary.is_file(), f"Build workspace first: missing {binary.name}"
+    with tempfile.TemporaryDirectory(prefix="lain-native-") as tmp:
+        root = Path(tmp)
+        workspace = root / "project"
+        workspace.mkdir()
+        local = root / "local"
+        env = {k: v for k, v in os.environ.items() if not k.startswith("LAIN_")}
+        env.update(LAIN_LOCAL_DIR=str(local), LAIN_DAEMON_PATH=str(laind), LAIN_CODEX_PATH=str(codex))
+        provider_calls = []
+        class Model(BaseHTTPRequestHandler):
+            def log_message(self, *_):
+                pass
+            def do_POST(self):
+                assert self.path == "/v1/responses"
+                assert self.headers["Authorization"] == "Bearer fixture-actor-credential"
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                provider_calls.append(body)
+                assert body["store"] is False and body["stream"] is True
+                assert "fixture-actor-credential" not in json.dumps(body)
+                assert token not in json.dumps(body)
+                last = body["input"][-1]
+                if last.get("type") == "function_call_output":
+                    output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "已读取 Kernel 的真实工作状态。"}]}]
+                elif "delegate" in last.get("content", ""):
+                    output = [{"type": "function_call", "name": "work_create", "call_id": "call_delegate", "arguments": json.dumps({"workspace": str(workspace), "profile_id": "codex/local", "sandbox": "read_only", "task": "hello"})}]
+                elif "inspect" in last.get("content", ""):
+                    output = [{"type": "function_call", "name": "work_list", "call_id": "call_list", "arguments": "{}"}]
+                else:
+                    output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "你来了。"}]}]
+                payload = json.dumps({"type": "response.completed", "response": {"status": "completed", "output": output, "usage": {"total_tokens": 20}}}, ensure_ascii=False).encode()
+                wire = b'data: {"type":"response.output_text.delta","delta":"buffered"}\n\n' + b"data: " + payload + b"\n\n"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Content-Length", str(len(wire)))
+                self.end_headers()
+                # Deliberately split UTF-8 across HTTP writes.
+                for offset in range(0, len(wire), 11):
+                    self.wfile.write(wire[offset:offset + 11])
+                    self.wfile.flush()
+        model = ThreadingHTTPServer(("127.0.0.1", 0), Model)
+        thread = threading.Thread(target=model.serve_forever, daemon=True)
+        thread.start()
+        token = ""
+        def cli(*args, success=True, extra=None):
+            result = subprocess.run([str(lain), *args], env=dict(env, **(extra or {})), capture_output=True, text=True, encoding="utf-8", timeout=30)
+            assert result.returncode == 0 if success else result.returncode != 0, result.stderr
+            assert not token or token not in result.stdout + result.stderr
+            return json.loads(result.stdout) if result.stdout.strip() else result.stderr
+        setup = cli("--json", "setup", "--local")
+        assert setup["status"] == "created"
+        token = (local / "kernel-token").read_text()
+        assert cli("--json", "setup", "--local")["status"] == "reused"
+        assert (local / "kernel-token").read_text() == token
+        if platform != "windows":
+            assert (local / "kernel-token").stat().st_mode & 0o777 == 0o600
+            assert local.stat().st_mode & 0o777 == 0o700
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        settings = json.loads((local / "client.json").read_text())
+        settings["url"] = f"http://127.0.0.1:{port}"
+        (local / "client.json").write_text(json.dumps(settings))
+        cfg = root / "actor.json"
+        cfg.write_text(json.dumps({"driver": "openai-responses", "model": "fixture", "endpoint": f"http://127.0.0.1:{model.server_port}/v1", "secret_ref": "secret://env/actor", "timeout_seconds": 10, "max_output_tokens": 1024, "max_turn_tokens": 4096}))
+        env.update(LAIN_ACTOR_CONFIG=str(cfg), LAIN_SECRET_ACTOR="fixture-actor-credential")
+        log = root / "daemon.log"
+        process = None
+        def call(method, path, body=None):
+            conn = http.client.HTTPConnection("127.0.0.1", port, timeout=15)
+            try:
+                conn.request(method, path, None if body is None else json.dumps(body), {"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+                res = conn.getresponse()
+                data = res.read()
+                assert res.status < 300, (res.status, path)
+                assert token.encode() not in data and b"fixture-actor-credential" not in data
+                return json.loads(data)
+            finally:
+                conn.close()
+        def start():
+            nonlocal process
+            process = subprocess.Popen([str(lain), "up"], env=env, stdin=subprocess.DEVNULL, stdout=log.open("ab"), stderr=subprocess.STDOUT,
+                                       creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+                                       start_new_session=os.name != "nt")
+            deadline = time.monotonic() + 20
+            while True:
+                assert process.poll() is None, "launcher exited before readiness"
+                try:
+                    if call("GET", "/ready")["state"] == "ready":
+                        break
+                except (OSError, AssertionError):
+                    assert time.monotonic() < deadline, "daemon readiness timeout"
+                    time.sleep(0.05)
+        def stop():
+            if process and process.poll() is None:
+                if os.name == "nt":
+                    process.send_signal(signal.CTRL_BREAK_EVENT)
+                else:
+                    os.killpg(process.pid, signal.SIGINT)
+                assert process.wait(timeout=20) == 0, "native graceful launcher/daemon shutdown failed"
+        try:
+            cli("--json", "doctor", success=False)
+            start()
+            assert cli("--json", "up")["status"] == "already_running"
+            assert cli("--json", "status")["kernel"]["state"] == "ready"
+            before = len(provider_calls)
+            report = cli("--json", "doctor")
+            assert report["diagnostics"]["storage"] == "healthy"
+            assert report["diagnostics"]["actor"]["status"] == "configured"
+            assert len(provider_calls) == before
+            shadow = root / "shadow"
+            shadow.mkdir()
+            shim = shadow / ("lain.cmd" if os.name == "nt" else "lain")
+            shim.write_text("obsolete command fixture")
+            conflict = cli("--json", "doctor", extra={"PATH": str(shadow) + os.pathsep + env.get("PATH", "")})
+            assert str(shim) in conflict["path_candidates"]
+            cli("--json", "up", success=False, extra={"LAIN_API_TOKEN": "different-owner-token-0123456789abcdef"})
+            cli("--json", "doctor", success=False, extra={"LAIN_API_TOKEN": "different-owner-token-0123456789abcdef"})
+            hello = cli("--json", "ask", "hello")
+            assert hello["state"] == "completed"
+            conversation = hello["conversation_id"]
+            inspected = cli("--json", "ask", "inspect", "--conversation", conversation)
+            assert inspected["actions"][0]["state"] == "executed"
+            pending = cli("--json", "ask", "delegate", "--conversation", conversation)
+            assert pending["state"] == "pending_confirmation"
+            assert cli("--json", "work", "list") == []
+            # Persist the proposal through a native daemon restart before owner confirmation.
+            stop()
+            start()
+            pending = call("GET", f"/v1/actor-turns/{pending['id']}")
+            assert pending["state"] == "pending_confirmation"
+            action = pending["actions"][0]
+            if platform == "macos":
+                import select
+                master, slave = os.openpty()
+                chat = subprocess.Popen([str(lain), "chat", "--conversation", conversation], env=env, stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
+                os.close(slave)
+                captured = bytearray()
+                def until(text):
+                    deadline = time.monotonic() + 15
+                    while text.encode() not in captured:
+                        assert time.monotonic() < deadline, "native chat prompt timeout"
+                        if select.select([master], [], [], 0.1)[0]:
+                            captured.extend(os.read(master, 65536))
+                    assert token.encode() not in captured and b"fixture-actor-credential" not in captured
+                try:
+                    until("Confirm this exact action?")
+                    os.write(master, b"y\n")
+                    until("Kernel action accepted")
+                    os.write(master, b"/exit\n")
+                    assert chat.wait(timeout=10) == 0
+                finally:
+                    if chat.poll() is None:
+                        chat.kill()
+                        chat.wait(timeout=5)
+                    os.close(master)
+                # Ctrl-C while waiting on ordinary stdin must exit without hanging
+                # Tokio shutdown behind an uninterruptible blocking read.
+                master, slave = os.openpty()
+                chat = subprocess.Popen([str(lain), "chat", "--conversation", conversation], env=env, stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
+                os.close(slave)
+                captured = bytearray()
+                try:
+                    until("You>")
+                    chat.send_signal(signal.SIGINT)
+                    assert chat.wait(timeout=10) == 0
+                finally:
+                    if chat.poll() is None:
+                        chat.kill()
+                        chat.wait(timeout=5)
+                    os.close(master)
+            else:
+                cli("--json", "actor", "approve", pending["id"], action["id"])
+            deadline = time.monotonic() + 15
+            while True:
+                completed = call("GET", f"/v1/actor-turns/{pending['id']}")
+                if completed["state"] != "running":
+                    break
+                assert time.monotonic() < deadline
+                time.sleep(0.02)
+            assert completed["state"] == "completed", completed["error"]
+            sid = completed["actions"][0]["result"]["outcome"]["work_session_id"]
+            assert cli("--json", "work", "show", sid)["id"] == sid
+            cli("--json", "work", "history", sid)
+            cli("--json", "profile", "list")
+            resumed = cli("--json", "ask", "inspect", "--conversation", conversation)
+            assert resumed["state"] == "completed"
+            assert any(c["id"] == conversation for c in cli("--json", "conversations"))
+            # Idempotency uses the same conversation, request UUID and text.
+            retry = cli("--json", "ask", "inspect", "--conversation", conversation, "--request-id", resumed["request_id"])
+            assert retry["id"] == resumed["id"]
+            stop()
+            with sqlite3.connect(local / "lain.sqlite3") as db:
+                persisted = "\n".join(db.iterdump())
+                assert token not in persisted and "fixture-actor-credential" not in persisted
+                assert db.execute("PRAGMA user_version").fetchone()[0] == 5
+            assert token.encode() not in log.read_bytes() and b"fixture-actor-credential" not in log.read_bytes()
+            # A listening unrelated service is never terminated or replaced.
+            unrelated = ThreadingHTTPServer(("127.0.0.1", port), type("Unrelated", (BaseHTTPRequestHandler,), {"log_message": lambda *args: None, "do_GET": lambda self: (self.send_response(401), self.end_headers())}))
+            threading.Thread(target=unrelated.serve_forever, daemon=True).start()
+            cli("--json", "up", success=False)
+            assert unrelated.fileno() >= 0
+            unrelated.shutdown()
+            unrelated.server_close()
+        finally:
+            stop()
+            model.shutdown()
+            model.server_close()
+    print(f"PASS native {platform}: local setup/reuse/permissions, launcher/shutdown/restart, doctor, authenticated CLI, streamed Actor adapter, confirmation, real fixture work and persistence; zero quota")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--platform", choices=("macos", "windows", "linux"), required=True)
+    run(parser.parse_args().platform)

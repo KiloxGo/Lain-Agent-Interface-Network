@@ -50,7 +50,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 4,
+            version <= 5,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -109,6 +109,9 @@ impl Store {
                     )?;
                 }
             }
+        }
+        if version < 5 {
+            transaction.execute_batch(include_str!("../migrations/005_actor.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
@@ -428,4 +431,201 @@ impl Store {
             has_more,
         })
     }
+}
+
+impl Store {
+    pub fn create_conversation(&mut self) -> Result<crate::actor::domain::Conversation> {
+        use crate::actor::domain::*;
+        let now = now_ms()?;
+        let conversation = Conversation {
+            id: ConversationId::new(),
+            created_at_ms: now,
+            updated_at_ms: now,
+        };
+        self.connection.execute(
+            "INSERT INTO lain_conversations VALUES (?1, ?2, ?2)",
+            (conversation.id.to_string(), i64::try_from(now)?),
+        )?;
+        Ok(conversation)
+    }
+    pub fn conversations(&self) -> Result<Vec<crate::actor::domain::Conversation>> {
+        let mut query=self.connection.prepare("SELECT id, created_at_ms, updated_at_ms FROM lain_conversations ORDER BY updated_at_ms DESC, id LIMIT 100")?;
+        let rows = query.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, i64>(1)?,
+                r.get::<_, i64>(2)?,
+            ))
+        })?;
+        rows.map(|r| {
+            let (id, created_at_ms, updated_at_ms) = r?;
+            Ok(crate::actor::domain::Conversation {
+                id: crate::actor::domain::ConversationId(id.parse()?),
+                created_at_ms: created_at_ms.try_into()?,
+                updated_at_ms: updated_at_ms.try_into()?,
+            })
+        })
+        .collect()
+    }
+    pub fn actor_page(
+        &self,
+        id: crate::actor::domain::ConversationId,
+        after: u64,
+        limit: usize,
+    ) -> Result<crate::actor::domain::ConversationPage> {
+        use crate::actor::domain::*;
+        use rusqlite::OptionalExtension;
+        let meta = self
+            .connection
+            .query_row(
+                "SELECT created_at_ms, updated_at_ms FROM lain_conversations WHERE id = ?1",
+                [id.to_string()],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+            )
+            .optional()?
+            .ok_or(crate::backend::ControlError::NotFound)?;
+        let mut query=self.connection.prepare("SELECT snapshot FROM lain_actor_turns WHERE conversation_id = ?1 AND sequence > ?2 ORDER BY sequence LIMIT ?3")?;
+        let rows = query.query_map(
+            rusqlite::params![
+                id.to_string(),
+                i64::try_from(after)?,
+                i64::try_from(limit + 1)?
+            ],
+            |r| r.get::<_, String>(0),
+        )?;
+        let mut turns: Vec<ActorTurn> = rows.map(|r| decode_actor(&r?)).collect::<Result<_>>()?;
+        let has_more = turns.len() > limit;
+        turns.truncate(limit);
+        let next_cursor = turns.last().map(|t| t.sequence).unwrap_or(after);
+        Ok(ConversationPage {
+            conversation: Conversation {
+                id,
+                created_at_ms: meta.0.try_into()?,
+                updated_at_ms: meta.1.try_into()?,
+            },
+            turns,
+            next_cursor,
+            has_more,
+        })
+    }
+    pub fn actor_recent(
+        &self,
+        id: crate::actor::domain::ConversationId,
+    ) -> Result<Vec<crate::actor::domain::ActorTurn>> {
+        let mut query=self.connection.prepare("SELECT snapshot FROM lain_actor_turns WHERE conversation_id = ?1 ORDER BY sequence DESC LIMIT 20")?;
+        let rows = query.query_map([id.to_string()], |r| r.get::<_, String>(0))?;
+        let mut turns: Vec<_> = rows.map(|r| decode_actor(&r?)).collect::<Result<_>>()?;
+        turns.reverse();
+        Ok(turns)
+    }
+    pub fn actor_turn(
+        &self,
+        id: crate::actor::domain::ActorTurnId,
+    ) -> Result<crate::actor::domain::ActorTurn> {
+        use rusqlite::OptionalExtension;
+        let value = self
+            .connection
+            .query_row(
+                "SELECT snapshot FROM lain_actor_turns WHERE id = ?1",
+                [id.to_string()],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or(crate::backend::ControlError::NotFound)?;
+        decode_actor(&value)
+    }
+    pub fn actor_duplicate(
+        &self,
+        id: crate::actor::domain::ConversationId,
+        request: uuid::Uuid,
+    ) -> Result<Option<crate::actor::domain::ActorTurn>> {
+        use rusqlite::OptionalExtension;
+        let value=self.connection.query_row("SELECT snapshot FROM lain_actor_turns WHERE conversation_id = ?1 AND request_id = ?2", (id.to_string(),request.to_string()), |r| r.get::<_,String>(0)).optional()?;
+        value.map(|v| decode_actor(&v)).transpose()
+    }
+    pub fn save_actor_turn(
+        &mut self,
+        turn: &mut crate::actor::domain::ActorTurn,
+        create: bool,
+    ) -> Result<()> {
+        turn.revision = turn
+            .revision
+            .checked_add(1)
+            .context("Actor revision exhausted")?;
+        let tx = self.connection.transaction()?;
+        if create {
+            tx.execute("INSERT INTO lain_actor_turns(id, conversation_id, request_id, snapshot) VALUES (?1, ?2, ?3, '{}')", (turn.id.to_string(),turn.conversation_id.to_string(),turn.request_id.to_string()))?;
+            turn.sequence = tx.last_insert_rowid().try_into()?;
+        }
+        ensure!(
+            tx.execute(
+                "UPDATE lain_actor_turns SET snapshot = ?2 WHERE id = ?1",
+                (turn.id.to_string(), serde_json::to_string(turn)?)
+            )? == 1,
+            "Actor turn not found"
+        );
+        tx.execute(
+            "UPDATE lain_conversations SET updated_at_ms = max(updated_at_ms, ?2) WHERE id = ?1",
+            (turn.conversation_id.to_string(), i64::try_from(now_ms()?)?),
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn recover_actor(&mut self) -> Result<()> {
+        use crate::actor::domain::*;
+        let tx = self.connection.transaction()?;
+        let mut query = tx.prepare("SELECT id, conversation_id, snapshot FROM lain_actor_turns")?;
+        let rows = query.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+            ))
+        })?;
+        let mut turns = Vec::new();
+        for row in rows {
+            let (id, conversation, value) = row?;
+            let mut turn = decode_actor(&value)?;
+            ensure!(
+                turn.id.to_string() == id && turn.conversation_id.to_string() == conversation,
+                "Actor record identity mismatch"
+            );
+            if turn.state == TurnState::Running {
+                turn.revision += 1;
+                turn.state = TurnState::Unknown;
+                turn.error = Some(
+                    "Kernel restarted during inference or execution; no action was replayed".into(),
+                );
+                for action in &mut turn.actions {
+                    if action.state == ActionState::Executing {
+                        action.state = ActionState::Unknown;
+                    }
+                }
+                for message in &mut turn.messages {
+                    if message.status == TurnState::Running {
+                        message.status = TurnState::Unknown;
+                    }
+                }
+                turns.push(turn);
+            }
+        }
+        drop(query);
+        for turn in turns {
+            tx.execute(
+                "UPDATE lain_actor_turns SET snapshot = ?2 WHERE id = ?1",
+                (turn.id.to_string(), serde_json::to_string(&turn)?),
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn storage_healthy(&self) -> Result<bool> {
+        Ok(self
+            .connection
+            .query_row("PRAGMA quick_check(1)", [], |r| r.get::<_, String>(0))?
+            == "ok")
+    }
+}
+fn decode_actor(value: &str) -> Result<crate::actor::domain::ActorTurn> {
+    serde_json::from_str(value).map_err(|_| anyhow::anyhow!("invalid persisted Actor record"))
 }

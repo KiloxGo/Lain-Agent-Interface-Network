@@ -29,6 +29,7 @@ use crate::{
 struct ApiState {
     kernel: Arc<Kernel>,
     workers: Option<Arc<Supervisor>>,
+    actor: Arc<crate::actor::Actor>,
 }
 
 impl FromRef<ApiState> for Arc<Kernel> {
@@ -55,12 +56,30 @@ pub fn controlled_router(
     token: ApiToken,
     workers: Option<Arc<Supervisor>>,
 ) -> Router {
+    let actor = crate::actor::Actor::from_environment(kernel.clone(), workers.clone(), &token);
+    actor_router(kernel, token, workers, actor)
+}
+
+pub fn actor_router(
+    kernel: Arc<Kernel>,
+    token: ApiToken,
+    workers: Option<Arc<Supervisor>>,
+    actor: Arc<crate::actor::Actor>,
+) -> Router {
     Router::new()
         .route(
             "/health",
-            get(|| async { Json(serde_json::json!({"status": "ok"})) }),
+            get(|| async { Json(serde_json::json!({"status": "ok", "service":"lain-kernel", "version":env!("CARGO_PKG_VERSION")})) }),
         )
         .route("/ready", get(readiness))
+        .route("/v1/diagnostics", get(diagnostics))
+        .route("/v1/conversations", get(conversations).post(new_conversation))
+        .route("/v1/conversations/{id}", get(conversation))
+        .route("/v1/conversations/{id}/turns", post(actor_submit))
+        .route("/v1/actor-turns/{id}", get(actor_turn))
+        .route("/v1/actor-turns/{id}/events", get(actor_events))
+        .route("/v1/actor-turns/{id}/cancel", post(actor_cancel))
+        .route("/v1/actor-turns/{id}/actions/{action}/decision", post(actor_decide))
         .route("/v1/work-sessions", get(list_sessions).post(create_session))
         .route("/v1/work-sessions/{id}", get(inspect_session))
         .route("/v1/work-sessions/{id}/turns", get(turns).post(prompt))
@@ -94,7 +113,7 @@ pub fn controlled_router(
                 .post(|| async { ApiError(StatusCode::NOT_FOUND, "not_found") }),
         )
         .fallback(|| async { ApiError(StatusCode::NOT_FOUND, "not_found") })
-        .with_state(ApiState { kernel, workers })
+        .with_state(ApiState { kernel, workers, actor })
         .layer(DefaultBodyLimit::max(64 * 1024))
         .layer(middleware::from_fn_with_state(token, authenticate))
 }
@@ -602,4 +621,182 @@ pub async fn serve_router(
     };
     kernel.shutdown()?;
     result
+}
+
+async fn diagnostics(State(state): State<ApiState>) -> Result<Json<serde_json::Value>, ApiError> {
+    let kernel_state = blocking(&state.kernel, Kernel::state)
+        .await
+        .map_err(internal_error)?;
+    let storage = blocking(&state.kernel, Kernel::storage_healthy)
+        .await
+        .map_err(internal_error)?;
+    let profiles = if let Some(workers) = &state.workers {
+        workers.profiles().await.map_err(internal_error)?
+    } else {
+        Vec::new()
+    };
+    Ok(Json(
+        serde_json::json!({"kernel":kernel_state,"storage":if storage {"healthy"} else {"unhealthy"},"backends":state.workers.as_ref().map(|w|vec![w.info()]).unwrap_or_default(),"profiles":profiles,"actor":state.actor.diagnostics(),"model_calls":0}),
+    ))
+}
+async fn conversations(
+    State(kernel): State<Arc<Kernel>>,
+) -> Result<Json<Vec<crate::actor::domain::Conversation>>, ApiError> {
+    blocking(&kernel, Kernel::conversations)
+        .await
+        .map(Json)
+        .map_err(internal_error)
+}
+async fn new_conversation(
+    State(kernel): State<Arc<Kernel>>,
+) -> Result<(StatusCode, Json<crate::actor::domain::Conversation>), ApiError> {
+    Ok((
+        StatusCode::CREATED,
+        Json(
+            blocking(&kernel, Kernel::create_conversation)
+                .await
+                .map_err(control_error)?,
+        ),
+    ))
+}
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct ConversationQuery {
+    after: Option<u64>,
+    limit: Option<usize>,
+    recent: Option<bool>,
+}
+async fn conversation(
+    State(kernel): State<Arc<Kernel>>,
+    Path(id): Path<crate::actor::domain::ConversationId>,
+    Query(query): Query<ConversationQuery>,
+) -> Result<Json<crate::actor::domain::ConversationPage>, ApiError> {
+    blocking(&kernel, move |k| {
+        if query.recent == Some(true) {
+            if query.after.is_some() || query.limit.is_some() {
+                return Err(ControlError::InvalidInput.into());
+            }
+            let mut page = k.actor_page(id, 0, 1)?;
+            page.turns = k.actor_recent(id)?;
+            page.next_cursor = page.turns.last().map(|t| t.sequence).unwrap_or(0);
+            page.has_more = false;
+            Ok(page)
+        } else {
+            k.actor_page(id, query.after.unwrap_or(0), query.limit.unwrap_or(20))
+        }
+    })
+    .await
+    .map(Json)
+    .map_err(control_error)
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ActorInput {
+    request_id: uuid::Uuid,
+    text: String,
+}
+async fn actor_submit(
+    State(state): State<ApiState>,
+    Path(id): Path<crate::actor::domain::ConversationId>,
+    Json(input): Json<ActorInput>,
+) -> Result<(StatusCode, Json<crate::actor::domain::ActorTurn>), ApiError> {
+    state
+        .actor
+        .submit(id, input.request_id, input.text)
+        .await
+        .map(|turn| (StatusCode::ACCEPTED, Json(turn)))
+        .map_err(control_error)
+}
+async fn actor_turn(
+    State(kernel): State<Arc<Kernel>>,
+    Path(id): Path<crate::actor::domain::ActorTurnId>,
+) -> Result<Json<crate::actor::domain::ActorTurn>, ApiError> {
+    blocking(&kernel, move |k| k.actor_turn(id))
+        .await
+        .map(Json)
+        .map_err(control_error)
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ActorDecision {
+    approve: bool,
+}
+async fn actor_decide(
+    State(state): State<ApiState>,
+    Path((id, action)): Path<(
+        crate::actor::domain::ActorTurnId,
+        crate::actor::domain::ActionId,
+    )>,
+    Json(input): Json<ActorDecision>,
+) -> Result<Json<crate::actor::domain::ActorTurn>, ApiError> {
+    state
+        .actor
+        .decide(id, action, input.approve)
+        .await
+        .map(Json)
+        .map_err(control_error)
+}
+async fn actor_cancel(
+    State(state): State<ApiState>,
+    Path(id): Path<crate::actor::domain::ActorTurnId>,
+) -> Result<Json<crate::actor::domain::ActorTurn>, ApiError> {
+    state
+        .actor
+        .cancel(id)
+        .await
+        .map(Json)
+        .map_err(control_error)
+}
+async fn actor_events(
+    State(state): State<ApiState>,
+    Path(id): Path<crate::actor::domain::ActorTurnId>,
+) -> Result<impl IntoResponse, ApiError> {
+    // Subscribe before reading a snapshot; revisions discard overlapping earlier events.
+    let mut events = state.actor.subscribe();
+    let initial = blocking(&state.kernel, move |k| k.actor_turn(id))
+        .await
+        .map_err(control_error)?;
+    let mut shutdown = state.kernel.subscribe_shutdown();
+    let (sender, receiver) = tokio::sync::mpsc::channel::<Result<SseEvent, Infallible>>(16);
+    tokio::spawn(async move {
+        let mut revision = initial.revision;
+        let finished = initial.state != crate::actor::domain::TurnState::Running;
+        if sender
+            .send(Ok(SseEvent::default()
+                .event("turn")
+                .json_data(initial)
+                .unwrap()))
+            .await
+            .is_err()
+            || finished
+        {
+            return;
+        }
+        loop {
+            let turn = tokio::select! {
+                _=shutdown.changed()=>break,
+                _=sender.closed()=>break,
+                value=events.recv()=>match value {
+                    Ok(turn) if turn.id==id && turn.revision>revision=>turn,
+                    Ok(_)=>continue,
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>{
+                        let _=sender.send(Ok(SseEvent::default().event("resync_required").data("reconnect to the same turn"))).await;
+                        break;
+                    },
+                    Err(_)=>break,
+                }
+            };
+            revision = turn.revision;
+            let finished = turn.state != crate::actor::domain::TurnState::Running;
+            let event = SseEvent::default().event("turn").json_data(turn).unwrap();
+            tokio::select! {_=shutdown.changed()=>break,_=sender.closed()=>break,result=sender.send(Ok(event))=>if result.is_err(){break;}}
+            if finished {
+                break;
+            }
+        }
+    });
+    Ok(
+        Sse::new(tokio_stream::wrappers::ReceiverStream::new(receiver))
+            .keep_alive(KeepAlive::default()),
+    )
 }

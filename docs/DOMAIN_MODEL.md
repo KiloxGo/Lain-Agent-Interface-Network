@@ -573,3 +573,21 @@ Unavailable covers runtime transport loss; Protocol and Unsupported remain
 distinct. Session-not-found/not-resumable are reserved for reliable evidence, not
 guessed from a generic HTTP 404 or missing connection. ErrorObserved is an
 observation and never changes a turn to Failed; terminal turn evidence is required.
+
+## Phase 6 concrete conversations and actions
+
+`ConversationId`, `ActorTurnId`, `MessageId`, `ActionId` are distinct Lain-owned
+UUID newtypes. Conversation has creation/update timestamps. Indexed ActorTurn
+stores a unique conversation/request-id pair, sequence/revision, state, messages,
+actions/results, error and model-request/token counters. Message carries ID,
+conversation, role/content/timestamp/status. These records are independent of
+WorkSession and provider-native threads and are not semantic Memory.
+
+Actor states are Running, PendingConfirmation, Completed, Failed, Cancelled,
+Unknown. Action states are Proposed, Executing, Executed, Rejected, Failed,
+Unknown. Same request ID/text returns the existing turn; changed text conflicts.
+Owner confirmation is an explicit state transition, never inferred from model
+prose. Executed means the typed service accepted the operation, not that worker
+execution completed. Created WorkSession IDs survive partial delegation failure.
+Restart marks unfinished execution Unknown and never replays a mutation. Pending
+proposals survive for explicit owner review. See [LAIN_ACTOR.md](LAIN_ACTOR.md).

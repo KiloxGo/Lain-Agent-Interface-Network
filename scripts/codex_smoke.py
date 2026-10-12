@@ -63,8 +63,10 @@ class Stream:
                 self.connection.sock.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
-        self.connection.close()
+        # Shutdown wakes the reader. Let it finish before closing the response
+        # underneath http.client's chunk parser (which races on Python 3.14).
         self.thread.join(timeout=2)
+        self.connection.close()
 
 
 class Daemon:

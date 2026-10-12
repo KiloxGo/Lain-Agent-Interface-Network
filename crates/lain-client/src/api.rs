@@ -312,6 +312,39 @@ impl SseDecoder {
     }
 }
 
+impl Client {
+    pub async fn actor_observe(&self, id: Uuid, tx: &mpsc::Sender<Value>) -> Result<()> {
+        let response = self
+            .response(
+                Method::GET,
+                &format!("v1/actor-turns/{id}/events"),
+                None,
+                true,
+            )
+            .await?;
+        let mut stream = response.bytes_stream();
+        let mut decoder = SseDecoder::default();
+        while let Some(chunk) = stream.next().await {
+            for (name, data) in decoder.push(&chunk.map_err(|e| e.without_url())?)? {
+                if name == "resync_required" {
+                    bail!("Actor stream requires a fresh snapshot");
+                }
+                if name != "turn" {
+                    continue;
+                }
+                let value: Value = serde_json::from_str(&data)
+                    .map_err(|_| anyhow::anyhow!("invalid Actor snapshot"))?;
+                let finished = value["state"] != "running";
+                tx.send(value).await.context("Actor observer closed")?;
+                if finished {
+                    return Ok(());
+                }
+            }
+        }
+        bail!("Actor stream disconnected; reconnect using the same turn ID")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -515,3 +515,24 @@ workers. A newly forbidden profile's history remains readable; accepted work is
 not retroactively terminated, and cancellation/approval cleanup remains available.
 There is no policy language, automatic routing or workspace-setting overlay.
 See [the APIs and commands](DEVELOPMENT.md#14-profile-and-workspace-owner-api).
+
+## Phase 6 local client and independent Actor configuration
+
+Local `lain setup --local` creates private per-user `client.json` and a separate
+OS-random `kernel-token`, outside Git. Repeated setup reuses validated credentials.
+Windows uses current-owner ACLs; macOS/Linux use owner-owned 0700 directories and
+0600 ordinary credential files. `LAIN_LOCAL_DIR` is an explicit absolute override.
+`LAIN_API_TOKEN` and explicit remote `LAIN_URL` remain supported; local credentials
+are never silently forwarded to a different URL. `lain up` starts the existing
+laind beside the CLI (or `LAIN_DAEMON_PATH`) with its saved absolute database and
+loopback listener. It refuses remote/listener/database environment overrides;
+manual daemon deployment can still use the existing environment-only workflow.
+
+`LAIN_ACTOR_CONFIG` selects non-secret JSON containing openai-responses driver,
+explicit model/endpoint/SecretRef, optional reasoning, timeout/output/token bounds.
+`LAIN_PERSONA_PATH` optionally overrides the compiled versioned persona at startup.
+Actor model configuration is not a Codex RuntimeProfile, and Codex login never
+implicitly supplies direct model credentials. Namespaced LAIN_SECRET values stay
+in the existing runtime Secret Store, with restart-based rotation. No paid calls
+from diagnostics. See [CLI.md](CLI.md) for paths/permissions/overrides and
+[LAIN_ACTOR.md](LAIN_ACTOR.md) for the exact model schema and limits.

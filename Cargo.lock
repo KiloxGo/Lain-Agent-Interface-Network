@@ -1023,14 +1023,18 @@ dependencies = [
  "clap",
  "crossterm",
  "futures-util",
+ "getrandom 0.4.3",
+ "libc",
  "ratatui",
  "reqwest",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tokio-stream",
  "unicode-width",
  "uuid",
+ "zeroize",
 ]
 
 [[package]]
@@ -1041,6 +1045,7 @@ dependencies = [
  "axum",
  "libc",
  "regex",
+ "reqwest",
  "rusqlite",
  "serde",
  "serde_json",

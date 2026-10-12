@@ -380,7 +380,7 @@ fn migration_and_corrupt_recovery_fail_closed() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        4
+        5
     );
     db.execute(
         "INSERT INTO work_sessions VALUES (?1, ?2)",
@@ -471,7 +471,7 @@ fn phase_one_migration_and_worker_recovery_are_atomic() {
     let db = rusqlite::Connection::open(&path).unwrap();
     // Reconstruct the exact schema of an existing Phase 1 database.
     db.execute_batch(
-        "DROP TABLE operational_history; DROP TABLE worker_state; DROP TABLE runtime_profiles; DROP TABLE workspace_profile_policies; PRAGMA user_version = 1;",
+        "DROP TABLE lain_actor_turns; DROP TABLE lain_conversations; DROP TABLE operational_history; DROP TABLE worker_state; DROP TABLE runtime_profiles; DROP TABLE workspace_profile_policies; PRAGMA user_version = 1;",
     )
     .unwrap();
     let migrated = Kernel::open(&path).unwrap();
@@ -501,7 +501,7 @@ fn phase_one_migration_and_worker_recovery_are_atomic() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        4
+        5
     );
 }
 

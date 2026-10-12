@@ -2,7 +2,7 @@
 
 > A persistent personal resident agent and control plane for long-running AI workers.
 
-**Status:** Phase 5 runtime profiles and SecretRefs, Web control plane and terminal CLI/TUI.
+**Status:** Phase 6 CLI-first Actor implementation; native Windows and real-provider acceptance pending. Web is retained and frozen.
 
 Lain is designed to live continuously on a personal server. You can talk to her directly, but she is also able to create, supervise, configure, observe, steer, and summarize long-running worker-agent sessions such as Codex, Claude Code, and DeepSeek Harness.
 
@@ -166,52 +166,38 @@ detachable runtimes, turns, approvals and indexed operational history. Idle work
 release their process; follow-ups resume the same session lazily. Worker execution
 remains owned by Codex.
 
-Quick start (PowerShell):
+Windows PowerShell and macOS zsh use the same Rust codebase and commands:
 
-```powershell
-$env:LAIN_API_TOKEN = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToString('N')
-cargo run --bin laind
+```text
+cargo build --locked --workspace
+cargo install --locked --path crates/lain-kernel --bin laind --force
+cargo install --locked --path crates/lain-client --bin lain --force
+lain setup --local
+lain up
 ```
 
-The default listener is `127.0.0.1:8787`; the default database is
-`data/lain.sqlite3` relative to the working directory. All API endpoints require
-`Authorization: Bearer <LAIN_API_TOKEN>`. Stop with Ctrl-C.
+In another terminal: `lain doctor`, `lain status`, `lain chat`. Setup keeps the
+local token in an owner-only per-user file; no token copying between terminals.
+`up` launches the existing Kernel in the foreground; Ctrl-C gracefully stops it.
+No npm, browser or Vite is required. See [CLI.md](docs/CLI.md) for PowerShell/zsh
+binary paths, native credential permissions, PATH conflict diagnostics, remote
+mode, existing work/profile/approval commands and platform acceptance entrypoints.
 
-In a second shell with the same token, run `cargo run --bin lain` for the session
-list TUI, or `cargo run --bin lain -- work list --json` for automation. Set
-`LAIN_URL` when using another Kernel URL. `lain work attach <uuid>` observes the
-logical session; it does not start an idle worker. See the
-[terminal guide](docs/DEVELOPMENT.md#12-terminal-client) for commands and keys.
+Chat requires its own explicit model configuration and namespaced SecretRef;
+Codex login is separate. [LAIN_ACTOR.md](docs/LAIN_ACTOR.md) documents setup,
+persona, persistent conversations, typed tools, owner confirmation and recovery.
+`lain --json ask` supports scripting; mutations remain pending until explicitly
+approved. Existing workers run independently of chat/observers. Conversations are
+operational continuity, not semantic memory. Phase 7 has not begun.
 
-The React/TypeScript Web client uses those same APIs. For local development, run
-`npm ci` and `npm run dev` inside `web`, then enter the daemon token in the browser.
-For built same-origin serving:
+The React/TypeScript Web client remains available through the existing optional
+`LAIN_WEB_DIR` workflow, documented in [WEB.md](docs/WEB.md). Web development is
+paused; Phase 6 has no browser chat or redesign. Public Internet/TLS/session-cookie
+authentication remains unimplemented; remote clients need trusted transport.
 
-```powershell
-cd web
-npm ci
-npm run build
-cd ..
-$env:LAIN_WEB_DIR = Join-Path $PWD 'web/dist'
-cargo run --locked --bin laind
-```
+Native macOS deterministic build/test/CLI smoke is validated. Windows and Linux
+checks must run on their native hosts before acceptance is claimed. Real paid
+Actor/Codex inference acceptance is opt-in and unverified. Exact evidence and
+limitations are in [DEVLOG.md](DEVLOG.md).
 
-Open `http://127.0.0.1:8787`. Static assets are public; API authentication stays
-enabled. Credentials remain only in page memory and must be re-entered after a
-refresh. Browser closure never cancels work. Desktop/mobile views support session
-creation, history, live observation, follow-up, cancellation and offered approvals.
-See [the Web guide](docs/WEB.md) for reconstruction, tests and deployment limits.
-The daemon still binds loopback: remote use requires trusted transport such as an
-SSH tunnel. Public Internet/session-cookie authentication is not implemented.
-Named profiles now select model/provider/endpoint, sandbox and authentication per
-session. `lain profile list`, `lain profile show <id>` and
-`lain work start --workspace <server-path> --profile <id>` use the Kernel registry;
-Web New Work offers the same profiles. Existing `codex/local` work remains usable.
-Profile edits affect new sessions; old sessions retain their resolved revision.
-See [profiles and SecretRefs](docs/CONFIGURATION.md#25-implemented-phase-5-profiles)
-for owner APIs, environment-backed credentials and workspace policy. Phase 6 has
-not started.
-
-See [the development guide](docs/DEVELOPMENT.md#7-workspace-and-local-operation)
-for Linux commands, API examples, checks, storage ownership, and limitations.
-Before implementing new architecture, read `AGENTS.md` and `ROADMAP.md`.
+Before architectural work, read `AGENTS.md` and `ROADMAP.md`.

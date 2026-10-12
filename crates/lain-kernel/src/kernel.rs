@@ -65,6 +65,9 @@ impl Kernel {
         tracing::info!(state = ?KernelState::Booting, "opening operational storage");
         let mut store = Store::open(path)?;
         store.profiles().context("load Profile Registry")?;
+        store
+            .recover_actor()
+            .context("recover Lain conversations")?;
         tracing::info!(state = ?KernelState::Recovering, "recovering sessions");
         let (sessions, workers) = store.recover().context("recover Kernel state")?;
         tracing::info!(sessions = sessions.len(), "session recovery committed");
@@ -561,5 +564,103 @@ impl Kernel {
         for event in events {
             let _ = self.events.send(event);
         }
+    }
+}
+
+impl Kernel {
+    pub fn create_conversation(&self) -> Result<crate::actor::domain::Conversation> {
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        inner.store.create_conversation()
+    }
+    pub fn conversations(&self) -> Result<Vec<crate::actor::domain::Conversation>> {
+        self.lock()?.store.conversations()
+    }
+    pub fn actor_page(
+        &self,
+        id: crate::actor::domain::ConversationId,
+        after: u64,
+        limit: usize,
+    ) -> Result<crate::actor::domain::ConversationPage> {
+        ensure!(
+            after <= i64::MAX as u64 && (1..=100).contains(&limit),
+            crate::backend::ControlError::InvalidInput
+        );
+        self.lock()?.store.actor_page(id, after, limit)
+    }
+    pub fn actor_recent(
+        &self,
+        id: crate::actor::domain::ConversationId,
+    ) -> Result<Vec<crate::actor::domain::ActorTurn>> {
+        self.lock()?.store.actor_recent(id)
+    }
+    pub fn actor_turn(
+        &self,
+        id: crate::actor::domain::ActorTurnId,
+    ) -> Result<crate::actor::domain::ActorTurn> {
+        self.lock()?.store.actor_turn(id)
+    }
+    pub fn actor_submit(
+        &self,
+        conversation: crate::actor::domain::ConversationId,
+        request: uuid::Uuid,
+        text: String,
+    ) -> Result<(crate::actor::domain::ActorTurn, bool)> {
+        use crate::actor::domain::*;
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        if let Some(turn) = inner.store.actor_duplicate(conversation, request)? {
+            ensure!(
+                turn.messages.first().is_some_and(|m| m.content == text),
+                crate::backend::ControlError::Conflict
+            );
+            return Ok((turn, false));
+        }
+        inner.store.actor_page(conversation, 0, 1)?;
+        ensure!(
+            !inner
+                .store
+                .actor_recent(conversation)?
+                .iter()
+                .any(|t| t.state.active()),
+            crate::backend::ControlError::Conflict
+        );
+        let mut turn = ActorTurn {
+            id: ActorTurnId::new(),
+            conversation_id: conversation,
+            request_id: request,
+            sequence: 0,
+            revision: 0,
+            state: TurnState::Running,
+            messages: Vec::new(),
+            actions: Vec::new(),
+            error: None,
+            model_requests: 0,
+            usage_tokens: 0,
+        };
+        turn.message("user", text)?;
+        turn.messages[0].status = TurnState::Completed;
+        inner.store.save_actor_turn(&mut turn, true)?;
+        Ok((turn, true))
+    }
+    pub(crate) fn actor_update(
+        &self,
+        id: crate::actor::domain::ActorTurnId,
+        change: impl FnOnce(&mut crate::actor::domain::ActorTurn) -> Result<()>,
+    ) -> Result<crate::actor::domain::ActorTurn> {
+        let mut inner = self.lock()?;
+        let mut turn = inner.store.actor_turn(id)?;
+        change(&mut turn)?;
+        inner.store.save_actor_turn(&mut turn, false)?;
+        Ok(turn)
+    }
+    pub fn storage_healthy(&self) -> Result<bool> {
+        self.lock()?.store.storage_healthy()
     }
 }

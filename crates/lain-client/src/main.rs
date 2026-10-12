@@ -1,4 +1,6 @@
 mod api;
+mod chat;
+mod local;
 mod tui;
 
 use anyhow::{Result, ensure};
@@ -18,6 +20,33 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    Setup {
+        #[arg(long, required = true)]
+        local: bool,
+    },
+    Up,
+    Doctor,
+    Chat {
+        #[arg(long)]
+        conversation: Option<Uuid>,
+    },
+    Ask {
+        text: String,
+        #[arg(long)]
+        conversation: Option<Uuid>,
+        #[arg(long)]
+        request_id: Option<Uuid>,
+    },
+    Conversations,
+    Conversation {
+        conversation: Uuid,
+        #[arg(long, default_value_t = 0)]
+        after: u64,
+    },
+    Actor {
+        #[command(subcommand)]
+        command: ActorCommands,
+    },
     Status,
     Profile {
         #[command(subcommand)]
@@ -31,6 +60,13 @@ enum Command {
         #[command(subcommand)]
         command: Approvals,
     },
+}
+#[derive(Subcommand)]
+enum ActorCommands {
+    Show { turn: Uuid },
+    Cancel { turn: Uuid },
+    Approve { turn: Uuid, action: Uuid },
+    Deny { turn: Uuid, action: Uuid },
 }
 #[derive(Subcommand)]
 enum Work {
@@ -49,6 +85,9 @@ enum Work {
         session: Uuid,
     },
     Attach {
+        session: Uuid,
+    },
+    Watch {
         session: Uuid,
     },
     Send {
@@ -104,9 +143,14 @@ fn profile_id(value: &str) -> Result<&str> {
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    let machine = args.json;
     let result = run(args).await;
     if let Err(error) = result {
-        eprintln!("lain: {}", tui::safe_text(&error.to_string()));
+        if machine {
+            eprintln!("{}", serde_json::json!({"error":error.to_string()}));
+        } else {
+            eprintln!("lain: {}", tui::safe_text(&error.to_string()));
+        }
         std::process::exit(1);
     }
 }
@@ -125,18 +169,83 @@ fn emit(value: &impl serde::Serialize, machine: bool) -> Result<()> {
     Ok(())
 }
 async fn run(args: Args) -> Result<()> {
-    let token = std::env::var("LAIN_API_TOKEN")
-        .map_err(|_| anyhow::anyhow!("set LAIN_API_TOKEN to the Kernel authentication token"))?;
-    let client = Client::new(
-        &std::env::var("LAIN_URL").unwrap_or_else(|_| "http://127.0.0.1:8787".into()),
-        &token,
-    )?;
+    match &args.command {
+        Some(Command::Setup { local: true }) => {
+            return emit(
+                &local::setup_at(&local::directory()?, "http://127.0.0.1:8787")?,
+                args.json,
+            );
+        }
+        Some(Command::Up) => return local::up(args.json).await,
+        Some(Command::Doctor) => return local::doctor(args.json).await,
+        _ => {}
+    }
+    let connection = local::connection()?;
+    let client = Client::new(&connection.url, &connection.token)?;
     let Some(command) = args.command else {
         ensure!(!args.json, "--json requires a non-interactive command");
         return tui::run(client, None).await;
     };
     let json_output = args.json;
     match command {
+        Command::Setup { .. } | Command::Up | Command::Doctor => {
+            unreachable!("handled before client configuration")
+        }
+        Command::Chat { conversation } => {
+            ensure!(!json_output, "chat is interactive; use --json ask");
+            chat::run(client, conversation).await
+        }
+        Command::Ask {
+            text,
+            conversation,
+            request_id,
+        } => chat::ask(&client, text, conversation, request_id, json_output).await,
+        Command::Conversations => {
+            emit(&client.get::<Value>("v1/conversations").await?, json_output)
+        }
+        Command::Conversation {
+            conversation,
+            after,
+        } => emit(
+            &client
+                .get::<Value>(&format!(
+                    "v1/conversations/{conversation}?after={after}&limit=100"
+                ))
+                .await?,
+            json_output,
+        ),
+        Command::Actor { command } => match command {
+            ActorCommands::Show { turn } => emit(
+                &client
+                    .get::<Value>(&format!("v1/actor-turns/{turn}"))
+                    .await?,
+                json_output,
+            ),
+            ActorCommands::Cancel { turn } => emit(
+                &client
+                    .post::<Value>(&format!("v1/actor-turns/{turn}/cancel"), None)
+                    .await?,
+                json_output,
+            ),
+            ActorCommands::Approve { turn, action } | ActorCommands::Deny { turn, action } => {
+                let approve = matches!(command, ActorCommands::Approve { .. });
+                let initial = client
+                    .post::<Value>(
+                        &format!("v1/actor-turns/{turn}/actions/{action}/decision"),
+                        Some(json!({"approve":approve})),
+                    )
+                    .await?;
+                let result = chat::wait(&client, initial, !json_output).await?;
+                if json_output {
+                    emit(&result, true)?;
+                }
+                ensure!(
+                    result["state"] == "completed",
+                    "Actor action outcome is uncertain; inspect its recorded partial result"
+                );
+                Ok(())
+            }
+        },
         Command::Profile { command } => match command {
             Profiles::List => emit(
                 &client.get::<Value>("v1/runtime-profiles").await?,
@@ -215,6 +324,7 @@ async fn run(args: Args) -> Result<()> {
                     .await?,
                 json_output,
             ),
+            Work::Watch { session } => chat::work_watch(client, session, json_output).await,
             Work::Attach { session } => {
                 ensure!(
                     !json_output,

@@ -314,3 +314,13 @@ Before adding a major feature, ask:
 6. Would it still make sense if Codex were replaced tomorrow?
 
 If the answer to the last question is "no", the feature probably belongs in a backend adapter rather than the core.
+
+## Phase 6 implemented priority
+
+The current primary experience is CLI-first: setup/up/doctor/chat/ask and explicit
+work control. Web is retained as a frozen compatible client. Lain's direct
+conversation is independent of worker sessions and models, with typed reads and
+owner-confirmed delegation. Durable conversation is operational continuity;
+semantic memory, World and background cognition remain Phase 7+ targets.
+Windows PowerShell and macOS zsh are equal development platforms; native evidence
+is tracked separately. See [CLI.md](CLI.md) and [LAIN_ACTOR.md](LAIN_ACTOR.md).

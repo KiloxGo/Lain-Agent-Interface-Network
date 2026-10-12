@@ -34,6 +34,9 @@ pub struct BackendInfo {
     pub backend: &'static str,
     pub version: Option<String>,
     pub available: bool,
+    pub status: &'static str,
+    pub executable: Option<PathBuf>,
+    pub supported_version: &'static str,
     pub capabilities: Vec<&'static str>,
 }
 
@@ -73,24 +76,25 @@ impl Supervisor {
         api_token: crate::config::ApiToken,
         idle_timeout: Duration,
     ) -> Arc<Self> {
-        let probe = async {
-            let path = codex::discover(executable)?;
-            let version = codex::probe(&path).await?;
-            Ok::<_, anyhow::Error>((path, version))
-        }
-        .await;
-        let (executable, version) = match probe {
-            Ok((path, version)) => (Some(path), Some(version)),
-            Err(error) => {
-                tracing::warn!(error=%error,"Codex unavailable; query API remains available");
-                (None, None)
-            }
+        let (executable, version, status) = match codex::discover(executable) {
+            Err(_) => (None, None, "unavailable"),
+            Ok(path) => match codex::probe(&path).await {
+                Ok(version) => (Some(path), Some(version), "available"),
+                Err(error) if error.is::<codex::UnsupportedVersion>() => {
+                    (Some(path), None, "unsupported_version")
+                }
+                Err(_) => (Some(path), None, "unavailable"),
+            },
         };
+        let available = status == "available";
         let info = BackendInfo {
             backend: "codex",
-            available: executable.is_some(),
+            available,
+            status,
+            executable: executable.clone(),
+            supported_version: "0.160.0",
             version,
-            capabilities: if executable.is_some() {
+            capabilities: if available {
                 vec![
                     "session_create",
                     "model_selection",
@@ -107,7 +111,7 @@ impl Supervisor {
         };
         Arc::new(Self {
             kernel,
-            executable,
+            executable: executable.filter(|_| available),
             info,
             redactor: Redactor::new(api_token.redaction_values()),
             runtimes: Mutex::new(BTreeMap::new()),

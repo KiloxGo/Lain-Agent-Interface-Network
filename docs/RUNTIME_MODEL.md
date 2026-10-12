@@ -467,3 +467,24 @@ or explicit resume APIs request attachment. Closing/reloading/two browser tabs
 have no worker-lifecycle effect. Refresh drops credentials and requires re-entry;
 the selected public ID can remain in the hash. Optional static asset serving adds
 no resident cognition, backend privileges or second runtime. See [WEB.md](WEB.md).
+
+## Phase 6 bounded on-demand Actor runtime
+
+Only explicit owner conversation submissions invoke the Actor model. Doctor,
+profiles, work observation and daemon startup perform no paid inference. Each
+conversation admits one unfinished turn; its task belongs to Kernel ownership,
+independent of HTTP/SSE observers. Explicit interruption or shutdown can leave
+inference/mutation uncertain; restart reconciles Running/Executing to Unknown
+without retries. Worker lifecycle and cancellation evidence remain independent.
+
+A turn is limited to 4 model requests, 4 typed tool invocations, 2 tool errors,
+120 seconds per active phase (at most 240 seconds per turn, excluding owner wait), configured per-request timeout/output and cumulative reported tokens,
+plus deterministic context/result/frame bounds. Mutation first waits for explicit
+owner confirmation, then calls Supervisor and records partial/accepted receipts.
+Streaming publishes committed complete-record snapshots; no provider token replay
+or mid-generation resumption is claimed. Persona is stable at startup. No scheduler,
+reflection, semantic memory or background autonomy was added.
+
+Foreground local `lain up` launches native laind in the same console/process group
+and waits for graceful native signals/storage shutdown. Windows and macOS native
+acceptance are separate obligations. See [CLI.md](CLI.md) and [LAIN_ACTOR.md](LAIN_ACTOR.md).
