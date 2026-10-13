@@ -762,3 +762,31 @@ display, not the provider's total latency: no timing measurements were supplied.
 The transcript also contains a repeated `You>` prompt; its precise trigger has
 not been reproduced. Incremental display and input prompt handling remain UX
 follow-up work, not completed fixes.
+
+### Actor streaming foundation checkpoint — 2026-10-13
+
+- Added the small shared `lain-wire` crate with typed Actor IDs, states, tool
+  calls, snapshots and ephemeral preview events. Durable Actor records are
+  validated before writes and after reads; legacy complete message bodies with
+  active turn metadata are normalized without changing identity or content.
+- The Responses adapter now parses multiline SSE data and fragmented UTF-8,
+  forwarding assistant text through bounded incremental redaction. Ambiguous
+  credential suffixes are withheld, including Unicode case-fold equivalents of
+  sensitive patterns. Tool argument deltas and reasoning remain private.
+- Actor event streams retain snapshot-first revision semantics and add ordered
+  preview identities/checkpoints. Previews are transient and may be discarded;
+  validated complete responses remain the source of durable messages and tools.
+  Added measured queue/provider/commit timings where available.
+- Pre-commit checks found and fixed a flattened preview DTO deserialization
+  failure, with a regression test covering every preview variant.
+- Native macOS `zsh scripts/check-native.zsh` passed: locked workspace build,
+  formatting, warnings-denied Clippy, 52 deterministic Rust tests and the native
+  CLI/PTY fixture smoke. Three opt-in tests remained ignored. No paid inference
+  was run, and no owner daemon or ignored Actor configuration was changed.
+
+This is a foundation checkpoint, not Phase 6.5 acceptance. The CLI still renders
+committed snapshots; incremental terminal rendering, end-to-end display timing,
+the repeated `You>` reproduction/fix, reusable local Actor configuration and the
+expanded real delegation/restart checks remain pending. Native Windows and Linux
+are unverified. Real provider preview behavior and combined Actor/worker
+acceptance are unverified. Web remains frozen and Phase 7 remains deferred.

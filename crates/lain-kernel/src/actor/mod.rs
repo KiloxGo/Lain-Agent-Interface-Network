@@ -1,6 +1,7 @@
 //! Small bounded Kernel conversation/orchestration runtime. Workers retain intelligence.
 pub mod domain;
 pub mod model;
+pub mod preview;
 pub mod tools;
 use crate::{
     backend::{ControlError, Supervisor},
@@ -12,7 +13,11 @@ use anyhow::{Context, Result, ensure};
 use domain::*;
 use model::{ActorModel, ModelConfig, Request, ResponsesModel};
 use serde_json::{Value, json};
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::sync::{Mutex, broadcast, watch};
 use uuid::Uuid;
 
@@ -31,7 +36,13 @@ pub struct Actor {
     redactor: Redactor,
     max_tokens: u64,
     active: Mutex<BTreeMap<ActorTurnId, (Uuid, watch::Sender<bool>)>>,
-    events: broadcast::Sender<ActorTurn>,
+    events: broadcast::Sender<Observation>,
+    previews: preview::Registry,
+}
+#[derive(Debug, Clone)]
+pub enum Observation {
+    Snapshot(ActorTurn),
+    Preview(lain_wire::PreviewEvent),
 }
 impl Actor {
     pub fn from_environment(
@@ -96,6 +107,7 @@ impl Actor {
             max_tokens,
             active: Mutex::default(),
             events: broadcast::channel(128).0,
+            previews: preview::Registry::default(),
         })
     }
     /// Deterministic model injection; never selects a fake model in production.
@@ -115,13 +127,17 @@ impl Actor {
             max_tokens: 16384,
             active: Mutex::default(),
             events: broadcast::channel(128).0,
+            previews: preview::Registry::default(),
         })
     }
     pub fn diagnostics(&self) -> Value {
         self.diagnostics.clone()
     }
-    pub fn subscribe(&self) -> broadcast::Receiver<ActorTurn> {
+    pub fn subscribe(&self) -> broadcast::Receiver<Observation> {
         self.events.subscribe()
+    }
+    pub fn preview_checkpoint(&self, id: ActorTurnId) -> Option<lain_wire::PreviewEvent> {
+        self.previews.checkpoint(id)
     }
     fn safe_input(&self, text: &str) -> Result<()> {
         ensure!(
@@ -134,6 +150,14 @@ impl Actor {
         &self,
         id: ActorTurnId,
         change: impl FnOnce(&mut ActorTurn) -> Result<()> + Send + 'static,
+    ) -> Result<ActorTurn> {
+        self.update_inner(id, change, true).await
+    }
+    async fn update_inner(
+        &self,
+        id: ActorTurnId,
+        change: impl FnOnce(&mut ActorTurn) -> Result<()> + Send + 'static,
+        publish: bool,
     ) -> Result<ActorTurn> {
         let turn = blocking(&self.kernel, move |k| {
             k.actor_update(id, |turn| {
@@ -149,7 +173,9 @@ impl Actor {
             })
         })
         .await?;
-        let _ = self.events.send(turn.clone());
+        if publish {
+            let _ = self.events.send(Observation::Snapshot(turn.clone()));
+        }
         Ok(turn)
     }
     pub async fn submit(
@@ -170,6 +196,7 @@ impl Actor {
         Ok(turn)
     }
     async fn launch(self: &Arc<Self>, id: ActorTurnId, action: Option<ActionId>) {
+        let queued = Instant::now();
         let (cancel, mut cancelled) = watch::channel(false);
         let generation = Uuid::new_v4();
         self.active.lock().await.insert(id, (generation, cancel));
@@ -180,7 +207,7 @@ impl Actor {
                 if let Some(action) = action {
                     actor.execute(id, action).await
                 } else {
-                    actor.drive(id).await
+                    actor.drive(id, queued).await
                 }
             };
             let result = if *shutdown.borrow() {
@@ -209,10 +236,12 @@ impl Actor {
                 .is_some_and(|(current, _)| *current == generation)
             {
                 active.remove(&id);
+                actor.previews.forget(id);
             }
         });
     }
-    async fn drive(&self, id: ActorTurnId) -> Result<()> {
+    async fn drive(&self, id: ActorTurnId, queued: Instant) -> Result<()> {
+        let queue_ms = preview::elapsed(queued);
         let initial = blocking(&self.kernel, move |k| k.actor_turn(id)).await?;
         let conversation = initial.conversation_id;
         let history = blocking(&self.kernel, move |k| k.actor_recent(conversation)).await?;
@@ -220,7 +249,7 @@ impl Actor {
         let mut tool_errors = 0;
         loop {
             let turn = self
-                .update(id, |turn| {
+                .update(id, move |turn| {
                     ensure!(
                         turn.state == TurnState::Running
                             && turn.model_requests < MAX_REQUESTS
@@ -228,6 +257,7 @@ impl Actor {
                         ControlError::Conflict
                     );
                     turn.model_requests += 1;
+                    turn.timing.queue_ms.get_or_insert(queue_ms);
                     Ok(())
                 })
                 .await?;
@@ -235,15 +265,26 @@ impl Actor {
                 turn.usage_tokens < self.max_tokens,
                 "Actor token budget exhausted"
             );
+            let message_id = MessageId::new();
+            let sink = preview::PreviewSink::new(
+                self.events.clone(),
+                self.redactor.clone(),
+                id,
+                message_id,
+                &self.previews,
+            );
             let reply = self
                 .model
                 .as_ref()
                 .context("Actor not configured")?
-                .respond(Request {
-                    persona: self.persona.clone(),
-                    input: input.clone(),
-                    tools: tools::definitions(),
-                })
+                .respond_stream(
+                    Request {
+                        persona: self.persona.clone(),
+                        input: input.clone(),
+                        tools: tools::definitions(),
+                    },
+                    sink.clone(),
+                )
                 .await?;
             // Reject sensitive complete provider records before using any generated arguments.
             let encoded = serde_json::to_string(&reply.continuation)?;
@@ -255,15 +296,33 @@ impl Actor {
             let tokens = reply.usage_tokens;
             let cap = self.max_tokens;
             let done = reply.calls.is_empty();
+            let timing = sink.finish(&text);
+            let commit_started = Instant::now();
+            self.update_inner(
+                id,
+                move |turn| {
+                    turn.timing.requests.push(timing);
+                    turn.usage_tokens = turn.usage_tokens.saturating_add(tokens);
+                    ensure!(turn.usage_tokens <= cap, "Actor token budget exhausted");
+                    if done {
+                        turn.state = TurnState::Completed;
+                    }
+                    if !text.is_empty() {
+                        turn.message("assistant", text)?;
+                        turn.messages.last_mut().unwrap().id = message_id;
+                    }
+                    Ok(())
+                },
+                false,
+            )
+            .await?;
+            let commit_ms = preview::elapsed(commit_started);
+            let total_ms = preview::elapsed(queued);
             self.update(id, move |turn| {
-                turn.usage_tokens = turn.usage_tokens.saturating_add(tokens);
-                ensure!(turn.usage_tokens <= cap, "Actor token budget exhausted");
-                if done {
-                    turn.state = TurnState::Completed;
+                if let Some(timing) = turn.timing.requests.last_mut() {
+                    timing.commit_ms = Some(commit_ms);
                 }
-                if !text.is_empty() {
-                    turn.message("assistant", text)?;
-                }
+                turn.timing.total_ms = Some(total_ms);
                 Ok(())
             })
             .await?;
@@ -524,7 +583,10 @@ fn context(history: &[ActorTurn], current: ActorTurnId, redactor: &Redactor) -> 
     for turn in history.iter().rev() {
         let mut group = Vec::new();
         for message in &turn.messages {
-            if matches!(message.role.as_str(), "user" | "assistant") {
+            if matches!(
+                message.role,
+                lain_wire::MessageRole::User | lain_wire::MessageRole::Assistant
+            ) {
                 group.push(json!({"role":message.role,"content":redactor.text(&message.content)}));
             }
         }
@@ -569,6 +631,7 @@ mod tests {
                 error: None,
                 model_requests: 1,
                 usage_tokens: 1,
+                timing: Default::default(),
             };
             turn.message("user", format!("{n}: {}", "中".repeat(2000)))
                 .unwrap();

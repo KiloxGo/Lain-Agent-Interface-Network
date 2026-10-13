@@ -1024,6 +1024,7 @@ dependencies = [
  "crossterm",
  "futures-util",
  "getrandom 0.4.3",
+ "lain-wire",
  "libc",
  "ratatui",
  "reqwest",
@@ -1043,6 +1044,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
+ "lain-wire",
  "libc",
  "regex",
  "reqwest",
@@ -1062,6 +1064,15 @@ dependencies = [
  "uuid",
  "windows-sys 0.61.2",
  "zeroize",
+]
+
+[[package]]
+name = "lain-wire"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]

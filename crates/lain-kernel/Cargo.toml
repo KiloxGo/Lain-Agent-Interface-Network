@@ -16,6 +16,7 @@ test = false
 doc = false
 
 [dependencies]
+lain-wire = { path = "../lain-wire" }
 anyhow = "1"
 axum = "0.8"
 rusqlite = { version = "0.40", features = ["bundled"] }

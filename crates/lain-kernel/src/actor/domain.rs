@@ -3,32 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-macro_rules! id {
-    ($name:ident) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-        #[serde(transparent)]
-        pub struct $name(pub Uuid);
-        impl $name {
-            pub fn new() -> Self {
-                Self(Uuid::new_v4())
-            }
-        }
-        impl Default for $name {
-            fn default() -> Self {
-                Self::new()
-            }
-        }
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                self.0.fmt(f)
-            }
-        }
-    };
-}
-id!(ConversationId);
-id!(ActorTurnId);
-id!(MessageId);
-id!(ActionId);
+pub use lain_wire::{ActionId, ActorTurnId, ConversationId, MessageId};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conversation {
     pub id: ConversationId,
@@ -54,7 +29,7 @@ impl TurnState {
 pub struct Message {
     pub id: MessageId,
     pub conversation_id: ConversationId,
-    pub role: String,
+    pub role: lain_wire::MessageRole,
     pub content: String,
     pub timestamp_ms: u64,
     pub status: TurnState,
@@ -90,16 +65,27 @@ pub struct ActorTurn {
     pub error: Option<String>,
     pub model_requests: u32,
     pub usage_tokens: u64,
+    #[serde(default)]
+    pub timing: lain_wire::ActorTiming,
 }
 impl ActorTurn {
+    pub fn validate(&self) -> anyhow::Result<()> {
+        let wire: lain_wire::ActorSnapshot = serde_json::from_value(serde_json::to_value(self)?)?;
+        wire.validate().map_err(anyhow::Error::msg)
+    }
     pub fn message(&mut self, role: &str, content: String) -> anyhow::Result<()> {
         self.messages.push(Message {
             id: MessageId::new(),
             conversation_id: self.conversation_id,
-            role: role.into(),
+            role: match role {
+                "user" => lain_wire::MessageRole::User,
+                "assistant" => lain_wire::MessageRole::Assistant,
+                "tool" => lain_wire::MessageRole::Tool,
+                _ => anyhow::bail!("invalid Actor message role"),
+            },
             content,
             timestamp_ms: crate::domain::now_ms()?,
-            status: self.state,
+            status: TurnState::Completed,
         });
         Ok(())
     }

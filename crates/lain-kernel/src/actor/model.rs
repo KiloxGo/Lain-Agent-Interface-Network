@@ -72,6 +72,13 @@ pub struct Reply {
     pub continuation: Vec<Value>,
 }
 pub trait ActorModel: Send + Sync {
+    fn respond_stream(
+        &self,
+        request: Request,
+        _preview: super::preview::PreviewSink,
+    ) -> Pin<Box<dyn Future<Output = Result<Reply>> + Send + '_>> {
+        self.respond(request)
+    }
     fn respond(&self, request: Request)
     -> Pin<Box<dyn Future<Output = Result<Reply>> + Send + '_>>;
 }
@@ -95,6 +102,22 @@ impl ActorModel for ResponsesModel {
     fn respond(
         &self,
         request: Request,
+    ) -> Pin<Box<dyn Future<Output = Result<Reply>> + Send + '_>> {
+        self.respond_inner(request, None)
+    }
+    fn respond_stream(
+        &self,
+        request: Request,
+        preview: super::preview::PreviewSink,
+    ) -> Pin<Box<dyn Future<Output = Result<Reply>> + Send + '_>> {
+        self.respond_inner(request, Some(preview))
+    }
+}
+impl ResponsesModel {
+    fn respond_inner(
+        &self,
+        request: Request,
+        preview: Option<super::preview::PreviewSink>,
     ) -> Pin<Box<dyn Future<Output = Result<Reply>> + Send + '_>> {
         Box::pin(async move {
             let credential = resolve_secret(&self.config.secret_ref)
@@ -131,7 +154,10 @@ impl ActorModel for ResponsesModel {
             while let Some(chunk) = response.chunk().await.map_err(|_| {
                 anyhow::anyhow!("Actor provider stream disconnected; inference uncertain")
             })? {
-                if let Some(reply) = parser.push(&chunk)? {
+                if let Some(sink) = &preview {
+                    sink.first_byte();
+                }
+                if let Some(reply) = parser.push_with_preview(&chunk, preview.as_ref())? {
                     return Ok(reply);
                 }
             }
@@ -142,42 +168,96 @@ impl ActorModel for ResponsesModel {
 #[derive(Default)]
 struct ResponseStream {
     pending: Vec<u8>,
+    data: String,
+    frame_bytes: usize,
     total: usize,
+    saw_delta: bool,
 }
 impl ResponseStream {
+    #[cfg(test)]
     fn push(&mut self, bytes: &[u8]) -> Result<Option<Reply>> {
-        self.total += bytes.len();
+        self.push_with_preview(bytes, None)
+    }
+    fn push_with_preview(
+        &mut self,
+        bytes: &[u8],
+        preview: Option<&super::preview::PreviewSink>,
+    ) -> Result<Option<Reply>> {
+        self.total = self.total.saturating_add(bytes.len());
         ensure!(
             self.total <= 2 * 1024 * 1024,
             "Actor response exceeded bounds"
         );
         self.pending.extend_from_slice(bytes);
-        ensure!(
-            self.pending.len() <= 256 * 1024,
-            "Actor stream frame exceeded bounds"
-        );
         while let Some(end) = self.pending.iter().position(|b| *b == b'\n') {
-            let line: Vec<u8> = self.pending.drain(..=end).collect();
-            let line = std::str::from_utf8(&line)
+            self.frame_bytes += end + 1;
+            ensure!(
+                self.frame_bytes <= 256 * 1024,
+                "Actor stream frame exceeded bounds"
+            );
+            let bytes: Vec<u8> = self.pending.drain(..=end).collect();
+            let line = std::str::from_utf8(&bytes)
                 .context("invalid Actor stream encoding")?
                 .trim_end_matches(['\r', '\n']);
-            let Some(data) = line.strip_prefix("data:") else {
-                continue;
-            };
-            let data = data.trim();
-            if data == "[DONE]" {
-                continue;
-            }
-            let event: Value = serde_json::from_str(data)
-                .map_err(|_| anyhow::anyhow!("invalid Actor stream frame"))?;
-            match event["type"].as_str() {
-                Some("response.completed") => return parse_response(&event["response"]).map(Some),
-                Some("response.failed" | "response.incomplete" | "error") => {
-                    anyhow::bail!("Actor provider did not complete the response")
+            if line.is_empty() {
+                self.frame_bytes = 0;
+                let data = std::mem::take(&mut self.data);
+                if data.is_empty() || data == "[DONE]" {
+                    continue;
                 }
-                _ => {}
+                let event: Value = serde_json::from_str(&data)
+                    .map_err(|_| anyhow::anyhow!("invalid Actor stream frame"))?;
+                match event["type"].as_str() {
+                    Some("response.output_text.delta") => {
+                        let text = event["delta"]
+                            .as_str()
+                            .context("Actor text delta missing")?;
+                        ensure!(text.len() <= 16384, "Actor delta exceeds bounds");
+                        self.saw_delta = true;
+                        if let Some(sink) = preview {
+                            sink.delta(text);
+                        }
+                    }
+                    Some("response.output_item.done")
+                        if !self.saw_delta && event["item"]["type"] == "message" =>
+                    {
+                        ensure!(
+                            event["item"]["role"] == "assistant",
+                            "unexpected preview role"
+                        );
+                        if let Some(parts) = event["item"]["content"].as_array() {
+                            for part in parts {
+                                if part["type"] == "output_text" {
+                                    let text = part["text"]
+                                        .as_str()
+                                        .context("completed Actor text missing")?;
+                                    if let Some(sink) = preview {
+                                        sink.delta(text);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Some("response.completed") => {
+                        return parse_response(&event["response"]).map(Some);
+                    }
+                    Some("response.failed" | "response.incomplete" | "error") => {
+                        anyhow::bail!("Actor provider did not complete the response")
+                    }
+                    // Tool arguments, reasoning and provider metadata remain private.
+                    _ => {}
+                }
+            } else if let Some(data) = line.strip_prefix("data:") {
+                if !self.data.is_empty() {
+                    self.data.push('\n');
+                }
+                self.data.push_str(data.strip_prefix(' ').unwrap_or(data));
             }
         }
+        ensure!(
+            self.pending.len() + self.frame_bytes <= 256 * 1024,
+            "Actor stream frame exceeded bounds"
+        );
         Ok(None)
     }
 }
@@ -267,6 +347,6 @@ mod tests {
         assert_eq!(reply.calls[0].name, "work_list");
         assert_eq!(reply.usage_tokens, 12);
         assert!(parse_response(&json!({"status":"incomplete","output":[]})).is_err());
-        assert!(ResponseStream::default().push(b"data: broken\n").is_err());
+        assert!(ResponseStream::default().push(b"data: broken\n\n").is_err());
     }
 }

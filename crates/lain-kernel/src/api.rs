@@ -759,8 +759,17 @@ async fn actor_events(
     let mut shutdown = state.kernel.subscribe_shutdown();
     let (sender, receiver) = tokio::sync::mpsc::channel::<Result<SseEvent, Infallible>>(16);
     tokio::spawn(async move {
+        use crate::actor::{Observation, domain::TurnState};
         let mut revision = initial.revision;
-        let finished = initial.state != crate::actor::domain::TurnState::Running;
+        let finished = initial.state != TurnState::Running;
+        let mut committed: std::collections::BTreeSet<_> =
+            initial.messages.iter().map(|m| m.id).collect();
+        let mut previews = std::collections::BTreeMap::new();
+        let checkpoint = if finished {
+            None
+        } else {
+            state.actor.preview_checkpoint(id)
+        };
         if sender
             .send(Ok(SseEvent::default()
                 .event("turn")
@@ -772,13 +781,27 @@ async fn actor_events(
         {
             return;
         }
+        if let Some(checkpoint) = checkpoint
+            && !committed.contains(&checkpoint.message_id)
+        {
+            previews.insert(checkpoint.preview_id, checkpoint.sequence);
+            if sender
+                .send(Ok(SseEvent::default()
+                    .event("preview")
+                    .json_data(checkpoint)
+                    .unwrap()))
+                .await
+                .is_err()
+            {
+                return;
+            }
+        }
         loop {
-            let turn = tokio::select! {
+            let observation = tokio::select! {
                 _=shutdown.changed()=>break,
                 _=sender.closed()=>break,
                 value=events.recv()=>match value {
-                    Ok(turn) if turn.id==id && turn.revision>revision=>turn,
-                    Ok(_)=>continue,
+                    Ok(event)=>event,
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>{
                         let _=sender.send(Ok(SseEvent::default().event("resync_required").data("reconnect to the same turn"))).await;
                         break;
@@ -786,9 +809,36 @@ async fn actor_events(
                     Err(_)=>break,
                 }
             };
-            revision = turn.revision;
-            let finished = turn.state != crate::actor::domain::TurnState::Running;
-            let event = SseEvent::default().event("turn").json_data(turn).unwrap();
+            let (event, finished) = match observation {
+                Observation::Snapshot(turn) if turn.id == id && turn.revision > revision => {
+                    revision = turn.revision;
+                    committed.extend(turn.messages.iter().map(|m| m.id));
+                    let finished = turn.state != TurnState::Running;
+                    (
+                        SseEvent::default().event("turn").json_data(turn).unwrap(),
+                        finished,
+                    )
+                }
+                Observation::Preview(preview)
+                    if preview.turn_id == id && !committed.contains(&preview.message_id) =>
+                {
+                    if previews
+                        .get(&preview.preview_id)
+                        .is_some_and(|seq| *seq >= preview.sequence)
+                    {
+                        continue;
+                    }
+                    previews.insert(preview.preview_id, preview.sequence);
+                    (
+                        SseEvent::default()
+                            .event("preview")
+                            .json_data(preview)
+                            .unwrap(),
+                        false,
+                    )
+                }
+                _ => continue,
+            };
             tokio::select! {_=shutdown.changed()=>break,_=sender.closed()=>break,result=sender.send(Ok(event))=>if result.is_err(){break;}}
             if finished {
                 break;

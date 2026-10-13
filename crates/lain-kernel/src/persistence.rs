@@ -548,6 +548,7 @@ impl Store {
         turn: &mut crate::actor::domain::ActorTurn,
         create: bool,
     ) -> Result<()> {
+        turn.validate()?;
         turn.revision = turn
             .revision
             .checked_add(1)
@@ -627,5 +628,19 @@ impl Store {
     }
 }
 fn decode_actor(value: &str) -> Result<crate::actor::domain::ActorTurn> {
-    serde_json::from_str(value).map_err(|_| anyhow::anyhow!("invalid persisted Actor record"))
+    use crate::actor::domain::TurnState;
+    let mut turn: crate::actor::domain::ActorTurn = serde_json::from_str(value)
+        .map_err(|_| anyhow::anyhow!("invalid persisted Actor record"))?;
+    // Phase 6 wrote complete message bodies with the enclosing turn's active
+    // status. Normalize only that legacy metadata; preserve every ID and body.
+    for m in &mut turn.messages {
+        if matches!(
+            m.status,
+            TurnState::Running | TurnState::PendingConfirmation
+        ) {
+            m.status = TurnState::Completed;
+        }
+    }
+    turn.validate()?;
+    Ok(turn)
 }

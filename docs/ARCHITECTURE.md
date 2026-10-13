@@ -642,5 +642,10 @@ Every mutation is persisted as Proposed; explicit owner decision claims Executin
 before dispatch. Work creation persists the real session ID before task submission.
 Uncertain inference/actions remain Unknown, with no replay. Complete redacted
 records commit before revisioned SSE snapshots; disconnect does not cancel them.
+The small `lain-wire` crate defines public Actor observation DTOs and typed IDs.
+The Kernel separately validates durable snapshots and publishes bounded sanitized
+preview events; raw provider fragments and tool arguments never enter that channel.
+Preview checkpoints are transient, while committed messages retain stable identity.
+CLI consumption of incremental previews remains pending.
 Web is frozen without Actor UI. Memory/World/scheduler remain deferred. Normative
 contracts and limits: [LAIN_ACTOR.md](LAIN_ACTOR.md), [ADR 004](adr/004-cli-first-actor-and-confirmed-tools.md).

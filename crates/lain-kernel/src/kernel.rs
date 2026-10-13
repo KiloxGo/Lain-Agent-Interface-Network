@@ -643,6 +643,7 @@ impl Kernel {
             error: None,
             model_requests: 0,
             usage_tokens: 0,
+            timing: Default::default(),
         };
         turn.message("user", text)?;
         turn.messages[0].status = TurnState::Completed;

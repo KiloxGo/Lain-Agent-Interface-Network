@@ -481,8 +481,10 @@ A turn is limited to 4 model requests, 4 typed tool invocations, 2 tool errors,
 120 seconds per active phase (at most 240 seconds per turn, excluding owner wait), configured per-request timeout/output and cumulative reported tokens,
 plus deterministic context/result/frame bounds. Mutation first waits for explicit
 owner confirmation, then calls Supervisor and records partial/accepted receipts.
-Streaming publishes committed complete-record snapshots; no provider token replay
-or mid-generation resumption is claimed. Persona is stable at startup. No scheduler,
+Streaming publishes committed complete-record snapshots and separately typed,
+bounded sanitized previews. Previews are ephemeral and cannot authorize tools or
+substitute for durable completion. Current CLI rendering still waits for snapshots;
+no provider token replay or mid-generation resumption is claimed. Persona is stable at startup. No scheduler,
 reflection, semantic memory or background autonomy was added.
 
 Foreground local `lain up` launches native laind in the same console/process group

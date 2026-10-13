@@ -197,10 +197,19 @@ turn honestly; there is no automatic retry loop or automatic mutation retry.
 Usage budgeting depends on usage fields supplied by the provider; request/output
 counts, sizes and timeout bounds apply even if usage is absent.
 
-Provider SSE is consumed incrementally. Text is released only after a complete
-response can be checked for credentials, then durably committed. CLI SSE streams
-committed message/tool/turn snapshots rather than raw token deltas. This does not
-provide token-by-token text or true mid-generation resumption. Inference lifecycle
+Provider SSE is consumed incrementally, including fragmented UTF-8 and multiline
+SSE data. The Kernel publishes bounded, ephemeral `preview` events for sanitized
+assistant text, separate from durable `turn` snapshots. Preview identity includes
+turn, preview and eventual message IDs, with a per-preview sequence. Possible
+credential prefixes are withheld until unambiguous; a sensitive, oversized or
+inconsistent preview is discarded. Tool argument deltas and reasoning stay private.
+Only a validated complete response can commit messages or dispatch typed tools.
+
+Streams start with an authoritative turn snapshot and may include a live preview
+checkpoint. Reconnect restores current state rather than replaying provider tokens.
+The current CLI consumes committed snapshots only: incremental terminal rendering
+is still pending. Recorded monotonic timing fields cover queue and provider-request
+milestones when observed; they do not yet measure CLI display latency. Inference lifecycle
 is Kernel-owned: closing an HTTP/SSE connection does not cancel the turn or worker.
 The client reconnects to the same turn and deduplicates ID/revision. Explicit
 Actor cancel interrupts local inference; possibly dispatched work is Unknown and
@@ -218,7 +227,7 @@ All routes use the existing owner bearer authentication and body limits.
 | GET `/v1/conversations/{id}?recent=true` | Latest 20 turns, chronological, current/pending recovery |
 | POST `/v1/conversations/{id}/turns` | `{request_id, text}`; 202 accepted durable turn |
 | GET `/v1/actor-turns/{id}` | Authoritative turn snapshot |
-| GET `/v1/actor-turns/{id}/events` | Snapshot first, then committed revisions; closes on non-Running state |
+| GET `/v1/actor-turns/{id}/events` | Snapshot first, then ephemeral previews and committed revisions; closes on non-Running state |
 | POST `/v1/actor-turns/{id}/actions/{action}/decision` | `{approve: true/false}`; explicit owner decision |
 | POST `/v1/actor-turns/{id}/cancel` | Explicit interruption/pending-proposal cancellation |
 

@@ -9,6 +9,7 @@ name = "lain"
 path = "src/main.rs"
 
 [dependencies]
+lain-wire = { path = "../lain-wire" }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 crossterm = { version = "0.29", features = ["event-stream"] }
