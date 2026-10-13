@@ -207,9 +207,14 @@ Only a validated complete response can commit messages or dispatch typed tools.
 
 Streams start with an authoritative turn snapshot and may include a live preview
 checkpoint. Reconnect restores current state rather than replaying provider tokens.
-The current CLI consumes committed snapshots only: incremental terminal rendering
-is still pending. Recorded monotonic timing fields cover queue and provider-request
-milestones when observed; they do not yet measure CLI display latency. Inference lifecycle
+The CLI renders sanitized previews while inference is running, then reconciles
+the completed message by stable ID and content prefix without printing it twice.
+Interrupted/discarded previews are visibly marked as unconfirmed. Sequence gaps
+fall back to authoritative completed output; checkpoints suppress overlap.
+`lain chat --timing` and `lain ask --timing` report measured submission, first
+visible text, provider milestones, commit and wall-clock durations on stderr.
+Missing observations remain null; JSON ask stdout remains one final snapshot.
+Inference lifecycle
 is Kernel-owned: closing an HTTP/SSE connection does not cancel the turn or worker.
 The client reconnects to the same turn and deduplicates ID/revision. Explicit
 Actor cancel interrupts local inference; possibly dispatched work is Unknown and
@@ -266,6 +271,6 @@ actual execution and retained history rather than treating a submission receipt
 as completion. Record real-model, chat, independent-worker and restart acceptance
 separately. No configured credential or no execution means unverified, never passed.
 
-Deferred: token delta display, mid-inference resumption, conversation pruning,
+Deferred: mid-inference provider resumption, conversation pruning,
 short worker references, multiple Actor providers, server installation and native
 Linux acceptance. Phase 7 memory candidates/summaries/retrieval/World are not begun.

@@ -332,6 +332,79 @@ fn parse_response(value: &Value) -> Result<Reply> {
 mod tests {
     use super::*;
     #[test]
+    fn multiline_character_previews_are_private_until_sanitized_and_final_is_authoritative() {
+        use crate::actor::{
+            Observation,
+            preview::{PreviewSink, Registry},
+        };
+        use crate::redaction::Redactor;
+        use lain_wire::{ActorTurnId, MessageId, PreviewUpdate};
+        let completed = json!({"type":"response.completed","response":{"status":"completed","output":[
+            {"type":"message","role":"assistant","content":[{"type":"output_text","text":"你好\n世界"}]},
+            {"type":"function_call","call_id":"call_1","name":"work_list","arguments":"{}"}]}});
+        let mut wire = String::new();
+        for text in ["你", "好", "\n", "世", "界"] {
+            wire.push_str(&format!(
+                "data: {{\"type\":\"response.output_text.delta\",\ndata: \"delta\":{}}}\n\n",
+                serde_json::to_string(text).unwrap()
+            ));
+        }
+        wire.push_str("data: {\"type\":\"response.function_call_arguments.delta\",\"delta\":\"private-credential\"}\n\n");
+        wire.push_str(&format!("data: {completed}\n\n"));
+        for chunk_size in [1, 2, 3, 7, 19, wire.len()] {
+            let (sender, mut events) = tokio::sync::broadcast::channel(32);
+            let sink = PreviewSink::new(
+                sender,
+                Redactor::new(vec!["private-credential".into()]),
+                ActorTurnId::new(),
+                MessageId::new(),
+                &Registry::default(),
+            );
+            let mut parser = ResponseStream::default();
+            let mut reply = None;
+            for chunk in wire.as_bytes().chunks(chunk_size) {
+                if let Some(value) = parser.push_with_preview(chunk, Some(&sink)).unwrap() {
+                    reply = Some(value);
+                }
+            }
+            let reply = reply.unwrap();
+            assert_eq!(reply.calls[0].arguments, "{}");
+            sink.finish(&reply.text);
+            let mut visible = String::new();
+            let mut finished = false;
+            while let Ok(Observation::Preview(event)) = events.try_recv() {
+                match event.update {
+                    PreviewUpdate::Delta { text } => visible.push_str(&text),
+                    PreviewUpdate::Finished => finished = true,
+                    _ => {}
+                }
+            }
+            assert_eq!(visible, "你好\n世界");
+            assert!(finished);
+        }
+    }
+    #[test]
+    fn failures_incomplete_empty_and_unterminated_frames_never_produce_a_reply() {
+        for kind in ["response.failed", "response.incomplete", "error"] {
+            let wire = format!(
+                "data: {{\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}}\n\ndata: {{\"type\":\"{kind}\"}}\n\n"
+            );
+            assert!(ResponseStream::default().push(wire.as_bytes()).is_err());
+        }
+        assert!(ResponseStream::default().push(b"data: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\",\"output\":[]}}\n\n").is_err());
+        assert!(
+            ResponseStream::default()
+                .push(b"data: {\"type\":\"response.completed\"}")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            ResponseStream::default()
+                .push(&vec![b'x'; 256 * 1024 + 1])
+                .is_err()
+        );
+    }
+    #[test]
     fn streaming_maps_split_utf8_and_calls_without_exposing_raw_deltas() {
         let event = json!({"type":"response.completed","response":{"status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"你来了。"}]},{"type":"function_call","call_id":"call_1","name":"work_list","arguments":"{}"}],"usage":{"total_tokens":12}}});
         let bytes = format!("data: {}\r\n\r\n", event).into_bytes();

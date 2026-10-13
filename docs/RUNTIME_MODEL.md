@@ -483,8 +483,9 @@ plus deterministic context/result/frame bounds. Mutation first waits for explici
 owner confirmation, then calls Supervisor and records partial/accepted receipts.
 Streaming publishes committed complete-record snapshots and separately typed,
 bounded sanitized previews. Previews are ephemeral and cannot authorize tools or
-substitute for durable completion. Current CLI rendering still waits for snapshots;
-no provider token replay or mid-generation resumption is claimed. Persona is stable at startup. No scheduler,
+substitute for durable completion. CLI previews are reconciled with completed
+messages by identity/prefix; snapshot reconstruction never repeats inference.
+No provider token replay or mid-generation provider resumption is claimed. Persona is stable at startup. No scheduler,
 reflection, semantic memory or background autonomy was added.
 
 Foreground local `lain up` launches native laind in the same console/process group

@@ -39,6 +39,7 @@ def run(platform):
         env = {k: v for k, v in os.environ.items() if not k.startswith("LAIN_")}
         env.update(LAIN_LOCAL_DIR=str(local), LAIN_DAEMON_PATH=str(laind), LAIN_CODEX_PATH=str(codex))
         provider_calls = []
+        stream_gate = threading.Event()
         class Model(BaseHTTPRequestHandler):
             def log_message(self, *_):
                 pass
@@ -51,24 +52,46 @@ def run(platform):
                 assert "fixture-actor-credential" not in json.dumps(body)
                 assert token not in json.dumps(body)
                 last = body["input"][-1]
+                prompt = last.get("content", "")
                 if last.get("type") == "function_call_output":
                     output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "已读取 Kernel 的真实工作状态。"}]}]
                 elif "delegate" in last.get("content", ""):
                     output = [{"type": "function_call", "name": "work_create", "call_id": "call_delegate", "arguments": json.dumps({"workspace": str(workspace), "profile_id": "codex/local", "sandbox": "read_only", "task": "hello"})}]
                 elif "inspect" in last.get("content", ""):
                     output = [{"type": "function_call", "name": "work_list", "call_id": "call_list", "arguments": "{}"}]
+                elif prompt == "stream-delayed":
+                    output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "STREAM-BEGIN 你好\n第二行：" + "流式文字。" * 40 + "STREAM-END"}]}]
+                elif prompt == "no-preview":
+                    output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "完成而无预览。"}]}]
+                elif prompt == "partial-failure":
+                    output = []
                 else:
                     output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "你来了。"}]}]
                 payload = json.dumps({"type": "response.completed", "response": {"status": "completed", "output": output, "usage": {"total_tokens": 20}}}, ensure_ascii=False).encode()
-                wire = b'data: {"type":"response.output_text.delta","delta":"buffered"}\n\n' + b"data: " + payload + b"\n\n"
+                def frame(event):
+                    return b"data: " + json.dumps(event, ensure_ascii=False).encode() + b"\n\n"
+                text = "".join(p["text"] for item in output if item["type"] == "message" for p in item["content"])
+                if prompt == "partial-failure":
+                    text = "PARTIAL-ONLY"
+                    payload = json.dumps({"type":"response.failed"}).encode()
+                deltas = [frame({"type":"response.output_text.delta", "delta": c}) for c in text] if prompt != "no-preview" else []
+                if output and output[0]["type"] == "function_call":
+                    deltas = [frame({"type":"response.function_call_arguments.delta", "delta":"PRIVATE-TOOL-ARGUMENT-FRAGMENT"})]
+                pieces = deltas + [b"data: " + payload + b"\n\n"]
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
-                self.send_header("Content-Length", str(len(wire)))
+                self.send_header("Content-Length", str(sum(map(len, pieces))))
                 self.end_headers()
-                # Deliberately split UTF-8 across HTTP writes.
-                for offset in range(0, len(wire), 11):
-                    self.wfile.write(wire[offset:offset + 11])
-                    self.wfile.flush()
+                try:
+                    for index, wire in enumerate(pieces):
+                        # Deliberately split UTF-8 across HTTP writes.
+                        for offset in range(0, len(wire), 11):
+                            self.wfile.write(wire[offset:offset + 11])
+                            self.wfile.flush()
+                        if prompt == "stream-delayed" and index == len("STREAM-BEGIN 你好") - 1:
+                            assert stream_gate.wait(15), "PTY test did not release provider gate"
+                except (BrokenPipeError, ConnectionResetError):
+                    pass  # Explicit cancellation can close the private provider connection.
         model = ThreadingHTTPServer(("127.0.0.1", 0), Model)
         thread = threading.Thread(target=model.serve_forever, daemon=True)
         thread.start()
@@ -139,6 +162,9 @@ def run(platform):
             assert report["diagnostics"]["storage"] == "healthy"
             assert report["diagnostics"]["actor"]["status"] == "configured"
             assert len(provider_calls) == before
+            if platform == "macos":
+                from chat_pty_smoke import run_chat_pty
+                run_chat_pty(lain, env, call, stream_gate)
             shadow = root / "shadow"
             shadow.mkdir()
             shim = shadow / ("lain.cmd" if os.name == "nt" else "lain")

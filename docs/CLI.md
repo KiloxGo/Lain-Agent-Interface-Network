@@ -151,6 +151,8 @@ not implemented in this phase.
 ```text
 lain chat
 lain chat --conversation <conversation-id>
+lain chat --timing
+lain ask --timing "你好"
 lain --json ask "What work is running?"
 lain --json ask "Continue" --conversation <conversation-id>
 lain --json ask "Same text" --conversation <id> --request-id <same-request-uuid>
@@ -182,6 +184,23 @@ possibly delivered mutations remain uncertain. Ctrl-C at the input prompt exits
 chat; workers keep running. On resume the recent 20 turns include the latest
 pending/running state; older records use conversation pagination.
 
+Assistant previews are visible before provider completion and remain ephemeral
+until a validated complete message commits. Final snapshots do not repeat already
+displayed text. Failure/discard notices identify partial previews as unconfirmed.
+Terminal controls are escaped, including Unicode bidi controls. Input is owned by
+one scoped native terminal read; no separate stdin reader runs during generation.
+Empty Enter at `You>` keeps the current prompt. LF and CRLF are handled explicitly;
+the paired LF cannot answer a subsequent confirmation. Empty Enter at `[y/N]`
+denies. Ctrl-C/EOF at confirmation exits and retains the proposal for review.
+
+`--timing` emits safe measured durations to stderr, including in JSON mode:
+CLI submission/first-visible/total milliseconds plus Kernel queue and per-request
+first-body-byte, useful-text, preview, completion and commit milliseconds. Null
+means no observation. CLI totals cover the active phase and exclude owner waiting;
+provider timings are relative to that provider request. No conversation content
+or credentials are included. This measures observed latency rather than guessing
+why a provider is slow.
+
 ## Native acceptance
 
 ```powershell
@@ -195,8 +214,11 @@ zsh scripts/check-native.zsh
 Both run native build, fmt, all-target Clippy, deterministic tests and CLI smoke.
 The smoke refuses a mismatching `--platform`; it uses native processes, permissions
 and shutdown signals, a local deterministic Responses server, and the existing
-fake Codex App Server. macOS additionally exercises real PTY chat confirmation,
-exit and Ctrl-C. Linux can run the same Cargo checks and
+fake Codex App Server. macOS additionally exercises actual controlling PTYs:
+LF/CRLF, empty/slash/consecutive inputs, gated Unicode streaming before completion,
+no-preview/failure, JSON/timing separation, denial, approval, Ctrl-C during input
+and generation, EOF, restoration, reconnect checkpoints and detached inference.
+Windows ConPTY input acceptance remains pending. Linux can run the same Cargo checks and
 `python3 scripts/native_smoke.py --platform linux` on a native Linux host.
 These are manual entrypoints, with no paid-model or oversized CI matrix.
 

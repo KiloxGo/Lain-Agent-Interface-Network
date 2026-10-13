@@ -1,7 +1,7 @@
 # Roadmap
 
 **Status:** working plan  
-**Last reviewed:** 2026-10-12
+**Last reviewed:** 2026-10-13
 
 This roadmap defines implementation order for the Lain architecture reboot.
 
@@ -240,7 +240,7 @@ Windows PowerShell and macOS zsh are equal native targets; Linux stays compatibl
 - [x] native macOS build/test/CLI smoke, including PTY chat/confirmation/Ctrl-C
 - [ ] native Windows build/test/CLI smoke (unavailable on implementation host)
 - [ ] native Linux server lifecycle acceptance (unavailable)
-- [ ] opt-in real Actor/Codex model acceptance (no configured acceptance credential)
+- [ ] opt-in combined real Actor/Codex acceptance (ordinary Actor conversation owner-reported; full flow pending)
 
 Implementation is available; **Phase 6 cross-platform acceptance is incomplete**.
 Use `scripts/check-native.ps1` and `scripts/check-native.zsh` on their actual hosts.
@@ -248,8 +248,20 @@ No emulated platform results or fixture provider results count as real acceptanc
 No milestone completion claim until the required native evidence exists.
 See [CLI.md](docs/CLI.md), [LAIN_ACTOR.md](docs/LAIN_ACTOR.md) and ADR 004.
 
-Limits: complete-record streaming rather than raw token display; no mid-generation
-resumption, automatic mutation retries, profile mutations or worker auto-approval.
+Phase 6.5 stabilization is in progress:
+
+- [x] bounded sanitized Actor previews, typed wire events and final-message reconciliation
+- [x] measured optional CLI/provider timing diagnostics without JSON stdout pollution
+- [x] native macOS PTY reproduction of CRLF `You> You>` and serialized-input regression fix
+- [x] deterministic gated streaming, failure, denial, detach and reconnect checks
+- [ ] saved local Actor settings/env-file workflow and observable startup mismatch
+- [ ] expanded opt-in real reads/denial/confirmed delegation/worker completion/restart evidence
+- [ ] native Windows input/configuration/build/test checks
+- [ ] final requirement audit and Phase 7 handoff, without implementing memory
+
+Limits: no mid-generation provider resumption, automatic mutation retries,
+profile mutations or worker auto-approval. Sanitized previews are ephemeral;
+validated completed records remain authoritative. See ADR 005.
 Conversation persistence is not semantic memory. **Do not begin Phase 7 yet.**
 
 ## Phase 7 — Lain memory and private world

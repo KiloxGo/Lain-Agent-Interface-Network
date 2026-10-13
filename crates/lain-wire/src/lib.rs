@@ -242,6 +242,60 @@ mod tests {
     use super::*;
 
     #[test]
+    fn contradictory_durable_actor_records_are_rejected() {
+        let mut turn = ActorSnapshot {
+            id: ActorTurnId::new(),
+            conversation_id: ConversationId::new(),
+            request_id: RequestId::new(),
+            sequence: 1,
+            revision: 1,
+            state: ActorTurnState::Completed,
+            messages: vec![],
+            actions: vec![],
+            error: None,
+            model_requests: 1,
+            usage_tokens: 0,
+            timing: ActorTiming::default(),
+        };
+        assert!(turn.validate().is_ok());
+        turn.state = ActorTurnState::PendingConfirmation;
+        assert!(turn.validate().is_err());
+        turn.actions.push(ActorAction {
+            id: ActionId::new(),
+            call_id: "call_1".into(),
+            tool: ToolCall::WorkCancel {
+                session_id: WorkSessionId::new(),
+            },
+            state: ActionState::Proposed,
+            result: None,
+        });
+        assert!(turn.validate().is_ok());
+        turn.state = ActorTurnState::Completed;
+        assert!(turn.validate().is_err());
+        turn.actions[0].state = ActionState::Executed;
+        assert!(turn.validate().is_err());
+        turn.actions[0].result = Some(serde_json::json!({"accepted":true}));
+        assert!(turn.validate().is_ok());
+        turn.actions.push(turn.actions[0].clone());
+        turn.actions[1].id = ActionId::new(); // Still duplicates the provider call identity.
+        assert!(turn.validate().is_err());
+        turn.actions.pop();
+        turn.messages.push(ActorMessage {
+            id: MessageId::new(),
+            conversation_id: turn.conversation_id,
+            role: MessageRole::Assistant,
+            content: "complete body".into(),
+            timestamp_ms: 0,
+            status: ActorTurnState::Running,
+        });
+        assert!(turn.validate().is_err());
+        turn.messages[0].status = ActorTurnState::Completed;
+        assert!(turn.validate().is_ok());
+        turn.messages.push(turn.messages[0].clone());
+        assert!(turn.validate().is_err());
+    }
+
+    #[test]
     fn preview_variants_round_trip_with_stable_identity() {
         for update in [
             PreviewUpdate::Started {

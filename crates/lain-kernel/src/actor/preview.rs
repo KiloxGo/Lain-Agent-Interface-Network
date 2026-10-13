@@ -151,10 +151,75 @@ impl PreviewSink {
         s.timing.clone()
     }
 }
-impl Drop for PreviewSink {
+impl Drop for State {
     fn drop(&mut self) {
-        if Arc::strong_count(&self.0) == 1 {
-            self.0.lock().unwrap().discard(DiscardReason::Interrupted);
+        self.discard(DiscardReason::Interrupted);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn slow_subscribers_are_bounded_and_recover_a_sanitized_checkpoint() {
+        let (sender, mut receiver) = broadcast::channel(16);
+        let registry = Registry::default();
+        let turn = ActorTurnId::new();
+        let message = MessageId::new();
+        let sink = PreviewSink::new(
+            sender,
+            Redactor::new(vec!["credential-123".into()]),
+            turn,
+            message,
+            &registry,
+        );
+        for _ in 0..100 {
+            sink.delta("中");
         }
+        assert!(matches!(
+            receiver.try_recv(),
+            Err(broadcast::error::TryRecvError::Lagged(_))
+        ));
+        let checkpoint = registry.checkpoint(turn).unwrap();
+        assert_eq!(checkpoint.message_id, message);
+        assert!(matches!(checkpoint.update,PreviewUpdate::Started{text} if text=="中".repeat(100)));
+        sink.finish(&"中".repeat(100));
+        assert!(registry.checkpoint(turn).is_none());
+        sink.delta("late");
+        let mut late = false;
+        while let Ok(Observation::Preview(event)) = receiver.try_recv() {
+            late |= matches!(event.update,PreviewUpdate::Delta{text} if text=="late");
+        }
+        assert!(!late);
+    }
+    #[test]
+    fn last_clone_drop_discards_once_without_claiming_completion() {
+        let (sender, mut receiver) = broadcast::channel(16);
+        let registry = Registry::default();
+        let turn = ActorTurnId::new();
+        let sink = PreviewSink::new(
+            sender,
+            Redactor::new(vec![]),
+            turn,
+            MessageId::new(),
+            &registry,
+        );
+        let other = sink.clone();
+        sink.delta("partial");
+        drop(sink);
+        assert!(registry.checkpoint(turn).is_some());
+        drop(other);
+        assert!(registry.checkpoint(turn).is_none());
+        let mut discarded = 0;
+        while let Ok(Observation::Preview(event)) = receiver.try_recv() {
+            assert!(!matches!(event.update, PreviewUpdate::Finished));
+            discarded += usize::from(matches!(
+                event.update,
+                PreviewUpdate::Discarded {
+                    reason: DiscardReason::Interrupted
+                }
+            ));
+        }
+        assert_eq!(discarded, 1);
     }
 }

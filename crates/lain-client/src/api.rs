@@ -313,7 +313,11 @@ impl SseDecoder {
 }
 
 impl Client {
-    pub async fn actor_observe(&self, id: Uuid, tx: &mpsc::Sender<Value>) -> Result<()> {
+    pub async fn actor_observe(
+        &self,
+        id: lain_wire::ActorTurnId,
+        tx: &mpsc::Sender<ActorUpdate>,
+    ) -> Result<()> {
         let response = self
             .response(
                 Method::GET,
@@ -324,18 +328,32 @@ impl Client {
             .await?;
         let mut stream = response.bytes_stream();
         let mut decoder = SseDecoder::default();
+        let mut snapshot_seen = false;
         while let Some(chunk) = stream.next().await {
             for (name, data) in decoder.push(&chunk.map_err(|e| e.without_url())?)? {
                 if name == "resync_required" {
                     bail!("Actor stream requires a fresh snapshot");
                 }
-                if name != "turn" {
-                    continue;
-                }
-                let value: Value = serde_json::from_str(&data)
-                    .map_err(|_| anyhow::anyhow!("invalid Actor snapshot"))?;
-                let finished = value["state"] != "running";
-                tx.send(value).await.context("Actor observer closed")?;
+                let (update, finished) = match name.as_str() {
+                    "turn" => {
+                        let value: lain_wire::ActorSnapshot = serde_json::from_str(&data)
+                            .map_err(|_| anyhow::anyhow!("invalid Actor snapshot"))?;
+                        value.validate().map_err(anyhow::Error::msg)?;
+                        ensure!(value.id == id, "Actor snapshot belongs to another turn");
+                        snapshot_seen = true;
+                        let finished = value.state != lain_wire::ActorTurnState::Running;
+                        (ActorUpdate::Snapshot(value), finished)
+                    }
+                    "preview" => {
+                        ensure!(snapshot_seen, "Actor preview before snapshot");
+                        let value: lain_wire::PreviewEvent = serde_json::from_str(&data)
+                            .map_err(|_| anyhow::anyhow!("invalid Actor preview"))?;
+                        ensure!(value.turn_id == id, "Actor preview belongs to another turn");
+                        (ActorUpdate::Preview(value), false)
+                    }
+                    _ => continue,
+                };
+                tx.send(update).await.context("Actor observer closed")?;
                 if finished {
                     return Ok(());
                 }
@@ -343,6 +361,12 @@ impl Client {
         }
         bail!("Actor stream disconnected; reconnect using the same turn ID")
     }
+}
+
+#[derive(Debug)]
+pub enum ActorUpdate {
+    Snapshot(lain_wire::ActorSnapshot),
+    Preview(lain_wire::PreviewEvent),
 }
 
 #[cfg(test)]

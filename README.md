@@ -193,6 +193,12 @@ persona, persistent conversations, typed tools, owner confirmation and recovery.
 approved. Existing workers run independently of chat/observers. Conversations are
 operational continuity, not semantic memory. Phase 7 has not begun.
 
+Chat displays sanitized incremental previews, then reconciles the completed reply
+without repeating it. Use `lain chat --timing` or `lain ask --timing "你好"` for
+measured latency diagnostics on stderr; JSON ask stdout remains a final snapshot.
+Local configuration convenience and combined real delegation acceptance remain
+Phase 6.5 work in progress.
+
 The React/TypeScript Web client remains available through the existing optional
 `LAIN_WEB_DIR` workflow, documented in [WEB.md](docs/WEB.md). Web development is
 paused; Phase 6 has no browser chat or redesign. Public Internet/TLS/session-cookie

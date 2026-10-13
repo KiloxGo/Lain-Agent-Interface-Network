@@ -646,6 +646,7 @@ The small `lain-wire` crate defines public Actor observation DTOs and typed IDs.
 The Kernel separately validates durable snapshots and publishes bounded sanitized
 preview events; raw provider fragments and tool arguments never enter that channel.
 Preview checkpoints are transient, while committed messages retain stable identity.
-CLI consumption of incremental previews remains pending.
+The CLI renders previews and reconciles them with durable messages by stable ID;
+one serialized input owner coordinates response output and confirmation prompts.
 Web is frozen without Actor UI. Memory/World/scheduler remain deferred. Normative
 contracts and limits: [LAIN_ACTOR.md](LAIN_ACTOR.md), [ADR 004](adr/004-cli-first-actor-and-confirmed-tools.md).

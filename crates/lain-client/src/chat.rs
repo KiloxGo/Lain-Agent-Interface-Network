@@ -1,64 +1,55 @@
-//! Text-only HTTP client. Reasoning, tools and authoritative state stay in laind.
-use crate::{api::Client, emit, tui::safe_text};
+//! Serialized text client. Inference and authoritative state stay in laind.
+use crate::{
+    actor_render::Renderer,
+    api::{ActorUpdate, Client},
+    emit,
+    tui::safe_text,
+};
 use anyhow::{Context, Result, bail, ensure};
+use crossterm::{
+    event::{Event, EventStream, KeyCode, KeyEventKind, KeyModifiers},
+    terminal,
+};
+use futures_util::StreamExt;
+use lain_wire::{ActionState, ActorSnapshot, ActorTurnState, ConversationId, RequestId};
+use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeSet,
     io::{self, IsTerminal, Write},
-    time::Duration,
+    time::{Duration, Instant},
 };
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-fn id(value: &Value) -> Result<Uuid> {
-    value
-        .as_str()
-        .context("Kernel identity missing")?
-        .parse()
-        .context("invalid Kernel identity")
-}
-pub async fn create(client: &Client) -> Result<Uuid> {
-    let value: Value = client.post("v1/conversations", None).await?;
-    id(&value["id"])
-}
-fn show(turn: &Value, seen: &mut BTreeSet<String>) -> Result<()> {
-    if let Some(messages) = turn["messages"].as_array() {
-        for message in messages {
-            let key = message["id"].as_str().unwrap_or("").to_owned();
-            if message["role"] == "assistant" && seen.insert(key) {
-                println!(
-                    "Lain> {}",
-                    safe_text(message["content"].as_str().unwrap_or(""))
-                );
-            }
-        }
+pub async fn create(client: &Client) -> Result<ConversationId> {
+    #[derive(Deserialize)]
+    struct Created {
+        id: ConversationId,
     }
-    if let Some(actions) = turn["actions"].as_array() {
-        for action in actions {
-            let key = format!("{}:{}", action["id"], action["state"]);
-            if seen.insert(key) {
-                println!(
-                    "Tool> {}",
-                    safe_text(&serde_json::to_string_pretty(action)?)
-                );
-            }
-        }
-    }
-    if let Some(error) = turn["error"].as_str() {
-        println!("Lain> {}", safe_text(error));
-    }
-    Ok(())
+    Ok(client.post::<Created>("v1/conversations", None).await?.id)
 }
-pub async fn wait(client: &Client, initial: Value, human: bool) -> Result<Value> {
-    wait_seen(client, initial, human, &mut BTreeSet::new()).await
+fn validate(turn: &ActorSnapshot) -> Result<()> {
+    turn.validate().map_err(anyhow::Error::msg)
+}
+
+pub async fn wait(client: &Client, initial: ActorSnapshot, human: bool) -> Result<ActorSnapshot> {
+    let mut renderer = Renderer::new(io::stdout());
+    wait_seen(client, initial, human, &mut renderer).await
 }
 async fn wait_seen(
     client: &Client,
-    initial: Value,
+    initial: ActorSnapshot,
     human: bool,
-    seen: &mut BTreeSet<String>,
-) -> Result<Value> {
-    let turn_id = id(&initial["id"])?;
+    renderer: &mut Renderer<io::Stdout>,
+) -> Result<ActorSnapshot> {
+    validate(&initial)?;
+    if human {
+        renderer.snapshot(&initial)?;
+    }
+    if initial.state != ActorTurnState::Running {
+        return Ok(initial);
+    }
+    let turn_id = initial.id;
     let (tx, mut rx) = mpsc::channel(16);
     let observer_client = client.clone();
     let observer = tokio::spawn(async move {
@@ -72,50 +63,100 @@ async fn wait_seen(
         }
     });
     let mut latest = initial;
-    let result = loop {
-        if human {
-            show(&latest, seen)?;
-        }
-        if latest["state"] != "running" {
-            break Ok(latest);
-        }
-        tokio::select! {
-            _=tokio::signal::ctrl_c()=>{
-                let _:Value=client.post(&format!("v1/actor-turns/{turn_id}/cancel"),None).await?;
-                break Err(anyhow::anyhow!("Generation interruption requested. Resume conversation {} and inspect turn {turn_id}; workers remain Kernel-owned.",latest["conversation_id"]));
-            },
-            update=rx.recv()=>match update {
-                Some(update)=>{if update["revision"].as_u64()>latest["revision"].as_u64() {latest=update;}},
-                None=>break Err(anyhow::anyhow!("Observer disconnected. Turn {turn_id} remains Kernel-owned; resume the conversation to recover. Do not blindly resubmit a delegation.")),
+    // Keep all exits inside this future so observer cancellation also happens on
+    // malformed data, rendering failure and failed interruption requests.
+    let result = async {
+        loop {
+            tokio::select! {
+                _=tokio::signal::ctrl_c()=>{
+                    let _:ActorSnapshot=client.post(&format!("v1/actor-turns/{turn_id}/cancel"),None).await?;
+                    bail!("Generation interruption requested. Resume conversation {} and inspect turn {turn_id}; workers remain Kernel-owned.", latest.conversation_id);
+                },
+                update=rx.recv()=>match update {
+                    Some(ActorUpdate::Snapshot(update))=>{
+                        ensure!(update.id == latest.id && update.conversation_id == latest.conversation_id,
+                            "Actor snapshot identity changed");
+                        if update.revision <= latest.revision { continue; }
+                        latest = update;
+                        if human { renderer.snapshot(&latest)?; }
+                        if latest.state != ActorTurnState::Running { return Ok(latest); }
+                    },
+                    Some(ActorUpdate::Preview(update))=>{
+                        if human { renderer.preview(update, &latest)?; }
+                    },
+                    None=>bail!("Observer disconnected. Turn {turn_id} remains Kernel-owned; resume the conversation to recover. Do not blindly resubmit a delegation."),
+                }
             }
         }
-    };
+    }.await;
     observer.abort();
+    if result.is_err() && human {
+        renderer.interrupted("observation interrupted")?;
+    }
     result
 }
-async fn submit(client: &Client, conversation: Uuid, request: Uuid, text: String) -> Result<Value> {
-    client.post(&format!("v1/conversations/{conversation}/turns"),Some(json!({"request_id":request,"text":text}))).await
-        .with_context(||format!("Actor submission failed; inspect conversation {conversation} before retrying. Reuse request ID {request} for this same text. Configure the Actor with LAIN_ACTOR_CONFIG and its LAIN_SECRET variable if unavailable."))
+async fn submit(
+    client: &Client,
+    conversation: ConversationId,
+    request: RequestId,
+    text: String,
+) -> Result<ActorSnapshot> {
+    let turn: ActorSnapshot = client.post(&format!("v1/conversations/{conversation}/turns"),Some(json!({"request_id":request,"text":text}))).await
+        .with_context(||format!("Actor submission failed; inspect conversation {conversation} before retrying. Reuse request ID {request} for this same text. Configure the Actor on laind if unavailable."))?;
+    validate(&turn)?;
+    ensure!(
+        turn.conversation_id == conversation && turn.request_id == request,
+        "Actor submission identity mismatch"
+    );
+    Ok(turn)
+}
+fn millis(duration: Duration) -> u64 {
+    duration.as_millis().min(u64::MAX as u128) as u64
+}
+struct Latency {
+    started: Instant,
+    submission_ms: u64,
+}
+impl Latency {
+    fn report(&self, turn: &ActorSnapshot, renderer: &Renderer<io::Stdout>) -> Result<()> {
+        // stderr only, including JSON mode. No text, credentials or provider frames.
+        let visible = renderer
+            .first_visible
+            .and_then(|at| at.checked_duration_since(self.started))
+            .map(millis);
+        eprintln!(
+            "Timing> {}",
+            serde_json::to_string(&json!({
+                "cli_submission_ms":self.submission_ms, "cli_first_visible_ms":visible,
+                "cli_total_ms":millis(self.started.elapsed()), "kernel":turn.timing
+            }))?
+        );
+        Ok(())
+    }
 }
 pub async fn ask(
     client: &Client,
     text: String,
-    conversation: Option<Uuid>,
-    request: Option<Uuid>,
+    conversation: Option<ConversationId>,
+    request: Option<RequestId>,
     machine: bool,
+    timing: bool,
 ) -> Result<()> {
     let conversation = match conversation {
         Some(id) => id,
         None => create(client).await?,
     };
-    let initial = submit(
-        client,
-        conversation,
-        request.unwrap_or_else(Uuid::new_v4),
-        text,
-    )
-    .await?;
-    let turn = wait(client, initial, !machine).await?;
+    let started = Instant::now();
+    let initial = submit(client, conversation, request.unwrap_or_default(), text).await?;
+    let latency = Latency {
+        started,
+        submission_ms: millis(started.elapsed()),
+    };
+    let mut renderer = Renderer::new(io::stdout());
+    let turn = wait_seen(client, initial, !machine, &mut renderer).await?;
+    if timing {
+        latency.report(&turn, &renderer)?;
+    }
     if machine {
         emit(&turn, true)?;
     } else {
@@ -123,78 +164,204 @@ pub async fn ask(
     }
     ensure!(
         !matches!(
-            turn["state"].as_str(),
-            Some("unknown" | "failed" | "cancelled")
+            turn.state,
+            ActorTurnState::Unknown | ActorTurnState::Failed | ActorTurnState::Cancelled
         ),
         "Actor turn did not complete; inspect the conversation"
     );
-    // Pending is a successful scripting result, explicitly not an executed action.
     Ok(())
 }
+
+// Raw mode is scoped to the one active line read. There is no background stdin
+// reader during submission/rendering; one task owns all prompt and response output.
+struct RawLine;
+impl RawLine {
+    fn new() -> Result<Self> {
+        terminal::enable_raw_mode()?;
+        Ok(Self)
+    }
+}
+impl Drop for RawLine {
+    fn drop(&mut self) {
+        let _ = terminal::disable_raw_mode();
+    }
+}
+enum InputResult {
+    Line(String),
+    Exit,
+}
+#[derive(PartialEq, Eq)]
+enum InputState {
+    Ready,
+    Reading,
+    Closed,
+}
 struct Input {
-    lines: mpsc::Receiver<Option<String>>,
+    state: InputState,
+    events: EventStream,
+    swallow_lf: bool,
 }
 impl Input {
-    fn new() -> Result<Self> {
-        let (sender, lines) = mpsc::channel(1);
-        // A plain input thread may remain blocked at process exit. It is never joined;
-        // unlike spawn_blocking, it cannot hold Tokio runtime shutdown waiting on stdin.
-        std::thread::Builder::new()
-            .name("lain-stdin".into())
-            .spawn(move || {
-                loop {
-                    let mut text = String::new();
-                    let line = match io::stdin().read_line(&mut text) {
-                        Ok(0) | Err(_) => None,
-                        Ok(_) => Some(text.trim().to_owned()),
-                    };
-                    let eof = line.is_none();
-                    if sender.blocking_send(line).is_err() || eof {
-                        break;
-                    }
-                }
-            })?;
-        Ok(Self { lines })
+    fn new() -> Self {
+        Self {
+            state: InputState::Ready,
+            events: EventStream::new(),
+            swallow_lf: false,
+        }
     }
-    async fn line(&mut self, prompt: &str) -> Result<Option<String>> {
+    async fn line(&mut self, prompt: &str, allow_empty: bool) -> Result<InputResult> {
+        ensure!(
+            self.state == InputState::Ready,
+            "interactive input already owned or closed"
+        );
+        self.state = InputState::Reading;
+        let _raw = RawLine::new()?;
         print!("{prompt}");
         io::stdout().flush()?;
-        Ok(self.lines.recv().await.flatten())
+        let mut text = String::new();
+        loop {
+            let event = tokio::select! {
+                _=tokio::signal::ctrl_c()=>None,
+                event=self.events.next()=>event.transpose()?,
+            };
+            let Some(event) = event else {
+                self.state = InputState::Closed;
+                print!("\r\n");
+                io::stdout().flush()?;
+                return Ok(InputResult::Exit);
+            };
+            let Event::Key(key) = event else {
+                continue;
+            };
+            if key.kind == KeyEventKind::Release {
+                continue;
+            }
+            let lf =
+                key.code == KeyCode::Char('j') && key.modifiers.contains(KeyModifiers::CONTROL);
+            if lf && self.swallow_lf {
+                self.swallow_lf = false;
+                continue;
+            }
+            self.swallow_lf = false;
+            // Crossterm reports LF as Ctrl-J in raw mode; CR is Enter. Treat
+            // both as line endings, while an empty second CRLF event stays put.
+            let code = if key.code == KeyCode::Char('j')
+                && key.modifiers.contains(KeyModifiers::CONTROL)
+            {
+                KeyCode::Enter
+            } else {
+                key.code
+            };
+            match code {
+                KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    self.state = InputState::Closed;
+                    print!("^C\r\n");
+                    io::stdout().flush()?;
+                    return Ok(InputResult::Exit);
+                }
+                KeyCode::Char('d')
+                    if key.modifiers.contains(KeyModifiers::CONTROL) && text.is_empty() =>
+                {
+                    self.state = InputState::Closed;
+                    print!("\r\n");
+                    io::stdout().flush()?;
+                    return Ok(InputResult::Exit);
+                }
+                // Empty Enter keeps the existing prompt active, including the
+                // second Enter produced by CRLF. It never prints another You>.
+                KeyCode::Enter if text.trim().is_empty() && !allow_empty => {
+                    self.swallow_lf = !lf;
+                    for _ in 0..unicode_width::UnicodeWidthStr::width(text.as_str()) {
+                        print!("\x08 \x08");
+                    }
+                    text.clear();
+                }
+                KeyCode::Enter => {
+                    self.swallow_lf = !lf;
+                    self.state = InputState::Ready;
+                    print!("\r\n");
+                    io::stdout().flush()?;
+                    return Ok(InputResult::Line(text.trim().to_owned()));
+                }
+                KeyCode::Backspace => {
+                    if let Some(c) = text.pop() {
+                        let width = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+                        for _ in 0..width {
+                            print!("\x08 \x08");
+                        }
+                    }
+                }
+                KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                    text.clear();
+                    print!("\r\x1b[2K{prompt}");
+                }
+                KeyCode::Char(c)
+                    if !key
+                        .modifiers
+                        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+                        && !c.is_control() =>
+                {
+                    if text.len() + c.len_utf8() <= 8192 {
+                        text.push(c);
+                        print!("{}", safe_text(&c.to_string()));
+                    }
+                }
+                _ => {}
+            }
+            io::stdout().flush()?;
+        }
     }
 }
-async fn confirmation(client: &Client, mut turn: Value, input: &mut Input) -> Result<()> {
-    let mut seen = BTreeSet::new();
+async fn confirmation(
+    client: &Client,
+    mut turn: ActorSnapshot,
+    input: &mut Input,
+    timing: Option<Latency>,
+) -> Result<bool> {
+    let mut renderer = Renderer::new(io::stdout());
+    let mut timing = timing;
     loop {
-        turn = wait_seen(client, turn, true, &mut seen).await?;
-        if turn["state"] != "pending_confirmation" {
-            return Ok(());
+        turn = wait_seen(client, turn, true, &mut renderer).await?;
+        if let Some(latency) = timing.take() {
+            latency.report(&turn, &renderer)?;
         }
-        let action = turn["actions"]
-            .as_array()
-            .context("missing actions")?
+        if turn.state != ActorTurnState::PendingConfirmation {
+            return Ok(true);
+        }
+        let action = turn
+            .actions
             .iter()
-            .find(|a| a["state"] == "proposed")
+            .find(|a| a.state == ActionState::Proposed)
             .context("missing pending proposal")?;
-        let answer = tokio::select! {
-            answer=input.line("Confirm this exact action? [y/N] ")=>answer?,
-            _=tokio::signal::ctrl_c()=>bail!("Confirmation interrupted; the proposal remains pending for explicit review."),
-        };
-        let Some(answer) = answer else {
-            return Ok(());
+        println!(
+            "Approval executes only the exact Tool arguments above. Work submission does not mean worker completion."
+        );
+        let answer = match input
+            .line("Confirm this exact action? [y/N] ", true)
+            .await?
+        {
+            InputResult::Line(answer) => answer,
+            InputResult::Exit => {
+                println!("Proposal remains pending for explicit review.");
+                return Ok(false);
+            }
         };
         let approve = answer.eq_ignore_ascii_case("y");
-        let turn_id = id(&turn["id"])?;
-        let action_id = id(&action["id"])?;
         turn = client
             .post(
-                &format!("v1/actor-turns/{turn_id}/actions/{action_id}/decision"),
+                &format!("v1/actor-turns/{}/actions/{}/decision", turn.id, action.id),
                 Some(json!({"approve":approve})),
             )
             .await?;
+        validate(&turn)?;
     }
 }
-
-pub async fn run(client: Client, conversation: Option<Uuid>) -> Result<()> {
+#[derive(Deserialize)]
+struct ConversationPage {
+    turns: Vec<ActorSnapshot>,
+    has_more: bool,
+}
+pub async fn run(client: Client, conversation: Option<ConversationId>, timing: bool) -> Result<()> {
     ensure!(
         io::stdin().is_terminal() && io::stdout().is_terminal(),
         "chat requires a normal terminal; use lain --json ask for scripts"
@@ -202,9 +369,9 @@ pub async fn run(client: Client, conversation: Option<Uuid>) -> Result<()> {
     let diagnostics: Value = client.get("v1/diagnostics").await?;
     ensure!(
         diagnostics["actor"]["status"] == "configured",
-        "Actor model unavailable: run lain doctor; set LAIN_ACTOR_CONFIG and its LAIN_SECRET variable on laind (Codex login is separate)"
+        "Actor model unavailable: run lain doctor; configure Actor on laind (Codex login is separate)"
     );
-    let mut input = Input::new()?;
+    let mut input = Input::new();
     let mut conversation = match conversation {
         Some(id) => id,
         None => create(&client).await?,
@@ -212,43 +379,41 @@ pub async fn run(client: Client, conversation: Option<Uuid>) -> Result<()> {
     println!(
         "Conversation: {conversation}\nLain> You're here.\n/help for commands; /exit keeps this conversation."
     );
-    let page: Value = client
+    let page: ConversationPage = client
         .get(&format!("v1/conversations/{conversation}?recent=true"))
         .await?;
-    if let Some(turns) = page["turns"].as_array() {
-        for turn in turns {
-            if !matches!(
-                turn["state"].as_str(),
-                Some("running" | "pending_confirmation")
-            ) {
-                show(turn, &mut BTreeSet::new())?;
-            }
-        }
-        if let Some(turn) = turns.last()
-            && matches!(
-                turn["state"].as_str(),
-                Some("running" | "pending_confirmation")
-            )
-        {
-            confirmation(&client, turn.clone(), &mut input).await?;
-        }
-        if page["has_more"] == true {
-            println!(
-                "Older conversation page loaded; use /history or the conversation API cursor for all records."
-            );
+    let mut history = Renderer::new(io::stdout());
+    for turn in &page.turns {
+        validate(turn)?;
+        ensure!(
+            turn.conversation_id == conversation,
+            "conversation history identity mismatch"
+        );
+        if !matches!(
+            turn.state,
+            ActorTurnState::Running | ActorTurnState::PendingConfirmation
+        ) {
+            history.snapshot(turn)?;
         }
     }
+    if let Some(turn) = page.turns.last()
+        && matches!(
+            turn.state,
+            ActorTurnState::Running | ActorTurnState::PendingConfirmation
+        )
+        && !confirmation(&client, turn.clone(), &mut input, None).await?
+    {
+        return Ok(());
+    }
+    if page.has_more {
+        println!(
+            "Older conversation page loaded; use /history or the conversation API cursor for all records."
+        );
+    }
     loop {
-        let text = tokio::select! {
-            text=input.line("You> ")=>text?,
-            _=tokio::signal::ctrl_c()=>return Ok(()),
-        };
-        let Some(text) = text else {
+        let InputResult::Line(text) = input.line("You> ", false).await? else {
             return Ok(());
         };
-        if text.is_empty() {
-            continue;
-        }
         match text.as_str() {
             "/exit" => return Ok(()),
             "/help" => println!(
@@ -268,14 +433,23 @@ pub async fn run(client: Client, conversation: Option<Uuid>) -> Result<()> {
                 println!("Conversation: {conversation}");
             }
             value if value.starts_with('/') => println!("Unknown command; /help lists commands."),
-            _ => match submit(&client, conversation, Uuid::new_v4(), text).await {
-                Ok(turn) => {
-                    if let Err(error) = confirmation(&client, turn, &mut input).await {
-                        eprintln!("{}", safe_text(&error.to_string()));
+            _ => {
+                let started = Instant::now();
+                match submit(&client, conversation, RequestId::new(), text).await {
+                    Ok(turn) => {
+                        let latency = timing.then(|| Latency {
+                            started,
+                            submission_ms: millis(started.elapsed()),
+                        });
+                        match confirmation(&client, turn, &mut input, latency).await {
+                            Ok(false) => return Ok(()),
+                            Ok(true) => {}
+                            Err(error) => eprintln!("{}", safe_text(&error.to_string())),
+                        }
                     }
+                    Err(error) => eprintln!("{}", safe_text(&error.to_string())),
                 }
-                Err(error) => eprintln!("{}", safe_text(&error.to_string())),
-            },
+            }
         }
     }
 }

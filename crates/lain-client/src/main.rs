@@ -1,3 +1,4 @@
+mod actor_render;
 mod api;
 mod chat;
 mod local;
@@ -6,6 +7,7 @@ mod tui;
 use anyhow::{Result, ensure};
 use api::{Client, Decision, Session};
 use clap::{Parser, Subcommand, ValueEnum};
+use lain_wire::{ActionId, ActorTurnId, ConversationId, RequestId};
 use serde_json::{Value, json};
 use std::io::{self, Write};
 use uuid::Uuid;
@@ -28,14 +30,18 @@ enum Command {
     Doctor,
     Chat {
         #[arg(long)]
-        conversation: Option<Uuid>,
+        conversation: Option<ConversationId>,
+        #[arg(long)]
+        timing: bool,
     },
     Ask {
         text: String,
         #[arg(long)]
-        conversation: Option<Uuid>,
+        conversation: Option<ConversationId>,
         #[arg(long)]
-        request_id: Option<Uuid>,
+        request_id: Option<RequestId>,
+        #[arg(long)]
+        timing: bool,
     },
     Conversations,
     Conversation {
@@ -63,10 +69,10 @@ enum Command {
 }
 #[derive(Subcommand)]
 enum ActorCommands {
-    Show { turn: Uuid },
-    Cancel { turn: Uuid },
-    Approve { turn: Uuid, action: Uuid },
-    Deny { turn: Uuid, action: Uuid },
+    Show { turn: ActorTurnId },
+    Cancel { turn: ActorTurnId },
+    Approve { turn: ActorTurnId, action: ActionId },
+    Deny { turn: ActorTurnId, action: ActionId },
 }
 #[derive(Subcommand)]
 enum Work {
@@ -191,15 +197,19 @@ async fn run(args: Args) -> Result<()> {
         Command::Setup { .. } | Command::Up | Command::Doctor => {
             unreachable!("handled before client configuration")
         }
-        Command::Chat { conversation } => {
+        Command::Chat {
+            conversation,
+            timing,
+        } => {
             ensure!(!json_output, "chat is interactive; use --json ask");
-            chat::run(client, conversation).await
+            chat::run(client, conversation, timing).await
         }
         Command::Ask {
             text,
             conversation,
             request_id,
-        } => chat::ask(&client, text, conversation, request_id, json_output).await,
+            timing,
+        } => chat::ask(&client, text, conversation, request_id, json_output, timing).await,
         Command::Conversations => {
             emit(&client.get::<Value>("v1/conversations").await?, json_output)
         }
@@ -230,7 +240,7 @@ async fn run(args: Args) -> Result<()> {
             ActorCommands::Approve { turn, action } | ActorCommands::Deny { turn, action } => {
                 let approve = matches!(command, ActorCommands::Approve { .. });
                 let initial = client
-                    .post::<Value>(
+                    .post::<lain_wire::ActorSnapshot>(
                         &format!("v1/actor-turns/{turn}/actions/{action}/decision"),
                         Some(json!({"approve":approve})),
                     )
@@ -240,7 +250,7 @@ async fn run(args: Args) -> Result<()> {
                     emit(&result, true)?;
                 }
                 ensure!(
-                    result["state"] == "completed",
+                    result.state == lain_wire::ActorTurnState::Completed,
                     "Actor action outcome is uncertain; inspect its recorded partial result"
                 );
                 Ok(())

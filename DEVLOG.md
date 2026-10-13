@@ -790,3 +790,37 @@ the repeated `You>` reproduction/fix, reusable local Actor configuration and the
 expanded real delegation/restart checks remain pending. Native Windows and Linux
 are unverified. Real provider preview behavior and combined Actor/worker
 acceptance are unverified. Web remains frozen and Phase 7 remains deferred.
+
+### Incremental CLI and prompt regression — 2026-10-13
+
+The CLI now decodes validated typed Actor snapshots/previews, displays sanitized
+text during inference, and reconciles checkpoints/finals by identity and prefix.
+Duplicate/stale preview sequences are ignored; gaps/discards/failures are marked
+unconfirmed. Terminal controls are escaped. JSON ask keeps final-only stdout;
+optional `--timing` diagnostics use stderr and contain measured durations only.
+
+A native controlling-PTY reproduction established one concrete `You> You>`
+trigger: canonical terminal CRLF became two newlines, and the background stdin
+thread queued the empty second line, causing two adjacent prompts. It does not
+prove the owner's original trigger was identical. Removed that stdin thread in
+favor of one serialized, scoped raw line read with terminal restoration. LF
+(Ctrl-J in Crossterm raw mode) and CR are handled explicitly, and paired LF is
+consumed rather than printing another prompt or answering a later confirmation.
+Empty ordinary input retains the current prompt; empty confirmation denies.
+
+Native macOS locked build, fmt, warnings-denied Clippy and 59 deterministic Rust
+tests passed, with three opt-in tests ignored. Extended native fixture/PTY checks
+passed, including gated Chinese preview visible while the turn remains Running,
+long/multiline output, final deduplication, no-preview completion, partial failure,
+LF/CRLF/slash/consecutive inputs, JSON/timing separation, denial, existing approval,
+Ctrl-C/EOF at input and confirmation, generation cancellation, exact terminal
+restoration, persisted conversation reopen, same-generation preview checkpoint
+reconnect and continued Kernel inference after client loss. Parser tests cover
+multiline/byte fragmentation/private argument deltas/failure/incomplete/empty
+output; slow-subscriber and contradictory durable-state tests were added.
+
+No paid provider was called and no owner daemon/configuration was changed.
+Native Windows/ConPTY and Linux remain unverified. Real provider incremental
+output, typed reads, denial/confirmed delegation and combined recovery acceptance
+remain pending. Local configuration reuse is the next implementation item.
+See ADR 005 for the preview contract and the actual redaction limitations.
