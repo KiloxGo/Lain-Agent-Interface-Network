@@ -184,7 +184,10 @@ binary paths, native credential permissions, PATH conflict diagnostics, remote
 mode, existing work/profile/approval commands and platform acceptance entrypoints.
 
 Chat requires its own explicit model configuration and namespaced SecretRef;
-Codex login is separate. [LAIN_ACTOR.md](docs/LAIN_ACTOR.md) documents setup,
+Codex login is separate. Copy [actor.example.json](config/actor.example.json) to
+Git-ignored `config/actor.json` for local development, edit the model/endpoint,
+and set the daemon's configuration/secret environment as described in
+[LAIN_ACTOR.md](docs/LAIN_ACTOR.md). That guide documents setup,
 persona, persistent conversations, typed tools, owner confirmation and recovery.
 `lain --json ask` supports scripting; mutations remain pending until explicitly
 approved. Existing workers run independently of chat/observers. Conversations are

@@ -735,3 +735,30 @@ automatic routing or other Phase 7 work was started. No milestone commit was mad
 - Real Actor credentials/configuration remain absent, so real Actor chat and
   confirmed Actor-to-Codex delegation remain unverified. Native Windows and Linux
   also remain unverified; cross-platform Phase 6 acceptance is still pending.
+
+### Owner-reported real Actor conversation — 2026-10-13
+
+The owner supplied a native macOS `lain chat` transcript after restarting the
+Kernel with explicit Actor configuration. Doctor reports configured, and the
+conversation diagnostics identify the `openai-responses` driver and
+`mimo-v2.6-flash` model with an available namespaced credential. Two ordinary
+Chinese messages received real assistant responses. This establishes a manual,
+owner-reported ordinary Actor conversation check; the startup "You're here."
+greeting itself is static CLI text and is not inference evidence. No credential
+or raw provider traffic was requested or recorded, and the coding agent did not
+repeat these paid calls.
+
+The transcript also exercises `/help`, `/status`, `/conversations` and the empty
+initial `/history`. `/conversation` is unsupported; `/exit` must occupy the
+whole input line. It does not yet demonstrate typed model tool calls, confirmed
+Actor-to-Codex delegation, independent worker completion, or conversation recovery
+after client/Kernel restart. Combined real acceptance and native Windows/Linux
+acceptance remain pending.
+
+The owner reports slow replies. The adapter requests and consumes provider SSE
+but currently exposes only complete, redacted response records to the CLI;
+provider token deltas are discarded. This explains the absence of incremental
+display, not the provider's total latency: no timing measurements were supplied.
+The transcript also contains a repeated `You>` prompt; its precise trigger has
+not been reproduced. Incremental display and input prompt handling remain UX
+follow-up work, not completed fixes.

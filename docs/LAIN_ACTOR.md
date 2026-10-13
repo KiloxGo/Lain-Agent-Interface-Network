@@ -8,7 +8,15 @@ The existing Web client remains frozen and has no Actor UI.
 
 ## Configure a real model explicitly
 
-Create an owner-managed JSON file outside the source checkout:
+For normal use, keep an owner-managed JSON file outside the source checkout, in
+the per-user directory described below. For checkout-based development, copy
+[`config/actor.example.json`](../config/actor.example.json) to `config/actor.json`.
+The example is tracked; `/config/actor.json` is explicitly ignored by Git. Neither
+file contains an API key: `secret_ref` names an environment variable. Review
+`model` and `endpoint` before use and set them to your provider's actual
+Responses-compatible model and base URL.
+
+The configuration has this shape:
 
 ```json
 {
@@ -28,6 +36,45 @@ or loopback HTTP is accepted, without user info/query/fragment. Reasoning effort
 is optional, sent only when configured; actual support is provider/model-owned.
 No default paid model, Codex credential reuse, automatic routing or fallback.
 Use a provider/model that supports Responses function calling and SSE.
+
+### Configure from a checkout
+
+Run these commands from the repository root. macOS zsh:
+
+```zsh
+cp -n config/actor.example.json config/actor.json
+chmod 600 config/actor.json
+# Edit model and endpoint in config/actor.json before starting the daemon.
+export LAIN_ACTOR_CONFIG="$PWD/config/actor.json"
+read -rs 'LAIN_SECRET_ACTOR?Actor API key: '
+printf '\n'
+export LAIN_SECRET_ACTOR
+lain up
+```
+
+Windows PowerShell (the API key is entered through a secure prompt):
+
+```powershell
+if (!(Test-Path 'config/actor.json')) {
+    Copy-Item 'config/actor.example.json' 'config/actor.json'
+}
+# Edit model and endpoint in config/actor.json before starting the daemon.
+$env:LAIN_ACTOR_CONFIG = (Resolve-Path 'config/actor.json').Path
+$env:LAIN_SECRET_ACTOR = [System.Net.NetworkCredential]::new('', (Read-Host 'Actor API key' -AsSecureString)).Password
+lain up
+```
+
+Stop an existing `lain up` with Ctrl-C before starting it in this configured
+terminal; an already-running Kernel does not reload the caller's environment.
+In another terminal, run `lain doctor`, then `lain chat`. The secure/hidden prompt
+keeps the key out of command history; the key is inherited by the daemon only
+through its environment. This entrypoint does not persist the key across new
+shells. `.env` is ignored by Git but **is not automatically loaded**. Actor JSON
+also is not discovered automatically: `LAIN_ACTOR_CONFIG` must be set when the
+Kernel starts. The documented PowerShell commands have not been verified on a
+native Windows host.
+
+### Configure outside the checkout
 
 PowerShell, in the daemon terminal (supply the credential privately):
 

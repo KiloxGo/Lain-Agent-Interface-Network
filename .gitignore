@@ -38,6 +38,9 @@ dist-ssr/
 .env.local
 .env.*.local
 
+# User-owned Actor configuration; commit only the example template.
+/config/actor.json
+
 # --------------------------------------------
 # 日志文件
 # --------------------------------------------
