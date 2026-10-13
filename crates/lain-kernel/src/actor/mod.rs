@@ -163,13 +163,6 @@ impl Actor {
         let turn = blocking(&self.kernel, move |k| {
             k.actor_update(id, |turn| {
                 change(turn)?;
-                if !turn.state.active() {
-                    for message in &mut turn.messages {
-                        if message.status == TurnState::Running {
-                            message.status = turn.state;
-                        }
-                    }
-                }
                 Ok(())
             })
         })
@@ -226,7 +219,6 @@ impl Actor {
                         turn.state=TurnState::Unknown;
                         turn.error=Some("Inference or tool execution did not finish reliably; inspect recorded actions before retrying. No mutation was replayed.".into());
                         for action in &mut turn.actions { if action.state==ActionState::Executing { action.state=ActionState::Unknown; } }
-                        for message in &mut turn.messages { if message.status==TurnState::Running { message.status=TurnState::Unknown; } }
                     }
                     Ok(())
                 }).await;
@@ -309,7 +301,7 @@ impl Actor {
                         turn.state = TurnState::Completed;
                     }
                     if !text.is_empty() {
-                        turn.message("assistant", text)?;
+                        turn.message(MessageRole::Assistant, text)?;
                         turn.messages.last_mut().unwrap().id = message_id;
                     }
                     Ok(())
@@ -346,7 +338,7 @@ impl Actor {
                     input.push(json!({"type":"function_call_output","call_id":call_id,"output":"invalid tool name or typed arguments; no action executed"}));
                     self.update(id, |turn| {
                         turn.message(
-                            "tool",
+                            MessageRole::Tool,
                             "Invalid tool call rejected; no action executed.".into(),
                         )
                     })
@@ -370,7 +362,7 @@ impl Actor {
             let saved=self.update(id,move |turn| {
                 ensure!(!turn.actions.iter().any(|a| a.call_id==recorded.call_id),ControlError::Conflict);
                 turn.actions.push(recorded);
-                if mutating { turn.state=TurnState::PendingConfirmation; turn.message("assistant","Owner confirmation required. Review the exact typed action before approving; it has not executed.".into())?; }
+                if mutating { turn.state=TurnState::PendingConfirmation; turn.message(MessageRole::Assistant,"Owner confirmation required. Review the exact typed action before approving; it has not executed.".into())?; }
                 Ok(())
             }).await?;
             if mutating {
@@ -439,7 +431,7 @@ impl Actor {
                 };
                 if !approve {
                     turn.message(
-                        "assistant",
+                        MessageRole::Assistant,
                         "Action declined by owner. No mutation executed.".into(),
                     )?;
                 }
@@ -506,7 +498,7 @@ impl Actor {
             } else {
                 TurnState::Unknown
             };
-            turn.message("assistant", content)?;
+            turn.message(MessageRole::Assistant, content)?;
             Ok(())
         })
         .await?;
@@ -528,7 +520,7 @@ impl Actor {
                     }
                     turn.state = TurnState::Cancelled;
                     turn.message(
-                        "assistant",
+                        MessageRole::Assistant,
                         "Pending action cancelled by owner; no mutation executed.".into(),
                     )?;
                     Ok(())
@@ -634,9 +626,9 @@ mod tests {
                 usage_tokens: 1,
                 timing: Default::default(),
             };
-            turn.message("user", format!("{n}: {}", "中".repeat(2000)))
+            turn.message(MessageRole::User, format!("{n}: {}", "中".repeat(2000)))
                 .unwrap();
-            turn.message("assistant", "fixture-sensitive-value".into())
+            turn.message(MessageRole::Assistant, "fixture-sensitive-value".into())
                 .unwrap();
             turns.push(turn);
         }

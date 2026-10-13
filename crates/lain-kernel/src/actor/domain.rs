@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use uuid::Uuid;
 
-pub use lain_wire::{ActionId, ActorTurnId, ConversationId, MessageId};
+pub use lain_wire::{ActionId, ActorTurnId, ConversationId, MessageId, MessageRole, MessageStatus};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conversation {
     pub id: ConversationId,
@@ -29,10 +29,10 @@ impl TurnState {
 pub struct Message {
     pub id: MessageId,
     pub conversation_id: ConversationId,
-    pub role: lain_wire::MessageRole,
+    pub role: MessageRole,
     pub content: String,
     pub timestamp_ms: u64,
-    pub status: TurnState,
+    pub status: MessageStatus,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -73,19 +73,14 @@ impl ActorTurn {
         let wire: lain_wire::ActorSnapshot = serde_json::from_value(serde_json::to_value(self)?)?;
         wire.validate().map_err(anyhow::Error::msg)
     }
-    pub fn message(&mut self, role: &str, content: String) -> anyhow::Result<()> {
+    pub fn message(&mut self, role: MessageRole, content: String) -> anyhow::Result<()> {
         self.messages.push(Message {
             id: MessageId::new(),
             conversation_id: self.conversation_id,
-            role: match role {
-                "user" => lain_wire::MessageRole::User,
-                "assistant" => lain_wire::MessageRole::Assistant,
-                "tool" => lain_wire::MessageRole::Tool,
-                _ => anyhow::bail!("invalid Actor message role"),
-            },
+            role,
             content,
             timestamp_ms: crate::domain::now_ms()?,
-            status: TurnState::Completed,
+            status: MessageStatus::Completed,
         });
         Ok(())
     }

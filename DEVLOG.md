@@ -861,3 +861,32 @@ Remaining Phase 6.5 work includes the final wire-state audit, expanded opt-in re
 provider/delegation/worker-terminal/restart acceptance and a conditional Phase 7
 handoff. Real acceptance still requires explicit owner provider/workspace approval;
 no Phase 6 completion or cross-platform acceptance is claimed.
+
+### Typed durable messages and reviewable real acceptance — 2026-10-13
+
+Separated complete message-body status from ActorTurn state and typed all message
+constructors. New private message-format metadata rejects contradictory current
+records; versionless Phase 6 bodies preserve identity/content while normalizing
+legacy turn-status metadata. Recovery revision increments are checked. Provider
+completion timing is captured on the completed SSE event, before final validation.
+
+Added read-only `lain work turns`, compact flushed JSONL for machine work watch,
+and shared genuine Unix/Windows signal registration for launcher/chat/watch.
+Extended the existing opt-in Actor runner with Chinese conversation, measured
+preview-before-completion, all five read tools with receipts, owner denial,
+separate exact approval, duplicate-decision rejection, actual worker terminal
+observation, macOS chat exit/reopen and read-only post-restart hash/ID recovery.
+Safe evidence contains IDs/hashes/states/durations, not prose or credentials.
+Fixture execution is explicitly labelled and does not establish real acceptance.
+
+Native macOS `zsh scripts/check-native.zsh` passed locked build, formatting,
+warnings-denied Clippy, 63 deterministic Rust tests and all CLI/PTY/native fixture
+checks, including the expanded runner itself; three opt-in tests remain ignored.
+Default real-runner invocation makes no model calls. Native Windows/ConPTY/Linux
+and combined real-provider acceptance remain unverified. No paid calls or owner
+daemon/configuration changes occurred. The acceptance record and conditional
+Phase 7 inputs are in `docs/PHASE_6_5_ACCEPTANCE.md`; memory remains unimplemented.
+
+Additional cancellation/partial-creation/history/worker-invariant probes found
+in the workspace are being reviewed before real acceptance. This checkpoint is
+not final Phase 6.5 acceptance and does not close those review items.

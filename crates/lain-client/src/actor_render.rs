@@ -315,7 +315,7 @@ mod tests {
             role: MessageRole::Assistant,
             content: "你好\n世界\u{1b}".into(),
             timestamp_ms: 0,
-            status: ActorTurnState::Completed,
+            status: MessageStatus::Completed,
         });
         r.snapshot(&turn).unwrap();
         r.snapshot(&turn).unwrap();

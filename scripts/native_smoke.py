@@ -55,6 +55,19 @@ def run(platform):
                 prompt = last.get("content", "")
                 if last.get("type") == "function_call_output":
                     output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "已读取 Kernel 的真实工作状态。"}]}]
+                elif "work.create" in prompt:
+                    output = [{"type": "function_call", "name": "work_create", "call_id": "call_create", "arguments": json.dumps({"workspace": str(workspace), "profile_id": "codex/local", "sandbox": "read_only", "task": "hello"})}]
+                elif "work.inspect" in prompt or "work.history" in prompt:
+                    import re
+                    sid = re.search(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", prompt).group()
+                    history = "work.history" in prompt
+                    arguments = {"session_id":sid, **({"after":0} if history else {})}
+                    output = [{"type":"function_call", "name":"work_history" if history else "work_inspect", "call_id":"call_read", "arguments":json.dumps(arguments)}]
+                elif "work.list" in prompt or "profile.list" in prompt or "profile.inspect" in prompt:
+                    name = "profile_inspect" if "profile.inspect" in prompt else "profile_list" if "profile.list" in prompt else "work_list"
+                    output = [{"type":"function_call", "name":name, "call_id":"call_read", "arguments":json.dumps({"profile_id":"codex/local"} if name == "profile_inspect" else {})}]
+                elif "三百字" in prompt:
+                    output = [{"type":"message", "role":"assistant", "content":[{"type":"output_text", "text":"你好，我是 Lain。" + "这是可见的流式对话。" * 30}]}]
                 elif "delegate" in last.get("content", ""):
                     output = [{"type": "function_call", "name": "work_create", "call_id": "call_delegate", "arguments": json.dumps({"workspace": str(workspace), "profile_id": "codex/local", "sandbox": "read_only", "task": "hello"})}]
                 elif "inspect" in last.get("content", ""):
@@ -92,6 +105,8 @@ def run(platform):
                             self.wfile.flush()
                         if prompt == "stream-delayed" and index == len("STREAM-BEGIN 你好") - 1:
                             assert stream_gate.wait(15), "PTY test did not release provider gate"
+                        if "三百字" in prompt and index == 20:
+                            time.sleep(1)  # Deterministic preview-before-completion probe.
                 except (BrokenPipeError, ConnectionResetError):
                     pass  # Explicit cancellation can close the private provider connection.
         model = ThreadingHTTPServer(("127.0.0.1", 0), Model)
@@ -276,6 +291,17 @@ def run(platform):
             assert completed["state"] == "completed", completed["error"]
             sid = completed["actions"][0]["result"]["outcome"]["work_session_id"]
             assert cli("--json", "work", "show", sid)["id"] == sid
+            assert any(t["id"] == completed["actions"][0]["result"]["outcome"]["turn_id"] for t in cli("--json", "work", "turns", sid))
+            import queue
+            watch = subprocess.Popen([str(lain), "--json", "work", "watch", sid], env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            first_line = queue.Queue(1)
+            threading.Thread(target=lambda: first_line.put(watch.stdout.readline()), daemon=True).start()
+            try:
+                assert json.loads(first_line.get(timeout=10))["id"] == sid, "work watch must emit one complete JSON record per line"
+            finally:
+                watch.terminate()
+                watch.wait(timeout=10)
+                watch.stdout.close()
             cli("--json", "work", "history", sid)
             cli("--json", "profile", "list")
             resumed = cli("--json", "ask", "inspect", "--conversation", conversation)
@@ -284,6 +310,24 @@ def run(platform):
             # Idempotency uses the same conversation, request UUID and text.
             retry = cli("--json", "ask", "inspect", "--conversation", conversation, "--request-id", resumed["request_id"])
             assert retry["id"] == resumed["id"]
+            # Exercise the opt-in runner itself against fake local providers;
+            # this imports helpers, never invokes --run-real or spends quota.
+            from actor_smoke import Acceptance
+            from unittest.mock import patch
+            acceptance = Acceptance(lain, root / "acceptance.json", workspace, env, fixture=True)
+            def fixture_decision(prompt):
+                if prompt.startswith("Denial test:"):
+                    return "DENY"
+                if prompt.startswith("Separate real delegation:"):
+                    return prompt.split("type ", 1)[1].split(" to launch", 1)[0]
+                if prompt.startswith("Type RESTARTED"):
+                    return "RESTARTED"
+                raise AssertionError("unexpected acceptance owner decision")
+            with patch("builtins.input", fixture_decision):
+                acceptance.run(15)
+            assert acceptance.report["checks"]["incremental_text_while_running"] is True
+            assert acceptance.report["checks"]["worker_completed_successfully"] is True
+            assert token not in acceptance.evidence.read_text() and "fixture-actor-credential" not in acceptance.evidence.read_text()
             stop()
             # Explicit env-file selection is per launch; process environment has
             # higher precedence and neither rewrites the saved owner selection.
@@ -312,6 +356,9 @@ def run(platform):
             stop()
             start()
             assert cli("--json", "doctor")["actor_configuration"] == "matches"
+            with patch("builtins.input", fixture_decision):
+                acceptance.recovery()
+            assert acceptance.report["checks"]["daemon_restart_continuity"] is True
             assert len(provider_calls) == before_calls, "configuration/recovery caused inference"
             assert (local / "client.json").read_bytes() == selected_settings
             stop()

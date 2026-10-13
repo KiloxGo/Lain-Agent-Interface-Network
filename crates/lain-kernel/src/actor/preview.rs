@@ -116,6 +116,11 @@ impl PreviewSink {
         let elapsed = elapsed(s.started);
         s.timing.first_byte_ms.get_or_insert(elapsed);
     }
+    pub(crate) fn provider_completed(&self) {
+        let mut s = self.0.lock().unwrap();
+        let elapsed = elapsed(s.started);
+        s.timing.completed_ms.get_or_insert(elapsed);
+    }
     pub(crate) fn delta(&self, delta: &str) {
         let mut s = self.0.lock().unwrap();
         if s.closed {
@@ -137,7 +142,6 @@ impl PreviewSink {
     }
     pub(super) fn finish(&self, authoritative: &str) -> ModelTiming {
         let mut s = self.0.lock().unwrap();
-        s.timing.completed_ms = Some(elapsed(s.started));
         if !s.closed {
             if s.text.as_str() != authoritative {
                 s.discard(DiscardReason::Inconsistent);

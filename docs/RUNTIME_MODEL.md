@@ -388,8 +388,8 @@ V1 runtime should stay small:
 ## 20. Implemented lifecycle and recovery
 
 The implemented subset is profiles/SecretRefs, configuration/logging, operational
-SQLite, worker supervision/recovery, and a local HTTP/SSE server. No scheduler, world, or Lain Actor
-is started. Startup fails before serving if configuration, signals, storage,
+SQLite, worker supervision/recovery, a bounded on-demand Lain Actor, and a local
+HTTP/SSE server. No scheduler or world is started. Startup fails before serving if configuration, signals, storage,
 migration, persisted records, or the listener cannot be initialized.
 
 `Booting` opens storage. `Recovering` loads and validates session and worker snapshots

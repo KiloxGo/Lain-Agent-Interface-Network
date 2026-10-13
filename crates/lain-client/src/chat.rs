@@ -68,7 +68,7 @@ async fn wait_seen(
     let result = async {
         loop {
             tokio::select! {
-                _=tokio::signal::ctrl_c()=>{
+                _=crate::signals::shutdown()?=>{
                     let _:ActorSnapshot=client.post(&format!("v1/actor-turns/{turn_id}/cancel"),None).await?;
                     bail!("Generation interruption requested. Resume conversation {} and inspect turn {turn_id}; workers remain Kernel-owned.", latest.conversation_id);
                 },
@@ -221,7 +221,7 @@ impl Input {
         let mut text = String::new();
         loop {
             let event = tokio::select! {
-                _=tokio::signal::ctrl_c()=>None,
+                _=crate::signals::shutdown()?=>None,
                 event=self.events.next()=>event.transpose()?,
             };
             let Some(event) = event else {
@@ -453,18 +453,35 @@ pub async fn run(client: Client, conversation: Option<ConversationId>, timing: b
         }
     }
 }
+fn emit_json_line(value: &impl serde::Serialize) -> Result<()> {
+    let mut output = io::stdout().lock();
+    serde_json::to_writer(&mut output, value)?;
+    writeln!(output)?;
+    output.flush()?;
+    Ok(())
+}
 pub async fn work_watch(client: Client, session: Uuid, machine: bool) -> Result<()> {
     let (tx, mut rx) = mpsc::channel(32);
     let observer = tokio::spawn(client.observe(tx));
-    loop {
-        tokio::select! {
-            _=tokio::signal::ctrl_c()=>{observer.abort();return Ok(());},
-            update=rx.recv()=>match update {
-                Some(crate::api::Update::Event(event)) if event.work_session_id==session=>{if machine {emit(&event,true)?;} else {println!("{}",crate::tui::event_text(&event));}},
-                Some(crate::api::Update::Snapshot(snapshot))=>{if let Some(work)=snapshot.sessions.into_iter().find(|s|s.id==session) {emit(&work,machine)?;} else {observer.abort();bail!("work session not found");}},
-                Some(crate::api::Update::Offline(message))=>eprintln!("{}",safe_text(&message)),
-                Some(_)=>{},None=>bail!("observer stopped"),
+    let result = async {
+        loop {
+            tokio::select! {
+                _=crate::signals::shutdown()?=>return Ok(()),
+                update=rx.recv()=>match update {
+                    Some(crate::api::Update::Event(event)) if event.work_session_id==session=>{
+                        if machine {emit_json_line(&event)?;} else {println!("{}",crate::tui::event_text(&event));}
+                    },
+                    Some(crate::api::Update::Snapshot(snapshot))=>{
+                        if let Some(work)=snapshot.sessions.into_iter().find(|s|s.id==session) {
+                            if machine {emit_json_line(&work)?;} else {emit(&work,false)?;}
+                        } else {bail!("work session not found");}
+                    },
+                    Some(crate::api::Update::Offline(message))=>eprintln!("{}",safe_text(&message)),
+                    Some(_)=>{},None=>bail!("observer stopped"),
+                }
             }
         }
-    }
+    }.await;
+    observer.abort();
+    result
 }

@@ -488,7 +488,7 @@ pub async fn up(machine: bool, env_file: Option<&Path>) -> Result<()> {
         .stderr(Stdio::inherit());
     // Foreground child shares its console/process group. Ctrl-C/Ctrl-Break is delivered
     // natively to laind; the launcher waits for its graceful storage/worker shutdown.
-    let shutdown = launcher_signal()?;
+    let shutdown = crate::signals::shutdown()?;
     let signal = tokio::spawn(shutdown);
     let mut child = command.spawn().context("launch native laind")?;
     let result = tokio::task::spawn_blocking(move || child.wait()).await?;
@@ -607,24 +607,6 @@ pub async fn doctor(machine: bool, env_file: Option<&Path>) -> Result<()> {
         bail!("doctor found a Kernel/configuration problem");
     }
     Ok(())
-}
-
-#[cfg(unix)]
-fn launcher_signal() -> Result<impl Future<Output = ()> + Send + 'static> {
-    use tokio::signal::unix::{SignalKind, signal};
-    let mut interrupt = signal(SignalKind::interrupt())?;
-    let mut terminate = signal(SignalKind::terminate())?;
-    Ok(async move {
-        tokio::select! { _=interrupt.recv()=>{}, _=terminate.recv()=>{} }
-    })
-}
-#[cfg(windows)]
-fn launcher_signal() -> Result<impl Future<Output = ()> + Send + 'static> {
-    let mut interrupt = tokio::signal::windows::ctrl_c()?;
-    let mut terminate = tokio::signal::windows::ctrl_break()?;
-    Ok(async move {
-        tokio::select! { _=interrupt.recv()=>{}, _=terminate.recv()=>{} }
-    })
 }
 
 #[cfg(test)]

@@ -62,6 +62,13 @@ pub enum MessageRole {
     Assistant,
     Tool,
 }
+/// Persisted bodies are complete. Inference/action uncertainty belongs to the
+/// enclosing turn/action; incremental text exists only in preview events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageStatus {
+    Completed,
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionState {
@@ -129,7 +136,7 @@ pub struct ActorMessage {
     pub role: MessageRole,
     pub content: String,
     pub timestamp_ms: u64,
-    pub status: ActorTurnState,
+    pub status: MessageStatus,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActorAction {
@@ -165,12 +172,6 @@ impl ActorSnapshot {
         for m in &self.messages {
             if m.conversation_id != self.conversation_id || !ids.insert(m.id) {
                 return Err("contradictory message identity");
-            }
-            if matches!(
-                m.status,
-                ActorTurnState::Running | ActorTurnState::PendingConfirmation
-            ) {
-                return Err("durable message is not complete");
             }
         }
         let mut ids = BTreeSet::new();
@@ -293,10 +294,19 @@ mod tests {
             role: MessageRole::Assistant,
             content: "complete body".into(),
             timestamp_ms: 0,
-            status: ActorTurnState::Running,
+            status: MessageStatus::Completed,
         });
-        assert!(turn.validate().is_err());
-        turn.messages[0].status = ActorTurnState::Completed;
+        for status in [
+            "running",
+            "pending_confirmation",
+            "unknown",
+            "failed",
+            "cancelled",
+        ] {
+            let mut invalid = serde_json::to_value(&turn).unwrap();
+            invalid["messages"][0]["status"] = status.into();
+            assert!(serde_json::from_value::<ActorSnapshot>(invalid).is_err());
+        }
         assert!(turn.validate().is_ok());
         turn.messages.push(turn.messages[0].clone());
         assert!(turn.validate().is_err());

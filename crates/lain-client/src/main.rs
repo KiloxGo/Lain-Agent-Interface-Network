@@ -2,6 +2,7 @@ mod actor_render;
 mod api;
 mod chat;
 mod local;
+mod signals;
 mod tui;
 
 use anyhow::{Result, ensure};
@@ -55,7 +56,7 @@ enum Command {
     },
     Conversations,
     Conversation {
-        conversation: Uuid,
+        conversation: ConversationId,
         #[arg(long, default_value_t = 0)]
         after: u64,
     },
@@ -118,6 +119,10 @@ enum Work {
         sandbox: Option<Sandbox>,
     },
     Show {
+        session: Uuid,
+    },
+    /// Inspect actual worker turns, independently of submission receipts.
+    Turns {
         session: Uuid,
     },
     Attach {
@@ -385,6 +390,12 @@ async fn run(args: Args) -> Result<()> {
                 json_output,
             ),
             Work::Watch { session } => chat::work_watch(client, session, json_output).await,
+            Work::Turns { session } => emit(
+                &client
+                    .get::<Vec<api::Turn>>(&format!("v1/work-sessions/{session}/turns"))
+                    .await?,
+                json_output,
+            ),
             Work::Attach { session } => {
                 ensure!(
                     !json_output,

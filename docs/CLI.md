@@ -149,6 +149,7 @@ lain work list
 lain work start --workspace <absolute-daemon-path> --profile codex/local
 lain work send <session-id> "inspect tests"
 lain work watch <session-id>
+lain work turns <session-id>
 lain work history <session-id>
 lain profile list
 lain approval list <session-id>
@@ -158,6 +159,13 @@ lain approval approve <session-id> <approval-id>
 Watch only observes HTTP/SSE; Ctrl-C never cancels work. Existing attach/TUI
 behavior is unchanged. UUIDs remain exact; shortened/current work references are
 not implemented in this phase.
+
+`lain --json work watch <id>` flushes one compact JSON record per line: the initial
+session snapshot, then normalized events. Diagnostics stay on stderr. `work turns`
+reads actual worker-turn states, including completion/failure, independently of
+the Actor's submission receipt. Text-client signal handling shares the launcher's
+narrow native boundary: SIGINT/SIGTERM on Unix, Ctrl-C/Ctrl-Break on Windows.
+Native Windows terminal behavior still requires its own acceptance run.
 
 ```text
 lain chat

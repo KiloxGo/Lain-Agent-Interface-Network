@@ -239,6 +239,9 @@ impl ResponseStream {
                         }
                     }
                     Some("response.completed") => {
+                        if let Some(sink) = preview {
+                            sink.provider_completed();
+                        }
                         return parse_response(&event["response"]).map(Some);
                     }
                     Some("response.failed" | "response.incomplete" | "error") => {

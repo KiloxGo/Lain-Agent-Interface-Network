@@ -645,8 +645,7 @@ impl Kernel {
             usage_tokens: 0,
             timing: Default::default(),
         };
-        turn.message("user", text)?;
-        turn.messages[0].status = TurnState::Completed;
+        turn.message(MessageRole::User, text)?;
         inner.store.save_actor_turn(&mut turn, true)?;
         Ok((turn, true))
     }

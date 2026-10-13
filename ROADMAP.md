@@ -255,9 +255,12 @@ Phase 6.5 stabilization is in progress:
 - [x] native macOS PTY reproduction of CRLF `You> You>` and serialized-input regression fix
 - [x] deterministic gated streaming, failure, denial, detach and reconnect checks
 - [x] saved local Actor settings/env-file workflow and observable startup mismatch (native macOS verified)
-- [ ] expanded opt-in real reads/denial/confirmed delegation/worker completion/restart evidence
+- [x] focused Actor message/turn status audit with versioned legacy-compatible storage
+- [x] expanded opt-in runner and deterministic fixture coverage for reads/denial/delegation/worker terminal/restart
+- [ ] authorized real provider reads/denial/confirmed delegation/worker completion/restart evidence
 - [ ] native Windows input/configuration/build/test checks
-- [ ] final requirement audit and Phase 7 handoff, without implementing memory
+- [x] requirement evidence record and conditional Phase 7 handoff, without implementing memory
+- [ ] final real-provider/platform acceptance audit
 
 Limits: no mid-generation provider resumption, automatic mutation retries,
 profile mutations or worker auto-approval. Sanitized previews are ephemeral;

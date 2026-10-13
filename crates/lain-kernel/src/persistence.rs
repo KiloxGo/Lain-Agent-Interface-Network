@@ -561,7 +561,7 @@ impl Store {
         ensure!(
             tx.execute(
                 "UPDATE lain_actor_turns SET snapshot = ?2 WHERE id = ?1",
-                (turn.id.to_string(), serde_json::to_string(turn)?)
+                (turn.id.to_string(), encode_actor(turn)?)
             )? == 1,
             "Actor turn not found"
         );
@@ -592,7 +592,10 @@ impl Store {
                 "Actor record identity mismatch"
             );
             if turn.state == TurnState::Running {
-                turn.revision += 1;
+                turn.revision = turn
+                    .revision
+                    .checked_add(1)
+                    .context("Actor revision exhausted")?;
                 turn.state = TurnState::Unknown;
                 turn.error = Some(
                     "Kernel restarted during inference or execution; no action was replayed".into(),
@@ -602,11 +605,6 @@ impl Store {
                         action.state = ActionState::Unknown;
                     }
                 }
-                for message in &mut turn.messages {
-                    if message.status == TurnState::Running {
-                        message.status = TurnState::Unknown;
-                    }
-                }
                 turns.push(turn);
             }
         }
@@ -614,7 +612,7 @@ impl Store {
         for turn in turns {
             tx.execute(
                 "UPDATE lain_actor_turns SET snapshot = ?2 WHERE id = ?1",
-                (turn.id.to_string(), serde_json::to_string(&turn)?),
+                (turn.id.to_string(), encode_actor(&turn)?),
             )?;
         }
         tx.commit()?;
@@ -628,19 +626,103 @@ impl Store {
     }
 }
 fn decode_actor(value: &str) -> Result<crate::actor::domain::ActorTurn> {
-    use crate::actor::domain::TurnState;
-    let mut turn: crate::actor::domain::ActorTurn = serde_json::from_str(value)
+    let mut record: serde_json::Value = serde_json::from_str(value)
         .map_err(|_| anyhow::anyhow!("invalid persisted Actor record"))?;
-    // Phase 6 wrote complete message bodies with the enclosing turn's active
-    // status. Normalize only that legacy metadata; preserve every ID and body.
-    for m in &mut turn.messages {
-        if matches!(
-            m.status,
-            TurnState::Running | TurnState::PendingConfirmation
-        ) {
-            m.status = TurnState::Completed;
+    let object = record
+        .as_object_mut()
+        .context("invalid persisted Actor record")?;
+    match object.remove("_message_format") {
+        None => {
+            // Versionless Phase 6 bodies were already complete, but their
+            // metadata inherited the enclosing turn's state. Preserve all IDs,
+            // bodies and action/turn uncertainty while separating that dimension.
+            if let Some(messages) = object.get_mut("messages").and_then(|v| v.as_array_mut()) {
+                for message in messages {
+                    if matches!(
+                        message.get("status").and_then(|v| v.as_str()),
+                        Some(
+                            "running"
+                                | "pending_confirmation"
+                                | "completed"
+                                | "failed"
+                                | "cancelled"
+                                | "unknown"
+                        )
+                    ) {
+                        message["status"] = "completed".into();
+                    }
+                }
+            }
         }
+        Some(version) if version.as_u64() == Some(2) => {}
+        Some(_) => anyhow::bail!("unsupported persisted Actor message format"),
     }
+    let turn: crate::actor::domain::ActorTurn = serde_json::from_value(record)
+        .map_err(|_| anyhow::anyhow!("invalid persisted Actor record"))?;
     turn.validate()?;
     Ok(turn)
+}
+
+fn encode_actor(turn: &crate::actor::domain::ActorTurn) -> Result<String> {
+    turn.validate()?;
+    let mut record = serde_json::to_value(turn)?;
+    // Private storage metadata, never part of the domain/public snapshot.
+    record["_message_format"] = 2.into();
+    let encoded = serde_json::to_string(&record)?;
+    ensure!(encoded.len() <= 256 * 1024, "Actor record size exceeded");
+    Ok(encoded)
+}
+
+#[cfg(test)]
+mod actor_record_tests {
+    use super::*;
+    use crate::actor::domain::*;
+
+    #[test]
+    fn legacy_message_metadata_migrates_but_current_invalid_records_fail_closed() {
+        let mut turn = ActorTurn {
+            id: ActorTurnId::new(),
+            conversation_id: ConversationId::new(),
+            request_id: uuid::Uuid::new_v4(),
+            sequence: 1,
+            revision: 1,
+            state: TurnState::Unknown,
+            messages: vec![],
+            actions: vec![],
+            error: Some("uncertain inference".into()),
+            model_requests: 1,
+            usage_tokens: 0,
+            timing: Default::default(),
+        };
+        turn.message(MessageRole::Assistant, "已完成的正文".into())
+            .unwrap();
+        let expected = serde_json::to_value(&turn).unwrap();
+        for status in [
+            "running",
+            "pending_confirmation",
+            "completed",
+            "failed",
+            "cancelled",
+            "unknown",
+        ] {
+            let mut legacy = expected.clone();
+            legacy["messages"][0]["status"] = status.into();
+            let recovered = decode_actor(&legacy.to_string()).unwrap();
+            assert_eq!(serde_json::to_value(&recovered).unwrap(), expected);
+            let encoded = encode_actor(&recovered).unwrap();
+            assert_eq!(
+                serde_json::to_value(decode_actor(&encoded).unwrap()).unwrap(),
+                expected
+            );
+            let mut current: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+            current["messages"][0]["status"] = "running".into();
+            assert!(decode_actor(&current.to_string()).is_err());
+        }
+        let mut invalid = expected.clone();
+        invalid["messages"][0]["status"] = "invented_state".into();
+        assert!(decode_actor(&invalid.to_string()).is_err());
+        invalid = expected;
+        invalid["_message_format"] = 3.into();
+        assert!(decode_actor(&invalid.to_string()).is_err());
+    }
 }

@@ -193,6 +193,14 @@ request/token counters. A row is bounded to 256 KiB. Retention is indefinite;
 explicit pruning is deferred. Older work/profile/history schema migrates without
 changing worker bindings or IDs.
 
+Message roles are typed; durable message status is a separate `MessageStatus`
+dimension with only `completed`. A complete user, assistant or tool body remains
+complete even if enclosing inference or execution becomes Unknown. Private stored
+JSON records now carry `_message_format: 2`, absent from public snapshots/domain
+entities. Versionless Phase 6 records normalize their legacy enclosing-turn status
+on message bodies without changing IDs, text, actions or turn uncertainty. New
+records reject contradictory statuses instead of silently normalizing them.
+
 Accepted user text and the request identity commit before inference is scheduled.
 `(conversation_id, request_id)` is unique. Same ID/text returns the same turn;
 different text conflicts. Only one Running/PendingConfirmation turn is permitted
@@ -309,22 +317,41 @@ Native acceptance is in [CLI.md](CLI.md); actual platform evidence is in DEVLOG.
 Paid smoke is explicit, never part of ordinary tests/CI:
 
 ```text
-python scripts/actor_smoke.py --run-real --workspace <absolute-daemon-workspace>
+python scripts/actor_smoke.py --run-real --workspace <absolute-daemon-workspace> --evidence <new-summary.json>
 ```
 
-It requires a real configured Actor and supported authenticated Codex. It checks
-ordinary model conversation, typed work listing, an exact proposed delegation,
-interactive owner confirmation, a real WorkSession receipt, later inspection and
-conversation continuity between separate CLI processes. Owner denial leaves
-acceptance incomplete. It does not stop a user's daemon or automatically approve
-worker permission requests.
+Explicit owner authorization must cover the configured provider and exact
+workspace before invoking `--run-real`. The maximum planned scope is nine Actor
+turns (up to 36 provider requests under Kernel limits) and one read-only Codex
+turn. No compatibility retry or replacement worker is automatic. It requires an
+interactive terminal, a configured Actor and supported authenticated Codex.
 
-Then manually `lain chat --conversation <id>`, converse, `/exit`; observe the
-worker independently with `lain work watch <id>`. Gracefully stop/restart `lain up`
-with the same private database and resume chat/conversation. Verify the worker's
-actual execution and retained history rather than treating a submission receipt
-as completion. Record real-model, chat, independent-worker and restart acceptance
-separately. No configured credential or no execution means unverified, never passed.
+The runner checks Chinese prose, meaningful preview while the turn is Running,
+all five typed read tools with Kernel receipts, an owner-denied proposal with no
+new work, then a separately reviewed/approved exact proposal. It verifies the real
+WorkSession/worker-turn receipt, rejects duplicate approval, observes actual worker
+termination through SSE plus turn snapshots, and checks separate CLI histories.
+macOS also exercises actual PTY chat exit/reopen; other native terminal acceptance
+is explicitly pending. Fast provider completion before the read-only preview probe
+leaves incremental evidence unverified. Worker failure, approval waits and timeout
+remain distinct from successful completion; no worker permission is auto-approved.
+
+The runner writes a new, explicitly selected summary containing only IDs, hashes,
+states and timing. It never stores provider traffic, replies or credentials. On
+uncertain approval it reads the existing turn/partial receipt and stops without
+replaying. Inspect open work, gracefully stop/restart your own foreground `lain up`
+with the same database, then run the read-only recovery stage:
+
+```text
+python scripts/actor_smoke.py --check-recovery --evidence <same-summary.json>
+```
+
+The owner attests the separate restart; the runner verifies retained Actor IDs,
+complete snapshot hashes and terminal worker IDs/results without inference. It
+does not stop or replace the daemon. Missing evidence stays incomplete. Native
+smoke exercises this same runner with explicitly marked local fixture evidence;
+that never counts as real provider acceptance. See
+[the acceptance record and conditional handoff](PHASE_6_5_ACCEPTANCE.md).
 
 Deferred: mid-inference provider resumption, conversation pruning,
 short worker references, multiple Actor providers, server installation and native

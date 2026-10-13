@@ -201,6 +201,9 @@ measured latency diagnostics on stderr; JSON ask stdout remains a final snapshot
 reports observable startup differences; apply changes with an explicit graceful
 stop/start after inspecting active work. Combined real delegation and native
 Windows acceptance remain Phase 6.5 work in progress.
+The current evidence and conditional memory-phase handoff are in
+[Phase 6.5 acceptance](docs/PHASE_6_5_ACCEPTANCE.md); fixture checks do not establish
+real provider compatibility.
 
 The React/TypeScript Web client remains available through the existing optional
 `LAIN_WEB_DIR` workflow, documented in [WEB.md](docs/WEB.md). Web development is
