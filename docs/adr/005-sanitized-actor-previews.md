@@ -30,8 +30,10 @@ Incremental redaction is bounded to 16 KiB per response. It withholds any suffix
 that could extend into a known configured credential or a complete-record
 sensitive pattern, including Unicode simple-case-fold equivalents. Sensitive or
 oversized streams discard previews. Full-response validation remains mandatory.
-Raw intermediate text is transient zeroizing storage, absent from SQLite and
-normal logs; only sanitized checkpoint text enters the public channel.
+Preview sanitization buffers use transient zeroizing storage. The private parser
+also temporarily holds provider frames/structured records; none are written as
+raw traffic to SQLite or normal logs. Only sanitized checkpoint text enters the
+public channel.
 
 The CLI has one input owner and response output coordinator. Raw terminal input
 is scoped to an active line operation and restored by a guard. Empty ordinary

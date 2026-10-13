@@ -254,7 +254,7 @@ Phase 6.5 stabilization is in progress:
 - [x] measured optional CLI/provider timing diagnostics without JSON stdout pollution
 - [x] native macOS PTY reproduction of CRLF `You> You>` and serialized-input regression fix
 - [x] deterministic gated streaming, failure, denial, detach and reconnect checks
-- [ ] saved local Actor settings/env-file workflow and observable startup mismatch
+- [x] saved local Actor settings/env-file workflow and observable startup mismatch (native macOS verified)
 - [ ] expanded opt-in real reads/denial/confirmed delegation/worker completion/restart evidence
 - [ ] native Windows input/configuration/build/test checks
 - [ ] final requirement audit and Phase 7 handoff, without implementing memory

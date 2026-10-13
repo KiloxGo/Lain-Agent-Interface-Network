@@ -536,3 +536,29 @@ implicitly supplies direct model credentials. Namespaced LAIN_SECRET values stay
 in the existing runtime Secret Store, with restart-based rotation. No paid calls
 from diagnostics. See [CLI.md](CLI.md) for paths/permissions/overrides and
 [LAIN_ACTOR.md](LAIN_ACTOR.md) for the exact model schema and limits.
+
+Phase 6.5 adds explicit saved launcher selections: `lain config actor set --file`
+records a non-secret Actor JSON path; `config actor env-file --file` records an
+owner-only credential-source path, outside Git. Settings are atomically replaced
+under the existing setup lock; no selected file or existing ignored Actor JSON is
+rewritten. `config actor [show]` exposes paths/sources/non-secret revisions and
+credential availability only. `clear` deselects files without deleting them.
+
+`lain up [--env-file <path>]` loads the explicit process environment over the
+selected env file over saved non-secret settings over defaults. The file parser
+accepts only unquoted literal UTF-8 `KEY=VALUE`, LF/CRLF and whole-line comments;
+allowed keys are `LAIN_ACTOR_CONFIG`, `LAIN_PERSONA_PATH`, and valid namespaced
+`LAIN_SECRET_*`. No shell evaluation, interpolation, quote removal, arbitrary
+environment keys or cwd/workspace discovery. Env-file relative paths anchor to
+that file's directory. Limits: 64 KiB, 128 keys, 8192 bytes/value. The source file
+and parent require owner-only native permissions/ACLs and cannot be linked or
+inside a Git checkout. Credential values remain only in the explicit protected
+file and daemon startup environment, never client settings/SQLite/normal output.
+
+Doctor compares non-secret Actor JSON/persona revisions, optionally with the same
+`--env-file`, and reports `restart_required`, `matches`, `not_observable` for older
+daemons, or `not_compared_remote`. No secret digest or value comparison occurs.
+Revision comparison includes JSON formatting changes. Changes apply on the next
+explicit daemon start; there is no hot reload. Inspect active workers, gracefully
+stop your owned foreground launcher, and restart with the same database. `up`
+never stops an existing service and reports open work when configuration differs.

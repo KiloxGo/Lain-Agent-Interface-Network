@@ -125,6 +125,10 @@ def run_chat_pty(binary, env, call, gate):
         assert b"PARTIAL-ONLY" in result and b"completed message not confirmed" in result
         assert latest(cid)["state"] == "unknown"
         assert not any(m["role"] == "assistant" for m in latest(cid)["messages"])
+        result = chat.command("stream-secret")
+        assert b"fixture-actor-credential" not in result
+        assert latest(cid)["state"] == "unknown"
+        assert not any(m["role"] == "assistant" for m in latest(cid)["messages"])
 
         # Enter is a real denial at [y/N], while empty input at You> is ignored.
         mark = chat.send(b"delegate\r\n")

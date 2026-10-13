@@ -26,8 +26,18 @@ enum Command {
         #[arg(long, required = true)]
         local: bool,
     },
-    Up,
-    Doctor,
+    Up {
+        #[arg(long)]
+        env_file: Option<std::path::PathBuf>,
+    },
+    Config {
+        #[command(subcommand)]
+        command: ConfigCommands,
+    },
+    Doctor {
+        #[arg(long)]
+        env_file: Option<std::path::PathBuf>,
+    },
     Chat {
         #[arg(long)]
         conversation: Option<ConversationId>,
@@ -66,6 +76,26 @@ enum Command {
         #[command(subcommand)]
         command: Approvals,
     },
+}
+#[derive(Subcommand)]
+enum ConfigCommands {
+    Actor {
+        #[command(subcommand)]
+        command: Option<ActorConfigurationCommands>,
+    },
+}
+#[derive(Subcommand)]
+enum ActorConfigurationCommands {
+    Set {
+        #[arg(long)]
+        file: std::path::PathBuf,
+    },
+    EnvFile {
+        #[arg(long)]
+        file: std::path::PathBuf,
+    },
+    Show,
+    Clear,
 }
 #[derive(Subcommand)]
 enum ActorCommands {
@@ -182,8 +212,25 @@ async fn run(args: Args) -> Result<()> {
                 args.json,
             );
         }
-        Some(Command::Up) => return local::up(args.json).await,
-        Some(Command::Doctor) => return local::doctor(args.json).await,
+        Some(Command::Up { env_file }) => return local::up(args.json, env_file.as_deref()).await,
+        Some(Command::Config {
+            command: ConfigCommands::Actor { command },
+        }) => {
+            let value = match command {
+                Some(ActorConfigurationCommands::Set { file }) => {
+                    local::actor_config::set_actor(file)?
+                }
+                Some(ActorConfigurationCommands::EnvFile { file }) => {
+                    local::actor_config::set_env_file(file)?
+                }
+                Some(ActorConfigurationCommands::Clear) => local::actor_config::clear()?,
+                Some(ActorConfigurationCommands::Show) | None => local::actor_config::show()?,
+            };
+            return emit(&value, args.json);
+        }
+        Some(Command::Doctor { env_file }) => {
+            return local::doctor(args.json, env_file.as_deref()).await;
+        }
         _ => {}
     }
     let connection = local::connection()?;
@@ -194,7 +241,10 @@ async fn run(args: Args) -> Result<()> {
     };
     let json_output = args.json;
     match command {
-        Command::Setup { .. } | Command::Up | Command::Doctor => {
+        Command::Setup { .. }
+        | Command::Up { .. }
+        | Command::Config { .. }
+        | Command::Doctor { .. } => {
             unreachable!("handled before client configuration")
         }
         Command::Chat {

@@ -65,6 +65,8 @@ def run(platform):
                     output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "完成而无预览。"}]}]
                 elif prompt == "partial-failure":
                     output = []
+                elif prompt == "stream-secret":
+                    output = [{"type":"message", "role":"assistant", "content":[{"type":"output_text", "text":"safe prefix fixture-actor-credential tail"}]}]
                 else:
                     output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "你来了。"}]}]
                 payload = json.dumps({"type": "response.completed", "response": {"status": "completed", "output": output, "usage": {"total_tokens": 20}}}, ensure_ascii=False).encode()
@@ -100,6 +102,7 @@ def run(platform):
             result = subprocess.run([str(lain), *args], env=dict(env, **(extra or {})), capture_output=True, text=True, encoding="utf-8", timeout=30)
             assert result.returncode == 0 if success else result.returncode != 0, result.stderr
             assert not token or token not in result.stdout + result.stderr
+            assert "fixture-actor-credential" not in result.stdout + result.stderr
             return json.loads(result.stdout) if result.stdout.strip() else result.stderr
         setup = cli("--json", "setup", "--local")
         assert setup["status"] == "created"
@@ -117,7 +120,30 @@ def run(platform):
         (local / "client.json").write_text(json.dumps(settings))
         cfg = root / "actor.json"
         cfg.write_text(json.dumps({"driver": "openai-responses", "model": "fixture", "endpoint": f"http://127.0.0.1:{model.server_port}/v1", "secret_ref": "secret://env/actor", "timeout_seconds": 10, "max_output_tokens": 1024, "max_turn_tokens": 4096}))
-        env.update(LAIN_ACTOR_CONFIG=str(cfg), LAIN_SECRET_ACTOR="fixture-actor-credential")
+        original_config = cfg.read_bytes()
+        saved = cli("--json", "config", "actor", "set", "--file", str(cfg))
+        assert saved["source"] == "saved_setting" and saved["credential_status"] == "missing"
+        assert cfg.read_bytes() == original_config
+        def write_secrets(path, text):
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as output:
+                output.write(text)
+            if os.name == "nt":
+                acl_script = "$p=$env:LAIN_TEST_ACL_PATH; $a=Get-Acl -LiteralPath $p; $a.SetAccessRuleProtection($true,$true); Set-Acl -LiteralPath $p -AclObject $a"
+                result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", acl_script], env=dict(env, LAIN_TEST_ACL_PATH=str(path)), capture_output=True, timeout=15)
+                assert result.returncode == 0, "fixture native ACL setup failed"
+        secrets_file = local / "actor secrets.env"
+        write_secrets(secrets_file, "LAIN_SECRET_ACTOR=fixture-actor-credential\r\n")
+        saved = cli("--json", "config", "actor", "env-file", "--file", str(secrets_file))
+        assert saved["credential_status"] == "available"
+        assert "fixture-actor-credential" not in (local / "client.json").read_text()
+        assert cli("--json", "config", "actor")["env_file"] == str(secrets_file.resolve())
+        invalid_env = local / "unsupported.env"
+        write_secrets(invalid_env, "PATH=do-not-print-sensitive-value\n")
+        previous_settings = (local / "client.json").read_bytes()
+        rejected = cli("--json", "config", "actor", "env-file", "--file", str(invalid_env), success=False)
+        assert "do-not-print-sensitive-value" not in json.dumps(rejected)
+        assert (local / "client.json").read_bytes() == previous_settings
         log = root / "daemon.log"
         process = None
         def call(method, path, body=None):
@@ -131,9 +157,9 @@ def run(platform):
                 return json.loads(data)
             finally:
                 conn.close()
-        def start():
+        def start(args=(), extra=None):
             nonlocal process
-            process = subprocess.Popen([str(lain), "up"], env=env, stdin=subprocess.DEVNULL, stdout=log.open("ab"), stderr=subprocess.STDOUT,
+            process = subprocess.Popen([str(lain), "up", *args], env=dict(env, **(extra or {})), stdin=subprocess.DEVNULL, stdout=log.open("ab"), stderr=subprocess.STDOUT,
                                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
                                        start_new_session=os.name != "nt")
             deadline = time.monotonic() + 20
@@ -161,7 +187,19 @@ def run(platform):
             report = cli("--json", "doctor")
             assert report["diagnostics"]["storage"] == "healthy"
             assert report["diagnostics"]["actor"]["status"] == "configured"
+            assert report["actor_configuration"] == "matches"
             assert len(provider_calls) == before
+            changed = json.loads(cfg.read_text())
+            changed["model"] = "fixture-next"
+            cfg.write_text(json.dumps(changed))
+            mismatch = cli("--json", "doctor", success=False)
+            assert mismatch["actor_configuration"] == "restart_required"
+            cli("--json", "up", success=False)
+            assert process.poll() is None, "configuration change interrupted the existing daemon"
+            stop()
+            start()
+            assert cli("--json", "doctor")["actor_configuration"] == "matches"
+            assert call("GET", "/v1/diagnostics")["actor"]["model"] == "fixture-next"
             if platform == "macos":
                 from chat_pty_smoke import run_chat_pty
                 run_chat_pty(lain, env, call, stream_gate)
@@ -173,7 +211,7 @@ def run(platform):
             assert str(shim) in conflict["path_candidates"]
             cli("--json", "up", success=False, extra={"LAIN_API_TOKEN": "different-owner-token-0123456789abcdef"})
             cli("--json", "doctor", success=False, extra={"LAIN_API_TOKEN": "different-owner-token-0123456789abcdef"})
-            hello = cli("--json", "ask", "hello")
+            hello = cli("--json", "ask", "hello", "--timing")
             assert hello["state"] == "completed"
             conversation = hello["conversation_id"]
             inspected = cli("--json", "ask", "inspect", "--conversation", conversation)
@@ -246,6 +284,36 @@ def run(platform):
             # Idempotency uses the same conversation, request UUID and text.
             retry = cli("--json", "ask", "inspect", "--conversation", conversation, "--request-id", resumed["request_id"])
             assert retry["id"] == resumed["id"]
+            stop()
+            # Explicit env-file selection is per launch; process environment has
+            # higher precedence and neither rewrites the saved owner selection.
+            before_calls = len(provider_calls)
+            selected_settings = (local / "client.json").read_bytes()
+            override_cfg = local / "override actor.json"
+            override = dict(changed, model="fixture-override")
+            override_cfg.write_text(json.dumps(override))
+            persona_file = local / "owner persona.md"
+            persona_file.write_text("Fixture owner persona, version one.\n")
+            override_env = local / "override secrets.env"
+            write_secrets(override_env, "LAIN_ACTOR_CONFIG=override actor.json\nLAIN_PERSONA_PATH=owner persona.md\nLAIN_SECRET_ACTOR=fixture-actor-credential\n")
+            start(("--env-file", str(override_env)), {"LAIN_ACTOR_CONFIG": str(cfg)})
+            assert call("GET", "/v1/diagnostics")["actor"]["model"] == "fixture-next"
+            assert cli("--json", "doctor", "--env-file", str(override_env), extra={"LAIN_ACTOR_CONFIG": str(cfg)})["actor_configuration"] == "matches"
+            persona_file.write_text("Fixture owner persona, version two.\n")
+            assert cli("--json", "doctor", "--env-file", str(override_env), extra={"LAIN_ACTOR_CONFIG": str(cfg)}, success=False)["actor_configuration"] == "restart_required"
+            assert process.poll() is None
+            stop()
+            start(("--env-file", str(override_env)))
+            assert call("GET", "/v1/diagnostics")["actor"]["model"] == "fixture-override"
+            assert cli("--json", "doctor", "--env-file", str(override_env))["actor_configuration"] == "matches"
+            assert cli("--json", "doctor", success=False)["actor_configuration"] == "restart_required"
+            assert call("GET", f"/v1/actor-turns/{resumed['id']}") == resumed
+            assert cli("--json", "work", "show", sid)["id"] == sid
+            stop()
+            start()
+            assert cli("--json", "doctor")["actor_configuration"] == "matches"
+            assert len(provider_calls) == before_calls, "configuration/recovery caused inference"
+            assert (local / "client.json").read_bytes() == selected_settings
             stop()
             with sqlite3.connect(local / "lain.sqlite3") as db:
                 persisted = "\n".join(db.iterdump())

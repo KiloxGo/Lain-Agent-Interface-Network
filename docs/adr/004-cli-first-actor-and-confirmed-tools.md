@@ -2,6 +2,10 @@
 
 Date: 2026-10-12. Status: implemented; cross-platform/real-provider acceptance pending.
 
+Phase 6.5 extensions: [ADR 005](005-sanitized-actor-previews.md) defines sanitized
+ephemeral previews; [ADR 006](006-explicit-local-actor-files.md) defines explicit
+saved launcher configuration and credential-source files.
+
 ## Decision
 
 Pause Web development and prioritize shared Rust CLI/Kernel capabilities. Retain

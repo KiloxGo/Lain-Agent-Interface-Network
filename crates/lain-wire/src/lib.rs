@@ -2,6 +2,13 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Startup revision of validated non-secret configuration/persona content.
+/// Never use this to compare or hash credential values.
+pub fn actor_configuration_revision(non_secret_content: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    format!("{:x}", Sha256::digest(non_secret_content))
+}
+
 macro_rules! id {
     ($name:ident) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

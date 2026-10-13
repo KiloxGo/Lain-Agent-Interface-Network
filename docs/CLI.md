@@ -66,10 +66,21 @@ anything. No implicit local startup occurs from other CLI commands.
 | Linux | `$XDG_CONFIG_HOME/lain`, otherwise `$HOME/.config/lain` | Same Unix owner/mode checks |
 
 `LAIN_LOCAL_DIR` selects a different absolute directory outside a Git checkout.
-Settings: `client.json` (version, local URL, absolute SQLite path). Authentication:
+Settings: `client.json` (version, local URL, absolute SQLite path and optional
+explicit Actor JSON/env-file paths). Authentication:
 `kernel-token` (32 bytes from the OS random generator encoded as 64 hexadecimal
 characters). They are separate files; neither is source code or SQLite state.
-`setup.lock` serializes setup. All are private. No encryption/keyring is invented.
+`setup.lock` serializes setup and atomic settings replacements. All are private.
+No encryption/keyring is invented.
+
+Save Actor settings with `lain config actor set --file <actor.json>` and a protected
+credential source with `lain config actor env-file --file <actor.env>`. Inspect with
+`lain config actor`; use `lain config actor clear` to remove selections without
+deleting their files. `lain up` reuses saved paths, or accepts `--env-file <path>`
+for one launch. `lain doctor --env-file <path>` checks that same selection.
+Only explicit trusted files are loaded; no workspace `.env` discovery/shell execution.
+Precedence, supported keys, native permission preparation and safe explicit restart
+are in [LAIN_ACTOR.md](LAIN_ACTOR.md#save-an-explicit-local-selection).
 
 First setup restricts the directory before writing any credential and creates
 files exclusively. Repeated setup validates and reuses the existing token/settings;

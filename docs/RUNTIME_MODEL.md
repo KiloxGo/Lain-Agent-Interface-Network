@@ -489,5 +489,10 @@ No provider token replay or mid-generation provider resumption is claimed. Perso
 reflection, semantic memory or background autonomy was added.
 
 Foreground local `lain up` launches native laind in the same console/process group
-and waits for graceful native signals/storage shutdown. Windows and macOS native
+and waits for graceful native signals/storage shutdown. It resolves saved explicit
+Actor/env-file selections before spawning, with process environment taking
+precedence. Config/persona differences are observable through non-secret startup
+revisions; credentials are not hashed. Changes apply on the next explicit owned
+foreground stop/start, preserving database and IDs. No reload or guessed-PID
+process termination is introduced. Windows and macOS native
 acceptance are separate obligations. See [CLI.md](CLI.md) and [LAIN_ACTOR.md](LAIN_ACTOR.md).

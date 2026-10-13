@@ -186,7 +186,7 @@ mode, existing work/profile/approval commands and platform acceptance entrypoint
 Chat requires its own explicit model configuration and namespaced SecretRef;
 Codex login is separate. Copy [actor.example.json](config/actor.example.json) to
 Git-ignored `config/actor.json` for local development, edit the model/endpoint,
-and set the daemon's configuration/secret environment as described in
+and save the selected file plus a protected credential-source file as described in
 [LAIN_ACTOR.md](docs/LAIN_ACTOR.md). That guide documents setup,
 persona, persistent conversations, typed tools, owner confirmation and recovery.
 `lain --json ask` supports scripting; mutations remain pending until explicitly
@@ -196,8 +196,11 @@ operational continuity, not semantic memory. Phase 7 has not begun.
 Chat displays sanitized incremental previews, then reconciles the completed reply
 without repeating it. Use `lain chat --timing` or `lain ask --timing "你好"` for
 measured latency diagnostics on stderr; JSON ask stdout remains a final snapshot.
-Local configuration convenience and combined real delegation acceptance remain
-Phase 6.5 work in progress.
+`lain config actor set --file <actor.json>` and `config actor env-file --file
+<actor.env>` let `lain up` reuse local settings without repeated exports. Doctor
+reports observable startup differences; apply changes with an explicit graceful
+stop/start after inspecting active work. Combined real delegation and native
+Windows acceptance remain Phase 6.5 work in progress.
 
 The React/TypeScript Web client remains available through the existing optional
 `LAIN_WEB_DIR` workflow, documented in [WEB.md](docs/WEB.md). Web development is

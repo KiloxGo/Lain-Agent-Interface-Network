@@ -824,3 +824,40 @@ Native Windows/ConPTY and Linux remain unverified. Real provider incremental
 output, typed reads, denial/confirmed delegation and combined recovery acceptance
 remain pending. Local configuration reuse is the next implementation item.
 See ADR 005 for the preview contract and the actual redaction limitations.
+
+### Reusable local Actor files and startup diagnostics — 2026-10-13
+
+Added `config actor set --file`, `config actor env-file --file`, `config actor
+[show]` and `clear`, plus one-launch `up --env-file` and matching doctor selection.
+Saved paths live in existing private per-user settings and are replaced atomically
+under the setup lock. Selected files, including the owner's ignored Actor JSON,
+are never copied, overwritten or migrated. Explicit process environment overrides
+selected literal env-file values, then saved non-secret settings, then defaults.
+Only Actor/persona paths and namespaced secrets are accepted; no shell execution,
+interpolation, arbitrary-key injection or workspace/cwd discovery is introduced.
+Credential files and parents require owner-only native permissions/ACLs outside Git.
+
+Doctor compares validated non-secret Actor JSON/persona startup revisions and
+reports reliable mismatches, unobservable old daemons or excluded remote mode.
+Credentials are not hashed or compared; key rotation requires explicit restart.
+`up` reports mismatches/open work instead of interrupting an existing process.
+The documented workflow inspects active workers, stops the owner's foreground
+launcher gracefully and starts it again with the same database. No hot reload,
+guessed-PID killing or remote daemon control was added.
+
+Native macOS `zsh scripts/check-native.zsh` passed locked build, fmt,
+warnings-denied Clippy, 62 deterministic Rust tests and the extended native
+CLI/PTY fixture smoke; three opt-in tests stayed ignored. New evidence includes
+export-free saved configuration, protected credential sources, spaces in paths,
+literal LF/CRLF parsing, precedence, rejected unsupported keys without secret
+echo/settings changes, changed-config detection/no interruption, explicit env-file
+selection, restart application and retained Actor/WorkSession IDs without model
+regeneration. Public fixture streaming also checks character-split known-secret
+withholding and no sensitive durable assistant message. Windows-specific ACL tests
+are implemented but Windows/ConPTY and Linux remain unverified. No paid provider
+was called and no owner daemon/configuration was changed. See ADR 006.
+
+Remaining Phase 6.5 work includes the final wire-state audit, expanded opt-in real
+provider/delegation/worker-terminal/restart acceptance and a conditional Phase 7
+handoff. Real acceptance still requires explicit owner provider/workspace approval;
+no Phase 6 completion or cross-platform acceptance is claimed.

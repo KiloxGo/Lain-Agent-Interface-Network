@@ -58,7 +58,8 @@ impl Actor {
                 std::fs::metadata(&path)?.len() <= 16384,
                 "Actor config too large"
             );
-            let config: ModelConfig = serde_json::from_slice(&std::fs::read(path)?)
+            let bytes = std::fs::read(path)?;
+            let config: ModelConfig = serde_json::from_slice(&bytes)
                 .map_err(|_| anyhow::anyhow!("invalid Actor config"))?;
             config.validate()?;
             ensure!(
@@ -79,7 +80,7 @@ impl Actor {
                 "invalid or sensitive persona"
             );
             let status = crate::profiles::secret_status(Some(&config.secret_ref));
-            let diagnostics = json!({"status":if status=="missing" {"credential_missing"} else {"configured"},"driver":config.driver,"model":config.model,"secret_ref":config.secret_ref,"secret_status":status,"provider_access":"not_probed"});
+            let diagnostics = json!({"status":if status=="missing" {"credential_missing"} else {"configured"},"driver":config.driver,"model":config.model,"secret_ref":config.secret_ref,"secret_status":status,"provider_access":"not_probed","configuration_revision":lain_wire::actor_configuration_revision(&bytes),"persona_revision":lain_wire::actor_configuration_revision(persona.as_bytes())});
             let max = config.max_turn_tokens;
             Ok((
                 Arc::new(ResponsesModel::new(config)?),

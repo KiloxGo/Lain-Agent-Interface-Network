@@ -10,6 +10,7 @@ use std::{
     process::Stdio,
 };
 use zeroize::Zeroizing;
+pub(crate) mod actor_config;
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -17,6 +18,10 @@ struct Settings {
     version: u32,
     url: String,
     database: PathBuf,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    actor_config: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    env_file: Option<PathBuf>,
 }
 pub struct Connection {
     pub url: String,
@@ -221,7 +226,13 @@ fn read_settings(path: &Path) -> Result<Settings> {
     let settings: Settings = serde_json::from_slice(&fs::read(path.join("client.json"))?)
         .map_err(|_| anyhow::anyhow!("invalid local settings; existing files were retained"))?;
     ensure!(
-        settings.version == 1 && settings.database.is_absolute(),
+        settings.version == 1
+            && settings.database.is_absolute()
+            && settings
+                .actor_config
+                .as_ref()
+                .is_none_or(|p| p.is_absolute())
+            && settings.env_file.as_ref().is_none_or(|p| p.is_absolute()),
         "unsupported local settings"
     );
     local_address(&settings.url)?;
@@ -328,6 +339,8 @@ pub fn setup_at(path: &Path, url: &str) -> Result<serde_json::Value> {
             version: 1,
             url: url.to_owned(),
             database: path.join("lain.sqlite3"),
+            actor_config: None,
+            env_file: None,
         };
         create_private(
             &path.join("client.json"),
@@ -403,7 +416,7 @@ pub fn path_candidates() -> Vec<PathBuf> {
         })
         .collect()
 }
-pub async fn up(machine: bool) -> Result<()> {
+pub async fn up(machine: bool, env_file: Option<&Path>) -> Result<()> {
     ensure!(
         std::env::var_os("LAIN_URL").is_none(),
         "lain up is explicitly local; unset LAIN_URL to use local setup"
@@ -415,6 +428,7 @@ pub async fn up(machine: bool) -> Result<()> {
     );
     let path = directory()?;
     let settings = read_settings(&path).context("run lain setup --local first")?;
+    let effective = actor_config::Effective::load(&settings, env_file)?;
     let conn = connection()?;
     let address = local_address(&settings.url)?;
     let client = Client::new(&settings.url, &conn.token)?;
@@ -429,9 +443,41 @@ pub async fn up(machine: bool) -> Result<()> {
             .get("ready")
             .await
             .context("Kernel is running but not ready")?;
-        return crate::emit(&serde_json::json!({"status":"already_running"}), machine);
+        let diagnostics: serde_json::Value = client.get("v1/diagnostics").await?;
+        if effective.comparison(&diagnostics) == "restart_required" {
+            let works: Vec<serde_json::Value> = client.get("v1/work-sessions").await?;
+            let active = works
+                .iter()
+                .filter(|work| {
+                    matches!(
+                        work["state"].as_str(),
+                        Some(
+                            "created"
+                                | "starting"
+                                | "ready"
+                                | "running"
+                                | "waiting_for_approval"
+                                | "idle"
+                                | "disconnected"
+                                | "unknown"
+                        )
+                    )
+                })
+                .count();
+            bail!(
+                "Actor configuration differs from the running daemon ({active} open worker sessions). Inspect lain work list before stopping active workers; gracefully stop your owned foreground lain up with Ctrl-C, then run lain up again. No process was stopped."
+            );
+        }
+        return crate::emit(
+            &serde_json::json!({"status":"already_running","actor_configuration":effective.comparison(&diagnostics),
+            "apply":"Existing daemon retains its startup environment. Inspect work before an explicit graceful restart; credential rotation is not compared."}),
+            machine,
+        );
     }
     let mut command = std::process::Command::new(daemon_path()?);
+    for (key, value) in &effective.values {
+        command.env(key, value.as_str());
+    }
     command
         .env("LAIN_API_TOKEN", conn.token.as_str())
         .env("LAIN_LISTEN", address.to_string())
@@ -453,7 +499,7 @@ pub async fn up(machine: bool) -> Result<()> {
     );
     Ok(())
 }
-pub async fn doctor(machine: bool) -> Result<()> {
+pub async fn doctor(machine: bool, env_file: Option<&Path>) -> Result<()> {
     let mut report = serde_json::json!({"cli_version":env!("CARGO_PKG_VERSION"),"cli_executable":std::env::current_exe().ok(),"path_candidates":path_candidates(),"path_help":"PowerShell: Get-Command lain -All; where.exe lain. zsh: whence -a lain. Invoke the Rust binary by its absolute path if shadowed.","daemon_executable":daemon_path().ok()});
     let mut healthy = false;
     match connection() {
@@ -461,7 +507,25 @@ pub async fn doctor(machine: bool) -> Result<()> {
         Ok(conn) => {
             let client = Client::new(&conn.url, &conn.token)?;
             match client.get::<serde_json::Value>("v1/diagnostics").await {
-                Ok(value) => { healthy = value["kernel"] == "ready" && value["storage"] == "healthy"; report["diagnostics"] = value; },
+                Ok(value) => {
+                    healthy = value["kernel"] == "ready" && value["storage"] == "healthy";
+                    if std::env::var_os("LAIN_URL").is_none() {
+                        let desired=(||->Result<_> {
+                            let settings=read_settings(&directory()?)?;
+                            actor_config::Effective::load(&settings,env_file)
+                        })();
+                        match desired {
+                            Ok(effective)=>{
+                                let comparison=effective.comparison(&value);
+                                if comparison == "restart_required" { healthy=false; }
+                                report["local_actor"]=effective.view();
+                                report["actor_configuration"]=comparison.into();
+                            },
+                            Err(_)=>{ healthy=false; report["actor_configuration"]="invalid_local_configuration; inspect lain config actor and file permissions".into(); },
+                        }
+                    } else { report["actor_configuration"]="not_compared_remote".into(); }
+                    report["diagnostics"] = value;
+                },
                 Err(error) => {
                     report["kernel"] = if error.to_string().contains("401") { "Kernel authentication failed; check LAIN_API_TOKEN override against local setup" } else if error.to_string().contains("404") { "Kernel incompatible; rebuild and restart laind" } else { "Kernel not running or unreachable; run lain up for local mode" }.into();
                 }
@@ -512,6 +576,14 @@ pub async fn doctor(machine: bool) -> Result<()> {
                         profile["secret_status"].as_str().unwrap_or("unknown")
                     );
                 }
+            }
+        }
+        if let Some(state) = report["actor_configuration"].as_str() {
+            println!("Actor config: {state}");
+            if state == "restart_required" {
+                println!(
+                    "             Inspect lain work list before gracefully stopping your owned foreground daemon; next lain up applies saved files. Secret values are never compared."
+                );
             }
         }
         println!(

@@ -37,71 +37,126 @@ is optional, sent only when configured; actual support is provider/model-owned.
 No default paid model, Codex credential reuse, automatic routing or fallback.
 Use a provider/model that supports Responses function calling and SSE.
 
-### Configure from a checkout
+### Save an explicit local selection
 
-Run these commands from the repository root. macOS zsh:
+Run `lain setup --local`, then record an existing non-secret file:
 
-```zsh
-cp -n config/actor.example.json config/actor.json
-chmod 600 config/actor.json
-# Edit model and endpoint in config/actor.json before starting the daemon.
-export LAIN_ACTOR_CONFIG="$PWD/config/actor.json"
-read -rs 'LAIN_SECRET_ACTOR?Actor API key: '
-printf '\n'
-export LAIN_SECRET_ACTOR
-lain up
+```text
+lain config actor set --file <path-to-actor.json>
+lain config actor
 ```
 
-Windows PowerShell (the API key is entered through a secure prompt):
+The path is resolved explicitly and saved in private per-user `client.json`.
+The selected file is never copied, overwritten or silently migrated. Your ignored
+`config/actor.json` can remain in place; a normal installation can select a file
+outside the checkout. `config actor show` is equivalent to `config actor` and
+shows selection/source/revisions/credential availability, never credential values.
+`config actor clear` removes saved selections while retaining the files; explicit
+process environment still takes precedence.
+
+### Reuse credentials without repeated shell exports
+
+Use a dedicated owner-only env file outside every Git checkout, in a private
+owner-only directory. The existing per-user Lain directory is suitable.
+macOS zsh, after setup:
+
+```zsh
+local_dir="$HOME/Library/Application Support/Lain"
+secret_file="$local_dir/actor.env"
+if [[ ! -e "$secret_file" ]]; then
+  (umask 077; set -C; : > "$secret_file")
+fi
+chmod 600 "$secret_file"
+```
+
+Windows PowerShell, after setup (native Windows verification is still pending):
 
 ```powershell
-if (!(Test-Path 'config/actor.json')) {
-    Copy-Item 'config/actor.example.json' 'config/actor.json'
+$secretFile = Join-Path $env:LOCALAPPDATA 'Lain\actor.env'
+if (!(Test-Path -LiteralPath $secretFile)) {
+    ([System.IO.File]::Open($secretFile, [System.IO.FileMode]::CreateNew,
+        [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)).Dispose()
 }
-# Edit model and endpoint in config/actor.json before starting the daemon.
-$env:LAIN_ACTOR_CONFIG = (Resolve-Path 'config/actor.json').Path
-$env:LAIN_SECRET_ACTOR = [System.Net.NetworkCredential]::new('', (Read-Host 'Actor API key' -AsSecureString)).Password
-lain up
+$sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$acl = New-Object System.Security.AccessControl.FileSecurity
+$acl.SetOwner($sid)
+$acl.SetAccessRuleProtection($true, $false)
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'Allow')
+$acl.AddAccessRule($rule)
+Set-Acl -LiteralPath $secretFile -AclObject $acl
 ```
 
-Stop an existing `lain up` with Ctrl-C before starting it in this configured
-terminal; an already-running Kernel does not reload the caller's environment.
-In another terminal, run `lain doctor`, then `lain chat`. The secure/hidden prompt
-keeps the key out of command history; the key is inherited by the daemon only
-through its environment. This entrypoint does not persist the key across new
-shells. `.env` is ignored by Git but **is not automatically loaded**. Actor JSON
-also is not discovered automatically: `LAIN_ACTOR_CONFIG` must be set when the
-Kernel starts. The documented PowerShell commands have not been verified on a
-native Windows host.
+In your editor, put the following line in that protected file, replacing the
+placeholder with the actual API key. Do not enter the key in command arguments:
 
-### Configure outside the checkout
-
-PowerShell, in the daemon terminal (supply the credential privately):
-
-```powershell
-$env:LAIN_ACTOR_CONFIG = Join-Path $env:LOCALAPPDATA 'Lain\actor.json'
-# Set LAIN_SECRET_ACTOR through your private deployment environment.
-lain up
+```dotenv
+LAIN_SECRET_ACTOR=replace-in-editor
 ```
 
-macOS zsh:
+Then register the file once. zsh:
 
 ```zsh
-export LAIN_ACTOR_CONFIG="$HOME/Library/Application Support/Lain/actor.json"
-# Supply LAIN_SECRET_ACTOR through your private deployment environment.
+lain config actor env-file --file "$secret_file"
 lain up
 ```
 
-`secret://env/actor` resolves only `LAIN_SECRET_ACTOR`, through the existing
-namespaced SecretRef store. The credential goes only in the provider bearer
-header. No raw credential is persisted in configuration, conversation, profiles,
-worker history or public events. Restart the daemon to change environment-backed
-values/configuration. Doctor validates local prerequisites without an inference
-or account probe. Missing/invalid Actor setup leaves explicit work/profile APIs
-usable; chat reports how to configure it. Keep credentials out of ordinary
-terminal history and model text. Known values and recognizable secret patterns
-are rejected/redacted before context/persistence/publication; arbitrary unknown or
-encoded secrets cannot be detected reliably.
+PowerShell:
+
+```powershell
+lain config actor env-file --file $secretFile
+lain up
+```
+
+Future `lain up` launches load both saved selections automatically. No repeated
+exports are required. For a single launch, use `lain up --env-file <path>`;
+`lain doctor --env-file <same-path>` compares that selection without saving it.
+File contents are never evaluated as shell code. Parsing accepts UTF-8 LF/CRLF,
+blank lines, whole-line `#` comments and unquoted `KEY=VALUE` entries. Values are
+literal, including `$`, `=`, spaces and `#`; no interpolation, quote removal,
+inline comments, `export`, commands or arbitrary environment keys are supported.
+Duplicate keys, empty/control-bearing/oversized values and malformed entries fail.
+
+Allowed keys are `LAIN_ACTOR_CONFIG`, `LAIN_PERSONA_PATH` and namespaced
+`LAIN_SECRET_*` variables. `LAIN_API_TOKEN`, PATH, listener/database overrides and
+executable selection are not accepted from this file. Relative config/persona
+paths in an env file resolve against that explicitly chosen file's directory.
+Explicit process paths resolve before the launcher changes its working directory.
+The file is at most 64 KiB/128 entries; each value at most 8192 bytes.
+
+Precedence: explicit process environment > explicitly selected/saved env file >
+saved non-secret Actor file selection > built-in defaults. `--env-file` selects
+which file is used instead of the saved env-file path. Empty explicit process
+values do not fall back silently. No workspace/current-directory `.env` discovery
+occurs. Unsafe owners, links, permissions/ACLs or checkout locations fail closed;
+Unix files/directories require 0600/0700, Windows requires protected owner-only ACLs.
+
+### Apply changes safely
+
+Configuration/persona/environment is resolved at daemon startup. `doctor` compares
+SHA-256 revisions of validated non-secret Actor JSON bytes and persona content
+with the authenticated daemon. Changed JSON formatting can conservatively request
+a restart. Older daemons without revision metadata are `not_observable`; remote
+mode does not compare local files. This is not a provider/auth probe. Credentials
+are never hashed or compared, so rotating a key still requires explicit restart.
+
+Inspect `lain work list` before stopping active work. In the terminal running your
+owned foreground `lain up`, use Ctrl-C (Windows also supports Ctrl-Break), wait
+for graceful shutdown, then run `lain up` again with the same local setup/database.
+`up` reports a configuration mismatch and open worker count rather than stopping
+an existing daemon. No guessed PID, unknown service or remote daemon is killed.
+Conversations and public IDs remain intact; worker recovery follows its existing
+uncertainty rules and never automatically replays mutations. There is no hot reload.
+
+Direct/manual `laind` deployments may still supply `LAIN_ACTOR_CONFIG`,
+`LAIN_PERSONA_PATH` and namespaced credentials through their deployment environment.
+The env file is a launcher input; it is not implicitly read by direct `laind`.
+`secret://env/actor` resolves only `LAIN_SECRET_ACTOR`. An optional protected env
+file is an explicit plaintext credential source; no values are stored in
+`client.json`, Actor JSON, SQLite conversations/profiles/history, ordinary logs or
+public events. The credential goes only in the provider bearer header. Codex login
+remains separate. Missing/invalid Actor setup leaves explicit work/profile APIs
+usable. Known values/patterns are rejected or redacted; unknown or encoded secrets
+cannot be detected reliably.
 
 ## Identity and context
 
