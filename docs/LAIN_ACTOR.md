@@ -211,6 +211,10 @@ different text conflicts. Only one Running/PendingConfirmation turn is permitted
 per conversation. Other conversations can run independently. Completed text/tool
 results commit before public notification. Stable message IDs and monotonic
 revision make repeated snapshots safe to merge.
+Final body persistence precedes its measured commit-time metadata; the turn stays
+Running until that final metadata/terminal-state write succeeds. A reconnect
+between those writes cannot observe premature Completed state. If the last write
+fails, the complete body may remain durable while the turn becomes Unknown.
 
 Turn states: Running, PendingConfirmation, Completed, Failed, Cancelled, Unknown.
 Transport/inference uncertainty and interruption currently use Unknown; Failed is

@@ -304,9 +304,6 @@ impl Actor {
                     turn.timing.requests.push(timing);
                     turn.usage_tokens = turn.usage_tokens.saturating_add(tokens);
                     ensure!(turn.usage_tokens <= cap, "Actor token budget exhausted");
-                    if done {
-                        turn.state = TurnState::Completed;
-                    }
                     if !text.is_empty() {
                         turn.message(MessageRole::Assistant, text)?;
                         turn.messages.last_mut().unwrap().id = message_id;
@@ -323,6 +320,12 @@ impl Actor {
                     timing.commit_ms = Some(commit_ms);
                 }
                 turn.timing.total_ms = Some(total_ms);
+                // Publish terminal truth only once all final metadata commits.
+                // A reconnect between the body and timing writes must not see
+                // a premature Completed snapshot that can still fail to commit.
+                if done {
+                    turn.state = TurnState::Completed;
+                }
                 Ok(())
             })
             .await?;

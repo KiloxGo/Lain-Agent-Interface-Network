@@ -402,3 +402,38 @@ async fn failed_atomic_actor_receipt_rolls_back_worker_creation_before_start() {
     assert!(!dir.path().join("fixture-config.json").exists());
     workers.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn failed_final_metadata_commit_never_leaves_a_false_completed_turn() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("final.sqlite3");
+    let k = kernel(&path);
+    let model = Arc::new(Model {
+        calls: AtomicUsize::new(0),
+        tool: None,
+    });
+    let actor = Actor::with_model(k.clone(), None, TOKEN.parse().unwrap(), model);
+    let c = k.create_conversation().unwrap();
+    let db = rusqlite::Connection::open(&path).unwrap();
+    db.execute_batch(
+        "CREATE TRIGGER fail_final_metadata BEFORE UPDATE ON lain_actor_turns
+        WHEN json_extract(NEW.snapshot, '$.state') = 'completed'
+          AND json_extract(NEW.snapshot, '$.timing.total_ms') IS NOT NULL
+        BEGIN SELECT RAISE(ABORT, 'fixture final metadata failure'); END;",
+    )
+    .unwrap();
+    let initial = actor
+        .submit(c.id, Uuid::new_v4(), "hello".into())
+        .await
+        .unwrap();
+    let outcome = settled(&k, initial.id).await;
+    assert_eq!(outcome.state, TurnState::Unknown);
+    let completed_bodies: Vec<_> = outcome
+        .messages
+        .iter()
+        .filter(|m| m.role == MessageRole::Assistant)
+        .collect();
+    assert_eq!(completed_bodies.len(), 1);
+    assert_eq!(completed_bodies[0].content, "audit");
+    assert_eq!(completed_bodies[0].status, MessageStatus::Completed);
+}

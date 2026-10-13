@@ -917,3 +917,19 @@ tests remain ignored. No paid model calls, owner daemon restart or owner
 configuration edits occurred. Native Windows/ConPTY and Linux remain unverified;
 real provider/tool/delegation/restart acceptance remains pending explicit owner
 provider/workspace authorization and an available protected credential source.
+
+### Final Actor completion commit boundary — 2026-10-13
+
+A final timing audit found a second-write failure window: the complete body could
+commit Completed before its measured timing metadata, leaving false terminal
+success if that final write failed. The body now commits while Running; terminal
+state and metadata commit together before publication. Injected final-write
+failure preserves the complete body with an Unknown turn rather than publishing
+premature completion. Reconnection therefore cannot observe the intermediate
+write as an authoritative completed turn.
+
+Native macOS `zsh scripts/check-native.zsh` passed again after this change: locked
+build, fmt, warnings-denied Clippy, 70 deterministic Rust tests and all native
+CLI/PTY fixtures. Three opt-in tests remain ignored. No paid calls were made.
+Real acceptance is awaiting the requested owner provider/workspace authorization
+and protected env-file path; Windows/ConPTY and Linux remain unverified.

@@ -75,6 +75,8 @@ unverified. Phase 7 remains unstarted. No milestone completion is claimed.
    Submission/decision ownership transfers before a cancellable storage await.
    Work creation and its Actor receipt commit atomically before backend launch;
    failure rolls both back. Bounded history advances only over retained records.
+   Completed state is published only after the final body/timing metadata write;
+   an injected failure leaves Unknown with its already complete body preserved.
 10. **Recovery.** Deterministic native CLI and daemon restart tests retain Actor
     snapshots/actions and terminal worker IDs without model regeneration. The
     real runner compares IDs and snapshot hashes after an owner-attested graceful
