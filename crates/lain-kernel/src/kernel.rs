@@ -212,6 +212,10 @@ impl Kernel {
         workspace: PathBuf,
         requested: Option<RuntimeProfileId>,
         options: crate::domain::SessionOptions,
+        receipt: Option<(
+            crate::actor::domain::ActorTurnId,
+            crate::actor::domain::ActionId,
+        )>,
     ) -> Result<WorkSession> {
         crate::profiles::check_sensitive(&options)?;
         let workspace = workspace
@@ -254,6 +258,39 @@ impl Kernel {
             resolved_profile: Some(resolved),
             ..Default::default()
         };
+        let mut actor_receipt = if let Some((actor_id, action_id)) = receipt {
+            use crate::actor::domain::{ActionState, TurnState};
+            let mut turn = inner.store.actor_turn(actor_id)?;
+            ensure!(
+                turn.state == TurnState::Running,
+                crate::backend::ControlError::Conflict
+            );
+            let action = turn
+                .actions
+                .iter_mut()
+                .find(|a| a.id == action_id)
+                .ok_or(crate::backend::ControlError::NotFound)?;
+            ensure!(
+                action.state == ActionState::Executing && action.result.is_none(),
+                crate::backend::ControlError::Conflict
+            );
+            let crate::actor::tools::Tool::WorkCreate(arguments) = &action.tool else {
+                anyhow::bail!(crate::backend::ControlError::InvalidInput);
+            };
+            ensure!(
+                arguments.workspace.canonicalize()? == session.workspace
+                    && arguments.profile_id == session.runtime_profile_id
+                    && worker.options.sandbox == Some(arguments.sandbox)
+                    && worker.options.model.is_none(),
+                crate::backend::ControlError::InvalidInput
+            );
+            action.result = Some(
+                serde_json::json!({"work_session_id":session.id,"stage":"created_not_submitted"}),
+            );
+            Some(turn)
+        } else {
+            None
+        };
         let mut events = vec![Event::new(
             session.id,
             None,
@@ -262,9 +299,13 @@ impl Kernel {
                 session: session.clone(),
             },
         )];
-        inner
-            .store
-            .save(&session, Some(&worker), true, &mut events)?;
+        inner.store.save_with_actor_receipt(
+            &session,
+            Some(&worker),
+            true,
+            &mut events,
+            actor_receipt.as_mut(),
+        )?;
         inner.sessions.insert(session.id, session.clone());
         inner.workers.insert(session.id, worker);
         self.publish(events);

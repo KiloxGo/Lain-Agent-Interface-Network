@@ -890,3 +890,30 @@ Phase 7 inputs are in `docs/PHASE_6_5_ACCEPTANCE.md`; memory remains unimplement
 Additional cancellation/partial-creation/history/worker-invariant probes found
 in the workspace are being reviewed before real acceptance. This checkpoint is
 not final Phase 6.5 acceptance and does not close those review items.
+
+### Cancellation ownership and atomic delegation receipts — 2026-10-13
+
+Reproduced four concrete defects from the workspace's independent architecture
+probes before fixing them. A caller dropped while storage was queued could leave
+Running/Executing Actor state without an execution owner. Backend startup could
+fail after durable session creation but before the Actor learned its ID. Bounded
+Actor history could retain the original page cursor after dropping tail events.
+Worker recovery accepted confirmed cancellation on a Completed turn or a resolved
+approval without a valid owner decision.
+
+Submission and confirmation now transfer to Kernel-owned tasks before storage
+awaits; supervisor creation also owns its handoff. WorkSession, worker metadata,
+creation event and the exact confirmed Action's partial receipt commit atomically
+before backend startup. A receipt-commit failure rolls creation back; startup
+failure keeps its ID. Bounded history advances only through returned records and
+marks additional pages; worker validation rejects the contradictory states before
+recovery writes. The original untracked review probes were preserved unchanged;
+new permanent regressions assert the corrected behavior.
+
+Native macOS `zsh scripts/check-native.zsh` passed locked build, fmt,
+warnings-denied Clippy, 69 deterministic Rust tests and full CLI/PTY/native
+fixtures, including the opt-in runner against fake providers. Three opt-in Rust
+tests remain ignored. No paid model calls, owner daemon restart or owner
+configuration edits occurred. Native Windows/ConPTY and Linux remain unverified;
+real provider/tool/delegation/restart acceptance remains pending explicit owner
+provider/workspace authorization and an available protected credential source.

@@ -183,25 +183,28 @@ fn actor_profile_view(profile: crate::profiles::ProfileView) -> Value {
         .remove("secret_ref");
     value
 }
-/// `created` persists the session ID before prompt submission, preserving partial delegation.
+/// Work creation commits its session ID and confirmed Actor receipt atomically,
+/// before attempting backend startup or task submission.
 pub async fn mutate(
     workers: &Arc<Supervisor>,
     tool: &Tool,
-    created: impl AsyncFnOnce(Value) -> Result<()>,
+    actor: super::domain::ActorTurnId,
+    action: super::domain::ActionId,
 ) -> Result<Value> {
     Ok(match tool {
         Tool::WorkCreate(a) => {
             let session = workers
-                .create_with_profile(
+                .create_with_actor_receipt(
                     a.workspace.clone(),
-                    Some(a.profile_id.clone()),
+                    a.profile_id.clone(),
                     SessionOptions {
                         model: None,
                         sandbox: Some(a.sandbox),
                     },
+                    actor,
+                    action,
                 )
                 .await?;
-            created(json!({"work_session_id":session.id,"stage":"created_not_submitted"})).await?;
             let turn = workers.prompt(session.id, a.task.clone()).await?;
             json!({"work_session_id":session.id,"turn_id":turn.id,"stage":"submitted","worker_completion":"not_observed"})
         }

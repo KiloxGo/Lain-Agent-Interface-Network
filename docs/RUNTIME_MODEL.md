@@ -406,6 +406,12 @@ same transaction. The supervisor attempts resume only for uncertain sessions wit
 persisted provider identities and detaches again if idle. Unresumable sessions stay Unknown;
 they are never silently replaced by a new provider session.
 
+Worker validation also rejects Confirmed cancellation on a non-Cancelled turn,
+resolved/responding approvals without an offered owner decision, and pending
+approvals that already carry a decision. Expired/Unknown delivery remains
+independent of whether an attempted decision is recorded; recovery does not
+manufacture a successful outcome.
+
 `Ready` is entered after recovery commits, the listener binds and resume attempts finish.
 `GET /ready` returns 200 only in this state, otherwise 503 while a listener is
 available. During backend recovery a socket is bound but requests are not served

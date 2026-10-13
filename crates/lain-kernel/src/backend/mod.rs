@@ -167,6 +167,48 @@ impl Supervisor {
         profile: Option<RuntimeProfileId>,
         options: SessionOptions,
     ) -> Result<WorkSession> {
+        self.create_owned(workspace, profile, options, None).await
+    }
+    pub(crate) async fn create_with_actor_receipt(
+        self: &Arc<Self>,
+        workspace: PathBuf,
+        profile: RuntimeProfileId,
+        options: SessionOptions,
+        actor: crate::actor::domain::ActorTurnId,
+        action: crate::actor::domain::ActionId,
+    ) -> Result<WorkSession> {
+        self.create_owned(workspace, Some(profile), options, Some((actor, action)))
+            .await
+    }
+    async fn create_owned(
+        self: &Arc<Self>,
+        workspace: PathBuf,
+        profile: Option<RuntimeProfileId>,
+        options: SessionOptions,
+        receipt: Option<(
+            crate::actor::domain::ActorTurnId,
+            crate::actor::domain::ActionId,
+        )>,
+    ) -> Result<WorkSession> {
+        let supervisor = self.clone();
+        tokio::spawn(async move {
+            supervisor
+                .create_inner(workspace, profile, options, receipt)
+                .await
+        })
+        .await
+        .context("worker creation task failed")?
+    }
+    async fn create_inner(
+        self: &Arc<Self>,
+        workspace: PathBuf,
+        profile: Option<RuntimeProfileId>,
+        options: SessionOptions,
+        receipt: Option<(
+            crate::actor::domain::ActorTurnId,
+            crate::actor::domain::ActionId,
+        )>,
+    ) -> Result<WorkSession> {
         ensure!(self.executable.is_some(), ControlError::Unavailable);
         ensure!(
             options
@@ -185,7 +227,7 @@ impl Supervisor {
         );
         let kernel = self.kernel.clone();
         let session = tokio::task::spawn_blocking(move || {
-            kernel.create_profiled_session(workspace, profile, options)
+            kernel.create_profiled_session(workspace, profile, options, receipt)
         })
         .await??;
         let id = session.id();

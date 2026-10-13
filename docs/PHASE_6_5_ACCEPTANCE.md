@@ -15,7 +15,7 @@ unverified. Phase 7 remains unstarted. No milestone completion is claimed.
 | Reusable configuration | Private saved selections, literal env grammar, precedence, native permissions, spaces, export-free startup, settings atomicity | Windows ACL/drive-path native run |
 | Startup lifecycle | Doctor revisions, no automatic interruption, active-work awareness, explicit graceful same-DB restart | Owner's actual configured daemon restart |
 | Read tools | All five tools verified through local Responses/Codex fixtures and real Kernel receipts | Real provider structured function calling |
-| Confirmed delegation | Denial creates no work; separately approved exact action, real fixture WorkSession/turn IDs, duplicate decision rejection, partial receipt/recovery tests | Authorized actual Codex turn and terminal result |
+| Confirmed delegation | Denial creates no work; separately approved exact action, real fixture WorkSession/turn IDs, duplicate decision rejection, atomic creation/receipt rollback and startup-failure tests | Authorized actual Codex turn and terminal result |
 | Conversation recovery | Actual CLI exit/reopen and daemon restart retain snapshots/IDs/actions without inference | Combined real provider/worker recovery |
 | Types/invalid states | Named IDs, tagged previews, typed roles/tools/states, separate durable-message status, cross-field validation, strict current-record decoding | Further changes only if real acceptance exposes a defect |
 | Regression | Native locked workspace checks and CLI/Kernel fixture acceptance; existing worker/profile/secret/migration tests | Native Windows and eventual Linux |
@@ -72,6 +72,9 @@ unverified. Phase 7 remains unstarted. No milestone completion is claimed.
    duplicate rejection and uncertain partial receipts pass. Real combined Actor
    and Codex delegation is pending authorization and exact owner confirmation.
    Submitted work is never described as a completed worker turn.
+   Submission/decision ownership transfers before a cancellable storage await.
+   Work creation and its Actor receipt commit atomically before backend launch;
+   failure rolls both back. Bounded history advances only over retained records.
 10. **Recovery.** Deterministic native CLI and daemon restart tests retain Actor
     snapshots/actions and terminal worker IDs without model regeneration. The
     real runner compares IDs and snapshot hashes after an owner-attested graceful

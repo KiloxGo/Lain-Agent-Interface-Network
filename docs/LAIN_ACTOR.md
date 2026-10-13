@@ -202,6 +202,10 @@ on message bodies without changing IDs, text, actions or turn uncertainty. New
 records reject contradictory statuses instead of silently normalizing them.
 
 Accepted user text and the request identity commit before inference is scheduled.
+The submission and confirmation handoff are Kernel-owned before their first
+storage await; losing the HTTP caller cannot strand a committed Running turn or
+Executing action without its execution task. Repeated requests/decisions still
+deduplicate or conflict through durable state, never launch a second operation.
 `(conversation_id, request_id)` is unique. Same ID/text returns the same turn;
 different text conflicts. Only one Running/PendingConfirmation turn is permitted
 per conversation. Other conversations can run independently. Completed text/tool
@@ -240,13 +244,21 @@ The model cannot call the owner-decision endpoint; prose cannot grant privileges
 No blanket approval or prior-authorization policy is introduced.
 
 `work.create` is one confirmed delegation containing exact absolute daemon-host
-workspace, profile, sandbox and task. Supervisor creates real work; its ID is
-persisted in the Action's partial result **before** submitting the task. Submission
+workspace, profile, sandbox and task. The real WorkSession, worker metadata,
+creation event and Action partial receipt commit in one transaction **before**
+backend startup or task submission. The Kernel verifies that receipt belongs to
+the exact confirmed action. Failure to commit the receipt rolls back creation;
+startup failure retains its inspectable ID. Submission
 returns the real worker Turn ID. The receipt states `worker_completion:not_observed`;
 acceptance is not proof of execution completion. Later `work.inspect/history` use
 actual Kernel state. A partial failure retains the created WorkSession ID. Unknown
 outcomes are never automatically replayed. Even confirmed worker cancellation
 still follows the existing acknowledgement-versus-terminal-evidence contract.
+
+Bounded `work.history` results retain a cursor only through returned events and
+set `has_more` when additional records were omitted. An event that cannot fit is
+reported as a bounded-result fallback; it cannot silently move the cursor past
+unseen history. Complete explicit CLI pagination remains available.
 
 ## Runtime limits and stream recovery
 

@@ -34,6 +34,11 @@ impl WorkerState {
                     && turns.insert(turn.id),
                 "invalid persisted turn"
             );
+            ensure!(
+                turn.cancellation != CancellationState::Confirmed
+                    || turn.state == TurnState::Cancelled,
+                "confirmed cancellation lacks a cancelled turn"
+            );
             if let Some(id) = &record.provider_turn_id {
                 ensure!(
                     !id.is_empty() && id.len() <= 256 && provider_turns.insert(id),
@@ -52,6 +57,28 @@ impl WorkerState {
             ensure!(
                 approval.turn_id.is_none_or(|id| turns.contains(&id)),
                 "approval references absent turn"
+            );
+            ensure!(
+                !approval.decisions.is_empty()
+                    && approval.decisions.len() <= 3
+                    && approval
+                        .decisions
+                        .iter()
+                        .enumerate()
+                        .all(|(i, d)| !approval.decisions[..i].contains(d))
+                    && approval
+                        .decision
+                        .is_none_or(|d| approval.decisions.contains(&d)),
+                "invalid approval decision choices"
+            );
+            ensure!(
+                match approval.status {
+                    ApprovalStatus::Pending => approval.decision.is_none(),
+                    ApprovalStatus::Responding | ApprovalStatus::Resolved =>
+                        approval.decision.is_some(),
+                    ApprovalStatus::Expired | ApprovalStatus::Unknown => true,
+                },
+                "approval status contradicts owner decision"
             );
         }
         ensure!(

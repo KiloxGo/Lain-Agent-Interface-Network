@@ -55,3 +55,19 @@ approvals and lifecycle. Existing explicit work/profile commands function withou
 Actor model configuration. Phase 7 semantic memory/World/summarization stays
 unimplemented. Fixture and native acceptance, and paid provider acceptance, are
 reported separately. See CLI.md, LAIN_ACTOR.md and DEVLOG.md for evidence/limits.
+
+## Phase 6.5 reliability strengthening (2026-10-13)
+
+Submission/confirmation transfer to a Kernel-owned task before their first
+storage await. A disconnected HTTP caller cannot leave committed Running or
+Executing state without a task responsible for its terminal/uncertain outcome.
+Duplicate durable requests/decisions still never launch another operation.
+
+Confirmed work creation atomically commits the WorkSession, worker metadata,
+creation event and Actor partial receipt under the existing Kernel storage lock.
+The receipt is validated against the exact Executing work.create action and is
+committed before backend startup. Receipt failure rolls back work creation;
+startup failure/cancellation retains an inspectable ID without replay. This
+strengthens the existing partial-receipt requirement rather than adding another
+worker orchestrator. Native deterministic regressions include cancelled callers,
+startup failure and injected receipt-commit failure.

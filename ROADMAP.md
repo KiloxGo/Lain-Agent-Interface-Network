@@ -256,6 +256,7 @@ Phase 6.5 stabilization is in progress:
 - [x] deterministic gated streaming, failure, denial, detach and reconnect checks
 - [x] saved local Actor settings/env-file workflow and observable startup mismatch (native macOS verified)
 - [x] focused Actor message/turn status audit with versioned legacy-compatible storage
+- [x] cancelled-caller ownership, atomic delegation receipt and bounded-history cursor regressions
 - [x] expanded opt-in runner and deterministic fixture coverage for reads/denial/delegation/worker terminal/restart
 - [ ] authorized real provider reads/denial/confirmed delegation/worker completion/restart evidence
 - [ ] native Windows input/configuration/build/test checks

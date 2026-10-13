@@ -331,6 +331,16 @@ impl Store {
         create: bool,
         events: &mut [Event],
     ) -> Result<()> {
+        self.save_with_actor_receipt(session, worker, create, events, None)
+    }
+    pub fn save_with_actor_receipt(
+        &mut self,
+        session: &WorkSession,
+        worker: Option<&WorkerState>,
+        create: bool,
+        events: &mut [Event],
+        actor_receipt: Option<&mut crate::actor::domain::ActorTurn>,
+    ) -> Result<()> {
         // ponytail: whole metadata snapshots cost O(history); use indexed turn/approval
         // rows when measured session history makes these infrequent commits expensive.
         if let Some(worker) = worker {
@@ -352,6 +362,21 @@ impl Store {
             tx.execute("INSERT INTO worker_state (session_id, snapshot) VALUES (?1, ?2) ON CONFLICT(session_id) DO UPDATE SET snapshot = excluded.snapshot", (session.id.to_string(), serde_json::to_string(worker)?))?;
         }
         Self::write_events(&tx, events)?;
+        if let Some(turn) = actor_receipt {
+            turn.revision = turn
+                .revision
+                .checked_add(1)
+                .context("Actor revision exhausted")?;
+            ensure!(
+                tx.execute(
+                    "UPDATE lain_actor_turns SET snapshot = ?2 WHERE id = ?1",
+                    (turn.id.to_string(), encode_actor(turn)?)
+                )? == 1,
+                "Actor receipt missing from durable storage"
+            );
+            tx.execute("UPDATE lain_conversations SET updated_at_ms = max(updated_at_ms, ?2) WHERE id = ?1",
+                (turn.conversation_id.to_string(), i64::try_from(now_ms()?)?))?;
+        }
         tx.commit().context("commit worker state")?;
         Ok(())
     }

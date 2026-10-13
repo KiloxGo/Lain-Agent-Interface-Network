@@ -180,14 +180,21 @@ impl Actor {
     ) -> Result<ActorTurn> {
         ensure!(self.model.is_some(), ControlError::Unavailable);
         self.safe_input(&text)?;
-        let (turn, created) = blocking(&self.kernel, move |k| {
-            k.actor_submit(conversation, request, text)
+        // Ownership transfers before the first storage await. Dropping an HTTP
+        // caller cannot abandon a committed Running turn between commit/launch.
+        let actor = self.clone();
+        tokio::spawn(async move {
+            let (turn, created) = blocking(&actor.kernel, move |k| {
+                k.actor_submit(conversation, request, text)
+            })
+            .await?;
+            if created {
+                actor.launch(turn.id, None).await;
+            }
+            Ok(turn)
         })
-        .await?;
-        if created {
-            self.launch(turn.id, None).await;
-        }
-        Ok(turn)
+        .await
+        .context("Actor submission task failed")?
     }
     async fn launch(self: &Arc<Self>, id: ActorTurnId, action: Option<ActionId>) {
         let queued = Instant::now();
@@ -404,6 +411,17 @@ impl Actor {
         action_id: ActionId,
         approve: bool,
     ) -> Result<ActorTurn> {
+        let actor = self.clone();
+        tokio::spawn(async move { actor.decide_owned(id, action_id, approve).await })
+            .await
+            .context("Actor decision task failed")?
+    }
+    async fn decide_owned(
+        self: &Arc<Self>,
+        id: ActorTurnId,
+        action_id: ActionId,
+        approve: bool,
+    ) -> Result<ActorTurn> {
         let turn = self
             .update(id, move |turn| {
                 ensure!(
@@ -455,19 +473,7 @@ impl Actor {
             ControlError::Conflict
         );
         let outcome = if let Some(workers) = self.workers.as_ref() {
-            tools::mutate(workers, &action.tool, async |partial| {
-                self.update(id, move |turn| {
-                    turn.actions
-                        .iter_mut()
-                        .find(|a| a.id == action_id)
-                        .context("action missing")?
-                        .result = Some(partial);
-                    Ok(())
-                })
-                .await?;
-                Ok(())
-            })
-            .await
+            tools::mutate(workers, &action.tool, id, action_id).await
         } else {
             Err(ControlError::Unavailable.into())
         };
@@ -557,8 +563,26 @@ fn bounded(value: Value, redactor: &Redactor) -> Result<Value> {
     let mut value = value;
     for key in ["sessions", "profiles", "events"] {
         if let Some(array) = value.get_mut(key).and_then(Value::as_array_mut) {
+            let original_len = array.len();
             while serde_json::to_vec(array)?.len() > 14000 && !array.is_empty() {
                 array.pop();
+            }
+            if key == "events" && array.len() < original_len {
+                let next = array
+                    .last()
+                    .and_then(|event| event.get("history_order"))
+                    .and_then(Value::as_u64);
+                // An empty retained page cannot advance beyond its caller's
+                // cursor. Report an explicit bounded-result fallback instead.
+                let Some(next) = next else {
+                    return Ok(
+                        json!({"truncated":true,"message":"History event exceeds Actor bounds; inspect with explicit work history pagination."}),
+                    );
+                };
+                value["next_cursor"] = next.into();
+                value["has_more"] = true.into();
+            } else if key != "events" && array.len() < original_len {
+                value["truncated"] = true.into();
             }
         }
     }

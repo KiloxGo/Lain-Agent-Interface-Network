@@ -639,7 +639,9 @@ records. The model sees typed definitions and redacted data, never secrets,
 SQLite or generic coding tools. Model and worker profiles are independent.
 
 Every mutation is persisted as Proposed; explicit owner decision claims Executing
-before dispatch. Work creation persists the real session ID before task submission.
+before dispatch. Work creation atomically persists the real session, worker
+metadata, creation event and Actor partial receipt before backend startup or task
+submission. Client cancellation cannot abandon the storage-to-execution handoff.
 Uncertain inference/actions remain Unknown, with no replay. Complete redacted
 records commit before revisioned SSE snapshots; disconnect does not cancel them.
 The small `lain-wire` crate defines public Actor observation DTOs and typed IDs.

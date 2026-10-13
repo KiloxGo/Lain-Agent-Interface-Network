@@ -183,6 +183,8 @@ class Acceptance:
                 "Provider did not produce the required typed tool call/receipt: " + name)
         result = actions[0]["result"]
         require(len(json.dumps(result).encode()) <= 32 * 1024, "Tool result exceeded evidence bound")
+        if result.get("truncated") is True and "data" in result:
+            result = result["data"]
         if name == "work.list":
             actual = {s["id"] for s in self.command("work", "list")}
             require(len(result["sessions"]) <= 50 and all(s["id"] in actual for s in result["sessions"]), "Invalid work list receipt")
