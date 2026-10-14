@@ -49,6 +49,10 @@ For Lain memory or background cognition work, also read:
 
 - `docs/MEMORY.md`
 
+For future delegation compiler or prompt-enhancement work, also read:
+
+- `docs/INTENT_AWARE_DELEGATION.md` (planned; not implemented)
+
 For task sequencing and scope, read:
 
 - `ROADMAP.md`
@@ -109,6 +113,19 @@ Lain may normalize, observe, configure, route, schedule, and supervise these cap
 - Prefer launch-time/session-scoped configuration injection over mutating a user's global Codex/Claude/DeepSeek configuration.
 - Global configuration import/export may be added later, but MUST be explicit.
 - Secret values are referenced indirectly through `SecretRef`-like handles.
+
+### 3.7 Future delegation fidelity boundary
+
+- Optional prompt/context enhancement applies only when Lain dispatches to a
+  subagent; ordinary Lain conversation and worker-owned planning are unaffected.
+- Enhancement is **Off by default** and controlled by the owner. Never infer opt-in.
+- The owner's original instruction remains verbatim and immutable. Model-added
+  assumptions, retrieved facts and old preferences are separately attributed.
+- Untrusted project content or memory inference must not override owner intent,
+  broaden task scope or bypass Kernel policy/approval/credential boundaries.
+- Future plans/changes must be inspectable; a proposed brief is not worker
+  completion. Do not implement this future Phase 10 feature as incidental Phase 7
+  work. See [the design](docs/INTENT_AWARE_DELEGATION.md).
 
 ## 4. Coding rules
 

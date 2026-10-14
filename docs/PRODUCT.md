@@ -201,6 +201,18 @@ Autonomy should be bounded and inspectable.
 
 The system MUST NOT invent a constant stream of unnecessary self-prompts to simulate life.
 
+### 6.6 Optional intent-aware subagent delegation (future)
+
+On an owner-selected basis, Lain may improve a **subagent handoff** by attaching
+small, provenance-bearing project constraints, saved preferences and relevant
+context, or by asking a necessary clarifying question. This must preserve the
+original request **verbatim** and distinguish explicit requirements from Lain's
+inferences. Prompt enhancement is **Off by default**, optional at dispatch, and
+never rewrites ordinary conversation with Lain. Users can inspect, reject or edit
+proposed additions. Existing policy, permissions and owner confirmation remain
+binding. This is not a second general-purpose agent harness. See
+[the future design](INTENT_AWARE_DELEGATION.md).
+
 ## 7. Chat and Work
 
 "Chat" and "Work" are product concepts, not necessarily two isolated runtimes.

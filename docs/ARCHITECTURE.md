@@ -652,3 +652,28 @@ The CLI renders previews and reconciles them with durable messages by stable ID;
 one serialized input owner coordinates response output and confirmation prompts.
 Web is frozen without Actor UI. Memory/World/scheduler remain deferred. Normative
 contracts and limits: [LAIN_ACTOR.md](LAIN_ACTOR.md), [ADR 004](adr/004-cli-first-actor-and-confirmed-tools.md).
+
+## Future boundary: optional Intent-Aware Delegation (Phase 10)
+
+This is a **design proposal, not an implemented component**. Between Lain Actor's
+intention to delegate and the existing typed Kernel WorkSession dispatch, an
+optional Delegation Compiler may enrich a worker brief using minimal authorized
+project facts, owner-approved preferences and worker capabilities. It must keep
+the owner's exact original request immutable and distinct from attributed
+additions or model-generated assumptions.
+
+```text
+owner original + explicitly selected mode (default Off)
+  -> scoped provenance lookup / optional consequential clarification
+  -> reviewable structured additions and conflict check
+  -> existing owner confirmation + Kernel policy
+  -> frozen non-secret dispatch artifact -> Supervisor -> Worker
+```
+
+Off bypasses compiler inference and clarification. Do not change ordinary chat,
+direct worker CLI/API requests, worker-owned planning, running sessions, or
+approval/security semantics. Project and memory text is untrusted evidence, not
+higher-authority instruction. The future Kernel audit must correlate original,
+source references, chosen mode, edits, approval and final worker result without
+exposing unneeded private memory. See
+[Intent-Aware Delegation](INTENT_AWARE_DELEGATION.md).

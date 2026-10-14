@@ -1057,3 +1057,19 @@ checked the real WorkSession/turn and completed normalized report through read
 APIs, and ran documentation diff/consistency checks. No code changed, so no new
 build or model-based test was run. Earlier native/real acceptance evidence and
 its platform/provider limitations remain as recorded above.
+
+### 2026-10-14 — Future intent-aware subagent delegation proposal
+
+Recorded an owner-requested **optional Delegation Compiler** for future Phase 10
+orchestration in `docs/INTENT_AWARE_DELEGATION.md`. The goal is to improve handoffs
+of vague user requests using authorized project context, confirmed preferences,
+constraints and targeted clarifications, **without silently changing intent**.
+Proposed modes: Off (default), ContextOnly, Clarify, Propose. The exact original
+request stays separate from attributed contextual additions and inferred claims;
+ordinary Lain chat and a worker's own planning are unaffected. Approvals, scope,
+secrets and profile policy remain Kernel-owned. Updated Roadmap, Product,
+Architecture, Memory and AGENTS.md guidance accordingly.
+
+Documentation-only future proposal. No dispatch/runtime behavior, migrations,
+model calls, implementation tests or Phase 7 work were introduced. Phase 6.x
+completion/result delivery and native-platform acceptance remain the priority.

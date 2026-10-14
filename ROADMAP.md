@@ -1,7 +1,7 @@
 # Roadmap
 
 **Status:** working plan  
-**Last reviewed:** 2026-10-13
+**Last reviewed:** 2026-10-14
 
 This roadmap defines implementation order for the Lain architecture reboot.
 
@@ -278,6 +278,8 @@ Conversation persistence is not semantic memory. **Do not begin Phase 7 yet.**
 
 **Goal:** give Lain durable continuity independent of worker sessions.
 
+Memory provenance and scoped, owner-approved project knowledge/preferences may later provide **evidence** for optional intent-aware delegation. Phase 7 does **not** implement prompt rewriting or silently promote inferred preferences to task requirements. See [Intent-Aware Delegation](docs/INTENT_AWARE_DELEGATION.md).
+
 Deliverables:
 
 - [ ] memory schema and provenance
@@ -349,11 +351,15 @@ Exit criteria:
 
 ## Phase 10 — Advanced orchestration
 
-Only after core supervision is stable.
+Only after core supervision, result delivery and provenance-aware memory are stable. The optional **Delegation Compiler** belongs here, not in the ordinary Lain chat loop. See [Intent-Aware Delegation](docs/INTENT_AWARE_DELEGATION.md).
 
 Potential features:
 
 - [ ] Lain chooses backend/profile according to explicit routing policy
+- [ ] optional, owner-controlled intent-aware delegation: Off by default; ContextOnly, Clarify and Propose modes
+- [ ] immutable original request plus attributed memory/project evidence, clarification, reviewable brief/diff and frozen dispatch receipt
+- [ ] worker-capability-aware brief formatting that cannot invent owner intent or widen privileges
+- [ ] fidelity/clarification/cost evaluations against unchanged direct delegation, including negative and adversarial cases
 - [ ] task decomposition into several worker sessions
 - [ ] dependency graph between WorkSessions
 - [ ] compare/review work between agents
@@ -367,7 +373,7 @@ Guardrail:
 
 This phase must not become "Lain reimplements a universal agent harness".
 
-The orchestration layer should continue to delegate execution to workers.
+The orchestration layer should continue to delegate execution to workers. The optional compiler must not silently rewrite original requests, replace worker planning, expose private memory without authorization or bypass Kernel owner confirmation. These new items are future proposals and remain unchecked.
 
 ## Phase 11 — External integrations
 

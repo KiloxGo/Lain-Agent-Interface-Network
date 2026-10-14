@@ -351,3 +351,16 @@ Avoid:
 - letting workers freely browse all personal memory;
 - auto-updating identity from ordinary conversation;
 - embedding-first architecture without demonstrated need.
+
+## Future consumer: intent-aware delegation (not implemented)
+
+Provenance-aware project knowledge, explicitly stored aesthetic standards and
+owner-approved habits/constraints may later inform an **optional**, delegation-only
+compiler. A memory hit is evidence, never permission to rewrite the owner's
+current request or declare an inferred preference mandatory. Retain origin,
+confirmation status, last relevant time, scope and supersession; surface conflicts
+and stale facts instead of silently expanding prompts. Workers receive only the
+minimum authorized context, not all of Lain's memories or private World. The
+feature defaults **Off**, belongs to later orchestration work and must not be
+built as part of initial Phase 7 Memory. See
+[Intent-Aware Delegation](INTENT_AWARE_DELEGATION.md).
