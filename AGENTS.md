@@ -119,8 +119,14 @@ Lain may normalize, observe, configure, route, schedule, and supervise these cap
 - Optional prompt/context enhancement applies only when Lain dispatches to a
   subagent; ordinary Lain conversation and worker-owned planning are unaffected.
 - Enhancement is **Off by default** and controlled by the owner. Never infer opt-in.
-- The owner's original instruction remains verbatim and immutable. Model-added
-  assumptions, retrieved facts and old preferences are separately attributed.
+- The owner's **original request record** remains immutable and verbatim, but the
+  actual **subagent-bound task text MAY be substantively rewritten** if it
+  faithfully preserves the user's resolved intent and confirmed constraints.
+  Model-added assumptions, retrieved facts and old preferences are separately
+  attributed and not silently promoted to owner requirements.
+- **No black-box dispatch:** show Changed or Unchanged for the actual outbound
+  task (even after no-op compilation), offer exact sent-text inspection, show
+  differences when changed, and preserve the true dispatched payload/receipt.
 - Untrusted project content or memory inference must not override owner intent,
   broaden task scope or bypass Kernel policy/approval/credential boundaries.
 - Future plans/changes must be inspectable; a proposed brief is not worker

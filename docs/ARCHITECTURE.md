@@ -657,17 +657,22 @@ contracts and limits: [LAIN_ACTOR.md](LAIN_ACTOR.md), [ADR 004](adr/004-cli-firs
 
 This is a **design proposal, not an implemented component**. Between Lain Actor's
 intention to delegate and the existing typed Kernel WorkSession dispatch, an
-optional Delegation Compiler may enrich a worker brief using minimal authorized
-project facts, owner-approved preferences and worker capabilities. It must keep
-the owner's exact original request immutable and distinct from attributed
-additions or model-generated assumptions.
+optional Delegation Compiler may **reorganize or substantially rewrite** the
+outgoing worker instruction using minimal authorized project facts, confirmed
+preferences and worker capabilities. It must preserve the owner's original
+request separately, plus a versioned resolved-intent record. The outgoing task
+text may differ, but its meaning and owner-confirmed constraints must remain
+faithful. The Kernel must make **Changed or Unchanged** status visible before or
+at every dispatch, give access to the **actual submitted task text**, and record
+a reviewable original-versus-final difference when changed.
 
 ```text
 owner original + explicitly selected mode (default Off)
   -> scoped provenance lookup / optional consequential clarification
-  -> reviewable structured additions and conflict check
+  -> versioned resolved intent + optionally rewritten worker task
+  -> visible Changed/Unchanged classification + inspectable exact task/diff
   -> existing owner confirmation + Kernel policy
-  -> frozen non-secret dispatch artifact -> Supervisor -> Worker
+  -> frozen non-secret dispatch receipt -> Supervisor -> Worker
 ```
 
 Off bypasses compiler inference and clarification. Do not change ordinary chat,

@@ -357,7 +357,9 @@ Potential features:
 
 - [ ] Lain chooses backend/profile according to explicit routing policy
 - [ ] optional, owner-controlled intent-aware delegation: Off by default; ContextOnly, Clarify and Propose modes
-- [ ] immutable original request plus attributed memory/project evidence, clarification, reviewable brief/diff and frozen dispatch receipt
+- [ ] immutable original request + versioned resolved intent; **substantive rewriting** of the worker instruction permitted only when faithful
+- [ ] mandatory per-dispatch **Changed/Unchanged notice**, inspectable exact submitted text and original-versus-final diff for modified instructions
+- [ ] attributed memory/project evidence, clarification and frozen dispatch receipt
 - [ ] worker-capability-aware brief formatting that cannot invent owner intent or widen privileges
 - [ ] fidelity/clarification/cost evaluations against unchanged direct delegation, including negative and adversarial cases
 - [ ] task decomposition into several worker sessions
@@ -373,7 +375,7 @@ Guardrail:
 
 This phase must not become "Lain reimplements a universal agent harness".
 
-The orchestration layer should continue to delegate execution to workers. The optional compiler must not silently rewrite original requests, replace worker planning, expose private memory without authorization or bypass Kernel owner confirmation. These new items are future proposals and remain unchecked.
+The orchestration layer should continue to delegate execution to workers. The optional compiler may rewrite **the outgoing worker instruction**, but it must preserve the original request and resolved intent, visibly report Changed/Unchanged, expose the exact text dispatched and provide a meaningful diff when changed. It must not replace worker planning, expose private memory without authorization or bypass Kernel owner confirmation. These new items are future proposals and remain unchecked.
 
 ## Phase 11 — External integrations
 

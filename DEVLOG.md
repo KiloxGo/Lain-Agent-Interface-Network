@@ -1073,3 +1073,20 @@ Architecture, Memory and AGENTS.md guidance accordingly.
 Documentation-only future proposal. No dispatch/runtime behavior, migrations,
 model calls, implementation tests or Phase 7 work were introduced. Phase 6.x
 completion/result delivery and native-platform acceptance remain the priority.
+
+### 2026-10-14 — Clarified owner intent: faithful rewriting, fully transparent dispatch
+
+The owner confirmed that the future compiler **may materially rewrite the task
+instruction sent to a subagent**, provided it remains faithful to the user's
+resolved intent. The owner must always know **whether the actual submitted text
+was modified or unchanged**, and be able to inspect what was really sent. This
+is not black-box optimization. Retain the verbatim original as a separate
+historical record; track clarifications/resolved intent, final worker-bound text,
+Changed/Unchanged classification and the persisted dispatch receipt. The
+previous absolute-sounding prohibition of "rewriting" was corrected across the
+design, Product, Architecture, Roadmap and AGENTS.md.
+
+Mode names, Off default and any **additional** per-text-change approval flow
+remain proposed interaction designs, not owner-finalized requirements. Existing
+Kernel mutation/permission approvals continue. Documentation only: no runtime
+or data migration, no inference or implementation tests, no Phase 7 start.

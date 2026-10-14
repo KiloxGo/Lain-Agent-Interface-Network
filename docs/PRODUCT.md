@@ -205,9 +205,13 @@ The system MUST NOT invent a constant stream of unnecessary self-prompts to simu
 
 On an owner-selected basis, Lain may improve a **subagent handoff** by attaching
 small, provenance-bearing project constraints, saved preferences and relevant
-context, or by asking a necessary clarifying question. This must preserve the
-original request **verbatim** and distinguish explicit requirements from Lain's
-inferences. Prompt enhancement is **Off by default**, optional at dispatch, and
+context, or by asking a necessary clarifying question. Lain may **substantially
+rewrite the subagent-bound task instruction** when that improves execution without
+changing the user's resolved intent. The original request remains **verbatim in
+a separate record**. The owner must be **visibly told whether the actual submitted
+instruction was Changed or Unchanged**, and be able to inspect the exact final
+text, with differences when Changed. Additional per-change approval is a future
+interaction choice; explicit requirements remain distinct from Lain's inferences. Prompt enhancement is **Off by default**, optional at dispatch, and
 never rewrites ordinary conversation with Lain. Users can inspect, reject or edit
 proposed additions. Existing policy, permissions and owner confirmation remain
 binding. This is not a second general-purpose agent harness. See
