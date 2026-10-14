@@ -263,6 +263,12 @@ Phase 6.5 stabilization is in progress:
 - [x] requirement evidence record and conditional Phase 7 handoff, without implementing memory
 - [ ] final real-provider/platform acceptance audit
 
+Owner chat walkthrough follow-ups (2026-10-14; recorded only, not implemented):
+
+- [ ] distinguish ordinary absolute-path input from REPL slash commands
+- [ ] shorten human tool/status receipts while preserving exact mutation review and machine JSON contracts
+- [ ] return delegated terminal results to chat without requiring another owner message; define event delivery, reconnect deduplication and any bounded Actor follow-up separately
+
 Limits: no mid-generation provider resumption, automatic mutation retries,
 profile mutations or worker auto-approval. Sanitized previews are ephemeral;
 validated completed records remain authoritative. See ADR 005.

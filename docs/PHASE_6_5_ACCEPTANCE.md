@@ -113,6 +113,12 @@ commit is claimed.
     daemon management or public Internet deployment. Very fast responses may
     finish before the runner proves a preview preceded completion; report that as
     unverified. JSON ask remains final-only; work watch uses compact JSONL.
+    Chat currently returns to input after the delegation receipt; later worker
+    completion is not automatically delivered into the Actor conversation. An
+    owner chat query creates another Actor turn to retrieve/summarize results;
+    direct work/history observation does not require Actor inference. The owner's
+    2026-10-14 walkthrough and desired result-delivery improvement are recorded
+    in DEVLOG/ROADMAP, with no behavior change in that discussion.
 14. **Readiness.** The native macOS real conversational/delegation/recovery
     evidence is available with the provider caveats above. Complete outstanding
     native platform checks before claiming cross-platform acceptance. Use ordinary

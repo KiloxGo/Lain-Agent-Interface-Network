@@ -989,3 +989,71 @@ Windows/ConPTY and Linux remain unavailable/unverified; cross-platform Phase 6
 acceptance is not claimed. Web remains frozen, Phase 7 is unstarted, and its
 conditional handoff stays in `docs/PHASE_6_5_ACCEPTANCE.md`. Ordinary commits are
 used while native platform acceptance is incomplete.
+
+### Owner chat walkthrough and delegated-result delivery gap — 2026-10-14
+
+After the implementation and authorized real acceptance recorded above (latest
+pushed checkpoint `e883425`), the owner supplied a normal `lain chat` walkthrough
+asking Lain to read and introduce a separate local project, `sjtu-automata`.
+This follow-up was explicitly scoped to explaining the observed behavior. No
+runtime/CLI behavior was changed and no new implementation was authorized by
+that discussion.
+
+Observed and verified flow:
+
+- Conversation `dc8294fc-bc24-4ddb-9be2-8ba65f068061` queried profile.list, then
+  requested an explicit daemon-host workspace rather than inventing a path.
+- A bare absolute path was rejected as an unknown slash command. Prefixing it
+  with ordinary text passed it to the Actor. Source inspection confirmed the
+  CLI's broad `starts_with('/')` fallback, which currently conflates path input
+  and commands.
+- The owner reviewed and confirmed an exact work.create proposal using
+  `codex/local`, `read_only`, and a project-introduction task. The Kernel returned
+  the actual WorkSession `db707cf0-17d3-4088-b3f4-8c91151d6132` and worker turn
+  `997fe844-1490-4466-a316-5e5d807820db`.
+- At initial inspection the worker was Running. Later read-only Kernel
+  observation confirmed Completed and retrieved its actual completed report.
+  The worker reported a Python CLI project overview and that it had neither
+  modified files nor run the application. Its full report/project contents are
+  not copied into this development log or promoted to semantic memory.
+- No additional Actor inference, worker creation, permission approval, mutation
+  replay or daemon restart was performed for this explanation.
+
+The distinction behind the visible transcript is important: Action Executed
+means the confirmed delegation operation ran; `stage: submitted` means a worker
+turn was accepted; `worker_completion: not_observed` explicitly does not claim
+that worker execution finished. The confirmation continues the same ActorTurn;
+it does not itself require a new model turn. The CLI returns `You>` when that
+ActorTurn finishes, while the independent worker can continue.
+
+Current chat has no worker-terminal-result bridge back into the conversation.
+Even after the worker completes, no automatic Actor follow-up or chat result is
+produced. Asking Lain to inspect/summarize the result therefore normally creates
+another ActorTurn/model request. Direct `work watch`, `work turns` and
+`work history` read operational state without invoking the Actor. Retrieving or
+summarizing a result is also distinct from verifying that the work is correct.
+
+Three UX gaps were identified, not fixed:
+
+1. Absolute paths can be misclassified as slash commands.
+2. Human chat prints full JSON on successive tool-state changes, making the
+   receipt noisy; exact mutation arguments must remain reviewable in any future
+   presentation change.
+3. A submitted task's completed result does not return to chat automatically.
+
+The owner's feedback is that requiring a manual second message to obtain the
+result is cumbersome. The desired follow-up experience is one request plus
+explicit mutation confirmation, then automatic delivery of actual completion or
+failure. Internal retrieval/summary may still need a separate bounded Actor turn;
+the owner should not have to send another message just to trigger it. Event
+ownership, durable correlation, reconnect/deduplication, output coordination and
+any additional model-call budget remain design work, not an accepted or deployed
+implementation. These are unchecked ROADMAP follow-ups. Existing confirmation,
+worker independence and operational-history/semantic-memory boundaries still
+apply. Phase 7 remains unstarted.
+
+Validation for this recording: re-read the current CLI/Actor implementation,
+checked the real WorkSession/turn and completed normalized report through read
+APIs, and ran documentation diff/consistency checks. No code changed, so no new
+build or model-based test was run. Earlier native/real acceptance evidence and
+its platform/provider limitations remain as recorded above.
