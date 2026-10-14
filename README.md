@@ -199,8 +199,10 @@ measured latency diagnostics on stderr; JSON ask stdout remains a final snapshot
 `lain config actor set --file <actor.json>` and `config actor env-file --file
 <actor.env>` let `lain up` reuse local settings without repeated exports. Doctor
 reports observable startup differences; apply changes with an explicit graceful
-stop/start after inspecting active work. Combined real delegation and native
-Windows acceptance remain Phase 6.5 work in progress.
+stop/start after inspecting active work. Native macOS real Actor/Codex delegation,
+worker completion and recovery were verified on 2026-10-14 across controlled
+attempts; intermittent model tool omissions are documented. Native Windows
+acceptance remains pending.
 The current evidence and conditional memory-phase handoff are in
 [Phase 6.5 acceptance](docs/PHASE_6_5_ACCEPTANCE.md); fixture checks do not establish
 real provider compatibility.

@@ -58,6 +58,10 @@ process environment still takes precedence.
 
 Use a dedicated owner-only env file outside every Git checkout, in a private
 owner-only directory. The existing per-user Lain directory is suitable.
+[`config/actor.env.example`](../config/actor.env.example) is a credential-file
+template containing a placeholder only. Copy its contents to the protected file
+below and replace the placeholder in your editor; never put a real key in the
+tracked example or select an env file inside the source checkout.
 macOS zsh, after setup:
 
 ```zsh
@@ -341,6 +345,10 @@ workspace before invoking `--run-real`. The maximum planned scope is nine Actor
 turns (up to 36 provider requests under Kernel limits) and one read-only Codex
 turn. No compatibility retry or replacement worker is automatic. It requires an
 interactive terminal, a configured Actor and supported authenticated Codex.
+`--max-model-requests N` (4–36) caps a run, reserving up to four requests before
+each Actor turn. Subtract earlier attempts from the owner's authorized allowance;
+the limit does not grant permission for additional calls. Separately inspected
+supplemental read evidence is also counted and verified during recovery.
 
 The runner checks Chinese prose, meaningful preview while the turn is Running,
 all five typed read tools with Kernel receipts, an owner-denied proposal with no
@@ -368,6 +376,15 @@ does not stop or replace the daemon. Missing evidence stays incomplete. Native
 smoke exercises this same runner with explicitly marked local fixture evidence;
 that never counts as real provider acceptance. See
 [the acceptance record and conditional handoff](PHASE_6_5_ACCEPTANCE.md).
+
+On 2026-10-14, the owner's MiMo Actor and Codex 0.160.0 passed native macOS real
+evidence checks across controlled attempts: Chinese preview, all five reads,
+denial, separate exact approval, terminal worker completion, CLI reopen and
+graceful same-database restart. This was not one uninterrupted successful run.
+MiMo sometimes described a tool operation without calling it; `work.history`
+passed in an isolated conversation after missing/uncertain attempts in the main
+conversation. Tests require real receipts, retain failures and never accept prose
+as execution. Provider latency varied substantially; see the measured report.
 
 Deferred: mid-inference provider resumption, conversation pruning,
 short worker references, multiple Actor providers, server installation and native

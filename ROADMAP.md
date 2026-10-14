@@ -240,7 +240,7 @@ Windows PowerShell and macOS zsh are equal native targets; Linux stays compatibl
 - [x] native macOS build/test/CLI smoke, including PTY chat/confirmation/Ctrl-C
 - [ ] native Windows build/test/CLI smoke (unavailable on implementation host)
 - [ ] native Linux server lifecycle acceptance (unavailable)
-- [ ] opt-in combined real Actor/Codex acceptance (ordinary Actor conversation owner-reported; full flow pending)
+- [x] authorized real macOS Actor/Codex evidence: tools, denial/approval, terminal worker and restart (2026-10-14; provider omissions/isolated history probe documented)
 
 Implementation is available; **Phase 6 cross-platform acceptance is incomplete**.
 Use `scripts/check-native.ps1` and `scripts/check-native.zsh` on their actual hosts.
@@ -258,7 +258,7 @@ Phase 6.5 stabilization is in progress:
 - [x] focused Actor message/turn status audit with versioned legacy-compatible storage
 - [x] cancelled-caller ownership, atomic delegation receipt and bounded-history cursor regressions
 - [x] expanded opt-in runner and deterministic fixture coverage for reads/denial/delegation/worker terminal/restart
-- [ ] authorized real provider reads/denial/confirmed delegation/worker completion/restart evidence
+- [x] authorized real provider reads/denial/confirmed delegation/worker completion/restart evidence on native macOS (2026-10-14)
 - [ ] native Windows input/configuration/build/test checks
 - [x] requirement evidence record and conditional Phase 7 handoff, without implementing memory
 - [ ] final real-provider/platform acceptance audit

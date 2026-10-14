@@ -933,3 +933,59 @@ build, fmt, warnings-denied Clippy, 70 deterministic Rust tests and all native
 CLI/PTY fixtures. Three opt-in tests remain ignored. No paid calls were made.
 Real acceptance is awaiting the requested owner provider/workspace authorization
 and protected env-file path; Windows/ConPTY and Linux remain unverified.
+
+### Authorized native macOS Actor/Codex evidence — 2026-10-14
+
+The owner explicitly authorized up to 36 Actor requests plus one read-only Codex
+task in this repository, then separately approved the exact real work.create
+Action. Added a tracked credential-file placeholder example; created the actual
+owner file outside Git with 0600 permissions in the existing 0700 Lain directory.
+The owner filled it. Saved its explicit selection and the existing ignored Actor
+JSON without rewriting either file. No credential value entered Git, summaries,
+ordinary logs or model prompts.
+
+MiMo `mimo-v2.6-flash` provided actual Chinese incremental text while Running,
+real work.list/profile.list/profile.inspect/work.inspect receipts, and a real
+work.history receipt in an isolated conversation. A first attempt described a
+second proposal without calling its function. The main-conversation history
+request also omitted the tool call; one explicit follow-up ended Unknown without
+an action and another still returned prose. Those failures remain recorded. A
+clear separate-proposal request succeeded; the isolated history probe succeeded.
+These observations establish protocol compatibility with intermittent model/tool
+selection limits, not one uninterrupted successful run or universally reliable
+natural-language delegation. No prose was counted as execution.
+
+Denial left zero workers. The separately reviewed approval created WorkSession
+`e51a67d9-18aa-49d3-9a04-21fb4be8f4ec`, worker turn
+`7592fbce-1b41-4788-bcc8-63e3932874e2`, which reached Completed with no terminal
+failure. Duplicate approval returned HTTP 409. Codex 0.160.0 recorded four
+retryable provider-connection errors before recovering; some inspection commands
+returned nonzero status, so successful turn completion does not mean every
+command succeeded. No worker permission was auto-approved and no mutation was
+replayed. Total actual quota use: 27 Actor provider requests and one Codex task.
+
+Measured first useful CLI text was 785 ms / 6760 ms in two requests; provider
+first text was 763 ms / 6734 ms and full CLI wall time 4775 ms / 16522 ms. Streaming
+worked in both; the larger delay preceded the provider's first useful text.
+Safe summaries contain only IDs/hashes/states/durations in the private per-user
+acceptance directory, outside Git. The original partial attempt, main evidence
+and isolated history probe are retained and cross-referenced without double
+counting quota. The runner now supports a smaller per-run request budget,
+explicit function prompts and supplemental read-snapshot recovery checks.
+
+Actual PTY chat exit/reopen preserved real conversation records. After verifying
+no running turns/pending approvals, the task-owned debug daemon stopped gracefully.
+Both local Rust binaries were updated with locked Cargo installation; the
+installed release launcher/daemon restarted with saved files and the same DB.
+Main/partial/supplemental Actor snapshots and completed worker digests retained
+identity/content. Recovery queries made no inference; the new daemon's Actor
+model-call count remained zero. The installed daemon is left ready for local use.
+
+Final `zsh scripts/check-native.zsh` passed locked build, formatting,
+warnings-denied Clippy, 70 deterministic Rust tests and full native CLI/PTY/runner
+fixtures. Three opt-in tests remained ignored. Budget-boundary checks consumed no
+quota; supplemental-digest contradiction/recovery was tested with fixtures.
+Windows/ConPTY and Linux remain unavailable/unverified; cross-platform Phase 6
+acceptance is not claimed. Web remains frozen, Phase 7 is unstarted, and its
+conditional handoff stays in `docs/PHASE_6_5_ACCEPTANCE.md`. Ordinary commits are
+used while native platform acceptance is incomplete.

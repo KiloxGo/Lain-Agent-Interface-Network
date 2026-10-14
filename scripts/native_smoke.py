@@ -312,7 +312,7 @@ def run(platform):
             assert retry["id"] == resumed["id"]
             # Exercise the opt-in runner itself against fake local providers;
             # this imports helpers, never invokes --run-real or spends quota.
-            from actor_smoke import Acceptance
+            from actor_smoke import Acceptance, CheckFailed
             from unittest.mock import patch
             acceptance = Acceptance(lain, root / "acceptance.json", workspace, env, fixture=True)
             def fixture_decision(prompt):
@@ -327,6 +327,19 @@ def run(platform):
                 acceptance.run(15)
             assert acceptance.report["checks"]["incremental_text_while_running"] is True
             assert acceptance.report["checks"]["worker_completed_successfully"] is True
+            last_id = list(acceptance.report["actor_turns"])[-1]
+            supplemental = {"turn_id":last_id, "conversation_id":acceptance.report["conversation_id"],
+                            "digest":acceptance.report["actor_turns"][last_id]["digest"]}
+            acceptance.report["supplemental_checks"] = {"work.history":dict(supplemental, digest="invalid")}
+            try:
+                acceptance.continuity()
+            except CheckFailed:
+                pass
+            else:
+                raise AssertionError("contradictory supplemental evidence was accepted")
+            acceptance.report["supplemental_checks"] = {"work.history":supplemental}
+            acceptance.continuity()
+            acceptance.save()
             assert token not in acceptance.evidence.read_text() and "fixture-actor-credential" not in acceptance.evidence.read_text()
             stop()
             # Explicit env-file selection is per launch; process environment has

@@ -39,19 +39,21 @@ def terminal_safe(value):
 
 
 class Acceptance:
-    def __init__(self, binary, evidence, workspace=None, env=None, fixture=False):
+    def __init__(self, binary, evidence, workspace=None, env=None, fixture=False, request_budget=36):
         self.binary = str(binary)
         self.evidence = evidence
         self.workspace = workspace
         self.env = env
         self.evidence_loaded = False
+        self.request_budget = request_budget
         self.report = {"format": 1, "evidence_kind": "deterministic_fixture" if fixture else "real_provider", "checks": {}, "actor_turns": {},
-                       "model_requests": 0, "worker": None,
+                       "model_requests": 0, "request_budget": request_budget, "worker": None,
                        "daemon_restart": "unverified"}
 
     def save(self):
         # Only a file this invocation created may be replaced; never stdout raw
         # provider/CLI errors. CLI owns redaction; this summary stores no prose.
+        self.report["total_model_requests"] = self.spent_requests()
         with self.evidence.open("w", encoding="utf-8") as out:
             json.dump(self.report, out, ensure_ascii=True, indent=2)
             out.write("\n")
@@ -91,13 +93,23 @@ class Acceptance:
 
     def ask(self, text):
         # Nine bounded Actor turns at most; each Kernel turn permits <=4 calls.
-        require(self.report["model_requests"] <= 32, "Acceptance model-call budget exhausted")
+        self.reserve_turn()
         words = ["ask", text]
         if self.report.get("conversation_id"):
             words += ["--conversation", self.report["conversation_id"]]
         turn = self.command(*words)
         self.remember(turn)
         return turn
+
+    def reserve_turn(self):
+        require(self.spent_requests() <= self.request_budget - 4,
+                "Acceptance model-call budget exhausted")
+
+    def spent_requests(self):
+        extra = sum(record.get("model_requests", 0)
+                    for record in self.report.get("supplemental_checks", {}).values()
+                    if record["turn_id"] not in self.report["actor_turns"])
+        return self.report["model_requests"] + extra
 
     def history(self):
         turns, cursor = [], 0
@@ -115,8 +127,17 @@ class Acceptance:
         for tid, record in self.report["actor_turns"].items():
             require(tid in actual and digest(actual[tid]) == record["digest"],
                     "Actor IDs/content/actions changed during recovery")
+        # An explicitly run isolated read probe may use another conversation.
+        # Verify its committed snapshot too; never regenerate it on reconnect.
+        for name, record in self.report.get("supplemental_checks", {}).items():
+            require(name in {"work.list", "work.inspect", "work.history", "profile.list", "profile.inspect"},
+                    "Unexpected supplemental acceptance check")
+            turn = self.command("actor", "show", record["turn_id"])
+            require(turn["conversation_id"] == record["conversation_id"]
+                    and digest(turn) == record["digest"], "Supplemental read changed during recovery")
 
     def stream(self):
+        self.reserve_turn()
         request = str(uuid.uuid4())
         chunks = queue.Queue(64)
         started = time.monotonic()
@@ -175,7 +196,9 @@ class Acceptance:
         self.check("incremental_text_while_running", True if observed_running else "unverified: provider completed before probe or no preview")
 
     def read_tool(self, name, arguments, prompt):
-        turn = self.ask(prompt + " 请只调用这个只读工具，依据实际结果简短回答。")
+        turn = self.ask(prompt + " 必须实际调用 " + name.replace(".", "_") +
+                        " 函数，参数为 " + json.dumps(arguments, ensure_ascii=False) +
+                        "。只调用这个只读工具，依据本次真实结果简短回答；文字描述或复用旧结果不算实际工具调用。")
         require(turn["state"] == "completed", "Read-only tool turn did not complete")
         actions = [a for a in turn["actions"] if a["tool"]["name"] == name
                    and a["tool"]["arguments"] == arguments and a["state"] == "executed"]
@@ -202,9 +225,11 @@ class Acceptance:
             known = {e["id"]: digest(e) for e in actual["events"]}
             require(len(result["events"]) <= 20 and all(known.get(e["id"]) == digest(e) for e in result["events"]), "Invalid work history receipt")
         self.check(name)
+        return turn
 
-    def proposal(self):
-        turn = self.ask("请只提出一个 work.create：workspace=" + json.dumps(str(self.workspace)) +
+    def proposal(self, separate=False):
+        prefix = "这是一次新的独立提案请求，上一项拒绝仍然有效，不能重放旧操作。" if separate else ""
+        turn = self.ask(prefix + "请实际调用 work_create 函数提出一个 work.create；只用文字描述不算提交提案。workspace=" + json.dumps(str(self.workspace)) +
                         "，profile_id=codex/local，sandbox=read_only，task=只读检查这个项目的测试配置，简短报告，不编辑文件。等待主人确认，不能声称已经执行。")
         require(turn["state"] == "pending_confirmation", "Provider did not propose a mutation")
         actions = [a for a in turn["actions"] if a["state"] == "proposed"]
@@ -289,7 +314,7 @@ class Acceptance:
         require(next(a for a in denied["actions"] if a["id"] == action["id"])["state"] == "rejected", "Denial not committed")
         require(before == {s["id"] for s in self.command("work", "list")}, "Work list changed during denial; cannot certify zero launches")
         self.check("denial_no_worker")
-        turn, action = self.proposal()
+        turn, action = self.proposal(separate=True)
         require(input("Separate real delegation: type APPROVE " + action["id"] + " to launch Codex: ").strip() == "APPROVE " + action["id"], "No explicit approval; proposal remains pending")
         try:
             approved = self.command("actor", "approve", turn["id"], action["id"])
@@ -362,18 +387,20 @@ def main():
     parser.add_argument("--lain", type=Path)
     parser.add_argument("--evidence", type=Path)
     parser.add_argument("--worker-timeout", type=int, default=180)
+    parser.add_argument("--max-model-requests", type=int, default=36,
+                        help="Request budget for this run (4..36); subtract earlier attempts from owner-authorized quota")
     args = parser.parse_args()
     if not args.run_real and not args.check_recovery:
         parser.exit(message="Not run: --run-real requires explicit owner provider/workspace authorization; --check-recovery performs reads only.\n")
-    if not args.evidence or not 1 <= args.worker_timeout <= 1800:
-        parser.error("--evidence is required; --worker-timeout must be 1..1800 seconds")
+    if not args.evidence or not 1 <= args.worker_timeout <= 1800 or not 4 <= args.max_model_requests <= 36:
+        parser.error("--evidence is required; --worker-timeout must be 1..1800 seconds; --max-model-requests must be 4..36")
     if args.run_real and (args.workspace is None or not args.workspace.is_absolute()):
         parser.error("--workspace must be an existing absolute path on the daemon host")
     if not sys.stdin.isatty():
         parser.error("Owner decisions require an interactive terminal")
     repo = Path(__file__).resolve().parents[1]
     binary = args.lain or repo / "target/debug" / ("lain.exe" if os.name == "nt" else "lain")
-    acceptance = Acceptance(binary, args.evidence, args.workspace)
+    acceptance = Acceptance(binary, args.evidence, args.workspace, request_budget=args.max_model_requests)
     if args.run_real:
         # No silent overwrite of existing evidence or other owner files.
         with args.evidence.open("x", encoding="utf-8") as out:
