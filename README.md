@@ -2,7 +2,7 @@
 
 > A persistent personal resident agent and control plane for long-running AI workers.
 
-**Status:** Phase 6 CLI-first Actor implementation; native Windows and real-provider acceptance pending. Web is retained and frozen.
+**Status:** Phase 6 CLI-first Actor with Phase 6.6 deterministic result delivery verified on native macOS. Windows/ConPTY and Phase 6.6 real-provider acceptance remain pending; Phase 6.5 real evidence is recorded separately. Web is retained and frozen.
 
 Lain is designed to live continuously on a personal server. You can talk to her directly, but she is also able to create, supervise, configure, observe, steer, and summarize long-running worker-agent sessions such as Codex, Claude Code, and DeepSeek Harness.
 
@@ -193,6 +193,15 @@ persona, persistent conversations, typed tools, owner confirmation and recovery.
 approved. Existing workers run independently of chat/observers. Conversations are
 operational continuity, not semantic memory. Phase 7 has not begun.
 
+Confirmed chat delegation now correlates the exact instruction with a worker
+Turn. The Kernel delivers its actual outcome back to the conversation without
+another owner message or model call, while preserving in-progress terminal input.
+Use `lain notices <conversation-id>` for retained factual results and
+`lain delegations <conversation-id>` for exact dispatch inspection. Completed
+worker Turns can include failed commands; notices distinguish those facts.
+See [Phase 6.6 acceptance](docs/PHASE_6_6_ACCEPTANCE.md) for current evidence and
+the opt-in real-provider procedure; no earlier real run proves this new path.
+
 Chat displays sanitized incremental previews, then reconciles the completed reply
 without repeating it. Use `lain chat --timing` or `lain ask --timing "你好"` for
 measured latency diagnostics on stderr; JSON ask stdout remains a final snapshot.
@@ -214,7 +223,7 @@ authentication remains unimplemented; remote clients need trusted transport.
 
 Native macOS deterministic build/test/CLI smoke is validated. Windows and Linux
 checks must run on their native hosts before acceptance is claimed. Real paid
-Actor/Codex inference acceptance is opt-in and unverified. Exact evidence and
+Phase 6.6 Actor/Codex inference acceptance is opt-in and unverified. Exact evidence and
 limitations are in [DEVLOG.md](DEVLOG.md).
 
 Before architectural work, read `AGENTS.md` and `ROADMAP.md`.

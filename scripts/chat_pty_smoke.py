@@ -7,6 +7,7 @@ import os
 import select
 import signal
 import subprocess
+import struct
 import termios
 import time
 
@@ -14,6 +15,7 @@ import time
 class Chat:
     def __init__(self, binary, env, conversation):
         self.master, slave = os.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 80, 0, 0))
         self.before = termios.tcgetattr(self.master)
         def own_terminal():
             os.setsid()
@@ -58,14 +60,23 @@ class Chat:
 
     def finish(self, data=b"/exit\n"):
         self.send(data)
-        assert self.process.wait(timeout=10) == 0
+        deadline = time.monotonic() + 10
+        while self.process.poll() is None:
+            assert time.monotonic() < deadline, "PTY chat did not exit"
+            # A result may arrive immediately after You>. Keep draining the
+            # native PTY instead of deadlocking a writer behind wait().
+            self.drain(0.02)
+        assert self.process.returncode == 0
         self.drain()
         assert termios.tcgetattr(self.master) == self.before, "terminal modes not restored"
 
     def close(self):
         if self.process.poll() is None:
             self.process.kill()
-            self.process.wait(timeout=5)
+            deadline = time.monotonic() + 5
+            while self.process.poll() is None:
+                assert time.monotonic() < deadline, "PTY cleanup did not exit"
+                self.drain(0.02)
         os.close(self.master)
 
 
@@ -222,3 +233,96 @@ def run_chat_pty(binary, env, call, gate):
         if resumed:
             resumed.close()
     print("PASS native macOS PTY: LF/CRLF prompt ownership, live Unicode preview, no duplicate final, JSON/timing, denial, interruption, EOF, resume and detached inference")
+
+
+def run_delivery_pty(binary, env, call, workspace, provider_calls):
+    """A worker completes while the owner is midway through Unicode input."""
+    cid = call("POST", "/v1/conversations")["id"]
+    chat = Chat(binary, env, cid)
+    release = workspace / "release-worker"
+    try:
+        chat.until("You> ")
+        # Bare paths travel to the Actor verbatim and are not local commands.
+        for path in ("/Users/example/project", r"C:\Users\example\project", r"\\server\share\project", "/directory with spaces/project"):
+            chat.command(path)
+            recent = call("GET", f"/v1/conversations/{cid}?recent=true")["turns"][-1]
+            assert recent["messages"][0]["content"] == path
+        mark = chat.send(b"delegate-delivery\n")
+        chat.until("Confirm this exact action?", mark)
+        assert b"Exact arguments:" in chat.output[mark:] and b"notice-gate" in chat.output[mark:]
+        mark = chat.send(b"y\r\n")
+        chat.until("You> ", mark)
+        assert not release.exists()
+        assert (workspace / "worker-waiting").exists()
+        before = len(provider_calls)
+        initial = call("GET", f"/v1/conversations/{cid}?recent=true")["turns"][-1]
+        assert initial["state"] == "completed"
+        partial = "输入保留：" + "宽" * 40
+        mark = chat.send(partial.encode())
+        chat.drain()
+        release.write_text("release deterministic worker")
+        chat.until("NOTICE-GATED RESULT 你好", mark)
+        chat.drain()
+        assert len(provider_calls) == before, "completion triggered model inference"
+        assert call("GET", f"/v1/actor-turns/{initial['id']}") == initial
+        assert chat.output[mark:].count(b"Worker> turn completed") == 1
+        assert b"You> You>" not in chat.output
+        # The restored editor buffer, including wrapped/wide characters, must
+        # survive notification and the CRLF pair as one exact subsequent input.
+        mark = chat.send("之后\r\n".encode())
+        chat.until("你来了。", mark)
+        chat.until("You> ", mark)
+        recent = call("GET", f"/v1/conversations/{cid}?recent=true")["turns"][-1]
+        assert recent["messages"][0]["content"] == partial + "之后"
+        assert len(provider_calls) == before + 1
+        page = call("GET", f"/v1/conversations/{cid}/notices")
+        assert len(page["notices"]) == 1
+        deadline = time.monotonic() + 5
+        while not call("GET", f"/v1/conversations/{cid}/notices")["notices"][0]["acknowledged"]:
+            assert time.monotonic() < deadline, "display acknowledgement not persisted"
+            time.sleep(0.02)
+        chat.finish()
+    finally:
+        release.write_text("fixture cleanup")
+        chat.close()
+    reopened = Chat(binary, env, cid)
+    try:
+        reopened.until("You> ")
+        reopened.drain(0.3)
+        assert b"Worker>" not in reopened.output, "acknowledged notice rendered again"
+        assert len(call("GET", f"/v1/conversations/{cid}/notices")["notices"]) == 1
+        reopened.finish()
+    finally:
+        reopened.close()
+    print("PASS native macOS PTY: exact path input, confirmed delegation, automatic factual result, no new inference, wrapped Unicode input retained, durable display acknowledgement and reopen")
+    # A separately confirmed task keeps running after the frontend exits. Its
+    # undelivered result must appear when the same conversation reopens.
+    release.unlink()
+    (workspace / "worker-waiting").unlink()
+    detached_cid = call("POST", "/v1/conversations")["id"]
+    detached = Chat(binary, env, detached_cid)
+    try:
+        detached.until("You> ")
+        mark = detached.send(b"delegate-delivery\n")
+        detached.until("Confirm this exact action?", mark)
+        mark = detached.send(b"y\n")
+        detached.until("You> ", mark)
+        detached.finish()
+    finally:
+        detached.close()
+    before = len(provider_calls)
+    release.write_text("complete while disconnected")
+    deadline = time.monotonic() + 5
+    while not call("GET", f"/v1/conversations/{detached_cid}/notices")["notices"]:
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
+    assert not call("GET", f"/v1/conversations/{detached_cid}/notices")["notices"][0]["acknowledged"]
+    resumed = Chat(binary, env, detached_cid)
+    try:
+        resumed.until("NOTICE-GATED RESULT 你好")
+        resumed.finish()
+        assert len(provider_calls) == before
+    finally:
+        resumed.close()
+    print("PASS native macOS PTY: frontend exit before worker completion, persisted pending notice and automatic replay on reopen without inference")
+    return cid

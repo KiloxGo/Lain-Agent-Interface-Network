@@ -325,6 +325,47 @@ payload or unfinished-conversation conflict. Actor unavailable uses 503; explici
 work/profile commands still work. Extractor/operation errors never echo raw model
 or rejected credential-bearing payloads.
 
+## Phase 6.6 automatic delegated results
+
+Confirmed work.create/work.send now records the source conversation/action and
+specific worker Turn before external prompt submission. The exact proposed task
+is submitted verbatim and remains inspectable with its workspace/profile/receipt
+through `lain delegations <conversation-id>`. No prompt compiler is active.
+Actor mutation confirmation and worker permission approval remain separate.
+
+The Kernel persists a separate ConversationNotice when normalized evidence shows
+Completed, Failed, Cancelled or Unknown. A technically Completed Turn can include
+failed commands; notices report these separately. The factual excerpt includes
+available final assistant output, safe errors, changed paths and truncation,
+with worker identities and a command to inspect full operational history. It
+does not infer task correctness. Completion does not reopen an ActorTurn, create
+a synthetic message, consume model quota or wait for another owner message.
+Optional model interpretation remains deferred.
+
+| Authenticated API | Contract |
+|---|---|
+| GET `/v1/conversations/{id}/delegations` | Exact non-secret dispatch links/receipts |
+| GET `/v1/conversations/{id}/notices?after=0&limit=50` | Ordered notice page, next_cursor, has_more; limit 1–100 |
+| GET `/v1/conversations/{id}/notices/events?after=0` | Durable notice-page SSE; stays open beyond ActorTurn completion |
+| POST `/v1/conversations/{id}/notices/{notice}/ack` | Idempotent owner display acknowledgement; no worker mutation |
+
+Notices and establishing worker/history writes commit together. Stable notice
+IDs and cursor reads recover after detach, restart, broadcast lag and loss before
+publication. Concurrent tasks and later Turns in a session retain their own
+correlation. A pre-prompt startup failure remains SubmissionUnknown with the real
+created session ID; no task is regenerated. Existing Phase 6.5 records remain
+readable but are not retrospectively guessed into dispatch links.
+
+Delivery is at least once. Chat suppresses already-rendered cursors while
+reconnecting and skips durable acknowledged notices on a later open. Output is
+flushed before queuing acknowledgement; crash or failed/unqueued acknowledgement
+can repeat a notice on reopening. Multiple connected owner clients may each see
+it. `lain notices <conversation-id>` retains all notices for inspection, including
+acknowledged ones. [ADR 007](adr/007-durable-delegation-result-delivery.md) defines
+the evidence and queue bounds. The CLI preserves input while results arrive;
+human receipts are compact but exact proposed arguments remain visible before
+confirmation. JSON Actor snapshots and existing history are unchanged.
+
 ## Acceptance and Phase 7 boundary
 
 Ordinary Rust/native smoke checks use deterministic model injection, a real local

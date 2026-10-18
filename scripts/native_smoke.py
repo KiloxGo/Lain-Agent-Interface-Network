@@ -69,7 +69,7 @@ def run(platform):
                 elif "三百字" in prompt:
                     output = [{"type":"message", "role":"assistant", "content":[{"type":"output_text", "text":"你好，我是 Lain。" + "这是可见的流式对话。" * 30}]}]
                 elif "delegate" in last.get("content", ""):
-                    output = [{"type": "function_call", "name": "work_create", "call_id": "call_delegate", "arguments": json.dumps({"workspace": str(workspace), "profile_id": "codex/local", "sandbox": "read_only", "task": "hello"})}]
+                    output = [{"type": "function_call", "name": "work_create", "call_id": "call_delegate", "arguments": json.dumps({"workspace": str(workspace), "profile_id": "codex/local", "sandbox": "read_only", "task": "notice-gate" if prompt == "delegate-delivery" else "hello"})}]
                 elif "inspect" in last.get("content", ""):
                     output = [{"type": "function_call", "name": "work_list", "call_id": "call_list", "arguments": "{}"}]
                 elif prompt == "stream-delayed":
@@ -256,7 +256,7 @@ def run(platform):
                 try:
                     until("Confirm this exact action?")
                     os.write(master, b"y\n")
-                    until("Kernel action accepted")
+                    until("Task submitted; worker outcome will arrive separately.")
                     os.write(master, b"/exit\n")
                     assert chat.wait(timeout=10) == 0
                 finally:
@@ -341,6 +341,12 @@ def run(platform):
             acceptance.continuity()
             acceptance.save()
             assert token not in acceptance.evidence.read_text() and "fixture-actor-credential" not in acceptance.evidence.read_text()
+            if platform == "macos":
+                from chat_pty_smoke import run_delivery_pty
+                delivery_cid = run_delivery_pty(lain, env, call, workspace, provider_calls)
+                delivery_snapshot = cli("--json", "notices", delivery_cid)
+                assert delivery_snapshot == call("GET", f"/v1/conversations/{delivery_cid}/notices")
+                assert cli("--json", "delegations", delivery_cid)[0]["instruction"] == "notice-gate"
             stop()
             # Explicit env-file selection is per launch; process environment has
             # higher precedence and neither rewrites the saved owner selection.
@@ -371,6 +377,8 @@ def run(platform):
             assert cli("--json", "doctor")["actor_configuration"] == "matches"
             with patch("builtins.input", fixture_decision):
                 acceptance.recovery()
+            if platform == "macos":
+                assert cli("--json", "notices", delivery_cid) == delivery_snapshot, "notice identity/content/acknowledgement changed after native restart"
             assert acceptance.report["checks"]["daemon_restart_continuity"] is True
             assert len(provider_calls) == before_calls, "configuration/recovery caused inference"
             assert (local / "client.json").read_bytes() == selected_settings
@@ -378,7 +386,7 @@ def run(platform):
             with sqlite3.connect(local / "lain.sqlite3") as db:
                 persisted = "\n".join(db.iterdump())
                 assert token not in persisted and "fixture-actor-credential" not in persisted
-                assert db.execute("PRAGMA user_version").fetchone()[0] == 5
+                assert db.execute("PRAGMA user_version").fetchone()[0] == 6
             assert token.encode() not in log.read_bytes() and b"fixture-actor-credential" not in log.read_bytes()
             # A listening unrelated service is never terminated or replaced.
             unrelated = ThreadingHTTPServer(("127.0.0.1", port), type("Unrelated", (BaseHTTPRequestHandler,), {"log_message": lambda *args: None, "do_GET": lambda self: (self.send_response(401), self.end_headers())}))

@@ -313,6 +313,42 @@ impl SseDecoder {
 }
 
 impl Client {
+    pub async fn notice_observe(
+        &self,
+        conversation: lain_wire::ConversationId,
+        after: &mut u64,
+        tx: &mpsc::Sender<NoticeUpdate>,
+    ) -> Result<()> {
+        let response = self
+            .response(
+                Method::GET,
+                &format!("v1/conversations/{conversation}/notices/events?after={after}"),
+                None,
+                true,
+            )
+            .await?;
+        let mut stream = response.bytes_stream();
+        let mut decoder = SseDecoder::default();
+        while let Some(chunk) = stream.next().await {
+            for (name, data) in decoder.push(&chunk.map_err(|e| e.without_url())?)? {
+                if name != "notices" {
+                    continue;
+                }
+                let page: lain_wire::notices::NoticePage = serde_json::from_str(&data)
+                    .map_err(|_| anyhow::anyhow!("invalid notice page"))?;
+                page.validate(conversation, *after)
+                    .map_err(anyhow::Error::msg)?;
+                let cursor = page.next_cursor;
+                for notice in page.notices {
+                    tx.send(NoticeUpdate::Notice(Box::new(notice)))
+                        .await
+                        .context("notice observer closed")?;
+                }
+                *after = cursor;
+            }
+        }
+        bail!("conversation notice stream disconnected")
+    }
     pub async fn actor_observe(
         &self,
         id: lain_wire::ActorTurnId,
@@ -367,6 +403,10 @@ impl Client {
 pub enum ActorUpdate {
     Snapshot(lain_wire::ActorSnapshot),
     Preview(lain_wire::PreviewEvent),
+}
+pub enum NoticeUpdate {
+    Notice(Box<lain_wire::notices::ConversationNotice>),
+    Offline,
 }
 
 #[cfg(test)]

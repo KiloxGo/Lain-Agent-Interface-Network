@@ -1,6 +1,7 @@
 mod actor_render;
 mod api;
 mod chat;
+mod chat_notice;
 mod local;
 mod signals;
 mod tui;
@@ -55,6 +56,14 @@ enum Command {
         timing: bool,
     },
     Conversations,
+    Notices {
+        conversation: ConversationId,
+        #[arg(long, default_value_t = 0)]
+        after: u64,
+    },
+    Delegations {
+        conversation: ConversationId,
+    },
     Conversation {
         conversation: ConversationId,
         #[arg(long, default_value_t = 0)]
@@ -268,6 +277,23 @@ async fn run(args: Args) -> Result<()> {
         Command::Conversations => {
             emit(&client.get::<Value>("v1/conversations").await?, json_output)
         }
+        Command::Notices {
+            conversation,
+            after,
+        } => emit(
+            &client
+                .get::<lain_wire::notices::NoticePage>(&format!(
+                    "v1/conversations/{conversation}/notices?after={after}&limit=100"
+                ))
+                .await?,
+            json_output,
+        ),
+        Command::Delegations { conversation } => emit(
+            &client
+                .get::<Value>(&format!("v1/conversations/{conversation}/delegations"))
+                .await?,
+            json_output,
+        ),
         Command::Conversation {
             conversation,
             after,

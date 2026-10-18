@@ -2,6 +2,7 @@
 use crate::{
     actor_render::Renderer,
     api::{ActorUpdate, Client},
+    chat_notice::NoticeInbox,
     emit,
     tui::safe_text,
 };
@@ -34,13 +35,14 @@ fn validate(turn: &ActorSnapshot) -> Result<()> {
 
 pub async fn wait(client: &Client, initial: ActorSnapshot, human: bool) -> Result<ActorSnapshot> {
     let mut renderer = Renderer::new(io::stdout());
-    wait_seen(client, initial, human, &mut renderer).await
+    wait_seen(client, initial, human, &mut renderer, None).await
 }
 async fn wait_seen(
     client: &Client,
     initial: ActorSnapshot,
     human: bool,
     renderer: &mut Renderer<io::Stdout>,
+    mut notices: Option<&mut NoticeInbox>,
 ) -> Result<ActorSnapshot> {
     validate(&initial)?;
     if human {
@@ -68,6 +70,9 @@ async fn wait_seen(
     let result = async {
         loop {
             tokio::select! {
+                update=crate::chat_notice::next(&mut notices)=>{
+                    if let Some(inbox) = notices.as_deref_mut() { inbox.render(update, renderer)?; }
+                },
                 _=crate::signals::shutdown()?=>{
                     let _:ActorSnapshot=client.post(&format!("v1/actor-turns/{turn_id}/cancel"),None).await?;
                     bail!("Generation interruption requested. Resume conversation {} and inspect turn {turn_id}; workers remain Kernel-owned.", latest.conversation_id);
@@ -153,7 +158,7 @@ pub async fn ask(
         submission_ms: millis(started.elapsed()),
     };
     let mut renderer = Renderer::new(io::stdout());
-    let turn = wait_seen(client, initial, !machine, &mut renderer).await?;
+    let turn = wait_seen(client, initial, !machine, &mut renderer, None).await?;
     if timing {
         latency.report(&turn, &renderer)?;
     }
@@ -196,6 +201,48 @@ enum InputState {
     Reading,
     Closed,
 }
+fn unknown_command(text: &str) -> bool {
+    // A single slash word is ambiguous with a root directory. Reserve it for
+    // typo feedback; paths containing separators, dots or spaces are ordinary
+    // input. This is syntax classification, never local/remote path resolution.
+    text.strip_prefix('/').is_some_and(|word| {
+        !word.is_empty()
+            && word
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-'))
+    })
+}
+fn input_rows(prompt: &str, text: &str, columns: u16) -> u16 {
+    let columns = usize::from(columns.max(1));
+    let mut column = 0;
+    let mut rows = 0usize;
+    let visible_text = safe_text(text);
+    for c in prompt.chars().chain(visible_text.chars()) {
+        let width = unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+        if width == 0 {
+            continue;
+        }
+        if column + width > columns {
+            rows += 1;
+            column = 0;
+        }
+        column += width;
+    }
+    rows.min(u16::MAX as usize) as u16
+}
+fn clear_input(prompt: &str, text: &str) -> Result<()> {
+    let (columns, height) = terminal::size()?;
+    let rows = input_rows(prompt, text, columns).min(height.saturating_sub(1));
+    crossterm::execute!(io::stdout(), crossterm::cursor::MoveToColumn(0))?;
+    if rows != 0 {
+        crossterm::execute!(io::stdout(), crossterm::cursor::MoveUp(rows))?;
+    }
+    crossterm::execute!(
+        io::stdout(),
+        terminal::Clear(terminal::ClearType::FromCursorDown)
+    )?;
+    Ok(())
+}
 struct Input {
     state: InputState,
     events: EventStream,
@@ -209,7 +256,13 @@ impl Input {
             swallow_lf: false,
         }
     }
-    async fn line(&mut self, prompt: &str, allow_empty: bool) -> Result<InputResult> {
+    async fn line(
+        &mut self,
+        prompt: &str,
+        allow_empty: bool,
+        inbox: &mut NoticeInbox,
+        renderer: &mut Renderer<io::Stdout>,
+    ) -> Result<InputResult> {
         ensure!(
             self.state == InputState::Ready,
             "interactive input already owned or closed"
@@ -221,6 +274,20 @@ impl Input {
         let mut text = String::new();
         loop {
             let event = tokio::select! {
+                update=inbox.next()=>{
+                    if inbox.visible(&update) {
+                        clear_input(prompt, &text)?;
+                        // Normal output owns LF handling while raw input is
+                        // briefly suspended. No async work or stdin read occurs.
+                        terminal::disable_raw_mode()?;
+                        let rendered = inbox.render(update, renderer);
+                        terminal::enable_raw_mode()?;
+                        print!("{prompt}{}", safe_text(&text));
+                        io::stdout().flush()?;
+                        rendered?;
+                    } else { inbox.render(update, renderer)?; }
+                    continue;
+                },
                 _=crate::signals::shutdown()?=>None,
                 event=self.events.next()=>event.transpose()?,
             };
@@ -317,13 +384,14 @@ async fn confirmation(
     mut turn: ActorSnapshot,
     input: &mut Input,
     timing: Option<Latency>,
+    renderer: &mut Renderer<io::Stdout>,
+    inbox: &mut NoticeInbox,
 ) -> Result<bool> {
-    let mut renderer = Renderer::new(io::stdout());
     let mut timing = timing;
     loop {
-        turn = wait_seen(client, turn, true, &mut renderer).await?;
+        turn = wait_seen(client, turn, true, renderer, Some(inbox)).await?;
         if let Some(latency) = timing.take() {
-            latency.report(&turn, &renderer)?;
+            latency.report(&turn, renderer)?;
         }
         if turn.state != ActorTurnState::PendingConfirmation {
             return Ok(true);
@@ -337,7 +405,7 @@ async fn confirmation(
             "Approval executes only the exact Tool arguments above. Work submission does not mean worker completion."
         );
         let answer = match input
-            .line("Confirm this exact action? [y/N] ", true)
+            .line("Confirm this exact action? [y/N] ", true, inbox, renderer)
             .await?
         {
             InputResult::Line(answer) => answer,
@@ -383,6 +451,7 @@ pub async fn run(client: Client, conversation: Option<ConversationId>, timing: b
         .get(&format!("v1/conversations/{conversation}?recent=true"))
         .await?;
     let mut history = Renderer::new(io::stdout());
+    let mut inbox = NoticeInbox::new(client.clone(), conversation);
     for turn in &page.turns {
         validate(turn)?;
         ensure!(
@@ -401,8 +470,17 @@ pub async fn run(client: Client, conversation: Option<ConversationId>, timing: b
             turn.state,
             ActorTurnState::Running | ActorTurnState::PendingConfirmation
         )
-        && !confirmation(&client, turn.clone(), &mut input, None).await?
+        && !confirmation(
+            &client,
+            turn.clone(),
+            &mut input,
+            None,
+            &mut history,
+            &mut inbox,
+        )
+        .await?
     {
+        inbox.flush().await;
         return Ok(());
     }
     if page.has_more {
@@ -411,11 +489,16 @@ pub async fn run(client: Client, conversation: Option<ConversationId>, timing: b
         );
     }
     loop {
-        let InputResult::Line(text) = input.line("You> ", false).await? else {
+        let InputResult::Line(text) = input.line("You> ", false, &mut inbox, &mut history).await?
+        else {
+            inbox.flush().await;
             return Ok(());
         };
         match text.as_str() {
-            "/exit" => return Ok(()),
+            "/exit" => {
+                inbox.flush().await;
+                return Ok(());
+            }
             "/help" => println!(
                 "/help /status /work /conversations /history /new /exit\nOrdinary text goes to Lain. Each mutation requires explicit confirmation."
             ),
@@ -430,9 +513,14 @@ pub async fn run(client: Client, conversation: Option<ConversationId>, timing: b
             )?,
             "/new" => {
                 conversation = create(&client).await?;
+                inbox.flush().await;
+                inbox = NoticeInbox::new(client.clone(), conversation);
+                history = Renderer::new(io::stdout());
                 println!("Conversation: {conversation}");
             }
-            value if value.starts_with('/') => println!("Unknown command; /help lists commands."),
+            value if unknown_command(value) => println!(
+                "Unknown command; /help lists commands. For an ambiguous one-component path, write `path: /name` or add a trailing slash."
+            ),
             _ => {
                 let started = Instant::now();
                 match submit(&client, conversation, RequestId::new(), text).await {
@@ -441,8 +529,20 @@ pub async fn run(client: Client, conversation: Option<ConversationId>, timing: b
                             started,
                             submission_ms: millis(started.elapsed()),
                         });
-                        match confirmation(&client, turn, &mut input, latency).await {
-                            Ok(false) => return Ok(()),
+                        match confirmation(
+                            &client,
+                            turn,
+                            &mut input,
+                            latency,
+                            &mut history,
+                            &mut inbox,
+                        )
+                        .await
+                        {
+                            Ok(false) => {
+                                inbox.flush().await;
+                                return Ok(());
+                            }
                             Ok(true) => {}
                             Err(error) => eprintln!("{}", safe_text(&error.to_string())),
                         }
@@ -484,4 +584,38 @@ pub async fn work_watch(client: Client, session: Uuid, machine: bool) -> Result<
     }.await;
     observer.abort();
     result
+}
+
+#[cfg(test)]
+mod input_tests {
+    use super::*;
+    #[test]
+    fn paths_and_plain_text_do_not_become_slash_commands() {
+        for input in [
+            "/Users/example/project",
+            "/tmp/",
+            "/",
+            "/directory with spaces",
+            "/project.txt",
+            r"C:\Users\example\project",
+            r"D:\directory with spaces\project",
+            r"\\server\share\project",
+            "你好",
+            "检查 /some/path",
+        ] {
+            assert!(!unknown_command(input), "{input}");
+        }
+        for input in ["/conversation", "/hlep", "/unknown-command"] {
+            assert!(unknown_command(input));
+        }
+        // Known commands are matched explicitly before the unknown-word guard.
+        assert!(unknown_command("/help"));
+    }
+    #[test]
+    fn input_redraw_accounts_for_wrapping_and_wide_characters() {
+        assert_eq!(input_rows("You> ", "abc", 8), 0);
+        assert_eq!(input_rows("You> ", "abcd", 8), 1);
+        assert_eq!(input_rows("You> ", "你好", 8), 1);
+        assert_eq!(input_rows("You> ", "a\u{301}b", 8), 0);
+    }
 }

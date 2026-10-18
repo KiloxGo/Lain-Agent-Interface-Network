@@ -220,6 +220,66 @@ provider timings are relative to that provider request. No conversation content
 or credentials are included. This measures observed latency rather than guessing
 why a provider is slow.
 
+## Phase 6.6 delegated results in chat
+
+After one explicit confirmation, delegated work runs independently while chat
+returns to normal input. Its actual Completed/Failed/Cancelled/Unknown outcome
+arrives as a separate `Worker>` notice in the same conversation, without another
+owner message or model request. The excerpt contains available worker report,
+command failures/errors, changed paths, truncation and a full-history command.
+Completed is not a claim that every command/test passed. Missing final reports
+are labelled explicitly rather than summarized by a model.
+
+```text
+Tool> work.create · awaiting confirmation
+      Action: <action-id>
+      Exact arguments: { ... full persisted proposal ... }
+Confirm this exact action? [y/N] y
+Tool> work.create · operation accepted
+      WorkSession: <session-id>
+      Task submitted; worker outcome will arrive separately.
+You>
+Worker> turn completed
+        WorkSession: <session-id>
+        Turn: <worker-turn-id>
+        Worker report:
+        <actual bounded report>
+        Full history: lain work history <session-id>
+You>
+```
+
+One input/output coordinator preserves partially typed text, including wrapped
+Unicode input, around notices. Background observers/acknowledgers do not print.
+Human receipts are compact; exact proposed arguments remain visible before
+confirmation and complete receipts remain in `/history`/Actor inspection. Existing
+`--json ask`, worker history and machine snapshots retain their schema.
+
+Known slash commands match explicitly. Multi-component Unix paths, drive/UNC
+paths and paths containing spaces are ordinary conversational input; there is no
+client-side filesystem resolution. A bare single slash word such as `/statu`
+remains reserved for unknown-command feedback because it is ambiguous with a
+root directory. For a one-component directory use `/name/` or `path: /name`.
+Unknown commands never execute a mutation.
+
+Inspect without model inference on PowerShell or zsh:
+
+```text
+lain notices <conversation-id> --after 0
+lain delegations <conversation-id>
+lain work turns <session-id>
+lain work history <session-id>
+```
+
+Notice pages retain all entries, including acknowledged ones; `next_cursor` and
+`has_more` support pagination. Chat acknowledges display after flushing output,
+and subsequent opens skip acknowledged notices. Within one process a cursor
+suppresses ordinary reconnect duplicates. Delivery is at least once: crash,
+network failure or an unqueued acknowledgement can repeat a notice on reopening.
+Owner clients share display acknowledgements; these never approve worker
+permissions or accept result correctness. Workers survive chat exit. See
+[ADR 007](adr/007-durable-delegation-result-delivery.md) and the
+[Phase 6.6 acceptance procedure](PHASE_6_6_ACCEPTANCE.md). Real acceptance is opt-in.
+
 ## Native acceptance
 
 ```powershell
