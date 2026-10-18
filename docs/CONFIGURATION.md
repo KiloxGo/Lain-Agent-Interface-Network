@@ -379,6 +379,12 @@ keep credential files outside its permitted workspace. No transcripts or prompts
 are persisted as raw transcripts by Lain; Phase 3 stores bounded, sanitized
 completed observations in operational history. No semantic memory exists.
 
+Phase 6 stores owner/Actor conversation records separately. Phase 6.6 also stores
+the exact non-secret confirmed worker instruction with its delegation link and
+dispatch receipt; this is an explicit audit record, not a raw provider transcript.
+Existing input checks and namespaced-credential redaction still apply. Result
+notices contain bounded factual excerpts of normalized operational history.
+
 ## 23. Terminal client configuration
 
 `lain` reads `LAIN_URL` (default `http://127.0.0.1:8787`) and the same required

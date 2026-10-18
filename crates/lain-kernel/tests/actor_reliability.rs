@@ -172,6 +172,20 @@ async fn failed_worker_start_retains_atomic_created_session_receipt() {
             .is_err()
     );
     assert_eq!(k.list_sessions().unwrap().len(), 1);
+    let links = k.delegations(c.id).unwrap();
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0].instruction, "hello");
+    assert!(links[0].worker_turn_id.is_none());
+    assert_eq!(
+        links[0].submission,
+        lain_kernel::delegation::SubmissionState::Unknown
+    );
+    let notices = k.notices(c.id, 0, 100).unwrap();
+    assert_eq!(notices.notices.len(), 1);
+    assert_eq!(
+        notices.notices[0].outcome,
+        lain_kernel::delegation::NoticeOutcome::SubmissionUnknown
+    );
     workers.shutdown().await.unwrap();
 }
 

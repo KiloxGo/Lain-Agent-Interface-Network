@@ -205,10 +205,16 @@ pub async fn mutate(
                     action,
                 )
                 .await?;
-            let turn = workers.prompt(session.id, a.task.clone()).await?;
+            let turn = workers
+                .prompt_for_actor(session.id, a.task.clone(), actor, action)
+                .await?;
             json!({"work_session_id":session.id,"turn_id":turn.id,"stage":"submitted","worker_completion":"not_observed"})
         }
-        Tool::WorkSend(a) => json!(workers.prompt(a.session_id, a.text.clone()).await?),
+        Tool::WorkSend(a) => json!(
+            workers
+                .prompt_for_actor(a.session_id, a.text.clone(), actor, action)
+                .await?
+        ),
         Tool::WorkCancel(a) => json!(workers.cancel(a.session_id).await?),
         Tool::WorkResume(a) => json!(workers.resume(a.session_id).await?),
         _ => anyhow::bail!("not a mutation"),

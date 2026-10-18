@@ -392,6 +392,16 @@ impl Kernel {
         turn_id: Option<crate::domain::TurnId>,
         change: impl FnOnce(&mut WorkSession, &mut WorkerState) -> Result<Vec<EventKind>>,
     ) -> Result<()> {
+        self.mutate_worker_with_origin(id, turn_id, None, change)
+    }
+
+    pub(crate) fn mutate_worker_with_origin(
+        &self,
+        id: WorkSessionId,
+        turn_id: Option<crate::domain::TurnId>,
+        origin: Option<(crate::delegation::Origin, String)>,
+        change: impl FnOnce(&mut WorkSession, &mut WorkerState) -> Result<Vec<EventKind>>,
+    ) -> Result<()> {
         let mut inner = self.lock()?;
         let mut session = inner
             .sessions
@@ -450,9 +460,78 @@ impl Kernel {
             });
             Event::new(id, turn, session.updated_at_ms, kind)
         }));
-        inner
-            .store
-            .save(&session, Some(&worker), false, &mut events)?;
+        let mut receipt = if let Some((origin, text)) = origin {
+            use crate::actor::{
+                domain::{ActionState, TurnState},
+                tools::Tool,
+            };
+            let mut actor = inner.store.actor_turn(origin.actor_turn_id)?;
+            ensure!(
+                actor.state == TurnState::Running,
+                crate::backend::ControlError::Conflict
+            );
+            let action = actor
+                .actions
+                .iter_mut()
+                .find(|a| a.id == origin.action_id)
+                .ok_or(crate::backend::ControlError::NotFound)?;
+            ensure!(
+                action.state == ActionState::Executing,
+                crate::backend::ControlError::Conflict
+            );
+            let valid = match &action.tool {
+                Tool::WorkCreate(args) => {
+                    args.task == text
+                        && args.workspace.canonicalize()? == session.workspace
+                        && args.profile_id == session.runtime_profile_id
+                        && worker.options.sandbox == Some(args.sandbox)
+                        && action
+                            .result
+                            .as_ref()
+                            .and_then(|v| v.get("stage"))
+                            .and_then(|v| v.as_str())
+                            == Some("created_not_submitted")
+                        && action
+                            .result
+                            .as_ref()
+                            .and_then(|v| v.get("turn_id"))
+                            .is_none()
+                        && action
+                            .result
+                            .as_ref()
+                            .and_then(|v| v.get("work_session_id"))
+                            .and_then(|v| v.as_str())
+                            == Some(&id.to_string())
+                }
+                Tool::WorkSend(args) => {
+                    args.session_id == id && args.text == text && action.result.is_none()
+                }
+                _ => false,
+            };
+            ensure!(valid, crate::backend::ControlError::Conflict);
+            let turn_id = turn_id.context("delegated prompt lacks worker turn")?;
+            ensure!(
+                worker
+                    .turns
+                    .iter()
+                    .any(|r| r.turn.id == turn_id
+                        && r.turn.state == crate::domain::TurnState::Starting),
+                crate::backend::ControlError::Conflict
+            );
+            action.result = Some(
+                serde_json::json!({"work_session_id":id,"turn_id":turn_id,"stage":"submitting","worker_completion":"not_observed"}),
+            );
+            Some(actor)
+        } else {
+            None
+        };
+        inner.store.save_with_actor_receipt(
+            &session,
+            Some(&worker),
+            false,
+            &mut events,
+            receipt.as_mut(),
+        )?;
         inner.sessions.insert(id, session);
         inner.workers.insert(id, worker);
         self.publish(events);
@@ -609,6 +688,38 @@ impl Kernel {
 }
 
 impl Kernel {
+    pub fn delegations(
+        &self,
+        conversation: crate::actor::domain::ConversationId,
+    ) -> Result<Vec<crate::delegation::Delegation>> {
+        let inner = self.lock()?;
+        inner.store.actor_page(conversation, 0, 1)?;
+        inner.store.delegations(conversation)
+    }
+    pub fn notices(
+        &self,
+        conversation: crate::actor::domain::ConversationId,
+        after: u64,
+        limit: usize,
+    ) -> Result<crate::delegation::NoticePage> {
+        self.lock()?.store.notices(conversation, after, limit)
+    }
+    pub fn notices_and_subscribe(
+        &self,
+        conversation: crate::actor::domain::ConversationId,
+        after: u64,
+    ) -> Result<(crate::delegation::NoticePage, broadcast::Receiver<Event>)> {
+        let inner = self.lock()?;
+        let receiver = self.events.subscribe();
+        Ok((inner.store.notices(conversation, after, 100)?, receiver))
+    }
+    pub fn acknowledge_notice(
+        &self,
+        conversation: crate::actor::domain::ConversationId,
+        id: crate::delegation::NoticeId,
+    ) -> Result<()> {
+        self.lock()?.store.acknowledge_notice(conversation, id)
+    }
     pub fn create_conversation(&self) -> Result<crate::actor::domain::Conversation> {
         let mut inner = self.lock()?;
         ensure!(

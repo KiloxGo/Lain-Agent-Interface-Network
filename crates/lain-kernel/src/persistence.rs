@@ -12,6 +12,7 @@ use crate::{
     events::{Event, EventKind, HistoryPage},
     worker::WorkerState,
 };
+mod delegation;
 
 pub(crate) struct Store {
     connection: Connection,
@@ -50,7 +51,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 5,
+            version <= 6,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -112,6 +113,9 @@ impl Store {
         }
         if version < 5 {
             transaction.execute_batch(include_str!("../migrations/005_actor.sql"))?;
+        }
+        if version < 6 {
+            transaction.execute_batch(include_str!("../migrations/006_delegations.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
@@ -361,6 +365,9 @@ impl Store {
         if let Some(worker) = worker {
             tx.execute("INSERT INTO worker_state (session_id, snapshot) VALUES (?1, ?2) ON CONFLICT(session_id) DO UPDATE SET snapshot = excluded.snapshot", (session.id.to_string(), serde_json::to_string(worker)?))?;
         }
+        if let Some(turn) = actor_receipt.as_deref() {
+            Self::record_delegation(&tx, turn, session)?;
+        }
         Self::write_events(&tx, events)?;
         if let Some(turn) = actor_receipt {
             turn.revision = turn
@@ -393,6 +400,7 @@ impl Store {
                 .to_owned();
             tx.execute("INSERT INTO operational_history (event_id, session_id, turn_id, timestamp_ms, kind, payload) VALUES (?1, ?2, ?3, ?4, ?5, ?6)", rusqlite::params![event.id.to_string(), event.work_session_id.to_string(), event.turn_id.map(|id| id.to_string()), i64::try_from(event.timestamp_ms)?, kind, serde_json::to_string(event)?])?;
             event.history_order = Some(tx.last_insert_rowid().try_into()?);
+            Self::project_delegation_event(tx, event)?;
         }
         Ok(())
     }
@@ -594,6 +602,7 @@ impl Store {
             "UPDATE lain_conversations SET updated_at_ms = max(updated_at_ms, ?2) WHERE id = ?1",
             (turn.conversation_id.to_string(), i64::try_from(now_ms()?)?),
         )?;
+        Self::settle_delegation_submission(&tx, turn)?;
         tx.commit()?;
         Ok(())
     }
@@ -639,6 +648,7 @@ impl Store {
                 "UPDATE lain_actor_turns SET snapshot = ?2 WHERE id = ?1",
                 (turn.id.to_string(), encode_actor(&turn)?),
             )?;
+            Self::settle_delegation_submission(&tx, &turn)?;
         }
         tx.commit()?;
         Ok(())

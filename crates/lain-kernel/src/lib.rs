@@ -2,6 +2,7 @@ pub mod actor;
 pub mod api;
 pub mod backend;
 pub mod config;
+pub mod delegation;
 pub mod domain;
 pub mod events;
 pub mod kernel;

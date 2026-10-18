@@ -76,6 +76,10 @@ pub fn actor_router(
         .route("/v1/conversations", get(conversations).post(new_conversation))
         .route("/v1/conversations/{id}", get(conversation))
         .route("/v1/conversations/{id}/turns", post(actor_submit))
+        .route("/v1/conversations/{id}/delegations", get(delegations))
+        .route("/v1/conversations/{id}/notices", get(conversation_notices))
+        .route("/v1/conversations/{id}/notices/events", get(conversation_notice_events))
+        .route("/v1/conversations/{id}/notices/{notice}/ack", post(acknowledge_notice))
         .route("/v1/actor-turns/{id}", get(actor_turn))
         .route("/v1/actor-turns/{id}/events", get(actor_events))
         .route("/v1/actor-turns/{id}/cancel", post(actor_cancel))
@@ -688,6 +692,148 @@ async fn conversation(
     .await
     .map(Json)
     .map_err(control_error)
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct NoticeQuery {
+    after: Option<u64>,
+    limit: Option<usize>,
+}
+async fn delegations(
+    State(kernel): State<Arc<Kernel>>,
+    Path(id): Path<crate::actor::domain::ConversationId>,
+) -> Result<Json<Vec<crate::delegation::Delegation>>, ApiError> {
+    blocking(&kernel, move |k| k.delegations(id))
+        .await
+        .map(Json)
+        .map_err(control_error)
+}
+async fn conversation_notices(
+    State(kernel): State<Arc<Kernel>>,
+    Path(id): Path<crate::actor::domain::ConversationId>,
+    Query(query): Query<NoticeQuery>,
+) -> Result<Json<crate::delegation::NoticePage>, ApiError> {
+    blocking(&kernel, move |k| {
+        k.notices(id, query.after.unwrap_or(0), query.limit.unwrap_or(50))
+    })
+    .await
+    .map(Json)
+    .map_err(control_error)
+}
+async fn acknowledge_notice(
+    State(kernel): State<Arc<Kernel>>,
+    Path((id, notice)): Path<(
+        crate::actor::domain::ConversationId,
+        crate::delegation::NoticeId,
+    )>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    blocking(&kernel, move |k| k.acknowledge_notice(id, notice))
+        .await
+        .map_err(control_error)?;
+    Ok(Json(serde_json::json!({"acknowledged":true})))
+}
+async fn conversation_notice_events(
+    State(state): State<ApiState>,
+    Path(id): Path<crate::actor::domain::ConversationId>,
+    Query(query): Query<NoticeQuery>,
+) -> Result<impl IntoResponse, ApiError> {
+    if query.limit.is_some() {
+        return Err(control_error(ControlError::InvalidInput.into()));
+    }
+    // Reuse both existing observation channels as wakeups. The durable notice
+    // cursor, not broadcast delivery, owns catch-up and crash recovery.
+    let mut actor_events = state.actor.subscribe();
+    let (mut page, mut worker_events) = blocking(&state.kernel, move |k| {
+        k.notices_and_subscribe(id, query.after.unwrap_or(0))
+    })
+    .await
+    .map_err(control_error)?;
+    let mut shutdown = state.kernel.subscribe_shutdown();
+    let (sender, receiver) =
+        tokio::sync::mpsc::channel::<Result<SseEvent, Infallible>>(NOTICE_QUEUE_CAPACITY);
+    tokio::spawn(async move {
+        loop {
+            let cursor = page.next_cursor;
+            let more = page.has_more;
+            let event = SseEvent::default()
+                .event("notices")
+                .id(cursor.to_string())
+                .json_data(&page)
+                .expect("serializable notices");
+            // Bound a slow client's retained pages and release it on shutdown.
+            tokio::select! {
+                _=shutdown.changed()=>break,
+                _=sender.closed()=>break,
+                sent=send_notice_page(&sender, event)=>if !sent { break; },
+            }
+            if !more {
+                loop {
+                    let wake = tokio::select! {
+                        _=shutdown.changed()=>return,
+                        _=sender.closed()=>return,
+                        event=worker_events.recv()=> match event {
+                            Ok(event)=>matches!(event.kind, crate::events::EventKind::TurnCompleted { .. } | crate::events::EventKind::TurnStateChanged { .. }),
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>true,
+                            Err(_)=>return,
+                        },
+                        event=actor_events.recv()=> match event {
+                            Ok(crate::actor::Observation::Snapshot(turn))=>turn.conversation_id == id,
+                            Ok(_)=>false,
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>true,
+                            Err(_)=>return,
+                        },
+                    };
+                    if wake {
+                        break;
+                    }
+                }
+            }
+            page = match blocking(&state.kernel, move |k| k.notices(id, cursor, 100)).await {
+                Ok(page) => page,
+                Err(_) => break,
+            };
+        }
+    });
+    Ok(
+        Sse::new(tokio_stream::wrappers::ReceiverStream::new(receiver))
+            .keep_alive(KeepAlive::default()),
+    )
+}
+const NOTICE_QUEUE_CAPACITY: usize = 8;
+async fn send_notice_page(
+    sender: &tokio::sync::mpsc::Sender<Result<SseEvent, Infallible>>,
+    event: SseEvent,
+) -> bool {
+    matches!(
+        tokio::time::timeout(std::time::Duration::from_secs(10), sender.send(Ok(event))).await,
+        Ok(Ok(()))
+    )
+}
+
+#[cfg(test)]
+mod notice_delivery_tests {
+    use super::*;
+    #[tokio::test(start_paused = true)]
+    async fn slow_or_closed_notice_consumers_release_bounded_delivery() {
+        let (tx, rx) = tokio::sync::mpsc::channel(NOTICE_QUEUE_CAPACITY);
+        for _ in 0..NOTICE_QUEUE_CAPACITY {
+            assert!(
+                send_notice_page(
+                    &tx,
+                    SseEvent::default().event("notices").data("fixture page")
+                )
+                .await
+            );
+        }
+        let started = tokio::time::Instant::now();
+        assert!(!send_notice_page(&tx, SseEvent::default().data("full")).await);
+        assert_eq!(started.elapsed(), std::time::Duration::from_secs(10));
+        drop(rx);
+        let started = tokio::time::Instant::now();
+        assert!(!send_notice_page(&tx, SseEvent::default().data("closed")).await);
+        assert_eq!(started.elapsed(), std::time::Duration::ZERO);
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

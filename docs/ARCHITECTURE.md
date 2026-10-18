@@ -653,6 +653,25 @@ one serialized input owner coordinates response output and confirmation prompts.
 Web is frozen without Actor UI. Memory/World/scheduler remain deferred. Normative
 contracts and limits: [LAIN_ACTOR.md](LAIN_ACTOR.md), [ADR 004](adr/004-cli-first-actor-and-confirmed-tools.md).
 
+## Phase 6.6 delegation and result-delivery boundary
+
+The Kernel now correlates confirmed work.create/work.send dispatch with the
+originating conversation, ActorTurn/action and exact worker Turn. Migration 006
+stores that link and immutable ConversationNotices. Allocating a Starting Turn,
+recording its dispatch link and saving its partial Actor receipt share a commit
+before the worker RPC. Normalized terminal/Unknown observations project bounded,
+sanitized factual notices in the worker/history transaction, without inference.
+Worker execution state remains Supervisor-owned; completed ActorTurns stay closed.
+
+Conversation SSE remains open after individual ActorTurns finish. Existing Actor
+and worker broadcasts wake durable cursor reads; lag/restart/commit-before-publish
+loss recovers from SQLite, without another event bus or mutation replay. The CLI
+has one terminal writer/input owner and separate non-writing observation/ack tasks.
+Display uses at-least-once delivery, cursor deduplication and shared-owner durable
+acknowledgements; a render-before-ack crash may repeat a notice. See
+[ADR 007](adr/007-durable-delegation-result-delivery.md) for bounds and semantics.
+This is operational continuity, not Memory or a Scheduler/model continuation.
+
 ## Future boundary: optional Intent-Aware Delegation (Phase 10)
 
 This is a **design proposal, not an implemented component**. Between Lain Actor's

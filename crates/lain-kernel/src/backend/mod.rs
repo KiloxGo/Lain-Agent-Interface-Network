@@ -41,7 +41,11 @@ pub struct BackendInfo {
 }
 
 enum Command {
-    Prompt(String, oneshot::Sender<Result<Turn>>),
+    Prompt(
+        String,
+        Option<crate::delegation::Origin>,
+        oneshot::Sender<Result<Turn>>,
+    ),
     Cancel(oneshot::Sender<Result<Turn>>),
     Decide(
         ApprovalId,
@@ -517,6 +521,31 @@ impl Supervisor {
     }
 
     pub async fn prompt(self: &Arc<Self>, id: WorkSessionId, text: String) -> Result<Turn> {
+        self.prompt_with_origin(id, text, None).await
+    }
+    pub(crate) async fn prompt_for_actor(
+        self: &Arc<Self>,
+        id: WorkSessionId,
+        text: String,
+        actor_turn_id: crate::actor::domain::ActorTurnId,
+        action_id: crate::actor::domain::ActionId,
+    ) -> Result<Turn> {
+        self.prompt_with_origin(
+            id,
+            text,
+            Some(crate::delegation::Origin {
+                actor_turn_id,
+                action_id,
+            }),
+        )
+        .await
+    }
+    async fn prompt_with_origin(
+        self: &Arc<Self>,
+        id: WorkSessionId,
+        text: String,
+        origin: Option<crate::delegation::Origin>,
+    ) -> Result<Turn> {
         ensure!(
             !text.trim().is_empty()
                 && text.len() <= 32 * 1024
@@ -525,7 +554,8 @@ impl Supervisor {
             ControlError::InvalidInput
         );
         let (reply, result) = oneshot::channel();
-        self.send(id, Command::Prompt(text, reply), true).await?;
+        self.send(id, Command::Prompt(text, origin, reply), true)
+            .await?;
         result.await.context("worker stopped during prompt")?
     }
     pub async fn cancel(self: &Arc<Self>, id: WorkSessionId) -> Result<Turn> {
@@ -667,7 +697,7 @@ async fn run(
         let result = tokio::select! {
             biased;
             command=commands.recv()=>match command {
-                Some(Command::Prompt(text,reply))=>{let result=prompt(&kernel,id,&worker,text).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} idle_deadline=None; Ok(())},
+                Some(Command::Prompt(text,origin,reply))=>{let result=prompt(&kernel,id,&worker,text,origin).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} idle_deadline=None; Ok(())},
                 Some(Command::Cancel(reply))=>{let result=cancel(&kernel,id,&worker).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} Ok(())},
                 Some(Command::Decide(approval,decision,reply))=>{let result=decide(&kernel,id,&worker,approval,decision).await;let fatal=is_fatal(&result);let _=reply.send(result);if fatal {break;} Ok(())},
                 Some(Command::Stop(reply))=>{planned=true;detach_reply=Some(reply);break;},
@@ -727,31 +757,40 @@ async fn prompt(
     id: WorkSessionId,
     worker: &Codex,
     text: String,
+    origin: Option<crate::delegation::Origin>,
 ) -> Result<Turn> {
     let turn_id = TurnId::new();
-    mutate(kernel, id, Some(turn_id), move |session, state| {
-        ensure!(
-            matches!(
-                session.state(),
-                WorkSessionState::Ready | WorkSessionState::Idle
-            ),
-            ControlError::Conflict
-        );
-        let now = now_ms()?;
-        state.turns.push(TurnRecord {
-            provider_turn_id: None,
-            turn: Turn {
-                id: turn_id,
-                work_session_id: id,
-                state: TurnState::Starting,
-                cancellation: CancellationState::NotRequested,
-                created_at_ms: now,
-                updated_at_ms: now,
-                failure: None,
+    let submitted_text = text.clone();
+    blocking(kernel, move |kernel| {
+        kernel.mutate_worker_with_origin(
+            id,
+            Some(turn_id),
+            origin.map(|origin| (origin, submitted_text)),
+            move |session, state| {
+                ensure!(
+                    matches!(
+                        session.state(),
+                        WorkSessionState::Ready | WorkSessionState::Idle
+                    ),
+                    ControlError::Conflict
+                );
+                let now = now_ms()?;
+                state.turns.push(TurnRecord {
+                    provider_turn_id: None,
+                    turn: Turn {
+                        id: turn_id,
+                        work_session_id: id,
+                        state: TurnState::Starting,
+                        cancellation: CancellationState::NotRequested,
+                        created_at_ms: now,
+                        updated_at_ms: now,
+                        failure: None,
+                    },
+                });
+                session.transition(WorkSessionState::Running)?;
+                Ok(vec![])
             },
-        });
-        session.transition(WorkSessionState::Running)?;
-        Ok(vec![])
+        )
     })
     .await?;
     match worker.prompt(&text).await {

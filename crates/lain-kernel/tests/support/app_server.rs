@@ -106,9 +106,31 @@ fn main() {
                 persist(&workspace, &thread, &turns);
                 // Deliberately notify before replying; the driver must not lose identity/order.
                 note("turn/started", json!({"threadId":thread,"turn":turn}));
+                if mode == "lost-prompt-ack" {
+                    std::process::exit(17); // accepted upstream, RPC receipt lost
+                }
                 result(id, json!({"turn":turn}));
                 let turn_id = turn["id"].clone();
                 match mode.as_str() {
+                    "notice-gate" => {
+                        // A fixture-owned file gate lets the native PTY test
+                        // type before completion; no real work or provider runs.
+                        std::fs::write(workspace.join("worker-waiting"), "ready").unwrap();
+                        let deadline =
+                            std::time::Instant::now() + std::time::Duration::from_secs(15);
+                        while !workspace.join("release-worker").exists() {
+                            assert!(
+                                std::time::Instant::now() < deadline,
+                                "native fixture gate timed out"
+                            );
+                            std::thread::sleep(std::time::Duration::from_millis(5));
+                        }
+                        note(
+                            "item/completed",
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"type":"agentMessage","id":"notice-report","text":"NOTICE-GATED RESULT 你好"}}),
+                        );
+                        finish(&workspace, &thread, &mut turns, "completed");
+                    }
                     "profile-echo" => {
                         let credential = std::env::var("LAIN_PROFILE_CREDENTIAL").unwrap();
                         note(
@@ -184,6 +206,14 @@ fn main() {
                         );
                     }
                     _ => {
+                        if mode == "result-evidence" {
+                            for number in 0..12 {
+                                note(
+                                    "item/completed",
+                                    json!({"threadId":thread,"turnId":turn_id,"item":{"type":"commandExecution","command":format!("fixture-check-{number}"),"aggregatedOutput":"fixture failure","exitCode":2}}),
+                                );
+                            }
+                        }
                         if mode == "history-output" {
                             note(
                                 "item/started",

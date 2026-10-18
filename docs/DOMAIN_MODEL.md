@@ -591,3 +591,25 @@ prose. Executed means the typed service accepted the operation, not that worker
 execution completed. Created WorkSession IDs survive partial delegation failure.
 Restart marks unfinished execution Unknown and never replays a mutation. Pending
 proposals survive for explicit owner review. See [LAIN_ACTOR.md](LAIN_ACTOR.md).
+
+## Phase 6.6 concrete delegation and notices
+
+Delegation is a Kernel-owned correlation record keyed by confirmed ActionId,
+containing ConversationId, ActorTurnId, WorkSessionId, optional worker TurnId,
+exact confirmed instruction, canonical workspace, profile ID, submission state
+and actual receipt. The session retains frozen resolved profile configuration.
+Work.create can be Prepared with no worker Turn while starting its runtime;
+allocation makes it Submitting before RPC. Accepted/Rejected/Unknown describe
+submission evidence, independently of Actor approval and authoritative worker
+execution. Work.send links a later Turn in the same session. No one-session or
+one-delegation assumption is made for a conversation.
+
+ConversationNotice is an immutable observation, with typed NoticeId, source/target
+IDs, ordered cursor, timestamp, optional source history order, outcome, bounded
+ResultEvidence and mutable owner display acknowledgement. Worker outcomes are
+Completed, Failed, Cancelled or Unknown; Unknown can later be followed by a
+distinct reliable terminal observation. SubmissionUnknown covers a created
+session without a reliably submitted Turn. Repeated action/outcome observations
+produce one notice. Notices are neither Actor messages/turns nor semantic Memory.
+Acknowledgement confirms display metadata only, never work correctness or policy
+approval. See [ADR 007](adr/007-durable-delegation-result-delivery.md).

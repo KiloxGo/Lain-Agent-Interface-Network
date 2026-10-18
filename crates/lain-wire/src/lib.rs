@@ -1,6 +1,7 @@
 //! Small public Actor observation DTOs. No provider objects or Kernel services.
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+pub mod notices;
 
 /// Startup revision of validated non-secret configuration/persona content.
 /// Never use this to compare or hash credential values.
@@ -44,6 +45,8 @@ id!(ActionId);
 id!(PreviewId);
 id!(RequestId);
 id!(WorkSessionId);
+id!(NoticeId);
+id!(WorkerTurnId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
