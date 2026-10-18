@@ -269,6 +269,29 @@ Owner chat walkthrough follow-ups (2026-10-14; recorded only, not implemented):
 - [ ] shorten human tool/status receipts while preserving exact mutation review and machine JSON contracts
 - [ ] return delegated terminal results to chat without requiring another owner message; define event delivery, reconnect deduplication and any bounded Actor follow-up separately
 
+**Phase 6.6 — The Thread Continues: Durable Delegation & Result Delivery**
+
+Owner-defined scope recorded on 2026-10-18; preparation started, implementation
+and acceptance remain pending. Goal: one owner request, one explicit delegation
+confirmation, then automatic delivery of the actual worker outcome in the same
+conversation, without another owner message.
+
+- [ ] persist correlation from conversation/ActorTurn/confirmed action to WorkSession/worker Turn, exact submitted instruction and receipt
+- [ ] derive bounded, sanitized factual result notices from authoritative normalized worker evidence, without additional model inference
+- [ ] provide durable conversation observation with stable notice IDs/cursors, reconnect deduplication and crash recovery
+- [ ] keep completed ActorTurns unchanged and workers independent of connected clients; distinguish submission, execution and delivery
+- [ ] fix absolute-path input, compact human receipts while preserving exact approval arguments and machine JSON, and display notices without disrupting typed input
+- [ ] cover isolation, concurrent tasks, later turns in the same session, failure/unknown/cancellation, duplicate events/confirmations, slow consumers and legacy persistence with deterministic fixtures
+- [ ] run native macOS checks and native Windows checks when a host is available; keep unavailable Windows/Linux acceptance pending
+- [ ] prepare opt-in real acceptance for automatic delivery/reconnect; new paid work requires explicit owner authorization of the workspace/action
+
+Result interpretation by a model is optional and deferred unless separately
+authorized and safely bounded; factual delivery must work without it. Reuse the
+existing Kernel/Supervisor, durable history and confirmation boundaries. Never
+replay uncertain mutations. Phase 7 Memory, Phase 8 Scheduler and Phase 10
+Delegation Compiler remain deferred; no prompt rewriting or Web redesign belongs
+to this scope. See the [preparation checkpoint](DEVLOG.md#2026-10-18--phase-66-preparation-checkpoint).
+
 Limits: no mid-generation provider resumption, automatic mutation retries,
 profile mutations or worker auto-approval. Sanitized previews are ephemeral;
 validated completed records remain authoritative. See ADR 005.

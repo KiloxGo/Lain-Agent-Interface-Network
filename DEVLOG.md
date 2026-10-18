@@ -1090,3 +1090,49 @@ Mode names, Off default and any **additional** per-text-change approval flow
 remain proposed interaction designs, not owner-finalized requirements. Existing
 Kernel mutation/permission approvals continue. Documentation only: no runtime
 or data migration, no inference or implementation tests, no Phase 7 start.
+
+### 2026-10-18 — Phase 6.6 preparation checkpoint
+
+The owner supplied the next goal, **The Thread Continues: Durable Delegation &
+Result Delivery**. Its central requirement follows the chat walkthrough above:
+one owner request and one explicit delegation confirmation must lead to automatic
+delivery of the actual worker outcome in the originating conversation. The owner
+should not need another message just to retrieve the result. Retrieving a report
+still does not establish that its conclusions or every command/test succeeded.
+
+Preparation completed so far:
+
+- fetched origin and fast-forwarded local main from `0a30c1f` to `ee0c954`,
+  retaining the existing untracked `docs/reviews/` material;
+- read the supplied goal and the Product, Architecture, Domain Model and Runtime
+  Model documents; re-read the updated repository instructions;
+- recorded the scope and unchecked acceptance work in ROADMAP. Remaining required
+  document/source inspection and the concrete design are still pending.
+
+The known gap is between confirmed delegation and later worker-result delivery:
+the Actor receipt identifies a submitted operation, while the independent worker
+can finish after the original ActorTurn and its observation stream have ended.
+`Action Executed`, a submitted worker Turn, worker completion and owner-visible
+delivery are separate facts. The next implementation must establish durable
+conversation/action/session/worker-Turn correlation and conversation-scoped
+notices using authoritative normalized evidence. A completed ActorTurn must not
+be reopened to inject a result. Exact schema, API and delivery/acknowledgement
+semantics have not yet been selected.
+
+Required follow-through includes persisted exact instructions/receipts; bounded,
+sanitized useful result excerpts; restart/reconnect recovery, ordering and
+deduplication; concurrent and later worker turns; honest failed/cancelled/unknown
+outcomes; and no mutation replay or model call merely to announce completion.
+The absolute-path parser, noisy human receipts and asynchronous terminal output
+are part of the same scope. Exact approval arguments and machine JSON contracts
+must remain inspectable, and notices must preserve typed input and raw-terminal
+restoration. Optional model interpretation is separate from factual delivery.
+
+No Phase 6.6 Rust code, migration, runtime configuration or installed binary has
+changed at this checkpoint. No new provider calls, worker tasks or daemon restart
+were performed. This recording makes no new build/test or acceptance claim;
+previous Phase 6.5 evidence remains historical. Native Windows/ConPTY and Linux
+acceptance remain unverified; Phase 6.6 native macOS checks are also pending.
+New real-provider acceptance must be opt-in with workspace/action authorization;
+the earlier completed acceptance budget is not reused. Web stays frozen and
+Phase 7, Scheduler and Delegation Compiler remain deferred.
