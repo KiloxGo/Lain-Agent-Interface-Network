@@ -1136,3 +1136,75 @@ acceptance remain unverified; Phase 6.6 native macOS checks are also pending.
 New real-provider acceptance must be opt-in with workspace/action authorization;
 the earlier completed acceptance budget is not reused. Web stays frozen and
 Phase 7, Scheduler and Delegation Compiler remain deferred.
+
+### 2026-10-18 — Durable delegation results reach the original conversation
+
+Implemented Phase 6.6 against `ee0c954`, following the preparation checkpoint.
+The Kernel now owns a durable link from conversation/ActorTurn/confirmed Action
+to WorkSession and the specific worker Turn, exact submitted instruction,
+workspace, profile and receipt. Migration 006 adds delegation and notice tables.
+Work creation retains atomic session/receipt semantics before backend launch;
+worker Turn allocation and its source link/partial receipt commit before prompt
+RPC. Work.send correlates a new Turn in the same session. Exact confirmed task
+text is forwarded without rewriting. Approval, submission, execution and display
+state remain distinct; no second authoritative worker-state machine was added.
+
+Store projects meaningful normalized worker transitions in the same transaction
+as worker metadata/history. Completed, Failed, Cancelled and Unknown produce
+separate immutable factual notices; pre-Turn partial startup retains the created
+session with SubmissionUnknown. A lost prompt acknowledgement preserves its
+Starting/Unknown Turn and blocks action replay. Repeated action/outcome events
+deduplicate. Completion never reopens the ActorTurn or calls a model. Evidence
+contains an available actual final report, nonzero-command counts/excerpts, safe
+errors, changed paths and truncation with IDs/full-history guidance. Completed
+does not mean every command/test passed. Excerpts are sanitized and bounded.
+
+Authenticated conversation notice pages/SSE reuse existing Actor/worker broadcasts
+as wakeups and SQLite cursors for durable catch-up. No event bus, Scheduler,
+semantic Memory or model continuation was added. Notice creation survives death
+after commit and before publication. Eight-page bounded SSE delivery disconnects
+slow consumers after a ten-second enqueue timeout; reconnect reads committed
+pages. Notice IDs/cursors remain stable across restart. Delivery is at least once:
+CLI cursors suppress ordinary reconnect duplicates, and owner display acks are
+persisted after output flush. A render-before-ack crash, failed or unqueued ack
+can repeat a notice on reopening; exactly-once rendering is not claimed. Acks
+change presentation metadata only and are shared by owner clients.
+
+Chat now displays independent `Worker>` notices while retaining typed characters,
+wide-character wrapping, CRLF behavior and guarded terminal restoration. Other
+Actor previews continue across interleaved notices and reconcile once with final
+messages. Renderer dedup/error/timing state resets between ActorTurns. Background
+observer/ack tasks never write the terminal. Human tool receipts are compact;
+full exact proposed arguments still appear before confirmation, while existing
+machine Actor JSON and complete receipts remain inspectable. Added quota-free
+`lain notices <conversation-id>` and `lain delegations <conversation-id>`.
+Multi-component Unix paths, drive/UNC paths and spaces pass through as ordinary
+text. Ambiguous one-component slash words retain command feedback; use a trailing
+slash or `path: /name` for such a directory. No daemon-host path is resolved by
+the client. Existing Phase 6.5 conversations remain readable, without guessing
+historical receipts into new delegation links.
+
+Validation: `zsh scripts/check-native.zsh` passed locked workspace build, fmt,
+warnings-denied Clippy, **83 Rust tests and 3 explicitly ignored opt-in tests**,
+and full native macOS CLI/controlling-PTY fixtures, consuming zero provider quota.
+Coverage includes confirmed/denied/duplicate dispatch, same-session follow-ups,
+concurrent/out-of-order completion and conversation isolation, command failure in
+a Completed Turn, rejection/crash/cancellation/lost acknowledgement, bounded
+redaction, transaction rollback, duplicate projection, commit-before-publication
+recovery, cursor replay/ack loss, slow consumers and older database migration.
+Native PTYs demonstrated automatic delivery without another owner message or
+model call, partially typed wrapped Chinese input retained exactly, frontend exit
+before completion, pending notice replay, acknowledged reopen, and stable notices
+after actual daemon restart. The PTY fixture now drains output while waiting for
+exit, avoiding a harness backpressure hang when a notice arrives after `You>`.
+
+Updated architecture/domain/Actor/CLI/configuration/README, ROADMAP and
+[ADR 007](docs/adr/007-durable-delegation-result-delivery.md). The new
+[acceptance matrix and opt-in real procedure](docs/PHASE_6_6_ACCEPTANCE.md) separate
+this deterministic evidence from historical Phase 6.5 real runs. Native
+Windows/ConPTY and Linux remain unavailable/unverified. No new paid model calls,
+real Codex work, owner daemon restart, installed binary/configuration changes or
+owner database migration were performed. The existing untracked review material
+was retained. No Web/Memory/World/Scheduler/compiler work was introduced. Further
+native acceptance and any newly authorized real-provider result-delivery check
+are the next validation steps; Phase 7 remains deferred.
