@@ -192,12 +192,12 @@ impl<W: Write> Renderer<W> {
             if name == "work.create" && action.state == ActionState::Executed {
                 writeln!(
                     self.output,
-                    "      Task submitted; worker outcome will arrive separately."
+                    "      Task submitted; worker results are delivered separately."
                 )?;
             } else if name == "work.send" && action.state == ActionState::Executed {
                 writeln!(
                     self.output,
-                    "      Follow-up submitted; worker outcome will arrive separately."
+                    "      Follow-up submitted; worker results are delivered separately."
                 )?;
             } else if let Some(error) = outcome.get("error").and_then(|v| v.as_str()) {
                 writeln!(self.output, "      {}", safe_text(error))?;

@@ -256,7 +256,7 @@ def run(platform):
                 try:
                     until("Confirm this exact action?")
                     os.write(master, b"y\n")
-                    until("Task submitted; worker outcome will arrive separately.")
+                    until("Task submitted; worker results are delivered separately.")
                     os.write(master, b"/exit\n")
                     assert chat.wait(timeout=10) == 0
                 finally:

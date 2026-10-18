@@ -237,7 +237,7 @@ Tool> work.create · awaiting confirmation
 Confirm this exact action? [y/N] y
 Tool> work.create · operation accepted
       WorkSession: <session-id>
-      Task submitted; worker outcome will arrive separately.
+      Task submitted; worker results are delivered separately.
 You>
 Worker> turn completed
         WorkSession: <session-id>
