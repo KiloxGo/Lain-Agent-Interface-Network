@@ -1208,3 +1208,85 @@ owner database migration were performed. The existing untracked review material
 was retained. No Web/Memory/World/Scheduler/compiler work was introduced. Further
 native acceptance and any newly authorized real-provider result-delivery check
 are the next validation steps; Phase 7 remains deferred.
+
+### 2026-10-19 — Independent owner-reviewed memory and project knowledge
+
+Fetched `origin/main` before editing: latest HEAD was still `17a676d`. The owner's
+Phase 7.1 instruction explicitly authorized deterministic memory implementation
+while preserving pending Phase 6.6 real-provider/native Windows/Linux acceptance.
+The existing untracked `docs/reviews/` material was left untouched. No subagents,
+real model calls, actual Codex work, installed binary changes, owner daemon restart
+or owner database migration were performed.
+
+Reused the Kernel mutex/Store, SQLite migrations, authenticated HTTP boundary,
+persisted Actor action confirmation, typed wire crate, CLI and Phase 6.6 result
+projection. No new crate, persistence architecture, vector database, worker harness
+or generic retrieval framework. Lain's independent personal continuity and her
+agent-control role remain equally important; persona stays separately versioned.
+
+New typed IDs/records distinguish Memory, Candidate and SessionSummary. Episodic,
+ProjectKnowledge, Preference and Reflection have explicit scope and lifecycle.
+Direct exact owner text gets Explicit provenance; Actor suggestions retain
+LainGenerated/Inferred conversation/turn/action provenance after confirmation;
+summary selections retain SummaryId/UnverifiedSelection. Kind/scope and
+source/authority contradictions are rejected. Acceptance never claims independent
+technical verification. Known credentials/patterns and terminal controls are
+rejected before persistence; unknown/encoded secrets retain existing detection
+limits. No raw transcript is automatically promoted.
+
+Migration 007 adds indexed bounded memory snapshots, transactional FTS5 trigram
+search, request tombstones, independent review candidates and factual summaries.
+Literal search supports Unicode/CJK substrings and short-query fallback; one
+explicit scope per page, increasing sequence order, bounded records/bytes and
+cursors over retained rows. Repeated request IDs deduplicate or conflict on changed
+canonical drafts. Expected revisions protect enable/disable/supersede/delete.
+Deletion removes semantic/FTS data and scrubs candidate copies; independent Actor,
+worker, notice and summary audit remains, with no secure-erasure claim. Unix
+storage creation now uses 0600 database/lock files and 0700 new directories;
+Windows uses the existing protected per-user directory/owner-only inherited ACL
+boundary and still needs native verification.
+
+Actor search/list/inspect returns explicit bounded evidence without whole-store
+prompt injection; proposals atomically persist with Proposed actions. Existing
+owner decision is the sole review gate. Denial/cancellation rejects; approval
+atomically accepts memory/candidate without inference. Generic candidate review
+cannot bypass an Actor action. An Unknown receipt after a committed acceptance
+requires inspection, never automatic replay. Native CLI supports memory CRUD,
+status/supersession, candidates/review/summary selection and factual summary
+create/show/list, including stable JSON and typed IDs, without browser/LLM access.
+
+SessionSummary explicitly freezes one worker Turn's normalized evidence through a
+history watermark, source update time and current outcome. Reuses sanitized
+Phase 6.6 evidence limits, preserves failed commands under a Completed Turn and
+labels worker reports unverified. A summary is never automatically Memory or a
+Candidate; selected project knowledge needs a separate owner review in the same
+workspace. Phase 6.6 result notices/receipts remain independent.
+
+Validation results follow in the acceptance record below. World, journals,
+automatic extraction/personality evolution, reflection, consolidation, Scheduler,
+new backends, browser changes and Delegation Compiler remain unimplemented.
+Suggested Phase 7.2 is a small owner-inspectable World/notes foundation with
+explicit evidence links, requiring new scope; no automatic phase advance.
+
+Phase 7.1 validation: `zsh scripts/check-native.zsh` passed on native macOS with
+`cargo build --locked --workspace`, `cargo fmt --all --check`,
+`cargo clippy --locked --workspace --all-targets -- -D warnings`,
+`cargo test --locked --workspace`: **96 passed, 0 failed, 3 opt-in tests ignored**,
+plus full native CLI/controlling-PTY smoke. The extension exercised authenticated
+memory add/idempotent retry/list/search/show, project isolation, actual fixture
+daemon restart then Responses-adapter retrieval using the saved MemoryId/content,
+Actor candidate denial/approval, refusal of generic action bypass, status changes,
+deletion and independent summary creation/selection/acceptance. Existing Phase
+6.6 PTY notice delivery, wrapped Unicode input, acknowledgement and restart
+continuity still pass. All inference/work used local fixtures; provider quota was
+zero. Targeted review added corrupted authority/index rejection, candidate lifecycle
+validation, rollback, byte-bounded pagination and deletion of now-sensitive content.
+
+[Phase 7.1 acceptance](docs/PHASE_7_1_ACCEPTANCE.md) maps requirements to tests and
+records open obligations. Native Windows/PowerShell/ACL/ConPTY and Linux hosts were
+unavailable and remain unverified. No real-provider Phase 7.1 memory conversation
+was run, so that definition-of-done acceptance item is still open pending explicit
+provider/budget authorization. Phase 6.6 real-provider delivery also remains
+pending. Deterministic implementation completion does not imply final cross-platform
+or real-provider acceptance. Ordinary reviewable commits are used; no atmospheric
+milestone/Phase 7.2/Phase 8 completion is claimed.

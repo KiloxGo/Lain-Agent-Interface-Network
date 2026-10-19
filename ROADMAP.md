@@ -1,7 +1,7 @@
 # Roadmap
 
 **Status:** working plan  
-**Last reviewed:** 2026-10-14
+**Last reviewed:** 2026-10-19
 
 This roadmap defines implementation order for the Lain architecture reboot.
 
@@ -292,15 +292,16 @@ conversation, without another owner message.
 Result interpretation by a model is optional and deferred unless separately
 authorized and safely bounded; factual delivery must work without it. Reuse the
 existing Kernel/Supervisor, durable history and confirmation boundaries. Never
-replay uncertain mutations. Phase 7 Memory, Phase 8 Scheduler and Phase 10
-Delegation Compiler remain deferred; no prompt rewriting or Web redesign belongs
-to this scope. See the [acceptance matrix](docs/PHASE_6_6_ACCEPTANCE.md),
+replay uncertain mutations. Phase 7 Memory was deferred during Phase 6.6 and is separately authorized below.
+Phase 8 Scheduler and Phase 10 Delegation Compiler remain deferred; no prompt
+rewriting or Web redesign belongs to Phase 6.6. See the [acceptance matrix](docs/PHASE_6_6_ACCEPTANCE.md),
 [ADR 007](docs/adr/007-durable-delegation-result-delivery.md) and DEVLOG.
 
 Limits: no mid-generation provider resumption, automatic mutation retries,
 profile mutations or worker auto-approval. Sanitized previews are ephemeral;
 validated completed records remain authoritative. See ADR 005.
-Conversation persistence is not semantic memory. **Do not begin Phase 7 yet.**
+Conversation persistence is not semantic memory. The owner separately authorized
+deterministic Phase 7.1 on 2026-10-19; prior acceptance gaps remain open.
 
 ## Phase 7 — Lain memory and private world
 
@@ -308,18 +309,43 @@ Conversation persistence is not semantic memory. **Do not begin Phase 7 yet.**
 
 Memory provenance and scoped, owner-approved project knowledge/preferences may later provide **evidence** for optional intent-aware delegation. Phase 7 does **not** implement prompt rewriting or silently promote inferred preferences to task requirements. See [Intent-Aware Delegation](docs/INTENT_AWARE_DELEGATION.md).
 
-Deliverables:
+### Phase 7.1 — The Shape of Memory
 
-- [ ] memory schema and provenance
-- [ ] explicit remember/forget operations
-- [ ] project knowledge
-- [ ] SessionSummary model
-- [ ] session-completion summarizer
-- [ ] MemoryCandidate pipeline
-- [ ] basic retrieval, likely SQLite FTS
-- [ ] private World directory/service
-- [ ] journal/project notes
-- [ ] memory inspection UI/CLI
+Owner-authorized implementation from fetched `origin/main` `17a676d`, dated
+2026-10-19. Independent continuity and worker supervision are equally important.
+Implementation is distinct from pending real-provider/native platform acceptance.
+
+- [x] typed memory records, scope, provenance, authority and lifecycle
+- [x] forward-only migration 007 in existing SQLite, transactional FTS5 trigram search
+- [x] direct owner remember/inspect/disable/enable/supersede/delete without a model
+- [x] scoped project knowledge separated from global preferences and internal reflection
+- [x] Actor search/list/inspect and proposals using existing persisted confirmation
+- [x] minimal Candidate/Accepted/Rejected review, durable retry identity and stale-write conflicts
+- [x] explicit factual SessionSummary from normalized session/Turn history, without automatic memory promotion
+- [x] API-only CLI commands and stable typed machine JSON; Web stays frozen
+- [x] deterministic scope/Unicode/privacy/injection/restart/approval/evidence/migration regressions
+- [x] native macOS locked build/fmt/Clippy/tests (96 passed, 3 opt-in ignored) and CLI/PTY fixtures
+- [ ] separately authorized real-provider Actor retrieval of previously persisted memory (not run)
+- [ ] native Windows/ConPTY acceptance (host unavailable; unverified)
+- [ ] native Linux server acceptance (host unavailable; unverified)
+
+Real-provider Phase 6.6 result delivery and earlier native Windows/Linux obligations
+remain pending; Phase 7.1 fixture results do not upgrade them. No new paid inference,
+actual Codex work or installed owner daemon/database changes were authorized here.
+See [MEMORY.md](docs/MEMORY.md), [acceptance](docs/PHASE_7_1_ACCEPTANCE.md) and
+[ADR 008](docs/adr/008-independent-owner-reviewed-memory.md).
+
+### Phase 7.2 — private World and continuity follow-up (unimplemented)
+
+Suggested next scope, requiring separate owner authorization:
+
+- [ ] small owner-inspectable World directory/service with bounded notes/artifacts
+- [ ] explicit memory/summary/evidence references in project notes
+- [ ] richer candidate review/retention and uncertainty presentation where justified
+
+Journals, automatic summary extraction, personality evolution, daily reflections,
+consolidation schedules, embeddings and agent-to-agent memory sharing are not
+Phase 7.1 work. Do not automatically begin Phase 7.2 or Phase 8.
 
 Exit criteria:
 
