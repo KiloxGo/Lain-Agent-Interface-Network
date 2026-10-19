@@ -2,7 +2,8 @@
 
 Date: 2026-10-19. Baseline: fetched `origin/main` `17a676d`.
 Implementation and native macOS deterministic validation are available. An
-owner-authorized real-provider attempt is recorded below and did not pass. No
+owner-authorized real-provider attempt and an additional authorized attempt are
+recorded below; neither passed. No
 actual Codex work was run. Real-provider Phase 7.1 retrieval,
 Phase 6.6 real-provider delivery and native Windows/Linux acceptance remain pending.
 Historical Phase 6.5 real evidence is unchanged.
@@ -96,3 +97,35 @@ to retain valid failed Actor snapshots and their request counters, with a quota-
 deterministic check for nonzero-CLI/valid-snapshot, missing-snapshot and normal JSON
 cases. Because unused budget cannot be established, another real attempt requires
 an additional explicit allowance rather than assuming the first allowance remains.
+
+
+## Additional authorized attempt — 2026-10-19
+
+After the wrapper correction, the owner separately authorized one additional
+Actor turn, again capped at four model requests under the same temporary isolated
+scope. This attempt also **did not pass**. The real Actor made **2 model requests**
+and reported **4,838 usage tokens**, ending **Unknown** with **no executed memory
+tool receipt** and no citation of the actual saved MemoryId. These observations
+are not a successful retrieval. The underlying provider/call incompatibility is
+not established by the safe evidence; no raw rejected call was retained, and no
+product change is justified solely by guessing its contents.
+
+Exact persistence after the native test-daemon restart passed. No WorkSession was
+created, inspection left the Actor snapshot unchanged, and the task-owned process
+stopped. No owner instance/database was changed and no actual Codex ran. Private
+safe evidence is `acceptance/phase-7-1-memory-2026-10-19-aa23914a.json` under the
+per-user Lain directory:
+
+- MemoryId: `ca698129-487f-4bc5-8620-b44f7d7a3e12`
+- ConversationId: `cc04e3c9-3293-42b1-a406-e82952ad7379`
+- ActorTurnId: `df2e27eb-3c97-4f10-9c76-0001214c3a37`
+
+The first attempt's request count remains unknown (bounded by its authorized
+maximum of four); it is not retroactively assigned the second attempt's count.
+The two attempts together therefore have an upper bound of six requests, with
+only the additional attempt's two requests/usage directly recorded. No third real
+run was made. Deterministic implementation remains available, while the real
+conversation definition-of-done item and final Phase 7.1 acceptance remain open.
+Further investigation should capture safe typed rejected-call diagnostics or use
+a separately authorized compatible provider; do not replay uncertain mutations,
+spend new quota automatically or claim that either of these runs passed.

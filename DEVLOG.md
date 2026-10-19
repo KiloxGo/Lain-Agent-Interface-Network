@@ -1310,3 +1310,26 @@ without inference to retain structured failed-turn snapshots/counters even on a
 nonzero CLI exit. A further real turn requires additional authorization because
 unused allowance from the first run cannot be proven. The 96-test native macOS
 deterministic result remains valid; only this temporary acceptance script changed.
+
+
+A separately authorized additional real turn used the corrected wrapper under the
+same isolated scope. It **did not pass**: `mimo-v2.6-flash` made **2 requests**,
+reported **4,838 usage tokens**, and ended Unknown with no executed memory-tool
+receipt and no actual MemoryId citation. Native save/restart/exact-record equality
+passed; no WorkSession was created; inspection retained an identical Actor snapshot;
+the task-owned daemon stopped. The owner instance/database and Codex remained
+untouched. Private safe evidence:
+`acceptance/phase-7-1-memory-2026-10-19-aa23914a.json`, ActorTurn
+`df2e27eb-3c97-4f10-9c76-0001214c3a37`, Conversation
+`cc04e3c9-3293-42b1-a406-e82952ad7379`, Memory
+`ca698129-487f-4bc5-8620-b44f7d7a3e12`. The provider-specific cause is unverified;
+no rejected-call text or raw provider frame was preserved. The first run's request
+count is still unknown, at most four; the two-run upper bound is six, with usage
+known only for the second. No third run was made or automatically authorized.
+
+Phase 7.1 implementation and native macOS deterministic acceptance remain complete,
+but **final Phase 7.1 acceptance remains incomplete** because a real Actor retrieval
+conversation has not passed. Native Windows/Linux and Phase 6.6 real-provider
+acceptance also remain pending. Do not advance phases or use a milestone completion
+commit to conceal these gaps. Further provider/tool-call diagnosis should be based
+on safe evidence and any new paid probe requires its own concrete authorization.
