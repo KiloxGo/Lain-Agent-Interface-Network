@@ -1,6 +1,7 @@
 //! Small public Actor observation DTOs. No provider objects or Kernel services.
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+pub mod memory;
 pub mod notices;
 
 /// Startup revision of validated non-secret configuration/persona content.
@@ -47,6 +48,9 @@ id!(RequestId);
 id!(WorkSessionId);
 id!(NoticeId);
 id!(WorkerTurnId);
+id!(MemoryId);
+id!(CandidateId);
+id!(SummaryId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -91,6 +95,17 @@ pub enum Sandbox {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "name", content = "arguments", deny_unknown_fields)]
 pub enum ToolCall {
+    #[serde(rename = "memory.search")]
+    MemorySearch(memory::MemoryQuery),
+    #[serde(rename = "memory.list")]
+    MemoryList(memory::MemoryQuery),
+    #[serde(rename = "memory.inspect")]
+    MemoryInspect {
+        memory_id: MemoryId,
+        scope: memory::MemoryScope,
+    },
+    #[serde(rename = "memory.propose")]
+    MemoryPropose(memory::ProposeMemory),
     #[serde(rename = "work.list")]
     WorkList {},
     #[serde(rename = "work.inspect")]
@@ -129,6 +144,7 @@ impl ToolCall {
                 | Self::WorkSend { .. }
                 | Self::WorkCancel { .. }
                 | Self::WorkResume { .. }
+                | Self::MemoryPropose(_)
         )
     }
 }

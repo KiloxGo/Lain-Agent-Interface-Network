@@ -1,7 +1,7 @@
 # Domain Model
 
 **Status:** normative foundation  
-**Last reviewed:** 2026-10-04
+**Last reviewed:** 2026-10-19
 
 ## 1. Purpose
 
@@ -613,3 +613,30 @@ session without a reliably submitted Turn. Repeated action/outcome observations
 produce one notice. Notices are neither Actor messages/turns nor semantic Memory.
 Acknowledgement confirms display metadata only, never work correctness or policy
 approval. See [ADR 007](adr/007-durable-delegation-result-delivery.md).
+
+## Phase 7.1 concrete memory and summaries
+
+Memory, Candidate and Summary use distinct Lain UUIDs (`MemoryId`, `CandidateId`,
+`SummaryId`). The shared public value types live in `lain-wire::memory` and are
+used by Kernel domain services; they contain no backend/transport protocol objects.
+MemoryRecord has a typed kind/scope/source/authority/status, revision, selected
+bounded content, timestamps, explicit owner confirmation and optional supersession.
+ProjectKnowledge requires Workspace; Reflection requires Internal. Explicit,
+Inferred and UnverifiedSelection authority are source-bound and cannot be chosen
+by the model. Accepting a suggestion never changes its origin into an owner quote
+or its worker evidence into independently verified truth.
+
+Actor MemoryCandidates use their confirmed ActionId as a durable review identity
+wrapped in CandidateId. Candidate/Accepted/Rejected is independent of
+Active/Disabled/Superseded memory status. Direct owner-authored memory bypasses
+candidate review because the authenticated command is itself the exact statement.
+Source references are Kernel-owned request IDs, Actor conversation/turn/action IDs,
+or SummaryIds. No provider thread object is a memory identity. See
+[MEMORY.md](MEMORY.md) for creation/revision/retention invariants.
+
+SessionSummary records one WorkSession and worker Turn, outcome, workspace,
+creation time, source Turn update time and immutable normalized history cursor.
+Its selected report, failed commands/errors and changed paths are observed evidence,
+with limits and uncertainty. It is not a ConversationNotice, semantic Memory,
+worker correctness certificate or persona update. Creation and inspection need no
+model; owner-selected project facts can enter a separately reviewed candidate.
