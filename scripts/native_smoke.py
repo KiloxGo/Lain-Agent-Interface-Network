@@ -54,7 +54,17 @@ def run(platform):
                 last = body["input"][-1]
                 prompt = last.get("content", "")
                 if last.get("type") == "function_call_output":
-                    output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "已读取 Kernel 的真实工作状态。"}]}]
+                    result = json.loads(last["output"])
+                    if result.get("context_role") == "untrusted_memory_evidence":
+                        record = result["page"]["records"][0]
+                        reply_text = f"Saved evidence {record['id']}: {record['content']}"
+                    else:
+                        reply_text = "已读取 Kernel 的真实工作状态。"
+                    output = [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": reply_text}]}]
+                elif prompt == "memory-retrieve":
+                    output = [{"type":"function_call","name":"memory_search","call_id":"call_memory_read","arguments":json.dumps({"scope":{"kind":"global"},"kind":None,"status":"active","text":"continuity","after":0,"limit":2})}]
+                elif prompt == "memory-propose":
+                    output = [{"type":"function_call","name":"memory_propose","call_id":"call_memory_propose","arguments":json.dumps({"draft":{"content":"Selected inferred preference","kind":"preference","scope":{"kind":"global"}}})}]
                 elif "work.create" in prompt:
                     output = [{"type": "function_call", "name": "work_create", "call_id": "call_create", "arguments": json.dumps({"workspace": str(workspace), "profile_id": "codex/local", "sandbox": "read_only", "task": "hello"})}]
                 elif "work.inspect" in prompt or "work.history" in prompt:
@@ -382,11 +392,59 @@ def run(platform):
             assert acceptance.report["checks"]["daemon_restart_continuity"] is True
             assert len(provider_calls) == before_calls, "configuration/recovery caused inference"
             assert (local / "client.json").read_bytes() == selected_settings
+            # Phase 7.1 uses the real native HTTP/CLI/Responses adapter with a local
+            # fixture provider. No real-provider evidence or paid quota is claimed.
+            before_memory = len(provider_calls)
+            request = str(uuid.uuid4())
+            added = cli("--json", "memory", "add", "continuity: independent memory and agent supervision", "--kind", "preference", "--global", "--request-id", request)
+            assert cli("--json", "memory", "add", added["content"], "--kind", "preference", "--request-id", request)["id"] == added["id"]
+            assert cli("--json", "memory", "search", "continuity")["records"][0]["id"] == added["id"]
+            assert cli("--json", "memory", "list", "--workspace", str(workspace))["records"] == []
+            assert cli("--json", "memory", "show", added["id"])["provenance"]["authority"] == "explicit"
+            assert len(provider_calls) == before_memory
             stop()
+            start()
+            assert cli("--json", "memory", "show", added["id"]) == added
+            remembered = cli("--json", "ask", "memory-retrieve")
+            assert remembered["state"] == "completed"
+            assert added["id"] in remembered["messages"][-1]["content"]
+            pending_memory = cli("--json", "ask", "memory-propose")
+            assert pending_memory["state"] == "pending_confirmation"
+            memory_action = pending_memory["actions"][0]["id"]
+            assert cli("--json", "memory", "candidate", memory_action)["status"] == "candidate"
+            cli("--json", "memory", "accept", memory_action, success=False)
+            cli("--json", "actor", "deny", pending_memory["id"], memory_action)
+            assert cli("--json", "memory", "candidate", memory_action)["status"] == "rejected"
+            pending_memory = cli("--json", "ask", "memory-propose")
+            memory_action = pending_memory["actions"][0]["id"]
+            cli("--json", "actor", "approve", pending_memory["id"], memory_action)
+            assert cli("--json", "memory", "candidate", memory_action)["status"] == "accepted"
+            cli("--json", "memory", "disable", added["id"], "--revision", "1")
+            assert cli("--json", "memory", "search", "continuity")["records"] == []
+            cli("--json", "memory", "enable", added["id"], "--revision", "2")
+            cli("--json", "memory", "delete", added["id"], "--revision", "3")
+            cli("--json", "memory", "show", added["id"], success=False)
+            worker_turn = completed["actions"][0]["result"]["outcome"]["turn_id"]
+            summary = cli("--json", "summary", "create", sid, "--turn", worker_turn)
+            assert cli("--json", "summary", "show", summary["id"]) == summary
+            assert cli("--json", "summary", "list", sid)[0]["id"] == summary["id"]
+            selected = cli("--json", "memory", "from-summary", summary["id"], "Selected work observation", "--workspace", str(workspace))
+            assert selected["status"] == "candidate"
+            selected = cli("--json", "memory", "accept", selected["id"])
+            assert selected["status"] == "accepted"
+            assert cli("--json", "memory", "show", selected["memory_id"])["provenance"]["authority"] == "unverified_selection"
+            before_reads = len(provider_calls)
+            cli("--json", "memory", "candidates")
+            cli("--json", "memory", "list")
+            assert len(provider_calls) == before_reads
+            stop()
+            if platform != "windows":
+                assert (local / "lain.sqlite3").stat().st_mode & 0o777 == 0o600
+                assert (local / "lain.sqlite3.lock").stat().st_mode & 0o777 == 0o600
             with sqlite3.connect(local / "lain.sqlite3") as db:
                 persisted = "\n".join(db.iterdump())
                 assert token not in persisted and "fixture-actor-credential" not in persisted
-                assert db.execute("PRAGMA user_version").fetchone()[0] == 6
+                assert db.execute("PRAGMA user_version").fetchone()[0] == 7
             assert token.encode() not in log.read_bytes() and b"fixture-actor-credential" not in log.read_bytes()
             # A listening unrelated service is never terminated or replaced.
             unrelated = ThreadingHTTPServer(("127.0.0.1", port), type("Unrelated", (BaseHTTPRequestHandler,), {"log_message": lambda *args: None, "do_GET": lambda self: (self.send_response(401), self.end_headers())}))
@@ -399,7 +457,7 @@ def run(platform):
             stop()
             model.shutdown()
             model.server_close()
-    print(f"PASS native {platform}: local setup/reuse/permissions, launcher/shutdown/restart, doctor, authenticated CLI, streamed Actor adapter, confirmation, real fixture work and persistence; zero quota")
+    print(f"PASS native {platform}: local setup/reuse/permissions, launcher/shutdown/restart, doctor, authenticated CLI, streamed Actor adapter, confirmation, fixture work, independent scoped memory/summary/Actor retrieval and restart persistence; zero quota")
 
 
 if __name__ == "__main__":

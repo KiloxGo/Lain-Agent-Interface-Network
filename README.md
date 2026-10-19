@@ -2,7 +2,7 @@
 
 > A persistent personal resident agent and control plane for long-running AI workers.
 
-**Status:** Phase 6 CLI-first Actor with Phase 6.6 deterministic result delivery verified on native macOS. Windows/ConPTY and Phase 6.6 real-provider acceptance remain pending; Phase 6.5 real evidence is recorded separately. Web is retained and frozen.
+**Status:** Phase 7.1 independent memory and CLI-first Actor, with deterministic memory/result-delivery checks verified on native macOS. Native Windows/Linux and Phase 6.6/7.1 real-provider acceptance remain pending; Phase 6.5 real evidence is recorded separately. Web is retained and frozen.
 
 Lain is designed to live continuously on a personal server. You can talk to her directly, but she is also able to create, supervise, configure, observe, steer, and summarize long-running worker-agent sessions such as Codex, Claude Code, and DeepSeek Harness.
 
@@ -191,7 +191,7 @@ and save the selected file plus a protected credential-source file as described 
 persona, persistent conversations, typed tools, owner confirmation and recovery.
 `lain --json ask` supports scripting; mutations remain pending until explicitly
 approved. Existing workers run independently of chat/observers. Conversations are
-operational continuity, not semantic memory. Phase 7 has not begun.
+operational continuity, separate from Phase 7.1 selected semantic memory.
 
 Confirmed chat delegation now correlates the exact instruction with a worker
 Turn. The Kernel delivers its actual outcome back to the conversation without
@@ -225,5 +225,15 @@ Native macOS deterministic build/test/CLI smoke is validated. Windows and Linux
 checks must run on their native hosts before acceptance is claimed. Real paid
 Phase 6.6 Actor/Codex inference acceptance is opt-in and unverified. Exact evidence and
 limitations are in [DEVLOG.md](DEVLOG.md).
+
+Phase 7.1 adds independent SQLite memory with inspectable origin, scoped project
+knowledge, explicit owner review for Actor proposals and factual SessionSummaries.
+Use `lain memory add/list/search/show/disable/enable/delete`, `lain memory candidate`
+and `lain summary create/show/list` without a browser or inference. Memory survives
+daemon restart; summaries and transcripts are never automatically promoted.
+See [memory](docs/MEMORY.md) and [CLI commands](docs/CLI.md). Persona stays separate;
+World/journals, reflection, scheduling and prompt compilation remain deferred.
+Native macOS fixtures validate the path; real-provider Phase 7.1 retrieval and
+Windows/Linux acceptance remain unverified.
 
 Before architectural work, read `AGENTS.md` and `ROADMAP.md`.

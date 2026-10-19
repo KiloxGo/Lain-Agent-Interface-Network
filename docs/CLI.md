@@ -304,3 +304,64 @@ These are manual entrypoints, with no paid-model or oversized CI matrix.
 Acceptance status for this change is recorded in DEVLOG.md. Windows and Linux
 are unverified until these checks actually run on those hosts. Real provider
 acceptance is separately opt-in, never inferred from fixture success.
+
+
+## Independent memory and factual summaries (Phase 7.1)
+
+Commands use only the authenticated Kernel API and need no configured LLM:
+
+```text
+lain memory add "Both independent continuity and agent supervision matter" --kind preference --global --request-id <uuid>
+lain memory add "Keep worker intelligence in worker harnesses" --kind project-knowledge --workspace <absolute-server-directory>
+lain memory list --workspace <absolute-server-directory>
+lain memory search "continuity" --global
+lain memory show <memory-id>
+lain memory disable <memory-id> --revision 1
+lain memory enable <memory-id> --revision 2
+lain memory supersede <old-id> --with <active-new-id> --revision 3
+lain memory delete <memory-id> --revision 4
+lain memory candidates --after 0
+lain memory candidate <candidate-id>
+lain summary create <work-session-id> --turn <worker-turn-id>
+lain summary show <summary-id>
+lain summary list <work-session-id>
+lain memory from-summary <summary-id> "Selected observed fact" --workspace <absolute-server-directory> --request-id <uuid>
+lain memory accept <candidate-id>
+lain memory reject <candidate-id>
+lain --json memory list
+```
+
+Memory kinds are `episodic`, `project-knowledge`, `preference`, `reflection`.
+Scope defaults to Global; `--global`, `--internal`, `--workspace` are mutually
+exclusive. Project knowledge requires Workspace; reflection requires Internal.
+Daemon-host paths are sent verbatim by the client, then canonicalized by Kernel.
+PowerShell users should quote paths/text with spaces as usual; native Windows
+verification remains outstanding. No client SQLite access or browser is involved.
+
+List/search defaults to Active; `--status active|disabled|superseded`, `--kind`,
+`--limit` (1–50), `--after` select a bounded deterministic page. Read commands do
+not mutate or invoke a model. JSON uses typed IDs and stable snake_case enums;
+`show` exposes content, provenance, confirmation timestamp, status and revision.
+A returned `next_cursor` continues only when `has_more` is true. Pages may contain
+fewer records than `--limit` to honor their byte bound. Summaries list the latest
+50 for one session; older summaries remain inspectable by ID.
+
+A direct add is the owner's explicit exact statement and immediately commits.
+Supply and retain `--request-id` when retrying creates/summary selections; default
+UUID generation treats each deliberate invocation as a new request. Changed text
+with an existing ID conflicts; retrying an already-deleted create cannot restore
+it. Status changes/delete require the inspected revision to avoid stale edits.
+Delete removes semantic content/index and scrubs matching candidate copies while
+retaining independent conversation/worker/summary audit; it is not secure erasure.
+
+Actor proposals instead wait for their existing exact-action confirmation. Inspect
+with `memory candidate <action-id>` and approve/deny through `lain actor` or chat;
+generic `memory accept/reject` cannot bypass that action. Actor proposals remain
+Inferred after acceptance. `from-summary` creates ProjectKnowledge candidates only
+in that summary's workspace; owner acceptance remains UnverifiedSelection.
+Neither summary creation nor a Completed worker turn proves all commands passed,
+and neither automatically creates memory. See [MEMORY.md](MEMORY.md).
+
+These operations inherit the existing protected local directory/owner-only ACL
+setup and trusted-transport remote boundary. Keep manual `laind` data in a dedicated
+owner-only directory; never use a shared project folder for personal memory.

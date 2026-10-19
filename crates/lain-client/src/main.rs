@@ -3,6 +3,7 @@ mod api;
 mod chat;
 mod chat_notice;
 mod local;
+mod memory;
 mod signals;
 mod tui;
 
@@ -24,6 +25,14 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    Memory {
+        #[command(subcommand)]
+        command: memory::Commands,
+    },
+    Summary {
+        #[command(subcommand)]
+        command: memory::Summaries,
+    },
     Setup {
         #[arg(long, required = true)]
         local: bool,
@@ -255,6 +264,8 @@ async fn run(args: Args) -> Result<()> {
     };
     let json_output = args.json;
     match command {
+        Command::Memory { command } => memory::run(&client, command, json_output).await,
+        Command::Summary { command } => memory::summaries(&client, command, json_output).await,
         Command::Setup { .. }
         | Command::Up { .. }
         | Command::Config { .. }

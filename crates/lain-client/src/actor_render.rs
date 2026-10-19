@@ -187,7 +187,19 @@ impl<W: Write> Renderer<W> {
                 .or_else(|| outcome.get("id"))
                 .and_then(|v| v.as_str())
             {
-                writeln!(self.output, "      Turn: {}", safe_text(id))?;
+                writeln!(
+                    self.output,
+                    "      {}: {}",
+                    if name == "memory.propose" {
+                        "MemoryCandidate"
+                    } else {
+                        "Turn"
+                    },
+                    safe_text(id)
+                )?;
+            }
+            if let Some(id) = outcome.get("memory_id").and_then(|v| v.as_str()) {
+                writeln!(self.output, "      Saved Memory: {}", safe_text(id))?;
             }
             if name == "work.create" && action.state == ActionState::Executed {
                 writeln!(
