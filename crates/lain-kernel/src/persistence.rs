@@ -13,6 +13,7 @@ use crate::{
     worker::WorkerState,
 };
 mod delegation;
+mod memory;
 
 pub(crate) struct Store {
     connection: Connection,
@@ -27,23 +28,45 @@ impl Store {
             "database must be a durable file"
         );
         if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
-            std::fs::create_dir_all(parent).context("create database directory")?;
+            let mut directories = std::fs::DirBuilder::new();
+            directories.recursive(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::DirBuilderExt;
+                directories.mode(0o700);
+            }
+            directories
+                .create(parent)
+                .context("create database directory")?;
         }
         // Canonicalize the file so relative paths and symlinks share an ownership lock.
-        OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-            .context("create database file")?;
+        let mut options = OpenOptions::new();
+        options.create(true).append(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        options.open(path).context("create database file")?;
         let path = path.canonicalize().context("resolve database path")?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+                .context("protect database file")?;
+        }
         let mut lock_path = path.as_os_str().to_owned();
         lock_path.push(".lock");
-        let lock = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .append(true)
-            .open(lock_path)
+        options.read(true);
+        let lock = options
+            .open(&lock_path)
             .context("open database ownership lock")?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&lock_path, std::fs::Permissions::from_mode(0o600))
+                .context("protect database lock")?;
+        }
         lock.try_lock()
             .context("database already owned by another Kernel, or locking unavailable")?;
         let mut connection = Connection::open(path).context("open SQLite")?;
@@ -51,7 +74,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 6,
+            version <= 7,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -116,6 +139,9 @@ impl Store {
         }
         if version < 6 {
             transaction.execute_batch(include_str!("../migrations/006_delegations.sql"))?;
+        }
+        if version < 7 {
+            transaction.execute_batch(include_str!("../migrations/007_memory.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
@@ -603,6 +629,7 @@ impl Store {
             (turn.conversation_id.to_string(), i64::try_from(now_ms()?)?),
         )?;
         Self::settle_delegation_submission(&tx, turn)?;
+        Self::sync_memory_candidates(&tx, turn)?;
         tx.commit()?;
         Ok(())
     }

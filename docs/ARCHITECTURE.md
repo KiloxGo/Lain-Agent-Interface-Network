@@ -1,7 +1,7 @@
 # Architecture
 
 **Status:** normative foundation  
-**Last reviewed:** 2026-10-04
+**Last reviewed:** 2026-10-19
 
 ## 1. Architectural objective
 
@@ -701,3 +701,27 @@ higher-authority instruction. The future Kernel audit must correlate original,
 source references, chosen mode, edits, approval and final worker result without
 exposing unneeded private memory. See
 [Intent-Aware Delegation](INTENT_AWARE_DELEGATION.md).
+
+## Phase 7.1 independent memory service
+
+The existing Kernel owns semantic memory operations under its existing mutex and
+SQLite Store. Migration 007 adds records, literal FTS5 trigram retrieval, request
+idempotency, candidates and explicit factual SessionSummaries. This extends the
+current three-crate structure; there is no parallel persistence layer, external
+vector database, inference scheduler or generic RAG framework.
+
+Actor `memory.search/list/inspect` returns bounded, scoped, provenance-bearing
+untrusted evidence only on explicit tool use. `memory.propose` records a candidate
+with the existing pending Actor mutation; its sole confirmation remains the
+persisted authenticated owner action decision. Direct owner APIs/CLI operate
+without model access. Summary creation reuses the Phase 6.6 bounded normalized
+result-evidence projection without modifying notice delivery or reopening turns.
+Memory and candidate acceptance commit atomically. Uncertain action completion is
+never replayed automatically; accepted candidate receipts remain inspectable.
+
+Lain's continuity and backend supervision remain equally important. Persona is
+separate from learned memory; PrivateWorld, rich journals, background reflection,
+consolidation, additional backends and delegation compilation remain deferred.
+This section supersedes earlier Phase 6 statements that all memory is deferred;
+those describe the historical boundary. See [MEMORY.md](MEMORY.md) and
+[ADR 008](adr/008-independent-owner-reviewed-memory.md).

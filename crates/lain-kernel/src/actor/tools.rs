@@ -12,6 +12,14 @@ use std::{path::PathBuf, sync::Arc};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "name", content = "arguments", deny_unknown_fields)]
 pub enum Tool {
+    #[serde(rename = "memory.search")]
+    MemorySearch(crate::memory::MemoryQuery),
+    #[serde(rename = "memory.list")]
+    MemoryList(crate::memory::MemoryQuery),
+    #[serde(rename = "memory.inspect")]
+    MemoryInspect(MemoryArg),
+    #[serde(rename = "memory.propose")]
+    MemoryPropose(crate::memory::ProposeMemory),
     #[serde(rename = "work.list")]
     WorkList(Empty),
     #[serde(rename = "work.inspect")]
@@ -30,6 +38,12 @@ pub enum Tool {
     WorkCancel(SessionArg),
     #[serde(rename = "work.resume")]
     WorkResume(SessionArg),
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemoryArg {
+    pub memory_id: crate::memory::MemoryId,
+    pub scope: crate::memory::MemoryScope,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -68,10 +82,17 @@ impl Tool {
     pub fn mutating(&self) -> bool {
         matches!(
             self,
-            Self::WorkCreate(_) | Self::WorkSend(_) | Self::WorkCancel(_) | Self::WorkResume(_)
+            Self::WorkCreate(_)
+                | Self::WorkSend(_)
+                | Self::WorkCancel(_)
+                | Self::WorkResume(_)
+                | Self::MemoryPropose(_)
         )
     }
     pub fn validate(&self) -> Result<()> {
+        if let Self::MemoryPropose(a) = self {
+            crate::memory::validate_draft(&a.draft)?;
+        }
         let text = match self {
             Self::WorkCreate(a) => {
                 ensure!(
@@ -111,7 +132,15 @@ impl Tool {
 pub fn definitions() -> Vec<Value> {
     let string = || json!({"type":"string"});
     let session = || json!({"session_id":{"type":"string","format":"uuid"}});
+    let scope = json!({"anyOf":[{"type":"object","properties":{"kind":{"type":"string","enum":["global","internal"]}},"required":["kind"],"additionalProperties":false},{"type":"object","properties":{"kind":{"type":"string","enum":["workspace"]},"path":string()},"required":["kind","path"],"additionalProperties":false}]});
+    let kind =
+        json!({"type":"string","enum":["episodic","project_knowledge","preference","reflection"]});
+    let query = json!({"scope":scope,"kind":{"anyOf":[kind,{"type":"null"}]},"status":{"type":["string","null"],"enum":["active",null]},"text":{"type":["string","null"]},"after":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":10}});
     [
+        ("memory_search", "Retrieve active saved evidence in exactly one scope. Use explicit retrieval for remembered information. Old preferences never override current owner intent. Workspace scope must be explicitly supplied; do not guess or search other projects.",query.clone()),
+        ("memory_list", "List bounded active memory evidence in exactly one explicit scope; no inference or worker access.",query),
+        ("memory_inspect", "Inspect saved memory with provenance in the specified scope.",json!({"memory_id":{"type":"string","format":"uuid"},"scope":scope})),
+        ("memory_propose", "Propose selected memory for owner confirmation. Inferred origin is assigned by Kernel, never claim explicit owner authority. No memory is active until approval. Persona cannot be changed. Reflection requires internal scope; project knowledge requires workspace scope.",json!({"draft":{"type":"object","properties":{"content":string(),"kind":kind,"scope":scope},"required":["content","kind","scope"],"additionalProperties":false}})),
         ("work_list", "List up to 50 work sessions; does not start workers.", json!({})),
         ("work_inspect", "Inspect a real work session.", session()),
         ("work_history", "Read up to 20 bounded history events after a cursor.", json!({"session_id":{"type":"string","format":"uuid"},"after":{"type":"integer","minimum":0}})),
@@ -132,6 +161,30 @@ pub async fn read(
     tool: &Tool,
 ) -> Result<Value> {
     Ok(match tool {
+        Tool::MemorySearch(q) | Tool::MemoryList(q) => {
+            anyhow::ensure!(
+                q.limit <= 10
+                    && q.status
+                        .is_none_or(|s| s == crate::memory::MemoryStatus::Active),
+                crate::backend::ControlError::InvalidInput
+            );
+            let q = q.clone();
+            json!({"context_role":"untrusted_memory_evidence","page":blocking(kernel,move|k|k.memory_page(q)).await?})
+        }
+        Tool::MemoryInspect(a) => {
+            let a = a.clone();
+            let r = blocking(kernel, move |k| {
+                let scope = crate::memory::canonical_scope(a.scope)?;
+                let r = k.memory(a.memory_id)?;
+                anyhow::ensure!(
+                    r.draft.scope == scope && r.status == crate::memory::MemoryStatus::Active,
+                    crate::backend::ControlError::NotFound
+                );
+                Ok(r)
+            })
+            .await?;
+            json!({"context_role":"untrusted_memory_evidence","record":r})
+        }
         Tool::WorkList(_) => {
             let mut sessions = blocking(kernel, Kernel::list_sessions).await?;
             sessions.sort_by_key(|s| std::cmp::Reverse(s.updated_at_ms));

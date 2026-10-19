@@ -245,16 +245,21 @@ It is historical reference only and MUST NOT be treated as architectural precede
 
 The active rewrite should start from the foundation documents in `docs/` and a clean implementation tree. Reuse legacy code only when a current design explicitly calls for it.
 
-## 10. Phase 6 working priorities
+## 10. CLI-first working priorities
 
 Web is retained and frozen. Prioritize shared Rust CLI/Kernel functionality; do
 not add browser Actor chat, redesign Web or require npm for terminal development.
 A small bounded direct Actor conversation/tool adapter is permitted; coding tools
 and generic worker intelligence still belong exclusively to worker harnesses.
-LainConversation, ActorTurn, WorkSession, worker Operational History and future
+LainConversation, ActorTurn, WorkSession, worker Operational History and
 semantic Memory are separate. Every Actor mutation requires an explicit persisted
 owner confirmation through the authenticated Kernel boundary. Never auto-approve
-worker permissions or replay uncertain mutations. Keep Phase 7 deferred.
+worker permissions or replay uncertain mutations. Phase 7.1 Memory was explicitly
+authorized on 2026-10-19: preserve independent scoped/provenance-bearing memory,
+owner-reviewed candidates and factual on-demand summaries. Keep World/journals,
+reflection/consolidation, Scheduler and Delegation Compiler deferred. Phase 6.6
+real-provider and native Windows/Linux gaps remain pending; do not infer new paid
+inference authorization. See docs/MEMORY.md and ADR 008.
 
 Windows PowerShell and macOS zsh are equal native development targets. Keep one
 Rust implementation with narrow genuine OS boundaries for credentials/signals.

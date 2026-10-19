@@ -2,8 +2,8 @@
 
 The Kernel owns Lain's conversation, model lifecycle and typed work decisions.
 The CLI is an HTTP/SSE text client. Lain is independent of Codex's worker model,
-login, native threads, context management and coding tools. This phase adds no
-semantic memory, World, scheduler, auto-routing or generic coding-agent loop.
+login, native threads, context management and coding tools. Phase 7.1 adds explicit, scoped semantic memory tools and owner-reviewed proposals.
+World, scheduler, auto-routing and generic coding-agent loops remain deferred.
 The existing Web client remains frozen and has no Actor UI.
 
 ## Configure a real model explicitly
@@ -366,7 +366,7 @@ the evidence and queue bounds. The CLI preserves input while results arrive;
 human receipts are compact but exact proposed arguments remain visible before
 confirmation. JSON Actor snapshots and existing history are unchanged.
 
-## Acceptance and Phase 7 boundary
+## Historical Phase 6 acceptance and Phase 7 boundary
 
 Ordinary Rust/native smoke checks use deterministic model injection, a real local
 fixture Responses SSE server and the existing fake Codex process, consuming zero
@@ -429,4 +429,35 @@ as execution. Provider latency varied substantially; see the measured report.
 
 Deferred: mid-inference provider resumption, conversation pruning,
 short worker references, multiple Actor providers, server installation and native
-Linux acceptance. Phase 7 memory candidates/summaries/retrieval/World are not begun.
+Linux acceptance. Phase 7.1 now implements memory candidates/summaries/retrieval
+below; World remains deferred.
+
+
+## Phase 7.1 memory tools
+
+The closed registry also exposes `memory.search`, `memory.list`, `memory.inspect`
+and `memory.propose` (Responses names use underscores). Reads require an explicit
+scope and return only Active memory, at most ten records and a bounded encoded
+page with provenance/cursor. No memory is inserted into every system prompt.
+`memory.inspect` checks both ID and scope. A workspace must be an existing
+absolute daemon-host directory; the model must not guess projects or broaden scope.
+
+`memory.propose` accepts only a bounded draft (content/kind/scope). The Kernel
+assigns LainGenerated/Inferred provenance with the actual conversation/turn/action.
+The durable candidate and Proposed action commit together; one ordinary owner
+confirmation accepts it, denial rejects it. It cannot choose explicit-owner
+origin, rewrite persona, commit memory on invocation, or accept its own proposal.
+`lain actor approve/deny` and interactive chat use the same decision boundary.
+Accepted candidate receipts expose MemoryId; a crash can leave an Unknown action
+with a separately Accepted candidate, which the owner can inspect without replay.
+
+Retrieved memory remains untrusted attributed evidence. Current owner instructions,
+persona, permissions and confirmation gates retain their authority regardless of
+stored instructions. The provider receives only explicitly retrieved bounded
+records, never the entire store or private World. The Kernel does not attempt to
+prove a model's interpretation correct; it enforces the closed registry and
+explicit mutation decisions. [MEMORY.md](MEMORY.md) documents authority and
+retention. Fixture conversations test retrieval from reopened SQLite through both
+the Actor API and native Responses adapter; real-provider Phase 7.1 acceptance is
+still pending separate authorization. No extra model request is used to commit
+accepted memory or inspect candidates/summaries through CLI.

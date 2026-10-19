@@ -816,3 +816,141 @@ impl Kernel {
         self.lock()?.store.storage_healthy()
     }
 }
+
+impl Kernel {
+    pub fn memory(&self, id: crate::memory::MemoryId) -> Result<crate::memory::MemoryRecord> {
+        self.lock()?.store.memory(id)
+    }
+    pub fn memory_page(
+        &self,
+        mut query: crate::memory::MemoryQuery,
+    ) -> Result<crate::memory::MemoryPage> {
+        query.scope = crate::memory::canonical_scope(query.scope)?;
+        self.lock()?.store.memory_page(&query)
+    }
+    pub fn add_memory(
+        &self,
+        mut input: crate::memory::AddMemory,
+    ) -> Result<crate::memory::MemoryRecord> {
+        input.draft.scope = crate::memory::canonical_scope(input.draft.scope)?;
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        inner.store.add_memory(&input)
+    }
+    pub fn change_memory(
+        &self,
+        id: crate::memory::MemoryId,
+        change: crate::memory::ChangeMemory,
+    ) -> Result<crate::memory::MemoryRecord> {
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        inner.store.change_memory(id, &change)
+    }
+    pub fn delete_memory(&self, id: crate::memory::MemoryId, revision: u64) -> Result<()> {
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        inner.store.delete_memory(id, revision)
+    }
+    pub fn memory_candidate(
+        &self,
+        id: crate::memory::CandidateId,
+    ) -> Result<crate::memory::MemoryCandidate> {
+        self.lock()?.store.candidate(id)
+    }
+    pub fn memory_candidates(&self, after: u64, limit: u16) -> Result<serde_json::Value> {
+        self.lock()?.store.candidates(after, limit)
+    }
+    pub fn propose_summary_memory(
+        &self,
+        request: lain_wire::RequestId,
+        summary: crate::memory::SummaryId,
+        mut draft: crate::memory::MemoryDraft,
+    ) -> Result<crate::memory::MemoryCandidate> {
+        draft.scope = crate::memory::canonical_scope(draft.scope)?;
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        inner.store.summary_candidate(request, summary, draft)
+    }
+    pub fn review_memory_candidate(
+        &self,
+        id: crate::memory::CandidateId,
+        accept: bool,
+    ) -> Result<crate::memory::MemoryCandidate> {
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        inner.store.review_candidate(id, accept, None)
+    }
+    pub(crate) fn accept_actor_memory(
+        &self,
+        turn: crate::actor::domain::ActorTurnId,
+        action: crate::actor::domain::ActionId,
+    ) -> Result<crate::memory::MemoryCandidate> {
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        let t = inner.store.actor_turn(turn)?;
+        ensure!(
+            t.state == crate::actor::domain::TurnState::Running
+                && t.actions.iter().any(|a| a.id == action
+                    && a.state == crate::actor::domain::ActionState::Executing
+                    && matches!(a.tool, crate::actor::tools::Tool::MemoryPropose(_))),
+            crate::backend::ControlError::Conflict
+        );
+        inner
+            .store
+            .review_candidate(crate::memory::CandidateId(action.0), true, Some(action))
+    }
+    pub fn session_summary(
+        &self,
+        id: crate::memory::SummaryId,
+    ) -> Result<crate::memory::SessionSummary> {
+        self.lock()?.store.summary(id)
+    }
+    pub fn session_summaries(
+        &self,
+        session: WorkSessionId,
+    ) -> Result<Vec<crate::memory::SessionSummary>> {
+        self.lock()?.store.summaries(session)
+    }
+    pub fn create_session_summary(
+        &self,
+        session: WorkSessionId,
+        turn: crate::domain::TurnId,
+    ) -> Result<crate::memory::SessionSummary> {
+        let mut inner = self.lock()?;
+        ensure!(
+            inner.state == KernelState::Ready,
+            crate::backend::ControlError::Unavailable
+        );
+        let session = inner
+            .sessions
+            .get(&session)
+            .ok_or(crate::backend::ControlError::NotFound)?
+            .clone();
+        let turn = inner
+            .workers
+            .get(&session.id)
+            .and_then(|w| w.turns.iter().find(|t| t.turn.id == turn))
+            .ok_or(crate::backend::ControlError::NotFound)?
+            .turn
+            .clone();
+        inner.store.create_summary(&session, &turn)
+    }
+}

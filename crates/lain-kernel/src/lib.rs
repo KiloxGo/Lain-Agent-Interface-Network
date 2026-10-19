@@ -6,6 +6,7 @@ pub mod delegation;
 pub mod domain;
 pub mod events;
 pub mod kernel;
+pub mod memory;
 mod persistence;
 pub mod profiles;
 mod redaction;

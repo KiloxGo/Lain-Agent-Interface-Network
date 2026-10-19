@@ -126,9 +126,10 @@ impl Store {
         if already_projected {
             return Ok(());
         }
-        let evidence = Self::delegation_evidence(
+        let evidence = Self::result_evidence(
             tx,
-            &link,
+            link.work_session_id,
+            link.worker_turn_id.context("missing delegated turn")?,
             event.history_order.context("uncommitted terminal event")?,
         )?;
         let notice = ConversationNotice {
@@ -148,21 +149,16 @@ impl Store {
         Self::insert_notice(tx, &key, &notice)
     }
 
-    fn delegation_evidence(
+    pub(super) fn result_evidence(
         tx: &Transaction<'_>,
-        link: &Delegation,
+        session: crate::domain::WorkSessionId,
+        turn: crate::domain::TurnId,
         until: u64,
     ) -> Result<ResultEvidence> {
         let mut result = ResultEvidence::default();
         let mut query = tx.prepare("SELECT payload FROM operational_history WHERE session_id = ?1 AND turn_id = ?2 AND sequence <= ?3 ORDER BY sequence")?;
         let rows = query.query_map(
-            params![
-                link.work_session_id.to_string(),
-                link.worker_turn_id
-                    .context("missing delegated turn")?
-                    .to_string(),
-                i64::try_from(until)?
-            ],
+            params![session.to_string(), turn.to_string(), i64::try_from(until)?],
             |r| r.get::<_, String>(0),
         )?;
         for row in rows {

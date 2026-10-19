@@ -1,7 +1,7 @@
 # Runtime Model
 
 **Status:** normative foundation  
-**Last reviewed:** 2026-10-04
+**Last reviewed:** 2026-10-19
 
 ## 1. Goal
 
@@ -502,3 +502,15 @@ revisions; credentials are not hashed. Changes apply on the next explicit owned
 foreground stop/start, preserving database and IDs. No reload or guessed-PID
 process termination is introduced. Windows and macOS native
 acceptance are separate obligations. See [CLI.md](CLI.md) and [LAIN_ACTOR.md](LAIN_ACTOR.md).
+
+
+## Phase 7.1 on-demand memory
+
+Kernel startup migrates independent memory alongside existing operational state,
+without model calls or summary extraction. Direct owner memory/summary APIs are
+quota-free and use the existing storage lock. Actor retrieval is explicit and
+bounded within an ordinary owner-triggered turn. Model proposals reuse persisted
+owner confirmation; restart never accepts candidates or retries uncertain memory
+mutations. Pending proposals and committed memory survive independently of a
+provider connection. No scheduler, reflection, background summarizer or autonomous
+extraction is started. See [MEMORY.md](MEMORY.md).

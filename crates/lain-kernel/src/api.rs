@@ -1,3 +1,5 @@
+mod memory;
+
 use std::{convert::Infallible, future::Future, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
@@ -67,6 +69,7 @@ pub fn actor_router(
     actor: Arc<crate::actor::Actor>,
 ) -> Router {
     Router::new()
+        .merge(memory::routes())
         .route(
             "/health",
             get(|| async { Json(serde_json::json!({"status": "ok", "service":"lain-kernel", "version":env!("CARGO_PKG_VERSION")})) }),
