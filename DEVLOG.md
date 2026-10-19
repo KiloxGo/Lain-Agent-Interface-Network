@@ -1290,3 +1290,23 @@ provider/budget authorization. Phase 6.6 real-provider delivery also remains
 pending. Deterministic implementation completion does not imply final cross-platform
 or real-provider acceptance. Ordinary reviewable commits are used; no atmospheric
 milestone/Phase 7.2/Phase 8 completion is claimed.
+
+
+Phase 7.1 real-provider follow-up (separately owner-authorized): one Actor turn,
+maximum four model requests, current `mimo-v2.6-flash` provider, non-secret Global
+preference in a task-owned temporary database/daemon, with no Codex work or changes
+to the owner's existing instance/database. Direct creation and exact record equality
+after a native test-daemon restart passed. The Actor CLI returned nonzero; this
+is **not** a successful real retrieval acceptance. The temporary wrapper wrongly
+raised before retaining the CLI failed-turn snapshot. Its generic RuntimeError
+alone cannot establish the actual model-request count, terminal state or tool
+receipts. The test daemon stopped, temporary database was removed, and no second
+real attempt was automatically made. Provider-specific cause remains unknown.
+
+Safe private evidence is `acceptance/phase-7-1-memory-2026-10-19-7748512f.json` under
+the per-user Lain directory, with model/scope/limits, successful persistence checks,
+MemoryId/content digest and generic failure only. The wrapper was fixed and tested
+without inference to retain structured failed-turn snapshots/counters even on a
+nonzero CLI exit. A further real turn requires additional authorization because
+unused allowance from the first run cannot be proven. The 96-test native macOS
+deterministic result remains valid; only this temporary acceptance script changed.

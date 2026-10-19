@@ -325,13 +325,14 @@ Implementation is distinct from pending real-provider/native platform acceptance
 - [x] API-only CLI commands and stable typed machine JSON; Web stays frozen
 - [x] deterministic scope/Unicode/privacy/injection/restart/approval/evidence/migration regressions
 - [x] native macOS locked build/fmt/Clippy/tests (96 passed, 3 opt-in ignored) and CLI/PTY fixtures
-- [ ] separately authorized real-provider Actor retrieval of previously persisted memory (not run)
+- [ ] real-provider Actor retrieval of previously persisted memory (one authorized attempt did not pass; see acceptance record)
 - [ ] native Windows/ConPTY acceptance (host unavailable; unverified)
 - [ ] native Linux server acceptance (host unavailable; unverified)
 
 Real-provider Phase 6.6 result delivery and earlier native Windows/Linux obligations
-remain pending; Phase 7.1 fixture results do not upgrade them. No new paid inference,
-actual Codex work or installed owner daemon/database changes were authorized here.
+remain pending; Phase 7.1 fixture results do not upgrade them. One separately
+authorized real-provider attempt did not pass; further inference requires a new
+allowance. No actual Codex work or installed owner daemon/database change was made.
 See [MEMORY.md](docs/MEMORY.md), [acceptance](docs/PHASE_7_1_ACCEPTANCE.md) and
 [ADR 008](docs/adr/008-independent-owner-reviewed-memory.md).
 

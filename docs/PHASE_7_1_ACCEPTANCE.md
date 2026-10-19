@@ -1,8 +1,9 @@
 # Phase 7.1 acceptance: independent memory and project knowledge
 
 Date: 2026-10-19. Baseline: fetched `origin/main` `17a676d`.
-Implementation and native macOS deterministic validation are available. No paid
-provider call or actual Codex work was run. Real-provider Phase 7.1 retrieval,
+Implementation and native macOS deterministic validation are available. An
+owner-authorized real-provider attempt is recorded below and did not pass. No
+actual Codex work was run. Real-provider Phase 7.1 retrieval,
 Phase 6.6 real-provider delivery and native Windows/Linux acceptance remain pending.
 Historical Phase 6.5 real evidence is unchanged.
 
@@ -47,7 +48,8 @@ Exact executed counts/results are in [DEVLOG](../DEVLOG.md).
 ## Remaining acceptance and deferrals
 
 A real-provider conversation retrieving an earlier persisted memory has **not**
-been validated. That definition-of-done item remains open. A future opt-in check
+been validated. That definition-of-done item remains open; the authorized failed
+attempt below does not close it. A future opt-in check
 must separately authorize the Actor provider/model/budget, exact selected non-secret
 memory and scope, and any changes to the owner's installed daemon/database.
 A sufficient bounded probe would explicitly store one owner-provided non-secret
@@ -66,3 +68,31 @@ agent-to-agent memory sharing and the Delegation Compiler remain deferred.
 Suggested Phase 7.2 is a small inspectable World/notes foundation with explicit
 memory/summary links, requiring separate owner scope. Do not begin Phase 7.2 or
 Phase 8 automatically. See [MEMORY.md](MEMORY.md) and [ADR 008](adr/008-independent-owner-reviewed-memory.md).
+
+
+## Authorized real-provider attempt — 2026-10-19
+
+The owner separately authorized one Actor turn, at most four model requests,
+using the current provider with a task-owned temporary database/daemon. The exact
+non-secret Global preference was “Lain 的独立记忆与 Agent 管理能力同等重要”. The
+selected model was `mimo-v2.6-flash` with the existing Responses driver. Actual
+owner daemon/config/database and Codex work were outside the authorized scope
+and remained unchanged.
+
+Memory creation and exact record equality after a native test-daemon restart
+passed. The subsequent `lain --json ask` returned a nonzero status, so retrieval
+was **not accepted**. The temporary acceptance wrapper incorrectly discarded the
+CLI's failed-turn snapshot before preserving its state/counters/tool receipts.
+Only a generic wrapper RuntimeError was retained; actual model-request count and
+retrieval evidence are therefore **unverified**, rather than fabricated from the
+maximum budget. The test process stopped, and the temporary database was removed.
+No automatic second real attempt was made. Provider-specific cause is unknown.
+
+Private safe evidence: `acceptance/phase-7-1-memory-2026-10-19-7748512f.json` under
+the per-user Lain directory. MemoryId:
+`8029678f-677f-43eb-a3c2-6f4506a16ca6`. Evidence contains safe metadata and content
+digest, not raw provider frames, replies or credentials. The wrapper was corrected
+to retain valid failed Actor snapshots and their request counters, with a quota-free
+deterministic check for nonzero-CLI/valid-snapshot, missing-snapshot and normal JSON
+cases. Because unused budget cannot be established, another real attempt requires
+an additional explicit allowance rather than assuming the first allowance remains.
