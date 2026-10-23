@@ -1,7 +1,53 @@
 # Domain Model
 
-**Status:** normative foundation  
-**Last reviewed:** 2026-10-19
+**Status:** proposed resident-domain extensions plus existing concrete domain contracts
+
+**Last reviewed:** 2026-10-23
+
+## Current direction and vocabulary
+
+The user and Lain interact as equals. User, account identity and authorizer are
+technical concepts, not a master/servant relationship. Historical owner wording
+must not become persona language. See [PRODUCT.md](PRODUCT.md) and
+[ADR 009](adr/009-cloud-resident-equal-companion.md).
+
+The following are **proposed concepts**, not implemented types or migration names:
+
+| Concept | Meaning | Distinct from |
+| --- | --- | --- |
+| UserIdentity / ChannelBinding | Verified link from one person to channel accounts | Nickname matching or a role in persona |
+| SourceRecord | Authorized social/visible Worker record with source/time/gaps | Selected Memory or an instruction |
+| SourceAsset | Attachment with origin and retention rules | Unbounded copy of the local filesystem |
+| Experience | Evidence of something Lain actually read/did/observed | Imported work falsely claimed as participation |
+| AttentionItem | A bounded unresolved concern or potential share | A standing authorization or guaranteed task |
+| Activity | A reasoned reading/organizing/sharing job with budget/outcome | Worker Turn or generic agent planning loop |
+| StandingGrant | Revocable authorization over sources/actions/targets/resources | Model assertion that permission exists |
+| DeliveryIntent | A selected outgoing message with expiry and receipt | ConversationNotice display acknowledgement |
+| Device | Paired execution/observation endpoint and native capabilities | An independent Lain identity |
+| ExternalSessionArchive | Readable native history with source and completeness | Automatically controllable WorkSession |
+| WorkRequest | User goal and agreed follow-up boundary | A single session or one provider Turn |
+| Skill / TemplateRevision | Reusable method/resource and applicable version | Every remembered preference |
+
+Current Conversation, ActorTurn, WorkSession, Turn, Approval, ConversationNotice,
+MemoryCandidate and SessionSummary remain separate and retain existing meanings.
+Do not rename or change their wire/schema contracts just because these target
+concepts are described. Implementation may use fewer types if distinctions remain explicit.
+
+### Cross-source identity and evidence
+
+Source events need stable identities scoped by connector/account/session; platform
+message IDs cannot be assumed globally unique. Occurrence time, receipt time and
+source order are distinct. Observation of an external session does not create
+control rights or prove current runtime status.
+
+Current MemoryProvenance and user confirmation fields describe actual Phase 7.1
+semantics. Future autonomous writes require a source/grant distinction and a real
+migration, not fake confirmation timestamps. Temporary impressions retain evidence,
+validity and uncertainty; correction must affect retrieval and derived records.
+
+See [RESIDENT_DESIGN.md](RESIDENT_DESIGN.md) for lifecycles and ownership.
+
+## Historical model and concrete implemented semantics
 
 ## 1. Purpose
 

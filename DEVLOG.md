@@ -1333,3 +1333,50 @@ conversation has not passed. Native Windows/Linux and Phase 6.6 real-provider
 acceptance also remain pending. Do not advance phases or use a milestone completion
 commit to conceal these gaps. Further provider/tool-call diagnosis should be based
 on safe evidence and any new paid probe requires its own concrete authorization.
+
+## 2026-10-23 — QQ-first cloud residency and equal companionship: documentation
+
+The user revisited the product boundary in detail and explicitly prioritized
+daily QQ companionship. Lain should have one cloud identity with shared memory
+and real experiences, interact as an equal, read selected social sources,
+autonomously remember and privately share within agreed limits, and connect
+local PCs for Worker execution and history. The user rejected master/servant
+framing. Worker archives should include independently created sessions; archive
+access does not itself authorize control. Faithful reuse of successful report
+methods and bounded follow-up supervision remain product directions, with exact
+interaction and resource defaults unresolved.
+
+Rewrote PRODUCT.md as the detailed Chinese product contract, explicitly separating
+confirmed decisions, provisional directions, proposals, current implementation and
+open questions. Added RESIDENT_DESIGN.md and CHAT_DESIGN.md for cloud/device state
+ownership, dual-account QQ, scoped authorization, provenance, correction, outgoing
+delivery uncertainty, conversational timing and acceptance scenarios.
+MAIBOT_REFERENCE.md records the user-selected upstream reference, observed
+documentation/source mechanisms, Lain-specific adaptations and unverified limits.
+The research read public main/online pages without a pinned SHA; no upstream
+runtime or paid model evaluation was performed.
+
+ADR 009 records the replacement of CLI-first ordering and universal per-item
+confirmation as future product policy. ADRs 004/008 retain their historical and
+current-code meanings with explicit supersession notices. Updated README,
+AGENTS, ROADMAP, architecture/domain/runtime/memory and related operating/design
+guides so future development sees the new direction before older phase plans.
+The roadmap proposes Q1–Q3 for QQ interaction, selected observations/continuity
+and bounded daily activity, followed by connected devices and terminal work.
+The stages are proposals, not implementation completion or automatic authority.
+
+This task changes documentation only. No Rust, frontend, SQL migration, compiled
+persona, runtime configuration, installed binary or user database changed.
+Existing per-action confirmation and Phase 7.1 candidate review still apply in
+code until a separately scoped grant model and migration replace them. The
+compiled persona's historical owner language is explicitly recorded as pending
+behavioral work. No QQ account login, real chat collection, external messages,
+production deployment or new paid inference occurred. Native Windows/Linux and
+Phase 6.6/7.1 real-provider gaps remain open.
+
+Validation: checked all 21 changed/new Markdown documents, 124 relative file
+links and balanced code fences; no broken relative file links or fence imbalance
+were found. `git diff --check` passed after whitespace normalization. Reviewed
+status/supersession wording and confirmed no runtime/configuration/source or
+acceptance-record files changed. Rust/frontend tests were not run because this
+change is documentation-only.

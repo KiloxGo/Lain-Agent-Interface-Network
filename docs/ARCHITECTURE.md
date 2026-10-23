@@ -1,7 +1,67 @@
 # Architecture
 
-**Status:** normative foundation  
-**Last reviewed:** 2026-10-19
+**Status:** revised target architecture plus historical/local implementation contracts
+
+**Last reviewed:** 2026-10-23
+
+## Current target: cloud identity and device execution
+
+[PRODUCT.md](PRODUCT.md) and [ADR 009](adr/009-cloud-resident-equal-companion.md)
+define the current direction. Detailed target boundaries are in
+[RESIDENT_DESIGN.md](RESIDENT_DESIGN.md) and [CHAT_DESIGN.md](CHAT_DESIGN.md).
+These components are responsibilities, not a requirement to introduce a crate,
+microservice or generic plugin framework for each one.
+
+```text
+selected QQ sources -> read-only observer -> scoped source archive
+                                                   |
+user <-> Lain QQ <-> cloud Kernel / one identity <---+
+                            |
+       conversations / experiences / memories / grants / activities
+                            |
+              authenticated paired-device boundary
+                   /                      \
+        local terminal + executor    other paired device
+        worker supervision/archive   capabilities and evidence
+```
+
+The cloud Kernel is authoritative for identity and shared continuity. A device
+owns its processes and produces execution evidence; the cloud preserves their
+origin and represents uncertainty while disconnected. No local persona database
+is merged by last-writer-wins file copying. Separate conversational contexts can
+operate concurrently without becoming separate identities.
+
+Target responsibilities extending the existing Kernel:
+
+| Boundary | Responsibility | Must not imply |
+| --- | --- | --- |
+| Channel adapters | Account identity, source events, bounded outbound actions | Generic model access to every NapCat API |
+| Source archive | Authorized raw/visible records, assets, provenance and gaps | All records have been read or verified |
+| Continuity services | Correctable memory, real experiences and ongoing attention | Entire-store prompt injection or persona forks |
+| Authorization | Standing grants, selected sources, targets, limits and revocation | Model-created permission or automatic worker approval |
+| Activity coordination | Event/timer work, budgets, private sharing and delivery receipts | Continuous inference or a second coding harness |
+| Device boundary | Pairing, capability discovery, command receipts and resync | Public exposure of the existing local API |
+| Worker archives/control | Distinct observation and control capabilities | Reading a native transcript grants control |
+
+Model context can combine recent conversation, limited relevant experiences and
+on-demand retrieval. Every retrieval/disclosure path uses the same permission
+boundary. Standing grants will replace the universal per-item target rule only
+through implemented validation and explicit schema migration.
+
+### Current implementation is still local
+
+The three Rust crates remain lain-kernel, lain-client and lain-wire. Current laind
+uses loopback bearer-authenticated HTTP/SSE, SQLite and same-host Codex supervision.
+The client can connect to an API but is not a remote PC execution agent. Phase 7.1
+memory is explicit/scoped/reviewed; there is no QQ adapter, device pairing,
+autonomous experience service or new standing-grant policy in code.
+
+Existing transaction, recovery, redaction, provider-isolation and uncertainty
+contracts below remain implementation requirements. The older single-host diagram,
+CLI-first sequencing and blanket World/scheduling deferrals below are historical
+where they conflict with ADR 009. Source ownership is technical, not relationship hierarchy.
+
+## Historical foundation and implemented contracts
 
 ## 1. Architectural objective
 

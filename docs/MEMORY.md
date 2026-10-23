@@ -1,7 +1,55 @@
 # Lain Memory
 
-**Status:** normative foundation  
-**Last reviewed:** 2026-10-19
+**Status:** revised memory target plus Phase 7.1 implemented contract
+
+**Last reviewed:** 2026-10-23
+
+## Current target — natural, scoped and correctable memory
+
+[PRODUCT.md](PRODUCT.md) and [ADR 009](adr/009-cloud-resident-equal-companion.md)
+change the target from mandatory review of every model selection to autonomous
+remembering under scoped standing authorization. Current Phase 7.1 candidate
+review remains enforced until a new policy and migration are implemented.
+
+The user and Lain are equals. Relationship knowledge records shared experience
+and evolving understanding, not a master/servant hierarchy or unquestionable
+psychological labels. A temporary impression may guide gentle interaction while
+retaining uncertainty; user correction must change subsequent behavior.
+
+### Storage layers and provenance
+
+Authorized social records and visible Worker transcripts, including external
+sessions, may be archived. Archives are not semantic memory; access does not mean
+Lain read them or participated in the work. Summaries, factual evidence, experiences,
+selected memory, temporary attention and reusable templates have independent roles.
+
+Future automatic writes must record their source and authorization basis without
+claiming an individual user confirmation. Existing Explicit/Inferred/
+UnverifiedSelection records and their confirmation fields retain their real meaning.
+The source/authority distinction survives acceptance, correction and summarization.
+
+### Retrieval, correction and lifecycle
+
+Target both small contextual recall and deliberate source lookup. Every path
+respects scope/disclosure policy, including cross-channel recall. One shared
+identity does not permit private material to be disclosed to arbitrary contacts.
+Whole-store prompt injection, mandatory vector databases and global fuzzy merging
+are not product requirements.
+
+Corrections should identify affected records and invalidate or update derived
+summaries, profiles and caches. Ambiguous bulk changes require clarification;
+clear corrections can use standing authorization. Removal of semantic memory,
+source archive, attachments and backups are distinct operations with explicit
+retention choices. Do not claim secure erasure or allow re-import to silently
+resurrect intentionally deleted content.
+
+Minimal real experiences and bounded autonomous activities now belong to the
+QQ-first plan; historical blanket deferrals below do not block their scoped
+design. No scheduler, autonomous extraction, richer World or embedding engine
+has been added by this documentation change. Detailed proposal:
+[RESIDENT_DESIGN.md](RESIDENT_DESIGN.md), [CHAT_DESIGN.md](CHAT_DESIGN.md).
+
+## Earlier foundation and Phase 7.1 behavior
 
 ## 1. Purpose
 

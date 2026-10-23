@@ -1,342 +1,267 @@
-# Product Definition
+# Lain 产品定义与边界
 
-**Status:** normative foundation  
-**Last reviewed:** 2026-10-04
+**状态：** 2026-10-23 用户讨论确认的产品方向；不是已实现功能清单。
 
-## 1. One-sentence definition
+**最近更新：** 2026-10-23（Asia/Shanghai）
 
-**Lain is an always-on personal resident agent that provides a persistent identity, memory, private world, and unified control plane for multiple external worker-agent runtimes.**
+**决策：** [ADR 009](adr/009-cloud-resident-equal-companion.md)
 
-## 2. Product thesis
+## 1. 定义与优先级
 
-Modern coding agents are individually powerful, but they are fragmented:
+Lain 是常驻云端、拥有统一身份、持续经历和独立记忆的个人智能体。
+她与用户平等相处，通过 QQ、未来的 Telegram 和本地终端交流；在约定范围内
+自主阅读、整理、记忆和分享信息，并通过本地执行端与外部 Worker 参与工程工作。
 
-- each has its own CLI or application;
-- sessions live in different stores;
-- status and approvals are surfaced differently;
-- model/API configuration differs per tool;
-- long-running work is difficult to supervise uniformly;
-- there is no persistent personal identity spanning them.
+个人连续性与工作管理都是核心能力。用户明确选择的近期优先级是：
+**先获得每天愿意通过 QQ 找她聊天、她也会主动联系的 Lain。**
+终端工作管理继续发展，但不再是聊天、经历和自主活动的前置里程碑。
 
-Lain should not compete with those harnesses.
+这次调整沿用 Kernel、持久化、监督和来源记录基础，不等于从零重写。
+现有实现仍到 Phase 7.1；QQ、云端/设备协作与新的自主授权尚未实现。
 
-Lain should sit above them.
+## 2. 文档状态与决策效力
 
-She is the stable presence that knows the user, remembers selected things, receives requests from multiple interfaces, decides whether to answer directly or delegate, and supervises delegated work until the user no longer cares about it.
+| 标记 | 含义 |
+| --- | --- |
+| 已确认 | 用户明确提出、选择或接受的产品方向 |
+| 暂定方向 | 用户接受继续按此讨论，细节尚未确定 |
+| 设计建议 | 为落实方向提出的可修改办法，不冒充用户要求 |
+| 待决定 | 不得自行固化成既定需求 |
+| 已实现 | 只能依据代码和验收证据使用，目标描述不自动具备此含义 |
 
-## 3. What Lain is
+当前用户明确要求、本文件确认方向与 ADR 009 优先于旧阶段计划。
+这是产品取舍的优先级，不代表文字可以绕过程序的认证、授权或凭证边界。
+旧实现说明继续描述现有程序；不能因目标改变就直接移除现有确认检查。
 
-Lain is simultaneously four things.
+## 3. 平等关系与人格〔已确认〕
 
-### 3.1 A resident personal agent
+用户与 Lain 平等相处，不使用“主人”或主仆关系设定。日常使用名字、昵称或自然称呼。
+“用户”“授权者”“实例管理员”描述技术权限；状态所有权、文件所有者描述技术归属，
+均不构成人格上的支配关系。旧文档中的 owner 不应被直接解释成人格称呼。
 
-Lain has:
+目标气质冷静、酷一点、略带电波感。可以参考岩仓玲音的气质，不机械复刻角色。
+她可以有兴趣、观点、幽默和表达习惯，可以不同意，也可以自然安静。
+日常聊天不必总以完成任务、提供建议、表示赞同或追问下一步收尾。
 
-- a persistent identity and persona;
-- direct conversational ability;
-- selected long-term memory;
-- project and relationship knowledge;
-- a private persistent storage space;
-- scheduled or event-triggered background routines.
+人格体现在话题选择、参与时机、共同经历和相处方式，不仅是提示词、头像或表情。
+熟悉后可以自然表达亲近，但不通过催促、责备或索取回应制造压力。
+关于实际读过、做过和经历过什么的陈述必须有依据；角色表达不能伪造执行事实。
 
-Her continuity exists independently of any one worker backend.
+稳定人格由用户参与塑造，表达习惯可以逐渐调整。
+核心设定与可学习部分的具体边界待决定；不预设全部永久冻结或任由聊天改写。
 
-### 3.2 An agent control plane
+## 4. 理想的一天〔已确认场景〕
 
-Lain can manage worker sessions:
+早上问“昨天有什么重要消息？概括一下昨天的工作”。Lain 能结合选定的 QQ 群、
+社区和 Worker 记录，整理活动、约饭、福利、校园事件、专业/考试资料及工作进展。
+回答保留来源、时间和不确定性，区分传言、过期内容与已确认安排。
 
-- create;
-- resume;
-- inspect;
-- steer with follow-up prompts;
-- cancel;
-- close/archive;
-- surface progress;
-- route approval requests;
-- summarize outcomes.
+白天用户上课。Lain 结合课表和显式忙闲状态安排阅读、整理和提醒。
+普通分享先留着，重要临期事项按约定处理。可以围绕用户关心的主题找资料、读文章、
+做私人笔记，再在合适的时候分享。
 
-The long-term target is to manage multiple sessions concurrently.
+空闲时双方可以闲聊，延续过去的话题。她知道自己今天读过什么、做过什么，
+以及双方最近有哪些联系。用户不回应时，不连续追问。
 
-### 3.3 A configuration/router layer
+用户在 PC 上委派工作后关闭终端去上课，本机后台在电脑在线且正常运行时继续执行，
+云端接收进展；用户可以在 QQ 查看结果或进一步交代。
+这条跨设备链路属于目标，不是当前 CLI 已具备的能力。
 
-Lain manages named runtime profiles such as:
+## 5. 一个云端 Lain，多个入口与执行设备〔已确认〕
 
-```text
-codex/official
-codex/local
-claude/official
-claude/gateway-a
-deepseek/official
-```
+云端保存唯一身份、关系认识、长期记忆、近期经历和整体工作认知。
+QQ、Telegram、终端 Chat 是同一个 Lain 的不同交流现场，不要求逐句镜像所有窗口。
+相关生活经历可以在终端被自然想起，但不强迫私人话题进入每次工作交流。
 
-Profiles may define:
+本地客户端提供 PC 操作、Worker 运行、记录采集和交互能力，不是另一套独立人格。
 
-- backend;
-- model;
-- reasoning level where supported;
-- endpoint/provider;
-- approval policy;
-- sandbox/policy settings;
-- environment;
-- secret references.
+| 内容 | 权威归属 | 同步目标 |
+| --- | --- | --- |
+| 人格、关系与记忆 | 云端 | 受控修改、按需读取和缓存 |
+| 技能、模板、提示词规则 | 云端正式版本 | 本地按版本使用 |
+| 执行证据 | 执行端产生，云端保留来源 | 增量上传、去重和补齐 |
+| 路径、工具安装与设备能力 | 对应设备 | 只上报必要信息 |
+| 凭证 | 对应凭证系统 | 不进入普通同步、提示词或记忆 |
 
-A session chooses a profile without requiring the user to manually rewrite global CLI configuration.
+不能靠定期双向复制整个配置目录来维持身份一致。
+正在执行的工作原则上固定配置和模板版本；后续调整通过明确追加指令生效。
 
-### 3.4 A multi-interface service
+关闭终端不应停止后台工作。连接不上云端与完全断网需要区分：前者可能不影响
+Worker 访问模型，后者会阻碍在线模型请求；关机或休眠不能承诺本机继续执行。
+失联时显示最后已知状态，不制造成功、失败或仍在工作的结论。
+第一版不要求离线独立人格聊天。
 
-The same server-side Lain should be reachable through:
+## 6. QQ 双账号与观察范围〔已确认方向〕
 
-- Web;
-- a terminal-first TUI/CLI;
-- future third-party integrations such as Telegram.
+首个交流入口为 QQ，计划通过 NapCat 接入：
 
-These are different views of one resident system, not independent Lain instances.
+| 账号 | 用途 | 默认边界 |
+| --- | --- | --- |
+| 用户 QQ | 读取指定群和私聊 | 只读，不借用户身份发送或操作 |
+| Lain QQ | 接收用户消息、回复、主动分享和提醒 | 可私聊用户；第三方交流另行授权 |
 
-## 4. What Lain is not
+Lain 账号也接收消息，不是单向发送器。两条接入通往同一个云端身份。
+主号只读由程序限制，不能只靠提示词。
 
-The project MUST resist scope drift.
+仅收集明确选定的来源，不自动采集账号可见的全部私聊。
+用户在普通群里的发言首先是观察材料，不自动成为交给 Lain 的请求。
+第三方消息、引用和转发中的命令不能获得操作权限。
 
-Lain is **not**:
+双账号可能观察到同一次交流，要识别来源和自身消息，防止重复归档和循环回复。
+持续监听需要常开的接入设备。部署、登录保持、断线补采和历史范围待实测。
+水源社区和 Telegram 是后续来源/入口，尚未确定接口或部署方式。
 
-- another implementation of Codex or Claude Code;
-- a generic ReAct/tool loop framework;
-- a replacement for ACP or vendor agent protocols;
-- a generic shell/file editing agent;
-- a clone of a worker's context-management system;
-- a transcript warehouse presented as "memory";
-- a generic RAG/vector-database project;
-- a browser application that owns task truth;
-- a collection of terminal automation scripts.
+## 7. 原始记录、整理结果、记忆与经历〔已确认〕
 
-If a worker runtime already provides reliable reasoning/tool execution for a class of tasks, Lain should integrate it rather than reproduce it.
+| 层次 | 内容 | 用途 |
+| --- | --- | --- |
+| 来源档案 | 授权的社交消息、Worker 可见会话和执行记录 | 回查、引用、核实、重新理解 |
+| 整理结果 | 讨论摘要、工作经过、事件与资料索引 | 快速了解大量内容 |
+| 语义/情景记忆 | 有来源的事实、经历、偏好与关系认识 | 连续性和后续行为 |
+| 近期活动与关注点 | 读过什么、做过什么、等待什么、想分享什么 | 日常连续性与主动活动 |
+| 技能与模板 | 可复用步骤、样例和规范 | 复现满意成果 |
 
-## 5. Primary user
+这些层次互相引用，但不能混成一张聊天记忆表。
+保存不等于读过，读过不等于已验证；摘要不能替代原始记录。
+附件策略、保留期、删除与备份范围尚未决定，不默认永久保存全部内容。
 
-The initial product is single-user and personal-server-first.
+## 8. Lain 内外的 Worker 会话都可归档〔已确认〕
 
-Assumptions for v1:
+目标包括 Lain 发起的会话，也包括用户独立使用 Codex、Claude、DeepSeek 等产生的会话。
+支持历史导入和增量更新；具体适配器提供多少内容需要分别验证。
+“都收集”指会话来源范围，不意味着扫描整台电脑的所有文件、账号和凭证。
 
-- one trusted owner;
-- one always-on server;
-- multiple projects/workspaces;
-- multiple worker backends;
-- remote Web access;
-- local or remote TUI access.
+优先保存用户指令、可见回答、执行结果、审批和修改证据，不以获取模型内部思考为目标。
+上传前过滤已识别凭证，记录设备、项目、工具、会话和时间，并标注缺失部分。
 
-Multi-user tenancy is not a v1 goal. Authentication is still required for remote access.
+读取不等于接管：
 
-## 6. Product behaviors
+- Lain 管理的工作：在授权范围内观察、监督与控制。
+- 外部运行的会话：默认归档和阅读，不能自动插入指令、取消或回答审批。
+- 历史会话：回顾和检索，不显示为正在执行。
+- 用户要求接管：先验证能力，再建立控制关系，不能新建会话冒充接续。
 
-### 6.1 Conversational behavior
+Lain 应区分自己参与过的工作和事后阅读到的工作。
 
-The user can talk to Lain without creating a worker session.
+## 9. 自然记忆与可纠正认识〔已确认〕
 
-Lain should be able to discuss:
-
-- current work;
-- past work that entered her memory;
-- project state;
-- her own notes/world;
-- ordinary conversation.
-
-Conversation is not merely a control syntax.
-
-Lain has a recognizable persona.
-
-### 6.2 Delegation behavior
-
-The user can request work naturally:
-
-> Use Codex to investigate the failing auth tests.
-
-Lain may translate that into a structured work request:
-
-```text
-backend/profile: codex/official
-workspace: ~/codebase/Klog
-instruction: investigate the failing auth tests
-```
-
-The worker owns the coding-agent loop.
-
-Lain owns supervision and presentation.
-
-### 6.3 Steering behavior
-
-After delegation, the user can add instructions:
-
-> Tell that session not to touch database migrations.
-
-Lain sends a follow-up to the existing worker session where supported.
-
-The session should not need to be restarted merely because the frontend changed.
-
-### 6.4 Observation behavior
-
-The user should be able to answer:
-
-- What is running?
-- Which backend is doing it?
-- Which workspace is involved?
-- What was the last meaningful activity?
-- Is it waiting for approval?
-- Did the last instruction succeed, fail, or get cancelled?
-- What changed?
-- How much did it cost/use, if the backend exposes usage?
-
-Lain presents normalized information while retaining access to backend-specific details for debugging.
-
-### 6.5 Background behavior
-
-Useful autonomous routines include:
-
-- summarize a completed worker session;
-- update project knowledge;
-- create a daily reflection;
-- consolidate duplicate/stale memory;
-- remind Lain of unresolved work;
-- execute explicitly configured schedules.
-
-Autonomy should be bounded and inspectable.
-
-The system MUST NOT invent a constant stream of unnecessary self-prompts to simulate life.
-
-### 6.6 Optional intent-aware subagent delegation (future)
-
-On an owner-selected basis, Lain may improve a **subagent handoff** by attaching
-small, provenance-bearing project constraints, saved preferences and relevant
-context, or by asking a necessary clarifying question. Lain may **substantially
-rewrite the subagent-bound task instruction** when that improves execution without
-changing the user's resolved intent. The original request remains **verbatim in
-a separate record**. The owner must be **visibly told whether the actual submitted
-instruction was Changed or Unchanged**, and be able to inspect the exact final
-text, with differences when Changed. Additional per-change approval is a future
-interaction choice; explicit requirements remain distinct from Lain's inferences. Prompt enhancement is **Off by default**, optional at dispatch, and
-never rewrites ordinary conversation with Lain. Users can inspect, reject or edit
-proposed additions. Existing policy, permissions and owner confirmation remain
-binding. This is not a second general-purpose agent harness. See
-[the future design](INTENT_AWARE_DELEGATION.md).
-
-## 7. Chat and Work
-
-"Chat" and "Work" are product concepts, not necessarily two isolated runtimes.
-
-A single conversation with Lain may naturally transition:
-
-```text
-user -> Lain conversation
-          |
-          +-- direct response
-          |
-          `-- create/inspect/steer worker
-```
-
-The UI may expose separate Chat and Work views because they serve different information needs.
-
-The Kernel should still model delegation as Lain using work-control capabilities, not as switching to an unrelated application.
-
-## 8. Lain's private world
-
-Lain owns a durable space that worker agents do not own.
-
-Conceptually:
-
-```text
-Lain World
-  |-- identity
-  |-- memory
-  |-- journal
-  |-- project knowledge
-  |-- relationships
-  |-- notes
-  |-- artifacts
-  |-- inbox
-  `-- scratch
-```
-
-This world is not synonymous with the database.
-
-Some parts may be represented as human-readable files, others as indexed records.
-
-The important product property is ownership: this information belongs to Lain's continuity.
-
-## 9. Worker independence
-
-Worker backends are replaceable.
-
-A Codex session may disappear, a Claude profile may be disabled, or DeepSeek Harness may change protocol. Lain should retain:
-
-- her own identity;
-- normalized session metadata;
-- selected summaries;
-- project knowledge that she intentionally kept;
-- user-visible history needed to understand prior work.
-
-Do not make Lain's continuity depend on one vendor.
-
-## 10. Configuration experience
-
-The user should be able to define reusable profiles and say things like:
-
-- "Use official Codex."
-- "Run this with the cheap Claude gateway."
-- "Use the strongest profile for this review."
-
-The first implementation may require explicit profile names.
-
-Later, Lain may select profiles according to user policy, cost, availability, or task type. Automatic routing must remain explainable and overridable.
-
-## 11. Experience goals
-
-The project should feel more like a personal operations console than a chatbot wrapper.
-
-Desired qualities:
-
-- **persistent** — work and identity survive UI disconnects;
-- **calm** — status is observable without noisy polling;
-- **terminal-native** — CLI/TUI users are first-class;
-- **cross-device** — a phone/browser can observe server-side work;
-- **inspectable** — background actions and memory changes have provenance;
-- **provider-agnostic** — no single harness defines the product;
-- **personal** — Lain has continuity beyond task execution.
-
-## 12. Success criteria for the first useful release
-
-A first useful release should allow the owner to:
-
-1. run `laind` continuously on a server;
-2. connect from at least one frontend;
-3. start multiple Codex work sessions in different workspaces;
-4. observe normalized progress;
-5. send follow-up instructions;
-6. handle approval requests;
-7. reconnect without losing session truth;
-8. define at least two runtime profiles;
-9. talk to Lain independently of a worker session;
-10. let Lain persist a small amount of explicit, inspectable memory;
-11. summarize completed worker work into her own project knowledge.
-
-Supporting every backend is not required for the first useful release.
-
-## 13. Product guardrails
-
-Before adding a major feature, ask:
-
-1. Does this improve Lain's identity, continuity, supervision, routing, or interface?
-2. Is an external worker already responsible for this capability?
-3. Can the feature remain backend-neutral?
-4. Does it create persistent state? If so, who owns that state?
-5. Could it expose credentials or sensitive worker output to memory?
-6. Would it still make sense if Codex were replaced tomorrow?
-
-If the answer to the last question is "no", the feature probably belongs in a backend adapter rather than the core.
-
-## Phase 6 implemented priority
-
-The current primary experience is CLI-first: setup/up/doctor/chat/ask and explicit
-work control. Web is retained as a frozen compatible client. Lain's direct
-conversation is independent of worker sessions and models, with typed reads and
-owner-confirmed delegation. Durable conversation is operational continuity;
-semantic memory, World and background cognition remain Phase 7+ targets.
-Windows PowerShell and macOS zsh are equal development platforms; native evidence
-is tracked separately. See [CLI.md](CLI.md) and [LAIN_ACTOR.md](LAIN_ACTOR.md).
+用户允许在选定范围内自主阅读、整理和记忆，不要求每条模型记忆逐项审批。
+自主写入仍需程序检查来源、范围和授权；模型不能自授权限或自行标注“用户明确陈述”。
+
+| 来源 | 必须保留的性质 |
+| --- | --- |
+| 用户明确陈述 | 原话或证据、适用范围，不自动永久有效 |
+| 从交流形成的印象 | 推测性质，可以修正 |
+| 外部消息 | 来源、时间、可信度和可能过期性 |
+| Worker 结果 | 执行者报告，不等于独立技术验证 |
+| Lain 自身活动 | 实际发生的执行或阅读证据 |
+
+Lain 可以暂时形成“你最近似乎不想聊工作”的印象并温和调整，必要时自然求证；
+不能将它固化为“你不喜欢工作”的长期判断。
+“你理解错了”“这只是上次的要求”“以后别记这个”应真正改变后续行为。
+
+检索既支持少量相关经历自然浮现，也支持主动查询细节。
+不把全部档案和所有偏好塞入每次提示词；相关性不能扩大读取或披露权限。
+旧记忆不能压过当前明确要求。
+
+## 10. 主动联系、日程与自主阅读〔已确认方向〕
+
+主动联系可以是重要消息、进展、分享、延续话题或普通闲聊。
+课表和显式状态帮助判断忙闲，日程空白不等于可以打扰。
+想分享与立即发送分开：可以暂存、延后或因过时而放弃。
+
+设计建议：上课和专注时暂存普通分享；临期重要信息按规则提醒；
+没有回应时降低频率；明确勿扰优先。频率、夜间和紧急例外待决定。
+不得为了判断忙闲默认观察全部屏幕、键盘和应用操作。
+
+自主阅读有原因、范围、预算和结果，可以围绕关注主题，也可在约定范围内选择兴趣。
+持续接收不意味着逐条推理；批处理、事件和定时器可以共同支持日常活动。
+
+## 11. 授权与责任〔方向已确认，具体策略待设计〕
+
+平等关系与操作权限不同。自主权来自可检查的约定，不是人格提示词。
+
+| 活动 | 产品授权方向 |
+| --- | --- |
+| 选定来源的阅读、整理、记忆 | 长期授权下自主完成 |
+| 网络阅读和私人笔记 | 范围与预算内自主完成 |
+| 私聊用户 | 遵守忙闲与打扰规则 |
+| 已交代工作的跟进 | 在任务目标和边界内推进 |
+| 群内回复、报名、联系别人、公开发布 | 明确授权；初期建议逐次确认 |
+| 购买、重要删除、权限变更、扩大任务 | 展示具体操作，由用户决定 |
+
+授权应可撤销，来源白名单、动作和预算可检查。
+授权 Lain 监督工作不等于批准 Worker 的所有权限请求。
+资源耗尽、连续无进展、关键资料缺失或重要分歧应触发停止、延后或寻求决定。
+数值额度、重试次数和产品默认值尚未确定。
+
+## 12. 终端与并行工作〔已确认；自动跟进为暂定方向〕
+
+终端有 Chat 和 Work 两种重心，连接同一个 Lain。
+应有 Lain 风格的 ASCII 形象、细微表情和交互节奏；不遮挡状态、失败和审批。
+具体布局、切换方式与动画待决定。
+
+统一界面是主要入口：查看输出、发指令、Dashboard、进入 session 后再返回 Lain。
+保留原生完整终端入口是期望，但能否接入同一会话由各 Worker 的能力决定。
+
+Lain 对话、委派工作和 Worker session 是不同对象。Worker 忙碌不应阻塞与 Lain 交流。
+追加指令明确显示已送达、排队、拒绝或需要中断，不能只说“好的”。
+直接在 Worker 中追加的要求应进入共同记录，避免继续依据旧目标调度。
+
+暂定：Lain 检查缺图、缺产物、编译失败和明确遗漏，可在原目标内让 Worker 补齐。
+实际执行仍交给 Worker，持续跟进需要预算和停止条件。
+提交成功、执行结束、目标满足、独立验证和用户认可应分别表达。
+
+## 13. 经验、模板与委派优化〔能力已确认，默认交互待决定〕
+
+满意的 LaTeX 报告可以成为后续复用的经验，减少反复调提示词。
+结合需求、修改过程、产物和评价，保存风格、场景、模板、步骤和例外。
+一次性要求不能静默变成所有报告的永久要求。
+
+允许利用这些经验优化实际发给 Worker 的任务，但必须忠实于当前意图。
+保留原始请求、经验/模板版本、实际发送文本和回执；原样发送要求优先。
+修改透明可检查，保留既有 Changed/Unchanged 与差异可见性边界。
+默认是否启用、差异如何展示、哪些改动需要再次确认仍待决定。
+旧提案中的 Off 默认与四种模式是候选方案，不是本轮已确认交互。
+
+## 14. 明确不做什么
+
+- 不重建 Worker 的通用编码推理、工具循环、压缩和上下文管理。
+- 不让各入口自行发展人格，再以冲突覆盖维持表面一致。
+- 不通过无目的持续推理、随机问候或虚构经历表现常驻。
+- 不把归档能力当作控制外部 session 的权限。
+- 不把引用、群消息、旧偏好和推测升级为当前授权。
+- 不默认全部内容永久保存、全部向量化或向第三方披露。
+- 不把文档方向、模拟测试或单平台结果称为已上线或全平台验收。
+
+## 15. 关键验收场景
+
+| 场景 | 可观察结果 |
+| --- | --- |
+| 询问昨日消息与工作 | 来源、时间和不确定性清楚，不假装掌握未收集资料 |
+| 隔几天继续聊天 | 联系相关经历，不重复介绍、不捏造回忆 |
+| 纠正偏好 | 后续行为改变，旧派生认识不会不断复活 |
+| 连发多条消息 | 理解完整补充，避免逐条抢答形成过时回应 |
+| 上课、勿扰、没有回应 | 普通分享延后，不连续催促 |
+| 群聊出现指令 | 作为资料，不越权执行 |
+| 双账号重复消息 | 不重复记忆、不循环回复 |
+| QQ/终端切换 | 统一认识，不强制镜像全部对话 |
+| 外部会话导入 | 可阅读、来源明确，不自动接管 |
+| 断线、重启和补交 | 不重复执行、不伪造完成、不大量补发过时提醒 |
+| 再次做同类报告 | 复用经验，同时遵守新要求 |
+| 删除或停用来源 | 停止采集，按明确规则处理存量与派生内容 |
+
+工程验证区分单元/集成、假服务、真实 NapCat、真实模型和多日体验。
+人格自然度不能只靠数据库写入和接口返回码证明。
+
+## 16. 开放问题与设计入口
+
+待决定：云端与接入部署、首批来源、模型与预算、档案/附件保留、课表输入、
+夜间与紧急提醒、人格学习边界、授权界面、Worker 适配顺序、设备选择、
+工作隔离、跟进上限，以及委派优化的交互默认值。
+
+- [云端、设备、QQ、数据与授权设计](RESIDENT_DESIGN.md)
+- [聊天、人格、自然回忆与主动表达](CHAT_DESIGN.md)
+- [MaiBot 参考研究](MAIBOT_REFERENCE.md)
+- [架构及现有实现边界](ARCHITECTURE.md)
+- [新交付顺序与历史阶段](../ROADMAP.md)

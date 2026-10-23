@@ -1,5 +1,15 @@
 # Intent-Aware Delegation: Optional Delegation Compiler
 
+> **2026-10-23 update:** [PRODUCT.md](PRODUCT.md) confirms reusable successful
+> methods/templates and faithful task improvement. The Off default and four modes
+> below remain earlier proposals, not a newly confirmed product default. Phase 10
+> is a historical sequencing label; use [ROADMAP.md](../ROADMAP.md)'s current plan.
+> Preserve original requests, exact sent text, visible changes and source attribution.
+> Whether each change requires separate confirmation remains undecided. Current
+> code forwards confirmed task text without a compiler; this document does not
+> authorize silently changing its dispatch behavior. Relationships are equal;
+> user authority here refers to intent and action permissions, not persona hierarchy.
+
 **Status:** future design proposal — not implemented
 **Owner:** Lain Actor / Kernel delegation boundary
 **Target:** Phase 10 Advanced Orchestration; prerequisites are Phase 6.x delegation/result delivery and Phase 7 provenance-aware Memory

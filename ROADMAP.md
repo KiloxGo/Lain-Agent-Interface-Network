@@ -1,11 +1,101 @@
 # Roadmap
 
-**Status:** working plan  
-**Last reviewed:** 2026-10-19
+**Status:** QQ-first product delivery proposal plus historical implementation record
 
-This roadmap defines implementation order for the Lain architecture reboot.
+**Last reviewed:** 2026-10-23
 
-It is deliberately staged to prevent the project from rebuilding a generic agent framework before the control plane is proven.
+## Current direction — QQ companionship first
+
+The user selected QQ daily companionship as the next product priority on
+2026-10-23. [PRODUCT.md](docs/PRODUCT.md) and [ADR 009](docs/adr/009-cloud-resident-equal-companion.md)
+supersede the old control-plane-first ordering. Existing Phase 0–7.1 work is a
+foundation, not permission to call all later planned behavior implemented.
+
+The sequence below is a **delivery proposal**, not a commitment to exact dates,
+models, budgets, libraries, schema names or deployment. Each implementation task
+must state its selected scope and acceptance. There is no automatic transition to
+the next stage and no implied live credentials, paid inference or deployment.
+
+### Q1 — One cloud identity and a real QQ conversation
+
+- [ ] define secure cloud deployment and authenticated channel identity
+- [ ] connect Lain's QQ to the bound user's private conversation
+- [ ] keep one durable cloud conversation/identity across reconnect and restart
+- [ ] implement equal-persona language and natural handling of split messages
+- [ ] define scoped user-contact authorization, outgoing receipts and uncertain delivery
+- [ ] validate duplicate/self events, wrong sender, disconnect and restart with fixtures
+- [ ] separately validate real NapCat and authorized model conversation
+
+Exit: a real private conversation survives reconnect, with clear identity,
+no self-reply loop and honest delivery status. No reading account or autonomous
+third-party action is required to prove this slice.
+
+### Q2 — Selected observations and correctable continuity
+
+- [ ] read-only user-account observation with explicit source allowlist
+- [ ] bounded source archive and attachment/retention choices
+- [ ] provenance-linked summaries, recent experiences and read/processed distinctions
+- [ ] scoped standing authorization for autonomous memory, preserving old records
+- [ ] relevant contextual recall and natural-language correction
+- [ ] duplicate cross-account events, revoked sources and derived-memory invalidation
+- [ ] first bounded Worker archive import where useful; do not require all adapters
+
+Exit: “what mattered yesterday?” can use real selected sources; corrections change
+later behavior; saved data is not falsely claimed as read or verified. Raw archive,
+summary and memory remain independent.
+
+### Q3 — A day with Lain
+
+- [ ] schedule input and explicit focus/do-not-disturb state
+- [ ] finite event/timer activities with model/resource budgets and observable outcomes
+- [ ] autonomous reading and private notes within selected scope
+- [ ] timely private sharing, postponement, expiry and frequency controls
+- [ ] no catch-up flood after downtime; uncertain sends do not retry blindly
+- [ ] authorized multi-day evaluation of timing, memory and persona stability
+
+Exit: she can choose useful activities and share naturally without continuous
+inference or repetitive contact. A fixture scheduler test alone does not establish
+this experience. Detailed automatic journal/reflection systems are not mandatory.
+
+### W1 — Connected PCs and a shared work history
+
+- [ ] authenticated/revocable device pairing, capabilities and workspace identities
+- [ ] device-owned execution independent of terminal window lifetime
+- [ ] cloud commands, local receipts, durable incremental evidence and resync
+- [ ] archive both Lain-managed and externally created visible Worker sessions
+- [ ] distinguish archive-only, observed and controllable sessions
+- [ ] demonstrate interruption/uncertainty without command replay or silent migration
+
+This work can be scoped alongside Q stages where needed, but full multi-backend
+control does not block the first daily QQ experience. Native platforms need their
+own evidence; no currently implemented remote execution service is claimed.
+
+### W2 — Lain's terminal and accountable delegation
+
+- [ ] distinctive Lain ASCII presentation and Chat/Work interaction
+- [ ] unified Dashboard, session entry/return and exact instruction state
+- [ ] continue talking to Lain while Workers execute
+- [ ] scoped follow-up supervision with stopping rules
+- [ ] reusable successful skills/templates and transparent faithful task enhancement
+- [ ] optional native session entry where backend capabilities actually support it
+- [ ] additional Worker control adapters based on demand and verified capability
+
+Exit: delegated work can progress to a verifiable delivery without occupying all
+conversation, and experience can improve later work without silently changing intent.
+
+### Existing acceptance obligations remain open
+
+Keep the native Windows/Linux and Phase 6.6/7.1 real-provider gaps visible.
+The failed real memory retrieval attempts remain failed; this reordering neither
+closes them nor assumes their cause. Fix relevant blockers in explicitly scoped
+work. Unrelated new research/design need not pretend those gaps are already closed.
+
+## Historical phases and evidence
+
+The numbered phases below preserve the earlier plan and completed checkboxes.
+Their future sequencing, universal per-action review and blanket deferrals are
+historical where they conflict with the current sequence above. Do not treat
+their unchecked items as automatically authorized next tasks.
 
 ## Phase 0 — Freeze the foundation
 
@@ -446,7 +536,7 @@ All integrations must call the same Kernel API/domain layer.
 
 No integration should contain its own Lain memory or worker supervisor.
 
-# Near-term implementation order
+# Historical near-term implementation order (superseded 2026-10-23)
 
 When coding begins, prefer:
 

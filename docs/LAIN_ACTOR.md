@@ -1,5 +1,25 @@
 # Lain Actor — first voice
 
+## Target relationship and current runtime
+
+2026-10-23: [PRODUCT.md](PRODUCT.md), [CHAT_DESIGN.md](CHAT_DESIGN.md) and
+[ADR 009](adr/009-cloud-resident-equal-companion.md) define equal companionship,
+QQ-first delivery, natural recall and bounded autonomous activities. Future
+standing grants replace universal per-action review as a product target, not by
+removing current checks. Source observation does not itself authorize action.
+
+The rest of this file documents the existing Phase 6–7.1 local Actor. It has no
+QQ runtime, standing grants or autonomous daily activities. Its request/tool/time
+bounds remain actual current limits, not a requirement to use the identical turn
+budget for every future background activity. New budgets require explicit design.
+
+The compiled `identity/persona.md` still contains historical owner framing and
+the current per-action rule. No compiled prompt or runtime behavior changed with
+this documentation revision. A future implementation must align persona with
+equal interaction while preserving the implemented permission boundary.
+
+## Existing Phase 6–7.1 implementation
+
 The Kernel owns Lain's conversation, model lifecycle and typed work decisions.
 The CLI is an HTTP/SSE text client. Lain is independent of Codex's worker model,
 login, native threads, context management and coding tools. Phase 7.1 adds explicit, scoped semantic memory tools and owner-reviewed proposals.

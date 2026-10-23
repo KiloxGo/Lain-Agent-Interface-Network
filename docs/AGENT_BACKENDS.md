@@ -1,7 +1,23 @@
 # Agent Backend Integration
 
-**Status:** normative foundation  
-**Last reviewed:** 2026-10-04
+## Target archive and device boundary — 2026-10-23
+
+The product now includes archives of both Lain-created and independently created
+visible Worker sessions. Reading/importing history is a capability separate from
+running, resuming, steering, cancelling or approving a session. An archive must
+not fabricate a live WorkSession or control relationship. Explicit takeover must
+be supported and verified; do not start a replacement session and call it resume.
+
+Future paired PCs own native execution and report provenance-bearing evidence to
+the cloud. The current Supervisor only manages same-host Codex processes.
+Native terminal entry is optional and capability-dependent; the unified Lain
+interface remains primary. No universal complete-transcript or native-attach API
+is assumed. See [RESIDENT_DESIGN.md](RESIDENT_DESIGN.md) and [PRODUCT.md](PRODUCT.md).
+
+The existing adapter requirements and implemented contracts below remain valid.
+
+**Status:** target archive/device update plus existing adapter contracts
+**Last reviewed:** 2026-10-23
 
 ## 1. Purpose
 

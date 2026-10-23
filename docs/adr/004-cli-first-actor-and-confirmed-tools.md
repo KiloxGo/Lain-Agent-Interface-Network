@@ -2,11 +2,16 @@
 
 Date: 2026-10-12. Status: implemented; cross-platform/real-provider acceptance pending.
 
+2026-10-23: [ADR 009](009-cloud-resident-equal-companion.md) supersedes CLI-first
+as the next product priority and universal per-action confirmation as the target
+policy. The following remains the historical decision and current implemented
+behavior until an explicit scoped-authorization migration is delivered.
+
 Phase 6.5 extensions: [ADR 005](005-sanitized-actor-previews.md) defines sanitized
 ephemeral previews; [ADR 006](006-explicit-local-actor-files.md) defines explicit
 saved launcher configuration and credential-source files.
 
-## Decision
+## Historical decision and current implementation
 
 Pause Web development and prioritize shared Rust CLI/Kernel capabilities. Retain
 legacy Web routes/assets and compatibility checks. Windows PowerShell and macOS

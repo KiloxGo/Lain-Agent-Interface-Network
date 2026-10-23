@@ -1,162 +1,67 @@
 # Lain Agent Interface Network
 
-> A persistent personal resident agent and control plane for long-running AI workers.
+> 常驻云端，与用户平等相处，并连接日常生活和本地工作的个人智能体。
 
-**Status:** Phase 7.1 independent memory and CLI-first Actor, with deterministic memory/result-delivery checks verified on native macOS. Native Windows/Linux and Phase 6.6/7.1 real-provider acceptance remain pending; Phase 6.5 real evidence is recorded separately. Web is retained and frozen.
+**产品方向更新：2026-10-23。** 当前优先做出可以每天通过 QQ 相处的 Lain：
+有持续身份和真实经历，能在授权范围内阅读、记忆、分享和主动联系。
+本地终端与 Worker 管理继续发展，所有入口连接同一个云端 Lain。
 
-Lain is designed to live continuously on a personal server. You can talk to her directly, but she is also able to create, supervise, configure, observe, steer, and summarize long-running worker-agent sessions such as Codex, Claude Code, and DeepSeek Harness.
+**实现状态：** 现有代码到 Phase 7.1：Rust Kernel/CLI、Codex 工作监督、持久对话、
+明确确认的工具操作、独立记忆和事实结果回传。QQ、设备执行端、长期自主授权与新的
+日常活动系统尚未实现。Web 保留且冻结。近期 Windows/Linux 原生验收和
+Phase 6.6/7.1 真实模型验收仍有缺口；详见验收文档，不以产品设计替代测试证据。
 
-The project deliberately does **not** attempt to rebuild those worker runtimes.
+## 从这里阅读
 
-## Why Lain exists
+| 文档 | 内容 |
+| --- | --- |
+| [产品定义与边界](docs/PRODUCT.md) | 用户确认的方向、平等关系、体验与开放问题 |
+| [云端与设备设计](docs/RESIDENT_DESIGN.md) | QQ 双账号、数据归属、档案、授权、断线恢复 |
+| [聊天与日常活动](docs/CHAT_DESIGN.md) | 人格、时机、自然回忆、纠正、主动联系 |
+| [MaiBot 参考研究](docs/MAIBOT_REFERENCE.md) | 已阅读的机制、适合借鉴之处与未验证范围 |
+| [架构](docs/ARCHITECTURE.md) | 新目标与当前本地实现的区别 |
+| [领域模型](docs/DOMAIN_MODEL.md) | 对话、工作、记忆及拟议实体边界 |
+| [运行模型](docs/RUNTIME_MODEL.md) | 生命周期、活动与恢复语义 |
+| [记忆](docs/MEMORY.md) | 自主可纠正目标与当前 Phase 7.1 契约 |
+| [路线图](ROADMAP.md) | QQ 优先的新顺序与旧阶段记录 |
+| [ADR 009](docs/adr/009-cloud-resident-equal-companion.md) | 哪些旧决策被替代、哪些实现边界仍有效 |
+| [开发记录](DEVLOG.md) | 实际推进与验证结果 |
+| [开发约定](AGENTS.md) | 后续开发必须遵守的边界 |
 
-Coding agents are becoming capable, but they are usually experienced through separate CLIs, applications, session stores, provider settings, and permission systems.
+## 想要的体验
 
-Lain provides a persistent layer above them:
+早上可以问昨天群里有什么重要消息、昨天工作推进了什么。Lain 能回查授权保存的来源，
+区分已经确认的安排、别人的说法和仍不确定的事情。
 
-- one always-on identity;
-- one place to see all active work;
-- one API for Web, terminal, and future integrations;
-- one scheduler for background routines;
-- one profile system for choosing backend/model/API configuration;
-- one approval surface;
-- one personal memory and private world that belongs to Lain rather than to any worker.
+平时通过她自己的 QQ 与她聊天。她记得共同经历，气质冷静、略带电波感，可以主动分享
+发现，也知道你上课或想安静的时候应暂缓联系。双方平等相处，没有主仆设定。
 
-A worker may disappear. Lain remains.
+电脑上的终端提供 Chat/Work 和有 Lain 气质的 ASCII 表现。Worker 执行时仍能和她聊天；
+可以进入 session 直接交互，也能回到 Lain 查看整体进度。这些是目标体验，不是现有
+终端已经全部支持的功能。
 
-## Core experience
+## 系统边界
 
-### Chat
+- 云端是统一身份、记忆和经历的权威；本地设备执行、采集和报告。
+- 选定社交来源只读观察，Lain 账号与用户双向交流；第三方行动单独授权。
+- 可归档 Lain 内外产生的可见 Worker 会话；阅读不等于接管。
+- 原始档案、摘要、经历、语义记忆和技能模板各有用途。
+- 自主行为需要范围、预算和结果，不靠持续模型推理制造常驻感。
+- 复杂工程工作交给外部 harness；不重建通用编码 Agent。
+- 当前审批检查不能直接删掉，必须由真实的 scoped authorization 设计和迁移替代。
 
-You can talk to Lain as a persistent character/agent.
+## 当前源码
 
-She may answer directly for conversational or lightweight tasks.
+Rust workspace 有三个 crate：
 
-### Work delegation
+- `lain-kernel`：Kernel 库与 `laind`，Axum/Tokio/SQLite，本机 Codex 监督和 Actor。
+- `lain-client`：`lain` CLI/TUI，经 HTTP/SSE 访问 Kernel。
+- `lain-wire`：公共强类型 ID 和数据结构。
 
-For substantial work, Lain can delegate:
+`web/` 是保留的 React/TypeScript 客户端。终端开发不要求 npm。
+`legacy/v0` 保存旧原型，仅供历史参考；本轮调整不恢复其架构。
 
-```text
-"Ask Codex to investigate the auth bug in Klog."
-
-        |
-        v
-
-Lain -> create worker session -> Codex works in the repository
-```
-
-You should then be able to:
-
-- watch the session progress;
-- inspect shell/tool/file activity in normalized form;
-- send another instruction to the same session;
-- approve or reject sensitive actions;
-- disconnect the UI while work continues;
-- return from another device and resume observation;
-- ask Lain what happened.
-
-### Resident behavior
-
-The server-side Kernel runs continuously.
-
-Lain may wake for bounded background activities such as:
-
-- summarizing finished worker sessions;
-- extracting durable project knowledge;
-- updating her own memory;
-- producing a daily or weekly reflection;
-- checking scheduled tasks.
-
-Continuous residency must not imply continuous model inference.
-
-## Target architecture
-
-```text
-                  +----------------------+
-                  |       Clients        |
-                  | Web / TUI / future   |
-                  +----------+-----------+
-                             |
-                       HTTP / SSE
-                             |
-+--------------------------------------------------------+
-|                      Lain Kernel                       |
-|                                                        |
-| Lain Actor      Scheduler       Event Bus              |
-| Memory          Private World   Profile Registry       |
-| Session Supervisor              Approval/Policy        |
-| Persistence                     Secret References      |
-+----------------------------+---------------------------+
-                             |
-                     backend adapters
-                             |
-            +----------------+----------------+
-            |                |                |
-          Codex          Claude Code     DeepSeek Harness
-```
-
-See `docs/ARCHITECTURE.md` for the normative architecture.
-
-## Design principles
-
-1. **Use existing harnesses.** Lain supervises workers instead of reimplementing them.
-2. **Kernel is the source of truth.** Frontends may disappear without stopping work.
-3. **Lain has her own continuity.** Her memory is not a copy of worker transcripts.
-4. **Backends are replaceable.** Provider-specific protocol details stay behind adapters.
-5. **Configuration is explicit.** Backend/model/API profiles are first-class objects.
-6. **Secrets are not memories.** Credentials never belong in Lain's semantic world.
-7. **Always-on does not mean always-thinking.** Background cognition is scheduled or event-triggered.
-
-## Repository status
-
-The project has entered a clean architecture reboot.
-
-The pre-reboot implementation is preserved in the `legacy/v0` branch. The active rewrite intentionally does **not** carry the old Rust kernel, React frontend, chat loop, or memory implementation forward.
-
-The rewrite is documentation-first:
-
-- `AGENTS.md` — instructions for coding agents working in this repository;
-- `docs/PRODUCT.md` — product definition and non-goals;
-- `docs/ARCHITECTURE.md` — system boundaries and component responsibilities;
-- `docs/DOMAIN_MODEL.md` — shared domain vocabulary;
-- `docs/RUNTIME_MODEL.md` — 24h daemon, scheduling, wake and recovery model;
-- `docs/AGENT_BACKENDS.md` — worker backend integration rules;
-- `docs/MEMORY.md` — Lain's independent memory;
-- `docs/CONFIGURATION.md` — runtime profiles and provider routing;
-- `ROADMAP.md` — staged implementation plan;
-- `DEVLOG.md` — milestone history, decisions, problems, and next-step handoff.
-
-## Expected deployment
-
-The primary deployment target is a personal Linux server running Lain continuously.
-
-A typical future deployment may look like:
-
-```text
-systemd / container
-  `-- laind
-      |-- SQLite / durable state
-      |-- Lain world directory
-      |-- worker subprocesses / adapters
-      `-- HTTP + SSE API / optional built Web assets
-
-browser -----------+
-terminal TUI ------+--> laind
-future bot --------+
-```
-
-The Web UI should be usable remotely. The TUI should feel native to terminal users and provide session attach/inspect/steer workflows rather than being a second implementation of the Kernel.
-
-## Non-goals
-
-Lain is not intended to become:
-
-- a new generic coding-agent harness;
-- a replacement for Codex, Claude Code, or DeepSeek Harness;
-- a terminal scraping wrapper around interactive CLIs;
-- a generic vector database product;
-- a frontend whose state disappears when the browser closes;
-- a system that stores raw secrets inside prompts or memories.
+以下开发操作仍描述当前**本地实现**。远端 API 客户端不等于已经具备远程 PC 执行服务。
 
 ## Development
 
@@ -188,14 +93,14 @@ Codex login is separate. Copy [actor.example.json](config/actor.example.json) to
 Git-ignored `config/actor.json` for local development, edit the model/endpoint,
 and save the selected file plus a protected credential-source file as described in
 [LAIN_ACTOR.md](docs/LAIN_ACTOR.md). That guide documents setup,
-persona, persistent conversations, typed tools, owner confirmation and recovery.
+persona, persistent conversations, typed tools, user confirmation and recovery.
 `lain --json ask` supports scripting; mutations remain pending until explicitly
 approved. Existing workers run independently of chat/observers. Conversations are
 operational continuity, separate from Phase 7.1 selected semantic memory.
 
 Confirmed chat delegation now correlates the exact instruction with a worker
 Turn. The Kernel delivers its actual outcome back to the conversation without
-another owner message or model call, while preserving in-progress terminal input.
+another user message or model call, while preserving in-progress terminal input.
 Use `lain notices <conversation-id>` for retained factual results and
 `lain delegations <conversation-id>` for exact dispatch inspection. Completed
 worker Turns can include failed commands; notices distinguish those facts.
@@ -227,12 +132,13 @@ Phase 6.6 Actor/Codex inference acceptance is opt-in and unverified. Exact evide
 limitations are in [DEVLOG.md](DEVLOG.md).
 
 Phase 7.1 adds independent SQLite memory with inspectable origin, scoped project
-knowledge, explicit owner review for Actor proposals and factual SessionSummaries.
+knowledge, explicit user review for Actor proposals and factual SessionSummaries.
 Use `lain memory add/list/search/show/disable/enable/delete`, `lain memory candidate`
 and `lain summary create/show/list` without a browser or inference. Memory survives
 daemon restart; summaries and transcripts are never automatically promoted.
 See [memory](docs/MEMORY.md) and [CLI commands](docs/CLI.md). Persona stays separate;
-World/journals, reflection, scheduling and prompt compilation remain deferred.
+World/journals, reflection, scheduling and prompt compilation remain unimplemented;
+their future order is governed by the new QQ-first roadmap, not the old deferrals.
 Native macOS fixtures validate the path; real-provider Phase 7.1 retrieval and
 Windows/Linux acceptance remain unverified.
 

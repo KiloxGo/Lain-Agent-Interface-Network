@@ -1,7 +1,20 @@
 # Development Policy
 
-**Status:** normative foundation  
-**Last reviewed:** 2026-10-04
+## Documentation and implementation status — 2026-10-23
+
+[ADR 009](adr/009-cloud-resident-equal-companion.md) and [PRODUCT.md](PRODUCT.md)
+supersede historical delivery order, not actual runtime evidence. New cloud/QQ/
+autonomy designs must identify implemented prerequisites and open questions.
+Existing operating procedures below continue to describe the local program.
+
+Documentation-only changes should validate whitespace/diffs, relative links,
+status terminology, supersession and cross-document consistency. Do not launch
+real models, QQ accounts, production migrations or unrelated full test suites
+to validate prose. Behavioral code/prompt changes still need relevant native and
+deterministic checks. Historical acceptance records must not be rewritten to pass.
+
+**Status:** current engineering policy and existing local operating procedures
+**Last reviewed:** 2026-10-23
 
 ## 1. Purpose
 

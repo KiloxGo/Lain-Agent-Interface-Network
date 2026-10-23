@@ -1,5 +1,11 @@
 # CLI-first local development
 
+> **2026-10-23 scope:** this is the current local CLI operating guide, not the
+> next product priority. QQ daily companionship now comes first; see
+> [PRODUCT.md](PRODUCT.md) and [ROADMAP.md](../ROADMAP.md). Cloud pairing, a local
+> background execution agent, Lain ASCII presentation and remote session control
+> are planned, not available commands. Current `lain up` remains foreground.
+
 Windows PowerShell and macOS zsh are equal development targets, sharing the same
 Rust crates, commands and authenticated HTTP/SSE API. Linux remains the eventual
 server target. `web/` is retained and frozen; npm, Vite and a browser are optional.

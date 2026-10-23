@@ -1,7 +1,22 @@
 # Configuration and Runtime Profiles
 
-**Status:** normative foundation  
-**Last reviewed:** 2026-10-05
+## Target configuration ownership — 2026-10-23
+
+[RESIDENT_DESIGN.md](RESIDENT_DESIGN.md) extends the target to one cloud identity
+and paired devices. Cloud identity/persona, scoped grants, channel bindings,
+selected source lists and versioned reusable resources are separate from native
+device paths, executable installations and device-local credentials.
+No configuration keys for these proposed capabilities exist merely because this
+document describes them. The settings below remain the current local implementation.
+
+Do not synchronize entire configuration/credential directories or rewrite user
+global Worker settings. Future resource sync uses explicit versions; in-flight
+work retains its selected revision unless a new instruction changes it.
+QQ observer and conversation accounts need distinct action/target capabilities.
+Budget values, pairing, key rotation and grant formats remain design decisions.
+
+**Status:** target ownership update plus historical profile design/current configuration
+**Last reviewed:** 2026-10-23
 
 ## 1. Purpose
 

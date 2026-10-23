@@ -1,7 +1,54 @@
 # Runtime Model
 
-**Status:** normative foundation  
-**Last reviewed:** 2026-10-19
+**Status:** resident-runtime target plus current local runtime contracts
+
+**Last reviewed:** 2026-10-23
+
+## Current target runtime — 2026-10-23
+
+Cloud residency now prioritizes daily QQ interaction. The cloud keeps one identity
+and continuous records; paired PCs own execution and report evidence. Detailed
+proposal: [RESIDENT_DESIGN.md](RESIDENT_DESIGN.md). Chat behavior:
+[CHAT_DESIGN.md](CHAT_DESIGN.md). Neither distributed execution nor QQ is implemented.
+
+The target distinguishes receiving, archiving, reading, selecting memory, deciding
+to share and actually sending. Raw message arrival does not require a model call.
+Explicit user messages, useful accumulated sources, relevant work transitions and
+bounded timers can trigger activities under scoped authorization and resource limits.
+No endless self-prompting is required. Concrete intervals/budgets remain undecided.
+
+### Scheduling and interruption
+
+- User conversation remains available while reading and Worker execution proceed.
+- New messages can update a not-yet-sent response; interruption does not undo an
+  external action or automatically cancel an independent Worker.
+- Combine split messages with bounded waiting; avoid unbounded inference restarts.
+- Course/focus/do-not-disturb changes re-evaluate pending private shares.
+- Activity completion can produce an experience or a share candidate without
+  forcing a message. Old nonessential candidates may expire.
+
+### Failure and recovery boundaries
+
+| Event | Target behavior |
+| --- | --- |
+| Terminal closes | Owned background execution continues where deployed |
+| Device cannot reach cloud | Retain local evidence; cloud reports last known state |
+| Device loses internet | Model requests may fail; local child processes may still run |
+| Device sleeps/shuts down | No claim of continued local execution |
+| Cloud restarts | Recover committed records and valid pending activities; no notification flood |
+| External send acknowledgement is lost | Reconcile if supported, otherwise retain uncertainty; do not blindly resend |
+| Source access/grant revoked | Stop new work and check queued actions before dispatch |
+
+Recovery replays evidence or safe queries, never uncertain mutations. Outgoing QQ
+delivery is separate from existing notice display acknowledgements; a database
+commit does not make an external send exactly once. Device process survival across
+terminal closure needs a genuine native background deployment, not merely a promise.
+
+The existing foreground `lain up` and local supervised-process behavior below
+remain current behavior. Future daemon/device installation and shutdown semantics
+require explicit implementation and native acceptance.
+
+## Historical foundation and current implementation
 
 ## 1. Goal
 

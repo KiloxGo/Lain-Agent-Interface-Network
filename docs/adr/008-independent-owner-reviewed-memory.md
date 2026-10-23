@@ -3,6 +3,11 @@
 Date: 2026-10-19. Status: implemented; deterministic acceptance is recorded in
 DEVLOG. Native Windows/Linux and real-provider Phase 7.1 acceptance remain pending.
 
+2026-10-23: [ADR 009](009-cloud-resident-equal-companion.md) changes the target to
+authorized autonomous, correctable memory. Per-item review below remains the
+current Phase 7.1 implementation. Existing provenance and confirmation records
+must not be reinterpreted or fabricated during a future migration.
+
 ## Decision
 
 Extend the existing Kernel services, SQLite Store and authenticated owner API.
