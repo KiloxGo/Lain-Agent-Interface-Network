@@ -187,6 +187,27 @@ impl Actor {
         request: Uuid,
         text: String,
     ) -> Result<ActorTurn> {
+        self.submit_scoped(conversation, request, text, None).await
+    }
+    pub(crate) async fn submit_channel(
+        self: &Arc<Self>,
+        batch: crate::channels::domain::Batch,
+    ) -> Result<ActorTurn> {
+        self.submit_scoped(
+            batch.conversation_id,
+            batch.id.0,
+            batch.text,
+            Some((batch.channel_id, batch.grant_revision, batch.expires_at_ms)),
+        )
+        .await
+    }
+    async fn submit_scoped(
+        self: &Arc<Self>,
+        conversation: ConversationId,
+        request: Uuid,
+        text: String,
+        channel: Option<(crate::channels::domain::ChannelId, u64, u64)>,
+    ) -> Result<ActorTurn> {
         ensure!(self.model.is_some(), ControlError::Unavailable);
         self.safe_input(&text)?;
         // Ownership transfers before the first storage await. Dropping an HTTP
@@ -194,7 +215,7 @@ impl Actor {
         let actor = self.clone();
         tokio::spawn(async move {
             let (turn, created) = blocking(&actor.kernel, move |k| {
-                k.actor_submit(conversation, request, text)
+                k.actor_submit_scoped(conversation, request, text, channel)
             })
             .await?;
             if created {

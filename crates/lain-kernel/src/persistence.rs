@@ -12,6 +12,7 @@ use crate::{
     events::{Event, EventKind, HistoryPage},
     worker::WorkerState,
 };
+mod channels;
 mod delegation;
 mod memory;
 
@@ -74,7 +75,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 7,
+            version <= 8,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -142,6 +143,9 @@ impl Store {
         }
         if version < 7 {
             transaction.execute_batch(include_str!("../migrations/007_memory.sql"))?;
+        }
+        if version < 8 {
+            transaction.execute_batch(include_str!("../migrations/008_channels.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(

@@ -1,6 +1,7 @@
 pub mod actor;
 pub mod api;
 pub mod backend;
+pub mod channels;
 pub mod config;
 pub mod delegation;
 pub mod domain;

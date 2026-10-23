@@ -13,7 +13,17 @@ Do not synchronize entire configuration/credential directories or rewrite user
 global Worker settings. Future resource sync uses explicit versions; in-flight
 work retains its selected revision unless a new instruction changes it.
 QQ observer and conversation accounts need distinct action/target capabilities.
-Budget values, pairing, key rotation and grant formats remain design decisions.
+General activity budgets, pairing and standing-grant formats remain design decisions.
+
+Q1 now supports optional `LAIN_NAPCAT_CONFIG`, pointing to at most 8 KiB of non-secret
+JSON with `name`, `endpoint`, `self_id`, `user_id`, `secret_ref` and `allow_reply`.
+This selects a conversation adapter, not an Actor or Worker profile. The namespaced
+SecretRef resolves in the daemon environment; token rotation requires restart.
+The daemon retains revoked permission even if startup config again says true.
+Set this path explicitly in the launch environment; the existing Actor env-file
+parser does **not** accept `LAIN_NAPCAT_CONFIG`. With the variable absent no QQ task
+is started. Exact schema, initial grant/re-grant semantics and private endpoint
+requirements: [QQ_CHANNEL.md](QQ_CHANNEL.md), [example](../config/napcat.example.json).
 
 **Status:** target ownership update plus historical profile design/current configuration
 **Last reviewed:** 2026-10-23

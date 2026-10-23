@@ -11,7 +11,9 @@ technical concepts, not a master/servant relationship. Historical owner wording
 must not become persona language. See [PRODUCT.md](PRODUCT.md) and
 [ADR 009](adr/009-cloud-resident-equal-companion.md).
 
-The following are **proposed concepts**, not implemented types or migration names:
+The following are **target concepts**, not a list of exact Rust types or migration
+names. The narrow Q1 implementation below realizes only part of binding/delivery
+and reply authorization:
 
 | Concept | Meaning | Distinct from |
 | --- | --- | --- |
@@ -46,6 +48,23 @@ migration, not fake confirmation timestamps. Temporary impressions retain eviden
 validity and uncertainty; correction must affect retrieval and derived records.
 
 See [RESIDENT_DESIGN.md](RESIDENT_DESIGN.md) for lifecycles and ownership.
+
+### Concrete Q1 channel records
+
+Schema 008 adds `Binding`, `Incoming`, `Batch` and `Delivery` in `channels::domain`.
+Their UUIDs belong to Lain. Opaque account/peer/external IDs are adapter-scoped
+references, not QQ structs. A binding maps an immutable route to one durable
+`ConversationId` and a revisioned reply grant. Revocation/re-grant invalidates work
+from an older revision without editing conversation history.
+
+An Incoming record is queued, batched, revoked or expired. A Batch owns the immutable
+text actually submitted and its stable Actor request UUID; prepared/running records
+recover the same request. Finished batches may produce one Delivery. Deliveries move
+from ready to sending, then confirmed/not_sent/rejected/unknown, or are revoked/expired
+before dispatch. A confirmed receipt proves platform acknowledgement, not human reading.
+These records are operational conversation history, never automatically semantic memory.
+See [QQ_CHANNEL.md](QQ_CHANNEL.md) for bounds and [Q1_IMPLEMENTATION.md](Q1_IMPLEMENTATION.md)
+for the implementation/real-acceptance distinction.
 
 ## Historical model and concrete implemented semantics
 

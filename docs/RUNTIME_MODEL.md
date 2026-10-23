@@ -9,7 +9,8 @@
 Cloud residency now prioritizes daily QQ interaction. The cloud keeps one identity
 and continuous records; paired PCs own execution and report evidence. Detailed
 proposal: [RESIDENT_DESIGN.md](RESIDENT_DESIGN.md). Chat behavior:
-[CHAT_DESIGN.md](CHAT_DESIGN.md). Neither distributed execution nor QQ is implemented.
+[CHAT_DESIGN.md](CHAT_DESIGN.md). Distributed execution is not implemented. Q1 now
+has an optional QQ private-text adapter; actual NapCat/model/cloud acceptance remains open.
 
 The target distinguishes receiving, archiving, reading, selecting memory, deciding
 to share and actually sending. Raw message arrival does not require a model call.
@@ -47,6 +48,26 @@ terminal closure needs a genuine native background deployment, not merely a prom
 The existing foreground `lain up` and local supervised-process behavior below
 remain current behavior. Future daemon/device installation and shutdown semantics
 require explicit implementation and native acceptance.
+
+### Implemented Q1 event flow
+
+The optional transport verifies its account, filters and normalizes inputs, and
+persists them before waking the channel application. A fixed 750 ms window merges
+up to 16 messages/8 KiB; the pending queue holds at most 128 messages. Inference
+does not block transport ingestion or other Kernel/Worker operations. One channel
+conversation waits behind its current turn or explicit pending confirmation.
+
+Application wake-ups use incoming/grant/Actor/connection events and finite merge or
+expiry timers. There is no idle model polling. Inputs and unsent responses have a
+10-minute lifetime; offline drafts expire rather than indefinitely accumulating
+catch-up work. The adapter has one in-flight send, a minimum one-second spacing,
+three-second write bounds, a 15-second receipt deadline and bounded reconnect backoff.
+
+An interrupted Sending intent becomes Unknown at restart and never auto-replays.
+Prepared batches recover their committed Actor request; interrupted Actor inference
+uses the existing Unknown policy. Revocation blocks queued processing and new sends,
+but cannot undo an already initiated external write. No history backfill or gap-free
+NapCat delivery is assumed. See [QQ_CHANNEL.md](QQ_CHANNEL.md).
 
 ## Historical foundation and current implementation
 

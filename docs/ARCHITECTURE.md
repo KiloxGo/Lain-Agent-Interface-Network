@@ -53,8 +53,30 @@ through implemented validation and explicit schema migration.
 The three Rust crates remain lain-kernel, lain-client and lain-wire. Current laind
 uses loopback bearer-authenticated HTTP/SSE, SQLite and same-host Codex supervision.
 The client can connect to an API but is not a remote PC execution agent. Phase 7.1
-memory is explicit/scoped/reviewed; there is no QQ adapter, device pairing,
-autonomous experience service or new standing-grant policy in code.
+memory is explicit/scoped/reviewed. Q1 adds an optional NapCat conversation adapter
+and a narrow persisted reply grant; device pairing, autonomous experiences and
+general standing authorization remain unimplemented. Real QQ/deployment acceptance
+is separate from the offline implementation evidence.
+
+### Q1 conversation adapter boundary
+
+`channels::domain` defines Lain-owned binding/input/batch/delivery IDs and normalized
+records; `ChannelService` consumes these through Kernel persistence and the same
+Actor used by terminal chat. `ConversationChannel` exposes connection changes and
+one bounded send result. `channels::napcat` owns authentication, native IDs,
+friend/text filtering, forward WebSocket, receipt correlation and reconnection.
+No QQ protocol objects enter Actor, memory, Worker or `lain-wire` contracts.
+
+SQLite schema 008 persists receive, processing and delivery separately. A stable
+batch UUID is the Actor request identity; a send claim precedes the external effect.
+Restart recovers committed Actor requests and marks interrupted sends Unknown.
+The reply grant does not approve Actor mutations, semantic memory or Worker actions.
+Disabling the optional adapter leaves terminal chat available without an alternative
+persona runtime. Utakera remains an independent observation system; its Bridge drafts
+are not imported as a shared schema or database dependency.
+
+See [QQ_CHANNEL.md](QQ_CHANNEL.md) for configuration and failure semantics and
+[Q1_IMPLEMENTATION.md](Q1_IMPLEMENTATION.md) for evidence and remaining live gates.
 
 Existing transaction, recovery, redaction, provider-isolation and uncertainty
 contracts below remain implementation requirements. The older single-host diagram,

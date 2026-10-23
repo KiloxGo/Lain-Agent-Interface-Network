@@ -366,12 +366,11 @@ impl Input {
                     if !key
                         .modifiers
                         .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
-                        && !c.is_control() =>
+                        && !c.is_control()
+                        && text.len() + c.len_utf8() <= 8192 =>
                 {
-                    if text.len() + c.len_utf8() <= 8192 {
-                        text.push(c);
-                        print!("{}", safe_text(&c.to_string()));
-                    }
+                    text.push(c);
+                    print!("{}", safe_text(&c.to_string()));
                 }
                 _ => {}
             }

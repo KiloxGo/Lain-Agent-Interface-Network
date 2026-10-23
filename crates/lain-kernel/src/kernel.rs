@@ -14,6 +14,7 @@ use crate::{
     persistence::Store,
     worker::WorkerState,
 };
+mod channels;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -37,6 +38,7 @@ pub struct Kernel {
     inner: Mutex<Inner>,
     events: broadcast::Sender<Event>,
     shutdown_signal: tokio::sync::watch::Sender<bool>,
+    channel_events: broadcast::Sender<()>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -68,6 +70,9 @@ impl Kernel {
         store
             .recover_actor()
             .context("recover Lain conversations")?;
+        store
+            .recover_channels()
+            .context("recover channel deliveries")?;
         tracing::info!(state = ?KernelState::Recovering, "recovering sessions");
         let (sessions, workers) = store.recover().context("recover Kernel state")?;
         tracing::info!(sessions = sessions.len(), "session recovery committed");
@@ -80,6 +85,7 @@ impl Kernel {
             }),
             events: broadcast::channel(256).0,
             shutdown_signal: tokio::sync::watch::channel(false).0,
+            channel_events: broadcast::channel(64).0,
         })
     }
 
@@ -761,6 +767,15 @@ impl Kernel {
         request: uuid::Uuid,
         text: String,
     ) -> Result<(crate::actor::domain::ActorTurn, bool)> {
+        self.actor_submit_scoped(conversation, request, text, None)
+    }
+    pub(crate) fn actor_submit_scoped(
+        &self,
+        conversation: crate::actor::domain::ConversationId,
+        request: uuid::Uuid,
+        text: String,
+        channel: Option<(crate::channels::domain::ChannelId, u64, u64)>,
+    ) -> Result<(crate::actor::domain::ActorTurn, bool)> {
         use crate::actor::domain::*;
         let mut inner = self.lock()?;
         ensure!(
@@ -773,6 +788,16 @@ impl Kernel {
                 crate::backend::ControlError::Conflict
             );
             return Ok((turn, false));
+        }
+        if let Some((id, revision, expires_at_ms)) = channel {
+            let binding = inner.store.channel_binding(id)?;
+            ensure!(
+                binding.reply_enabled
+                    && binding.grant_revision == revision
+                    && binding.conversation_id == conversation
+                    && crate::domain::now_ms()? < expires_at_ms,
+                crate::backend::ControlError::InvalidInput
+            );
         }
         inner.store.actor_page(conversation, 0, 1)?;
         ensure!(

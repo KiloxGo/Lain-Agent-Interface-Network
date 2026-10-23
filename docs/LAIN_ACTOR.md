@@ -8,15 +8,16 @@ QQ-first delivery, natural recall and bounded autonomous activities. Future
 standing grants replace universal per-action review as a product target, not by
 removing current checks. Source observation does not itself authorize action.
 
-The rest of this file documents the existing Phase 6–7.1 local Actor. It has no
-QQ runtime, standing grants or autonomous daily activities. Its request/tool/time
+The rest of this file documents the existing Phase 6–7.1 Actor, now also used by
+the Q1 channel service. The Actor itself has no QQ protocol, general standing grants
+or autonomous daily activities. Its request/tool/time
 bounds remain actual current limits, not a requirement to use the identical turn
 budget for every future background activity. New budgets require explicit design.
 
-The compiled `identity/persona.md` still contains historical owner framing and
-the current per-action rule. No compiled prompt or runtime behavior changed with
-this documentation revision. A future implementation must align persona with
-equal interaction while preserving the implemented permission boundary.
+The compiled `identity/persona.md` v2 uses equal interaction, calm/offbeat language
+and truthful experiences while preserving the current per-action rule. Q1 reply
+authorization never confirms tool proposals: QQ receives a local-review notice,
+and chat text such as “同意” cannot approve an action. See [QQ_CHANNEL.md](QQ_CHANNEL.md).
 
 ## Existing Phase 6–7.1 implementation
 

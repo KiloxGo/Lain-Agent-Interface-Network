@@ -173,6 +173,16 @@ the Actor's submission receipt. Text-client signal handling shares the launcher'
 narrow native boundary: SIGINT/SIGTERM on Unix, Ctrl-C/Ctrl-Break on Windows.
 Native Windows terminal behavior still requires its own acceptance run.
 
+Q1 native Windows regression also exercises local credential ACLs. Newly created
+objects may initially belong to Administrators under an elevated token; setup
+assigns the current user and owner-only protected ACLs before writing credentials.
+The final directory is created exclusively so a concurrent existing directory is
+never silently adopted. Existing paths remain check-only: setup does not take
+ownership or repair their permissions. The ACL helper loads the modules shipped
+with its Windows PowerShell runtime rather than inheriting PowerShell 7/user module
+paths. This does not establish interactive ConPTY
+acceptance; see [Q1_IMPLEMENTATION.md](Q1_IMPLEMENTATION.md) for current evidence.
+
 ```text
 lain chat
 lain chat --conversation <conversation-id>

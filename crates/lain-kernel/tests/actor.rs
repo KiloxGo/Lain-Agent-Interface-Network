@@ -99,6 +99,99 @@ async fn workers(kernel: &Arc<Kernel>) -> Arc<Supervisor> {
     )
     .await
 }
+
+#[tokio::test]
+async fn channel_chat_and_revocation_leave_running_worker_and_terminal_chat_independent() {
+    use lain_kernel::channels::{ChannelService, ConversationChannel, domain::*};
+    struct Channel {
+        online: tokio::sync::watch::Sender<bool>,
+        output: tokio::sync::mpsc::Sender<Delivery>,
+    }
+    impl ConversationChannel for Channel {
+        fn connected(&self) -> tokio::sync::watch::Receiver<bool> {
+            self.online.subscribe()
+        }
+        fn send(
+            &self,
+            delivery: Delivery,
+        ) -> Pin<Box<dyn Future<Output = SendOutcome> + Send + '_>> {
+            Box::pin(async move {
+                self.output.send(delivery).await.unwrap();
+                SendOutcome::Confirmed("fixture".into())
+            })
+        }
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let k = kernel(&dir.path().join("state.sqlite3"));
+    let w = workers(&k).await;
+    let worker = w
+        .create(dir.path().to_owned(), Default::default())
+        .await
+        .unwrap();
+    w.prompt(worker.id(), "wait".into()).await.unwrap();
+    let actor = Actor::with_model(
+        k.clone(),
+        Some(w.clone()),
+        TOKEN.parse().unwrap(),
+        model(vec![prose("聊一会儿。"), prose("终端也在这里。")]),
+    );
+    let binding = k
+        .channel_bind(
+            BindingSpec {
+                name: "fixture".into(),
+                adapter: "fixture".into(),
+                account: "a".into(),
+                peer: "b".into(),
+            },
+            true,
+        )
+        .unwrap();
+    let service = ChannelService::new(
+        k.clone(),
+        actor.clone(),
+        binding.clone(),
+        &TOKEN.parse().unwrap(),
+    );
+    let (output, mut replies) = tokio::sync::mpsc::channel(1);
+    let channel = Arc::new(Channel {
+        online: tokio::sync::watch::channel(true).0,
+        output,
+    });
+    let task = tokio::spawn(service.clone().run(channel));
+    service
+        .receive(Input {
+            account: "a".into(),
+            peer: "b".into(),
+            external_id: "1".into(),
+            text: "工作时也能聊天吗".into(),
+        })
+        .await
+        .unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(10), replies.recv())
+            .await
+            .unwrap()
+            .is_some()
+    );
+    k.channel_grant(binding.id, false, 1).unwrap();
+    let terminal = k.create_conversation().unwrap();
+    let turn = actor
+        .submit(terminal.id, Uuid::new_v4(), "从终端继续".into())
+        .await
+        .unwrap();
+    assert_eq!(wait(&k, turn.id).await.state, TurnState::Completed);
+    assert_eq!(
+        k.session(worker.id()).unwrap().unwrap().state(),
+        lain_kernel::domain::WorkSessionState::Running
+    );
+    assert_eq!(
+        k.session(worker.id()).unwrap().unwrap().runtime(),
+        lain_kernel::domain::RuntimeAttachment::Attached
+    );
+    k.shutdown().unwrap();
+    task.await.unwrap().unwrap();
+    w.shutdown().await.unwrap();
+}
 #[tokio::test]
 async fn persistent_conversation_typed_reads_and_idempotent_submissions() {
     let dir = tempfile::tempdir().unwrap();

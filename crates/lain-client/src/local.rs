@@ -115,16 +115,22 @@ fn private(path: &Path, directory: bool, set: bool) -> Result<()> {
         fs::metadata(path)?.is_dir() == directory,
         "unexpected local settings file type"
     );
+    // `set` is used only immediately after exclusive creation of a new object.
+    // Elevated Windows tokens may create Administrators-owned objects; assign the
+    // current user before checking. Existing objects always use check-only mode.
     // Windows-only native .NET ACL API. The path is data in an environment variable,
     // never interpolated into PowerShell source. No credential is sent to this process.
     let script = r#"
 $ErrorActionPreference = 'Stop'
+# Use the modules shipped with this Windows PowerShell process, not inherited
+# PowerShell 7/user module paths with incompatible framework assemblies.
+$env:PSModulePath = [System.IO.Path]::Combine($PSHOME, 'Modules')
 $p = $env:LAIN_ACL_PATH
 $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
 $item = Get-Item -LiteralPath $p -Force
 if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.LinkType -eq 'HardLink') { throw 'linked file rejected' }
 $a = Get-Acl -LiteralPath $p
-if ($a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { throw 'owner mismatch' }
+if ($env:LAIN_ACL_SET -ne '1' -and $a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { throw 'owner mismatch' }
 if ($env:LAIN_ACL_SET -eq '1') {
     if ($env:LAIN_ACL_DIR -eq '1') {
         $a = New-Object System.Security.AccessControl.DirectorySecurity
@@ -161,7 +167,6 @@ if ($a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.V
                 | "LOCALAPPDATA"
                 | "APPDATA"
                 | "COMSPEC"
-                | "PSMODULEPATH"
         ) {
             command.env(key, value);
         }
@@ -293,7 +298,13 @@ pub fn setup_at(path: &Path, url: &str) -> Result<serde_json::Value> {
                 .create(path)?;
         }
         #[cfg(windows)]
-        fs::create_dir_all(path)?;
+        {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            // Fail if another process won creation; never reset an existing ACL.
+            fs::create_dir(path)?;
+        }
         private(path, true, true)?;
     }
     outside_checkout(path)?;
@@ -667,6 +678,17 @@ mod tests {
             .unwrap();
         assert!(status.status.success());
         assert!(read_token(&path).is_err());
+    }
+    #[cfg(windows)]
+    #[test]
+    fn native_setup_never_repairs_or_takes_over_an_existing_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("existing");
+        fs::create_dir(&path).unwrap();
+        assert!(private(&path, true, false).is_err());
+        assert!(setup_at(&path, "http://127.0.0.1:8787").is_err());
+        assert!(private(&path, true, false).is_err());
+        assert!(fs::read_dir(&path).unwrap().next().is_none());
     }
     #[test]
     fn launcher_rejects_remote_and_credential_bearing_urls() {

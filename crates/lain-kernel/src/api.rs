@@ -1,3 +1,4 @@
+mod channels;
 mod memory;
 
 use std::{convert::Infallible, future::Future, path::PathBuf, sync::Arc, time::Duration};
@@ -70,6 +71,7 @@ pub fn actor_router(
 ) -> Router {
     Router::new()
         .merge(memory::routes())
+        .merge(channels::routes())
         .route(
             "/health",
             get(|| async { Json(serde_json::json!({"status": "ok", "service":"lain-kernel", "version":env!("CARGO_PKG_VERSION")})) }),
@@ -589,8 +591,12 @@ pub fn web_router(
     workers: Option<Arc<Supervisor>>,
     directory: PathBuf,
 ) -> Router {
+    with_web(controlled_router(kernel, token, workers), directory)
+}
+
+pub fn with_web(app: Router, directory: PathBuf) -> Router {
     use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer};
-    controlled_router(kernel, token, workers)
+    app
         .fallback_service(ServeDir::new(directory))
         .layer(SetResponseHeaderLayer::overriding(header::CONTENT_SECURITY_POLICY, axum::http::HeaderValue::from_static(
             "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")))
@@ -605,7 +611,9 @@ pub async fn serve_router(
     app: Router,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> Result<()> {
-    kernel.mark_ready()?;
+    if kernel.state()? == KernelState::Recovering {
+        kernel.mark_ready()?;
+    }
     let (draining, drained) = tokio::sync::oneshot::channel();
     let shutdown_kernel = kernel.clone();
     let server = axum::serve(listener, app)

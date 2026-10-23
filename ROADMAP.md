@@ -18,13 +18,19 @@ the next stage and no implied live credentials, paid inference or deployment.
 
 ### Q1 — One cloud identity and a real QQ conversation
 
-- [ ] define secure cloud deployment and authenticated channel identity
-- [ ] connect Lain's QQ to the bound user's private conversation
-- [ ] keep one durable cloud conversation/identity across reconnect and restart
-- [ ] implement equal-persona language and natural handling of split messages
-- [ ] define scoped user-contact authorization, outgoing receipts and uncertain delivery
-- [ ] validate duplicate/self events, wrong sender, disconnect and restart with fixtures
+- [x] define private deployment topology and authenticate the adapter's account
+- [x] implement a decoupled friend-private text channel for one Lain account and bound user
+- [x] persist binding/conversation, input, batch and delivery across reconnect/restart
+- [x] implement equal-persona baseline and bounded split-message batching
+- [x] implement revocable reply-only authorization, receipts and uncertain delivery
+- [x] validate duplicate/self events, wrong sender, disconnect and restart with fixtures
 - [ ] separately validate real NapCat and authorized model conversation
+- [ ] validate naturalness/timing and continuity on the actual deployed instance
+
+Implementation and deterministic evidence: [Q1_IMPLEMENTATION.md](docs/Q1_IMPLEMENTATION.md).
+Operation and live prerequisites: [QQ_CHANNEL.md](docs/QQ_CHANNEL.md).
+Checked items describe the narrow implementation, not full Q1 acceptance. There is
+no observer account, general autonomous grant, proactive contact or device runtime.
 
 Exit: a real private conversation survives reconnect, with clear identity,
 no self-reply loop and honest delivery status. No reading account or autonomous
@@ -86,6 +92,8 @@ conversation, and experience can improve later work without silently changing in
 ### Existing acceptance obligations remain open
 
 Keep the native Windows/Linux and Phase 6.6/7.1 real-provider gaps visible.
+The Q1 native Windows deterministic run is new, scoped evidence; it does not
+retroactively close all native interactive acceptance obligations.
 The failed real memory retrieval attempts remain failed; this reordering neither
 closes them nor assumes their cause. Fix relevant blockers in explicitly scoped
 work. Unrelated new research/design need not pretend those gaps are already closed.

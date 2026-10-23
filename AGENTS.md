@@ -56,6 +56,8 @@ For the 2026-10-23 direction, also read:
 - `docs/CHAT_DESIGN.md` — equal companionship, timing, recall and daily activity;
 - `docs/adr/009-cloud-resident-equal-companion.md` — supersession and migration;
 - `docs/MAIBOT_REFERENCE.md` for chat-reference work; it is research, not Lain policy.
+- `docs/QQ_CHANNEL.md` and `docs/Q1_IMPLEMENTATION.md` for the selected Q1
+  conversation adapter, reliability contracts and offline/live acceptance split.
 
 For worker-agent integration work, also read:
 

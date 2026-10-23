@@ -1380,3 +1380,62 @@ were found. `git diff --check` passed after whitespace normalization. Reviewed
 status/supersession wording and confirmed no runtime/configuration/source or
 acceptance-record files changed. Rust/frontend tests were not run because this
 change is documentation-only.
+
+## 2026-10-23 — Q1 decoupled private conversation implementation
+
+Implemented the selected QQ reply-only slice on the existing Rust Kernel and Actor.
+The optional OneBot 11 forward-WebSocket adapter verifies the logged-in Lain
+account and accepts only the bound user's friend-private text. Group, self,
+wrong-account/peer and unsupported mixed-media events cannot become Actor input.
+Native IDs and protocol objects remain in the adapter; the shared conversation
+service has a fixture transport and no Utakera runtime/database dependency.
+Read Utakera's Bridge/source drafts at `8e30fd2` as interoperability proposals,
+without adopting them as an approved source schema or implementing an observer.
+
+Schema 008 adds durable bindings, incoming messages, bounded batches and delivery
+intents/receipts. A stable batch request recovers exactly the committed Actor turn.
+Queued input survives generation; send results distinguish platform confirmation,
+definite non-submission/rejection and uncertainty. Interrupted claimed sends are
+never automatically replayed. Fixed merge, backlog, lifetime, write/receipt timeout
+and send-spacing limits bound the live path without idle model polling.
+
+Reply permission has a persisted revision and compare-and-swap administrator API.
+Revocation invalidates old queued/generated work and does not silently reset on
+restart. Authorization and expiry are checked again at Actor admission and send.
+Existing tool mutation, candidate review and Worker permission checks remain.
+QQ “同意” is not an approval; proposals direct the user to the authenticated local
+review flow. Compiled persona v2 uses equal companionship, calm/offbeat expression
+and truthful experience claims. The same Actor serves the terminal and channel.
+
+Added configuration example, operation/deployment/recovery guide and a requirement
+to evidence map in `docs/Q1_IMPLEMENTATION.md`. Updated current product, architecture,
+domain, runtime, configuration, Actor and roadmap descriptions; older acceptance
+records retain their historical meaning. No real QQ/model/deployment acceptance,
+Q2/Q3 work or personal data migration is included. The user subsequently requested
+committing and pushing this implementation, with further testing handled separately.
+
+Validation is recorded in the Q1 acceptance document. The full native Windows
+workspace run passed 111 tests with zero failures and three manual/live tests
+ignored; format, strict workspace Clippy and workspace build also passed.
+Failure testing found and fixed a shutdown
+admission race and bounded previously unbounded socket writes. Migration assertions
+were updated for schema 008. The memory boundary test correctly checks that a
+candidate is not active memory; proposal persistence itself is existing behavior.
+Small lint fixes included an equivalent Windows input match guard. Native CLI
+testing also fixed inherited PowerShell 7 module paths breaking the Windows
+PowerShell ACL helper and ownership of exclusively created paths under elevated
+tokens. Existing directories remain check-only and are never taken over.
+No CI workflow or remote model automation was added.
+
+Subsequent protocol review corrected outgoing OneBot `user_id` to a JSON number
+and updated its fixture assertion. At the user's request, no build or test was
+rerun after that correction. The pushed revision therefore retains a final
+verification gap despite the preceding successful full run.
+
+The initial portable LLVM-MinGW build passed Kernel tests but its CLI executable
+failed before test entry with native access violation `0xc0000005`. A separate
+checksum-verified GCC 16.2.0 / MinGW-w64 14.0.0 MSVCRT toolchain completed the full
+run with `RUSTFLAGS=-C link-self-contained=no`. Tools, build output and test logs stay in the task-owned external
+directory `C:/Users/example/AppData/Local/Temp/lain-q1-tools/`; no system PATH or
+user runtime configuration was changed. Native MSVC, Linux/macOS, interactive
+terminal acceptance and existing Phase 6.6/7.1 real-provider gaps remain separate.
