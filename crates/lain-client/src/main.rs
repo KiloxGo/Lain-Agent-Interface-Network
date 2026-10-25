@@ -1,5 +1,6 @@
 mod actor_render;
 mod api;
+mod channel;
 mod chat;
 mod chat_notice;
 mod local;
@@ -25,6 +26,10 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    Channel {
+        #[command(subcommand)]
+        command: channel::Commands,
+    },
     Memory {
         #[command(subcommand)]
         command: memory::Commands,
@@ -264,6 +269,7 @@ async fn run(args: Args) -> Result<()> {
     };
     let json_output = args.json;
     match command {
+        Command::Channel { command } => channel::run(&client, command, json_output).await,
         Command::Memory { command } => memory::run(&client, command, json_output).await,
         Command::Summary { command } => memory::summaries(&client, command, json_output).await,
         Command::Setup { .. }

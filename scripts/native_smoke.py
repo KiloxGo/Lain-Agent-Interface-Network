@@ -5,6 +5,7 @@ never emulates another OS. Windows runs native .exe/PowerShell ACLs and Ctrl-Bre
 macOS runs Mach-O binaries, POSIX permissions and a real process-group signal.
 """
 import argparse
+from contextlib import closing
 import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -40,6 +41,7 @@ def run(platform):
         env.update(LAIN_LOCAL_DIR=str(local), LAIN_DAEMON_PATH=str(laind), LAIN_CODEX_PATH=str(codex))
         provider_calls = []
         stream_gate = threading.Event()
+        acceptance_stream_gate = threading.Event()
         class Model(BaseHTTPRequestHandler):
             def log_message(self, *_):
                 pass
@@ -77,6 +79,7 @@ def run(platform):
                     name = "profile_inspect" if "profile.inspect" in prompt else "profile_list" if "profile.list" in prompt else "work_list"
                     output = [{"type":"function_call", "name":name, "call_id":"call_read", "arguments":json.dumps({"profile_id":"codex/local"} if name == "profile_inspect" else {})}]
                 elif "三百字" in prompt:
+                    acceptance_stream_gate.clear()
                     output = [{"type":"message", "role":"assistant", "content":[{"type":"output_text", "text":"你好，我是 Lain。" + "这是可见的流式对话。" * 30}]}]
                 elif "delegate" in last.get("content", ""):
                     output = [{"type": "function_call", "name": "work_create", "call_id": "call_delegate", "arguments": json.dumps({"workspace": str(workspace), "profile_id": "codex/local", "sandbox": "read_only", "task": "notice-gate" if prompt == "delegate-delivery" else "hello"})}]
@@ -116,7 +119,7 @@ def run(platform):
                         if prompt == "stream-delayed" and index == len("STREAM-BEGIN 你好") - 1:
                             assert stream_gate.wait(15), "PTY test did not release provider gate"
                         if "三百字" in prompt and index == 20:
-                            time.sleep(1)  # Deterministic preview-before-completion probe.
+                            assert acceptance_stream_gate.wait(15), "streaming state was not inspected"
                 except (BrokenPipeError, ConnectionResetError):
                     pass  # Explicit cancellation can close the private provider connection.
         model = ThreadingHTTPServer(("127.0.0.1", 0), Model)
@@ -124,7 +127,8 @@ def run(platform):
         thread.start()
         token = ""
         def cli(*args, success=True, extra=None):
-            result = subprocess.run([str(lain), *args], env=dict(env, **(extra or {})), capture_output=True, text=True, encoding="utf-8", timeout=30)
+            # Windows local commands perform several native PowerShell ACL checks.
+            result = subprocess.run([str(lain), *args], env=dict(env, **(extra or {})), capture_output=True, text=True, encoding="utf-8", timeout=90 if platform == "windows" else 30)
             assert result.returncode == 0 if success else result.returncode != 0, result.stderr
             assert not token or token not in result.stdout + result.stderr
             assert "fixture-actor-credential" not in result.stdout + result.stderr
@@ -154,7 +158,8 @@ def run(platform):
             with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as output:
                 output.write(text)
             if os.name == "nt":
-                acl_script = "$p=$env:LAIN_TEST_ACL_PATH; $a=Get-Acl -LiteralPath $p; $a.SetAccessRuleProtection($true,$true); Set-Acl -LiteralPath $p -AclObject $a"
+                # Match the CLI helper: Windows PowerShell cannot load inherited PS7 modules.
+                acl_script = "$ErrorActionPreference='Stop'; $env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules'); $p=$env:LAIN_TEST_ACL_PATH; $a=Get-Acl -LiteralPath $p; $a.SetAccessRuleProtection($true,$true); Set-Acl -LiteralPath $p -AclObject $a"
                 result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", acl_script], env=dict(env, LAIN_TEST_ACL_PATH=str(path)), capture_output=True, timeout=15)
                 assert result.returncode == 0, "fixture native ACL setup failed"
         secrets_file = local / "actor secrets.env"
@@ -162,7 +167,7 @@ def run(platform):
         saved = cli("--json", "config", "actor", "env-file", "--file", str(secrets_file))
         assert saved["credential_status"] == "available"
         assert "fixture-actor-credential" not in (local / "client.json").read_text()
-        assert cli("--json", "config", "actor")["env_file"] == str(secrets_file.resolve())
+        assert os.path.samefile(cli("--json", "config", "actor")["env_file"], secrets_file)
         invalid_env = local / "unsupported.env"
         write_secrets(invalid_env, "PATH=do-not-print-sensitive-value\n")
         previous_settings = (local / "client.json").read_bytes()
@@ -187,7 +192,7 @@ def run(platform):
             process = subprocess.Popen([str(lain), "up", *args], env=dict(env, **(extra or {})), stdin=subprocess.DEVNULL, stdout=log.open("ab"), stderr=subprocess.STDOUT,
                                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
                                        start_new_session=os.name != "nt")
-            deadline = time.monotonic() + 20
+            deadline = time.monotonic() + (90 if platform == "windows" else 20)
             while True:
                 assert process.poll() is None, "launcher exited before readiness"
                 try:
@@ -325,6 +330,13 @@ def run(platform):
             from actor_smoke import Acceptance, CheckFailed
             from unittest.mock import patch
             acceptance = Acceptance(lain, root / "acceptance.json", workspace, env, fixture=True)
+            history = acceptance.history
+            def fixture_history():
+                turns = history()
+                if any(turn["state"] == "running" for turn in turns):
+                    # Release only after the CLI captured Running, regardless of native ACL latency.
+                    acceptance_stream_gate.set()
+                return turns
             def fixture_decision(prompt):
                 if prompt.startswith("Denial test:"):
                     return "DENY"
@@ -333,7 +345,7 @@ def run(platform):
                 if prompt.startswith("Type RESTARTED"):
                     return "RESTARTED"
                 raise AssertionError("unexpected acceptance owner decision")
-            with patch("builtins.input", fixture_decision):
+            with patch("builtins.input", fixture_decision), patch.object(acceptance, "history", fixture_history):
                 acceptance.run(15)
             assert acceptance.report["checks"]["incremental_text_while_running"] is True
             assert acceptance.report["checks"]["worker_completed_successfully"] is True
@@ -441,10 +453,10 @@ def run(platform):
             if platform != "windows":
                 assert (local / "lain.sqlite3").stat().st_mode & 0o777 == 0o600
                 assert (local / "lain.sqlite3.lock").stat().st_mode & 0o777 == 0o600
-            with sqlite3.connect(local / "lain.sqlite3") as db:
+            with closing(sqlite3.connect(local / "lain.sqlite3")) as db:
                 persisted = "\n".join(db.iterdump())
                 assert token not in persisted and "fixture-actor-credential" not in persisted
-                assert db.execute("PRAGMA user_version").fetchone()[0] == 7
+                assert db.execute("PRAGMA user_version").fetchone()[0] == 11
             assert token.encode() not in log.read_bytes() and b"fixture-actor-credential" not in log.read_bytes()
             # A listening unrelated service is never terminated or replaced.
             unrelated = ThreadingHTTPServer(("127.0.0.1", port), type("Unrelated", (BaseHTTPRequestHandler,), {"log_message": lambda *args: None, "do_GET": lambda self: (self.send_response(401), self.end_headers())}))

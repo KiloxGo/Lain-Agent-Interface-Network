@@ -1,15 +1,46 @@
 # Lain Memory
 
-**Status:** revised memory target plus Phase 7.1 implemented contract
+**Status:** Phase 7.1, Q2-A private-binding memory and Q2-B1 bounded private source lookup
 
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-25
+
+## C1 private conversation consumption
+
+Natural recall may paraphrase relevant evidence without displaying internal UUIDs
+in every social reply. Existing grant, inspection/effect receipts and source
+APIs/CLI retain exact IDs/revisions/provenance for explanation on request. No
+permission is inferred from ordinary conversation or a persona instruction.
+
+Private turns retain only the latest request's selected memory IDs/revisions,
+rechecking them after generation, on final text/new-action commits and before
+ordinary draft dispatch. Revoke, expiry, correction and forget invalidate stale
+recollection. Reconsideration refreshes current evidence and discards opaque
+continuation; already committed memory effects remain truthful IDs-only records
+so they are not presented as unexecuted or blindly replayed. Later history excludes
+unconfirmed drafts and withholds changed-memory-derived replies. These checks add
+no background extraction or wider sources. See [ADR 012](adr/012-bounded-private-conversation.md)
+and [C1 acceptance](C1_ACCEPTANCE.md).
+
+C1.1 preserves historical private memory actions in model context as action
+state plus correlated typed `MemoryEffect` metadata, without selection arguments,
+source quotations or old result bodies. Failed/Unknown actions do not become
+committed effects. Full canonical action records remain inspectable separately.
+Under a currently valid memory grant, each fresh private memory context also
+includes the binding's latest three committed effects, in commit order, marked
+`kernel_operation_metadata`. These receipts contain operation/IDs/grant revision/
+time, not remembered text, and survive semantic correction/deletion. They grant no
+capabilities and do not broaden sources. Active recall can be empty after a real
+deletion; it does not prove the record was never saved. Inferred selection remains
+inferred, but a successful scoped effect is committed without a second ordinary
+candidate approval. See [C1.1 evidence](C1_1_ACCEPTANCE.md).
 
 ## Current target — natural, scoped and correctable memory
 
 [PRODUCT.md](PRODUCT.md) and [ADR 009](adr/009-cloud-resident-equal-companion.md)
 change the target from mandatory review of every model selection to autonomous
-remembering under scoped standing authorization. Current Phase 7.1 candidate
-review remains enforced until a new policy and migration are implemented.
+remembering under scoped standing authorization. Q2-A implements the narrow
+private-binding policy below; existing Phase 7.1 candidate review remains enforced
+for ordinary `memory.propose` and all sources outside this grant.
 
 The user and Lain are equals. Relationship knowledge records shared experience
 and evolving understanding, not a master/servant hierarchy or unquestionable
@@ -23,7 +54,7 @@ sessions, may be archived. Archives are not semantic memory; access does not mea
 Lain read them or participated in the work. Summaries, factual evidence, experiences,
 selected memory, temporary attention and reusable templates have independent roles.
 
-Future automatic writes must record their source and authorization basis without
+Automatic writes must record their source and authorization basis without
 claiming an individual user confirmation. Existing Explicit/Inferred/
 UnverifiedSelection records and their confirmation fields retain their real meaning.
 The source/authority distinction survives acceptance, correction and summarization.
@@ -45,9 +76,129 @@ resurrect intentionally deleted content.
 
 Minimal real experiences and bounded autonomous activities now belong to the
 QQ-first plan; historical blanket deferrals below do not block their scoped
-design. No scheduler, autonomous extraction, richer World or embedding engine
-has been added by this documentation change. Detailed proposal:
+design. Q2-A adds selection inside existing conversation turns, with no separate
+extraction loop, scheduler, richer World or embedding engine. Detailed proposal:
 [RESIDENT_DESIGN.md](RESIDENT_DESIGN.md), [CHAT_DESIGN.md](CHAT_DESIGN.md).
+
+## Implemented Q2-B1 private source lookup
+
+An independent SourceGrant defaults off. Administrative decisions select one
+existing private binding and a half-open UTC Unix-millisecond **Kernel receive**
+window, `[from_received_at_ms, to_received_at_ms)`, at most 31 days, ending no later
+than the grant decision. Each revision captures the committed Incoming sequence
+high-water, optional expiry and CAS revision. Replacing/revoking invalidates old
+cursors and admitted turns. A grant cannot collect future/other sources, write or
+restore memory, approve Work/Worker permission or enable proactive contact.
+
+Search uses literal Unicode-lowercased substring matching over authorized incoming
+text, not semantic relevance or outgoing-text search. Results order by receive
+time, then committed sequence for ties; no-match and all coverage are `partial_no_backfill`.
+
+| Bound | Value |
+| --- | --- |
+| Admin search / Actor search | 1–10 / 1–3 records |
+| Candidate scan per page | 512; explicit scan limit and continuation |
+| Encoded records per page / model evidence | 8 KiB |
+| Incoming excerpt / generated or outgoing excerpt | 1,024 / 512 UTF-8 bytes, also bounded after JSON escaping |
+| Query | 256 UTF-8 bytes, no empty text or control characters |
+| Grant history / read audit page | latest 100 / 50 decisions or reads |
+
+A cursor binds channel, grant revision, query/window digest, incoming high-water
+and last examined (receive time, sequence) pair. It advances only over examined
+rows, including filtered rows. Inspect checks the same scope and suppressions for one actual
+IncomingId; guessing a UUID does not broaden access. Full source values are checked
+for recognizable credentials before excerpting. The admission API also applies
+configured credential filtering. Unknown/encoded secrets are not reliably detectable.
+
+Records retain input/batch/conversation/ActorTurn/delivery IDs, receive time,
+processing and generation state, model-request attempts and actual delivery state.
+Saved, processed, generated, platform-confirmed and Unknown are different. A model
+request attempt or prepared-disclosure audit never proves comprehension or HTTP
+receipt. Associated reply text is withheld when merged sibling inputs exceed
+scope, generation lies outside the window, inspected memory changed/deleted, or
+the turn itself used source tools. Metadata records the withholding reason.
+
+Correct/forget/disable source suppressions from Q2-A also exclude these raw inputs
+from this lookup, including administrative access through these new endpoints.
+Existing authenticated raw channel inspection retains its own previous boundary;
+forgetting semantic memory does not erase operational chat, audits or backups.
+
+The Actor uses two typed readonly tools. Persisted receipts contain IDs only.
+Every selection influencing a turn is freshly projected before each request and
+after responses. Changed authorization, content or suppression ends that turn with
+a static scope-change notice and no further call. Source-influenced streaming text
+is held; actual paid/used tokens are still accounted when a response is discarded.
+Past source-reading assistant/action observations are omitted from later model
+context, while original user messages and stored audit snapshots stay intact.
+Already transmitted model requests cannot be recalled. No new extractor, polling
+loop, background model job, general grant service or memory store is introduced.
+
+Migration 010 adds only grant/read ledgers and a receipt-window index. Existing
+snapshots and confirmation fields remain untouched; no reads are backfilled.
+[ADR 011](adr/011-bounded-private-source-lookup.md) records the decision;
+[Q2-B1 acceptance](Q2_B1_ACCEPTANCE.md) separates fixtures from live experience.
+
+## Implemented Q2-A private memory
+
+An authenticated administrator explicitly grants one existing private ChannelId
+permission to select Episodic/Preference memory. Default revision 0 is disabled.
+Enabling, changing or revoking appends a revision with optional expiry and a source
+sequence watermark; stale revisions conflict. Each new revision excludes earlier
+inputs from new autonomous selection, including already queued messages. It does
+not delete existing selected memory. Expiry/revocation stops both private recall
+and new effects; an in-flight provider request cannot be recalled. Re-granting
+permits recall of retained memories but does not resume stale turns or backfill.
+
+The Kernel checks actual binding/conversation/batch, captured/current grant
+revision, deadline, reply permission and Running turn again under the storage
+lock. Memory grants never authorize Worker actions, other tool mutations, persona
+changes, contact or other social sources. There is no grant tool in the Actor.
+Generic Actor memory tools cannot select Channel scope or inspect it by guessing
+an ID. Authenticated management memory APIs/CLI can inspect it explicitly.
+
+`memory.remember`, `memory.correct` and `memory.forget` require an IncomingId and
+an exact bounded quotation from this turn's real current input. The Kernel assigns
+scope and provenance; models cannot supply authorization or explicit authority.
+ChannelSelection includes actual conversation/input/batch/ActorTurn/action IDs,
+quote (at most 1,024 UTF-8 bytes), record time, grant revision and optional expiry.
+Its authority is Inferred and `owner_confirmed_at_ms` is null. This is selected
+interpretation supported by a source, not a verified fact or individual approval.
+Schema 009 leaves old memory snapshots and actual numeric confirmation timestamps
+unchanged, and creates no semantic memory from old conversations.
+
+Each existing model request receives fresh attributed data: at most three relevant
+Active records and 4,096 encoded bytes of records, plus at most 4,096 encoded bytes
+of current-source excerpts (each at most 1,024 bytes). Selection must fit one
+bounded recall record. The deterministic lookup uses at most eight literal words
+or non-ASCII bigrams and at most three candidates per term from existing SQLite
+search, then ranks those candidates by term overlap and recency. It is
+not semantic/vector search or guaranteed natural-language understanding. The
+`memory.recall` tool can choose better short keywords within the same Actor budget;
+its receipt contains IDs and the next request gets freshly read records.
+
+Correct/forget requires a single Active same-binding target previously returned
+to this turn, with its inspected revision. Storage allows at most one committed
+correction/forget per turn, preventing bulk edits split over multiple tool calls.
+Correction creates a new MemoryId and
+marks the old record Superseded with the replacement link. Forget removes the
+semantic row/FTS projection. Both suppress the original incoming source; later
+actions cannot re-select that old source. Suppression is intentionally at whole
+message granularity. Explicit later new messages can support a new selection.
+Ambiguous targets and bulk requests must be clarified; there is no bulk tool.
+
+Effects, relations, suppression and content-free receipts commit together. One
+ActionId yields one effect. Restart retains receipts/tombstones and does not replay
+uncertain actions. Administrative disable/supersede/delete also suppresses original
+ChannelSelection sources. A fresh recall excludes inactive/deleted/superseded
+records, with no persistent semantic-context cache. Inspection stores only IDs and
+revisions. Independently retained dialogue, action arguments, prior superseded
+versions, audit and backups can still contain old text: forgetting is not a purge
+or secure erasure of those stores, or erasure of an earlier provider request.
+
+Administration and manual acceptance: [CLI.md](CLI.md),
+[Q2_A_ACCEPTANCE.md](Q2_A_ACCEPTANCE.md). Decision and narrow supersession:
+[ADR 010](adr/010-scoped-private-conversation-memory.md). Full Q2 observation,
+archives, consolidation and derived-profile invalidation remain future work.
 
 ## Earlier foundation and Phase 7.1 behavior
 

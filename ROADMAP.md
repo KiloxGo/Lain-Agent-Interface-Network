@@ -2,7 +2,7 @@
 
 **Status:** QQ-first product delivery proposal plus historical implementation record
 
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-25
 
 ## Current direction — QQ companionship first
 
@@ -16,6 +16,34 @@ models, budgets, libraries, schema names or deployment. Each implementation task
 must state its selected scope and acceptance. There is no automatic transition to
 the next stage and no implied live credentials, paid inference or deployment.
 
+### Next selected priority — C1: natural private conversation (2026-10-25)
+
+The user explicitly wants MaiBot-like lifelike conversation and requires the chat
+part to learn from it. After Q2-B1, prioritize everyday expression, participation/
+waiting/end-of-topic timing and natural correctable recall. C1 runtime is implemented;
+native Windows deterministic acceptance passed, while real naturalness remains open.
+
+- [x] map the relevant MaiBot mechanisms at a fixed source revision and record Lain-specific choices
+- [x] distinguish stable personality, conversational behavior and expression; reduce repetitive assistant-style boilerplate in the assembled private instructions
+- [x] bounded split-input handling and reconsideration of unsent replies; explicit reply/wait/no-reply semantics with protected requests and approval/failure notices
+- [x] natural-recall instructions over existing authorized memory with inspectable provenance and correction/revoke checks
+- [x] deterministic scene/state checks and a reusable multi-turn experience pack
+- [ ] separately authorized multi-turn real-model/QQ experience review of naturalness, misclassification, timing and cost
+
+Scope and acceptance criteria: [CHAT_DESIGN.md](docs/CHAT_DESIGN.md), [ADR 012](docs/adr/012-bounded-private-conversation.md)
+and [C1 acceptance](docs/C1_ACCEPTANCE.md). C1.1 upgrade/rollback preparation and
+native Windows synthetic rehearsal are complete. Separately authorized personal
+upgrade to schema 11 is complete with old rows preserved and QQ Online; real-model/
+QQ scene review used 57 of the authorized 60 requests, with actual user feedback
+followed by user-authorized autonomous real-model/local-transport replay. C1.1 fixes
+short-message defaults and committed-memory-operation truth; the final build is
+installed with QQ Online and temporary grants off. This bounded review does not
+close the longer naturalness/verbosity acceptance checkbox above.
+See [C1.1 acceptance](docs/C1_1_ACCEPTANCE.md). New archive
+expansion is not a prerequisite for this slice. Real experiences and proactive
+contact remain separately scoped Q2/Q3 work; no paid inference or deployment is
+authorized by this plan. Historical Q1/Q2 checkboxes below keep their narrow meaning.
+
 ### Q1 — One cloud identity and a real QQ conversation
 
 - [x] define private deployment topology and authenticate the adapter's account
@@ -24,13 +52,20 @@ the next stage and no implied live credentials, paid inference or deployment.
 - [x] implement equal-persona baseline and bounded split-message batching
 - [x] implement revocable reply-only authorization, receipts and uncertain delivery
 - [x] validate duplicate/self events, wrong sender, disconnect and restart with fixtures
-- [ ] separately validate real NapCat and authorized model conversation
+- [x] separately validate basic real NapCat/model private conversation (user-confirmed screenshot, 2026-10-24)
+- [x] expose authenticated connection diagnostics with identity-gated Online and safe failure categories
 - [ ] validate naturalness/timing and continuity on the actual deployed instance
 
 Implementation and deterministic evidence: [Q1_IMPLEMENTATION.md](docs/Q1_IMPLEMENTATION.md).
 Operation and live prerequisites: [QQ_CHANNEL.md](docs/QQ_CHANNEL.md).
 Checked items describe the narrow implementation, not full Q1 acceptance. There is
 no observer account, general autonomous grant, proactive contact or device runtime.
+The manual conversation evidence does not close live reconnect/restart/revocation
+or long-term memory acceptance. Q1 diagnostics and the narrow Q2-A private memory
+slice are implemented; see [ADR 010](docs/adr/010-scoped-private-conversation-memory.md)
+and [Q2-A acceptance](docs/Q2_A_ACCEPTANCE.md). That offline milestone left the
+personal instance untouched; the later separately authorized C1.1 operation is
+recorded above and in [C1.1 acceptance](docs/C1_1_ACCEPTANCE.md).
 
 Exit: a real private conversation survives reconnect, with clear identity,
 no self-reply loop and honest delivery status. No reading account or autonomous
@@ -38,11 +73,30 @@ third-party action is required to prove this slice.
 
 ### Q2 — Selected observations and correctable continuity
 
+Selected Q2-A implementation (does not complete full Q2):
+
+- [x] default-off revisioned/revocable/expiring private-binding memory grant
+- [x] source-linked inferred selection, bounded relevant recall, inspected single-target correction/forget
+- [x] transactional effects, old-source suppression, restart and migration compatibility
+- [ ] separately authorized real QQ/model memory acceptance with actual MemoryIds and source evidence
+
+Selected Q2-B1 implementation (separate from full archives/experiences):
+
+- [x] default-off independent source grant with fixed historical UTC receive window, revision, high-water, revoke and expiry
+- [x] bounded source search/inspect over existing Incoming/Batch/ActorTurn/Delivery, stable cursors and content-free read audits
+- [x] typed Actor reads, fresh per-request checks, Q2-A suppression and source-derived history isolation
+- [x] native Windows deterministic gates and 18 cross-process acceptance checks, including source timeout/revoke and cleanup
+- [ ] separately authorized real-model/private QQ history-lookup experience
+
+Contract: [ADR 011](docs/adr/011-bounded-private-source-lookup.md);
+verification: [Q2-B1 acceptance](docs/Q2_B1_ACCEPTANCE.md). No automatic summaries,
+proactive contact, new source collection or personal-instance migration is implied.
+
 - [ ] read-only user-account observation with explicit source allowlist
 - [ ] bounded source archive and attachment/retention choices
 - [ ] provenance-linked summaries, recent experiences and read/processed distinctions
-- [ ] scoped standing authorization for autonomous memory, preserving old records
-- [ ] relevant contextual recall and natural-language correction
+- [ ] generalize scoped memory authorization to separately selected observation sources
+- [ ] extend recall/correction to the broader Q2 source/archive/derived-record scope
 - [ ] duplicate cross-account events, revoked sources and derived-memory invalidation
 - [ ] first bounded Worker archive import where useful; do not require all adapters
 

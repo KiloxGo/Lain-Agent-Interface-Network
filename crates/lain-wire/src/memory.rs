@@ -1,5 +1,8 @@
 //! Lain-owned semantic memory. These records are evidence, never permissions.
-use crate::{ActionId, ActorTurnId, CandidateId, ConversationId, MemoryId, RequestId, SummaryId};
+use crate::{
+    ActionId, ActorTurnId, BatchId, CandidateId, ChannelId, ConversationId, IncomingId, MemoryId,
+    RequestId, SummaryId,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -16,6 +19,7 @@ pub enum MemoryScope {
     Global,
     Workspace { path: String },
     Internal,
+    Channel { channel_id: ChannelId },
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -37,6 +41,17 @@ pub enum MemorySource {
     },
     /// Owner-selected claim supported by a bounded factual summary, not verified truth.
     SessionSummary { summary_id: SummaryId },
+    ChannelSelection {
+        channel_id: ChannelId,
+        conversation_id: ConversationId,
+        batch_id: BatchId,
+        incoming_id: IncomingId,
+        actor_turn_id: ActorTurnId,
+        action_id: ActionId,
+        evidence: String,
+        grant_revision: u64,
+        grant_expires_at_ms: Option<u64>,
+    },
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -67,7 +82,7 @@ pub struct MemoryRecord {
     pub status: MemoryStatus,
     pub superseded_by: Option<MemoryId>,
     pub recorded_at_ms: u64,
-    pub owner_confirmed_at_ms: u64,
+    pub owner_confirmed_at_ms: Option<u64>,
     pub updated_at_ms: u64,
     pub revision: u64,
 }
@@ -125,6 +140,86 @@ pub struct ChangeMemory {
     pub superseded_by: Option<MemoryId>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChannelMemoryContext {
+    pub channel_id: ChannelId,
+    pub batch_id: BatchId,
+    pub grant_revision: u64,
+    pub expires_at_ms: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryGrant {
+    pub channel_id: ChannelId,
+    pub enabled: bool,
+    pub revision: u64,
+    pub expires_at_ms: Option<u64>,
+    pub changed_at_ms: u64,
+    /// Inputs committed before this authorization cannot become autonomous sources.
+    pub source_after: u64,
+}
+impl MemoryGrant {
+    pub fn active(&self, now: u64) -> bool {
+        self.enabled && self.expires_at_ms.is_none_or(|expiry| now < expiry)
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SetMemoryGrant {
+    pub enabled: bool,
+    pub expected_revision: u64,
+    pub expires_at_ms: Option<u64>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecallMemory {
+    pub text: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MemoryEvidence {
+    pub incoming_id: IncomingId,
+    pub quote: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SelectMemory {
+    pub content: String,
+    pub kind: MemoryKind,
+    pub evidence: MemoryEvidence,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CorrectMemory {
+    pub memory_id: MemoryId,
+    pub expected_revision: u64,
+    pub selection: SelectMemory,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ForgetMemory {
+    pub memory_id: MemoryId,
+    pub expected_revision: u64,
+    pub evidence: MemoryEvidence,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryOperation {
+    Remember,
+    Correct,
+    Forget,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryEffect {
+    pub action_id: ActionId,
+    pub actor_turn_id: ActorTurnId,
+    pub channel_id: ChannelId,
+    pub grant_revision: u64,
+    pub operation: MemoryOperation,
+    pub memory_id: MemoryId,
+    pub previous_memory_id: Option<MemoryId>,
+    pub recorded_at_ms: u64,
+}
+
 impl MemoryProvenance {
     pub fn validate(&self) -> Result<(), &'static str> {
         if matches!(
@@ -138,6 +233,9 @@ impl MemoryProvenance {
             ) | (
                 MemorySource::SessionSummary { .. },
                 MemoryAuthority::UnverifiedSelection
+            ) | (
+                MemorySource::ChannelSelection { .. },
+                MemoryAuthority::Inferred
             )
         ) {
             Ok(())
@@ -151,11 +249,36 @@ impl MemoryRecord {
         self.provenance.validate()?;
         if self.revision == 0
             || self.updated_at_ms < self.recorded_at_ms
-            || self.owner_confirmed_at_ms < self.recorded_at_ms
+            || self
+                .owner_confirmed_at_ms
+                .is_some_and(|t| t < self.recorded_at_ms)
             || (self.status == MemoryStatus::Superseded) != self.superseded_by.is_some()
             || self.superseded_by == Some(self.id)
         {
             return Err("contradictory memory lifecycle");
+        }
+        if let MemorySource::ChannelSelection {
+            channel_id,
+            evidence,
+            grant_revision,
+            grant_expires_at_ms,
+            ..
+        } = &self.provenance.source
+        {
+            if self.owner_confirmed_at_ms.is_some()
+                || self.draft.scope
+                    != (MemoryScope::Channel {
+                        channel_id: *channel_id,
+                    })
+                || evidence.trim().is_empty()
+                || evidence.len() > 1024
+                || *grant_revision == 0
+                || grant_expires_at_ms.is_some_and(|t| t <= self.recorded_at_ms)
+            {
+                return Err("invalid autonomous memory authority or scope");
+            }
+        } else if self.owner_confirmed_at_ms.is_none() {
+            return Err("reviewed memory requires its actual confirmation timestamp");
         }
         Ok(())
     }
@@ -171,6 +294,7 @@ impl MemoryCandidate {
         };
         let valid_action = match self.provenance.source {
             MemorySource::LainGenerated { action_id, .. } => self.actor_action == Some(action_id),
+            MemorySource::ChannelSelection { .. } => false,
             _ => self.actor_action.is_none(),
         };
         if !valid_review

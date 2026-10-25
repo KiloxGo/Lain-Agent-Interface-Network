@@ -1,5 +1,9 @@
 # Lain Actor — first voice
 
+## Q2-B1 private source lookup — 2026-10-25
+
+Q2-B1 adds the independent `source.search`/`source.inspect` read capabilities (provider function names `source_search`/`source_inspect`) only when an admitted private turn has a currently valid source grant. They accept bounded keywords, a narrower optional receipt-time window, and actual IncomingIds/cursors. Kernel supplies fresh, attributed `untrusted_source_evidence`; receipts contain IDs and pagination metadata, not source text. Every prior selection is revalidated before further inference and after responses. Historical instructions cannot approve Work, Worker permissions or memory writes. Existing four-request/four-tool, token and wall-clock budgets still apply. See [MEMORY.md](MEMORY.md) and [Q2-B1 acceptance](Q2_B1_ACCEPTANCE.md).
+
 ## Target relationship and current runtime
 
 2026-10-23: [PRODUCT.md](PRODUCT.md), [CHAT_DESIGN.md](CHAT_DESIGN.md) and
@@ -9,15 +13,47 @@ standing grants replace universal per-action review as a product target, not by
 removing current checks. Source observation does not itself authorize action.
 
 The rest of this file documents the existing Phase 6–7.1 Actor, now also used by
-the Q1 channel service. The Actor itself has no QQ protocol, general standing grants
+the Q1 channel service and Q2-A private-memory capabilities. The Actor itself has no QQ protocol, general standing grants
 or autonomous daily activities. Its request/tool/time
 bounds remain actual current limits, not a requirement to use the identical turn
 budget for every future background activity. New budgets require explicit design.
 
-The compiled `identity/persona.md` v2 uses equal interaction, calm/offbeat language
-and truthful experiences while preserving the current per-action rule. Q1 reply
+The compiled `identity/persona.md` v3 uses equal interaction, calm/offbeat language
+and truthful experiences while preserving ordinary per-action review. Q1 reply
 authorization never confirms tool proposals: QQ receives a local-review notice,
-and chat text such as “同意” cannot approve an action. See [QQ_CHANNEL.md](QQ_CHANNEL.md).
+and chat text such as “同意” cannot approve an action. The separate Q2-A memory
+grant is the only newly implemented exception; see [MEMORY.md](MEMORY.md),
+[ADR 010](adr/010-scoped-private-conversation-memory.md) and [QQ_CHANNEL.md](QQ_CHANNEL.md).
+
+C1 assembles identity, always-appended `identity/actor-policy.md`, and private-only
+`identity/private-behavior.md` / `identity/private-expression.md` separately. A
+custom persona cannot remove the Kernel tool/permission constraints. Configured
+diagnostics keep `persona_revision` for identity content and add
+`private_chat_revision` over the identity/policy/behavior/expression bundle.
+New private turns expose typed `chat_wait` and `chat_finish` with Kernel-enforced
+finite decisions; terminal turns do not receive these tool definitions or private
+style instructions. Original requests, actual effects, unsent drafts and transport
+receipts stay distinct. See [ADR 012](adr/012-bounded-private-conversation.md).
+
+### Q2-A capabilities
+
+For a channel turn with a currently valid explicit memory grant, the Kernel adds
+`memory.recall`, `memory.remember`, `memory.correct` and `memory.forget` (wire names
+use underscores). Fresh source/record evidence is added as attributed user-role
+data at each request, never instructions or authorization. The existing four model
+requests/four tools, time and token budgets apply. There is no separate extraction
+request or background model task. Effect tools proceed as Executing under the
+narrow grant; ordinary memory proposals and Work mutations still require review.
+Current grants, sources, single inspected targets and revisions are checked in
+storage before effects. Revocation/expiry removes the next request's private
+tools/evidence and rejects pending effects. Historical private tool arguments and
+record bodies are omitted from model observations; correlated committed effect
+metadata remains truthful without replaying forgotten content. Fresh authorized
+memory evidence also supplies the binding's latest three IDs-only committed
+effects, separately marked as Kernel operation metadata. Empty active recall does
+not negate a prior write or deletion; semantic records are always refreshed. Dialogue
+and audit remain separately retained. Generic tools cannot read/write Channel
+scope. The Actor cannot establish a grant or approve Worker permissions.
 
 ## Existing Phase 6–7.1 implementation
 

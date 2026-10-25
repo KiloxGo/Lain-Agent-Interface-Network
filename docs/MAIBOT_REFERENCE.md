@@ -6,11 +6,52 @@
 
 **范围：** 官方公开文档及部分源码阅读；未安装、运行或完成真实体验测试。
 
-**版本限制：** 阅读的是当时可访问的 main 页面和在线文档，未固定 commit SHA；
-页面缓存日期并不一致。以下机制是设计参考，实施前必须重新核对固定版本。
+**版本说明：** 2026-10-23 的笔记基于未固定版本的 main 页面和在线文档；
+2026-10-25 C1 已补充固定源码复核，见下一节。历史笔记不作为当前源码事实。
 
 这份文件是聊天设计的长期依据与取舍记录，不是上游完整审计或性能报告。
 不因上游已有模块就默认在 Lain 引入同样的框架、服务或模型调用数量。
+
+## 2026-10-25 C1 固定源码复核
+
+Git 远端连接重置后，官方 GitHub API 成功返回 main 的固定 revision：
+[`062d45cf8bd4272ac57d7ec03fcf405e5a458211`](https://github.com/Mai-with-u/MaiBot/commit/062d45cf8bd4272ac57d7ec03fcf405e5a458211)，
+提交时间 2026-10-23T17:46:39Z。以下是该版本的源码事实，不是在线文档默认值的推断。
+本轮没有安装或运行 MaiBot，也没有比较真实模型的体验。只参考机制，未复制源码或提示词；
+上游 LICENSE 与下载文件哈希留在忽略目录 `target/q2a/c1-maibot/`。
+
+| 机制 | 固定版本源码事实 | Lain 的选择与差异 |
+|---|---|---|
+| 人格、行为、表达 | [official_configs.py:148–198](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/config/official_configs.py#L148-L198) 分别配置 personality、behavior_style、reply_style；[generator:105–141](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/chat/replyer/maisaka_generator_base.py#L105-L141) 分别装配身份和表达，并可随机选择备用表达。 | 拆开 Lain 身份、私聊行为和表达文件，Kernel 规则始终附加；不采用上游身份、随机人格或额外 Replyer 调用。 |
+| 连发等待 | [controller.py:18–104](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/chat/debounce/controller.py#L18-L104) 用消息事件及有限 deadline；不同模式、作者与活跃情况有不同等待，批次上限 8 秒，已到期窗口不延长。 | 仅单人文字私聊，采用末条后 750ms 安静窗口、首条后最多 3 秒；不引入群聊活跃评分、图片等待或额外模型。 |
+| 私聊参与 | [gates.py:64–77](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/maisaka/turn_trigger/gates.py#L64-L77) 明确跳过群聊动态门控；[runtime.py:1060–1096](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/maisaka/runtime.py#L1060-L1096) 私聊不采用群聊随机/动态频率倍数。 | 新私聊输入仍进入有界 Actor，不移植群聊概率来随机丢弃消息。模型可提议等待或结束，由 Kernel 校验状态、计数和保护条件。 |
+| 等待与结束 | [wait.py](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/maisaka/builtin_tool/wait.py) 与 [stop.py](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/maisaka/builtin_tool/stop.py) 区分限时暂停和结束本轮思考；[runtime.py:1714–1791](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/maisaka/runtime.py#L1714-L1791) 管理计数、期限和新消息唤醒，计数提示并非硬强停。 | `chat.wait` 一轮最多一次、1–5 秒，可被新输入唤醒；`chat.finish` 只接受社交收尾解释，明确请求保护、来源 ID 和推断性质进入回执。限制由代码执行。 |
+| 新消息转向 | [runtime.py:1007–1057](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/maisaka/runtime.py#L1007-L1057) 在可选 steering 开关下请求打断，每次在途请求只发一次；[reasoning_engine.py:608–674](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/maisaka/reasoning_engine.py#L608-L674) 保留非执行性的部分思考并在剩余轮数内接入新输入。[配置:530–541](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/config/official_configs.py#L530-L541) 默认关闭，属可选快速反应路径。 | 不假定提供方支持可靠的中途续接：等待在途响应、累计实际消耗，丢弃过时文本/调用，最多重新考虑两次。发送前再次检查；不撤回已发送，不重放 Unknown，不取消 Worker。 |
+| 私聊上下文与回忆 | [chat_loop_service.py:818–909](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/src/maisaka/chat_loop_service.py#L818-L909) 分别装配人格、行为、私聊/群聊提示及记忆指引；[maisaka_replyer.prompt](https://github.com/Mai-with-u/MaiBot/blob/062d45cf8bd4272ac57d7ec03fcf405e5a458211/prompts/zh-CN/maisaka_replyer.prompt) 将身份与表达风格提供给回复器。 | 继续使用已授权、可纠正的 Q2-A/Q2-B1；每次重新考虑刷新相关证据，普通回忆使用自然措辞，内部来源留在管理回执。未确认发送的草稿不作为已说出口的历史。 |
+
+上述 Lain 选择属于 [ADR 012](adr/012-bounded-private-conversation.md) 的实现范围。
+源码对照能证明参考依据，不能证明 Lain 已获得相同自然度；实际完成和验收结果另记。
+
+## 2026-10-25 聊天体验优先级与文档复核
+
+以下保留为取得固定 revision 前的调研记录；当前源码复核结果以上一节为准。
+
+用户要求聊天部分务必借鉴 MaiBot，目标是非常像活人的日常交流。
+C1 已作为下一阶段优先级写入 ROADMAP/CHAT_DESIGN，仍属于待实现范围。
+
+本次重新阅读 [官方 Bot 配置](https://docs.mai-mai.org/manual/configuration/bot-config)
+（访问日 2026-10-25；页面标注更新日 2026-10-20）。在线文档把身份气质、参与行为与
+语言风格分开，并描述连发等待、私聊上下文和回复期间新消息处理；其中若干能力属
+实验设置。其动态触发门控明确只针对群聊，不能宣称同样适用于私聊。
+
+Lain 的选择是优先实现可观察的私聊节奏和自然表达，再用对话场景评价；保留自身身份、
+现有预算、记忆纠正和 Kernel 授权。具体等待门限、是否拆分推理阶段及不回复协议尚待
+实施设计，不直接采用上游默认常数。C1 的等待/不回复范围是 Lain 的目标，非本次已验证
+的 MaiBot 私聊源码行为。文档阅读也不证明任何实际聊天效果。
+
+本次 Git 远端 main 元数据查询因连接重置未成功，未获得固定源码 revision；因此没有
+声称完成当前源码复核、移植或运行验收。实施相关机制前须取得并阅读固定版本。
+2026-10-23 的 main 源码笔记保留为历史参考，不充当本次固定版本验证。
 
 ## 1. 参考价值
 

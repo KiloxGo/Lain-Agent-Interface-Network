@@ -67,6 +67,12 @@ pub struct ActorTurn {
     pub usage_tokens: u64,
     #[serde(default)]
     pub timing: lain_wire::ActorTiming,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_memory: Option<lain_wire::memory::ChannelMemoryContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_source: Option<lain_wire::source::SourceReadContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_chat: Option<lain_wire::chat::PrivateChatContext>,
 }
 impl ActorTurn {
     pub fn validate(&self) -> anyhow::Result<()> {

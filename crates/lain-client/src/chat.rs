@@ -82,7 +82,7 @@ async fn wait_seen(
                         ensure!(update.id == latest.id && update.conversation_id == latest.conversation_id,
                             "Actor snapshot identity changed");
                         if update.revision <= latest.revision { continue; }
-                        latest = update;
+                        latest = *update;
                         if human { renderer.snapshot(&latest)?; }
                         if latest.state != ActorTurnState::Running { return Ok(latest); }
                     },

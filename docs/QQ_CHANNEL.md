@@ -1,8 +1,9 @@
 # QQ private conversation channel
 
-Implemented; final revision verification deferred by the user (2026-10-23).
-See [validation evidence and limits](Q1_IMPLEMENTATION.md). Real QQ, real model and
-cloud deployment remain unverified. This guide describes the selected Q1 slice;
+Implemented; final-revision deterministic gates passed on native Windows (2026-10-24).
+See [validation evidence and limits](Q1_IMPLEMENTATION.md). Basic real private QQ/model
+conversation is user-confirmed; complete live reliability and cloud deployment
+remain unverified. This guide describes the selected Q1 slice;
 it does not grant permission to perform live tests.
 
 ## Boundaries
@@ -30,7 +31,9 @@ with the configured person. Databases, persona and semantic memory remain Lain-o
 
 Use an isolated instance and database for initial live acceptance. Do not point
 an experimental binary at existing personal state without a separately reviewed
-backup/migration decision. Schema 008 is additive, but an older binary cannot open
+backup/migration decision. The current schema is 011 (008 channel, 009 private memory,
+010 source lookup, 011 bounded private chat);
+an older binary cannot open
 the newer schema; rollback needs the consistent pre-upgrade backup.
 
 Build `laind` and `lain` with the native Rust toolchain. Ordinary builds do not call
@@ -69,6 +72,21 @@ the check. A nickname is never identity evidence. Reusing a binding name with a
 different account, peer or adapter is rejected. Keep the same name and database
 across restarts to continue the same conversation.
 
+Saving a file is not proof a running service loaded it. Lain reads its selected
+Actor/NapCat files and credential environment at process startup; edit then perform
+an intentional stopped-instance restart to apply them. NapCat's own saved network
+settings may likewise need its explicit Apply/reload/restart. Inspect the active
+listener and Lain connection status rather than treating a saved toggle as live.
+
+For the user's existing 2026-10-24 Windows instance the external directory is
+`F:\Lain-Q1-Acceptance`, and its already prepared launcher is
+`& 'F:\Lain-Q1-Acceptance\start-qq-test.ps1'`. This script is outside Git and is
+not installed by the repository. `%LOCALAPPDATA%\Lain-Q1-Acceptance` was an earlier
+example and is not this instance's launcher location. Desktop app private/virtualized
+AppData and a normal PowerShell can resolve differently. Select the same explicit
+external directory in both windows; do not recreate personal state because a
+launcher path is absent. Development has not replaced that running binary.
+
 ## Inspect and revoke
 
 Use the existing authenticated Kernel HTTP API. All requests below require the
@@ -77,7 +95,8 @@ administrator bearer token; the NapCat token cannot use this API.
 | Method and path | Result |
 | --- | --- |
 | GET `/v1/channels` | Binding IDs, stable conversations and current reply grants |
-| GET `/v1/channels/{id}` | Binding plus latest 100 incoming records, batches and deliveries per category |
+| GET `/v1/channels/status` | Bindings with ephemeral connection phase, safe failure category and change time |
+| GET `/v1/channels/{id}` | Binding, connection plus latest 100 incoming records, batches and deliveries per category |
 | POST `/v1/channels/{id}/reply-grant` | `{ "enabled": false, "expected_revision": 1 }` revokes the current grant |
 
 Read the current revision before changing permission. Stale revisions conflict.
@@ -85,6 +104,32 @@ Re-enabling uses `enabled: true` and the current revision explicitly. Configurin
 `allow_reply: true` again never overrides a persisted revocation; false can revoke
 on restart. Re-granting does not replay older queued work. The inspection window
 is bounded, not a full archive export or source-coverage guarantee.
+
+Use `lain channel list` and `lain channel show <id>` for the same authenticated
+inspection. Connection phases are `not_started`, `connecting`, `authenticating`,
+`online`, `reconnecting`, `stopped`. WebSocket handshake alone is Authenticating;
+only matching account identity permits Online. A binding with no adapter in this
+process is NotStarted, including after restart, even if it was previously Online.
+Shutdown or task exit makes its observation Stopped. `changed_at_ms` is a local
+Unix-millisecond observation timestamp (0 before the first observation), not uptime
+or platform last-seen time. The last failure remains visible while reconnecting
+until successful identity validation clears it. Identical repeated failures do not
+emit repeated warnings; a changed failure or fresh online-to-offline transition does.
+
+| Failure | Check |
+| --- | --- |
+| `connection_unavailable` | Forward-WS address/listener, reachability and handshake availability |
+| `authentication_failed` | OneBot token and endpoint auth (HTTP 401/403), distinct from WebUI login |
+| `account_mismatch` | Actual logged-in Lain account versus configured `self_id` |
+| `identity_timeout` | Server answers `get_login_info` with the matching echo within ten seconds |
+| `protocol_error` | WS/OneBot frame/identity format; use installed-version settings without raw logs |
+| `disconnected` | Connection closed or interrupted; inspect receipts before retrying anything |
+
+These are safe categories, not raw upstream errors. No token, auth header, original
+frame or conversation text enters this observation/log. Online describes the
+validated transport, not successful inference, a reply grant or gap-free coverage.
+The separate default-off private memory grant and its routes are described in
+[CLI.md](CLI.md), [MEMORY.md](MEMORY.md) and [Q2_A_ACCEPTANCE.md](Q2_A_ACCEPTANCE.md).
 
 Revocation invalidates queued inputs, prepared/running batches and unsent replies.
 The send claim is the durable dispatch boundary; an already initiated send cannot
@@ -107,9 +152,15 @@ remain inspectable in the terminal, without unsolicited QQ result notifications.
 Initial engineering bounds, subject to real experience review:
 
 - 8 KiB input text, at most 128 queued inputs per binding.
-- A fixed 750 ms collection window from the oldest eligible input; at most 16
-  messages and 8 KiB combined input per Actor turn. Later inputs cannot extend the
-  window forever. Inputs during inference are persisted for the next batch.
+- A trailing 750 ms quiet window, capped at three seconds from the oldest eligible
+  input; at most 16 messages and 8 KiB combined input per Actor turn. An expired
+  window does not reopen. During inference, eligible supplements may join the
+  same turn through at most two reconsiderations, retaining original IDs/text.
+  Excess supplements stay queued for the next turn; cumulative budgets do not reset.
+- A private Actor can explicitly wait once for 1–5 seconds or finish a short
+  social exchange without sending. Kernel guards refuse silence for protected
+  requests and non-chat tool activity. New input wakes a wait or a fresh turn.
+  See [ADR 012](adr/012-bounded-private-conversation.md) and [C1 acceptance](C1_ACCEPTANCE.md).
 - Ten-minute lifetime from the oldest input for processing/reply. Restart does not
   refresh it. Expired backlog is not sent as a catch-up flood.
 - One outgoing request at a time, at least one second between send starts;
@@ -135,6 +186,7 @@ private database size and use a fresh test instance for initial acceptance.
 | `rejected` | Explicit matched platform failure; not automatically retried |
 | `unknown` | Outcome cannot be proved, including interrupted claimed sends |
 | `revoked` / `expired` | Unsent work invalidated by grant or lifetime |
+| `superseded` | Unsent ordinary draft invalidated by newer input or changed memory/historical source evidence; no send claim |
 
 The OneBot `echo` correlates responses; it is **not** a server idempotency key.
 If a send may have reached QQ, reconnect never sends that intent again. A crash
@@ -174,6 +226,151 @@ an implicit migration. Service installation and Linux acceptance remain separate
 
 ## Troubleshooting and live acceptance
 
+### Windows hands-on acceptance
+
+Run Kernel and NapCat on the same Windows machine for this first check. This is
+manual live operation and consumes the configured Actor provider's quota. Start
+with a few ordinary messages and inspect failures before sending more. Record
+NapCat/QQ versions and the selected provider/model; never record credentials.
+The following uses a fresh private instance and port 18787, independently of the
+normal instance. Keep its directory, binding name and account IDs unchanged when
+testing restart continuity.
+
+Use a QQ build supported by the selected NapCat release. For an old desktop QQ,
+the official [Windows OneKey package](https://napneko.github.io/guide/boot/Shell)
+can prepare a separate runtime: extract it into a fresh directory, run
+`NapCatInstaller.exe`, then start `napcat.bat` inside its generated
+`NapCat.XXXX.Shell` directory. This is distinct from `launcher.bat` in the normal
+Shell archive. Merely replacing NapCat's files does not update the installed QQ.
+
+1. In NapCat, log in as Lain and manually add your own QQ as a friend. In WebUI's
+   network configuration create and enable a **WebSocket server / forward WS**:
+   host `127.0.0.1`, port `3001`, message format `array`, a nonempty OneBot token,
+   self-message reporting off and debug/raw reporting off. Lain connects to
+   `ws://127.0.0.1:3001/`; this is not the WebUI port or a reverse-WS client.
+   Protect the WebUI separately. Its login token and the OneBot token have different
+   roles. Configuration fields were checked against the
+   [official guide](https://napneko.github.io/config/basic) on 2026-10-24; the
+   installed version still needs live verification.
+
+2. Open a fresh PowerShell in the repository after the native workspace build.
+   Use the built executable explicitly. The first command clears manual launcher
+   overrides in this PowerShell process only, so the test uses its own saved
+   endpoint, credentials and Actor selection.
+
+   ```powershell
+   Remove-Item Env:LAIN_URL, Env:LAIN_API_TOKEN, Env:LAIN_LISTEN, Env:LAIN_DATABASE_PATH,
+       Env:LAIN_ACTOR_CONFIG, Env:LAIN_PERSONA_PATH, Env:LAIN_DAEMON_PATH -ErrorAction SilentlyContinue
+   $lain = (Resolve-Path .\target\debug\lain.exe).Path
+   $env:LAIN_LOCAL_DIR = 'F:\Lain-Q1-Acceptance'
+   if (Test-Path -LiteralPath $env:LAIN_LOCAL_DIR) {
+       throw 'Choose a new test directory for first setup; reuse the existing one only for an intentional restart.'
+   }
+   & $lain setup --local
+   if ($LASTEXITCODE -ne 0) { throw 'Local setup failed' }
+
+   $settingsFile = Join-Path $env:LAIN_LOCAL_DIR 'client.json'
+   $settings = Get-Content -Raw -LiteralPath $settingsFile | ConvertFrom-Json
+   $settings.url = 'http://127.0.0.1:18787'
+   [IO.File]::WriteAllText($settingsFile, ($settings | ConvertTo-Json),
+       [Text.UTF8Encoding]::new($false))
+   Copy-Item -LiteralPath .\config\actor.example.json -Destination (Join-Path $env:LAIN_LOCAL_DIR 'actor.json')
+   Copy-Item -LiteralPath .\config\napcat.example.json -Destination (Join-Path $env:LAIN_LOCAL_DIR 'napcat.json')
+   ```
+
+   `setup` creates the private owner-only directory and token. Edit the two copied
+   JSON files in your editor and save UTF-8 without BOM. In `actor.json`, select
+   your actual Responses-compatible provider base URL and model, with
+   `secret_ref: "secret://env/actor"`. The base URL excludes `/responses`; retain
+   the existing request/output/token bounds. The example's model and endpoint are
+   examples, not proof of current provider compatibility.
+
+   In `napcat.json`, set `self_id` to **Lain's QQ**, `user_id` to **your QQ**, keep
+   both as JSON strings, use the endpoint above and set `allow_reply` to `true`.
+   Keep `secret_ref: "secret://env/napcat"`. Only the outgoing OneBot wire field
+   becomes a number; configuration IDs remain strings. Never put a token in JSON.
+
+3. In that same PowerShell, select the Actor file and enter the two credentials
+   through hidden prompts. They remain process environment values and are not
+   saved to a credential file by these commands.
+
+   ```powershell
+   & $lain config actor set --file (Join-Path $env:LAIN_LOCAL_DIR 'actor.json')
+   if ($LASTEXITCODE -ne 0) { throw 'Actor configuration failed' }
+   $env:LAIN_NAPCAT_CONFIG = Join-Path $env:LAIN_LOCAL_DIR 'napcat.json'
+   $actorCredential = Read-Host 'Actor API key' -AsSecureString
+   $env:LAIN_SECRET_ACTOR = [Net.NetworkCredential]::new('', $actorCredential).Password
+   $napcatCredential = Read-Host 'NapCat OneBot token' -AsSecureString
+   $env:LAIN_SECRET_NAPCAT = [Net.NetworkCredential]::new('', $napcatCredential).Password
+   & $lain up
+   ```
+
+   Keep this window open. Startup connects to the real NapCat, but ordinary
+   startup/doctor do not invoke the model. An accepted bound-user message does.
+   Stop with Ctrl-C. To restart in this same window, run `& $lain up` again;
+   do not rerun fresh setup or change the binding. In a new window reselect the
+   same directory/configuration and re-enter the credentials first.
+
+4. In a second PowerShell in the repository, inspect the instance without a model
+   call. Do not print the token or the headers variable.
+
+   ```powershell
+   Remove-Item Env:LAIN_URL, Env:LAIN_API_TOKEN, Env:LAIN_ACTOR_CONFIG,
+       Env:LAIN_PERSONA_PATH -ErrorAction SilentlyContinue
+   $lain = (Resolve-Path .\target\debug\lain.exe).Path
+   $env:LAIN_LOCAL_DIR = 'F:\Lain-Q1-Acceptance'
+   & $lain doctor
+   $base = 'http://127.0.0.1:18787'
+   $headers = @{ Authorization = 'Bearer ' + ([IO.File]::ReadAllText(
+       (Join-Path $env:LAIN_LOCAL_DIR 'kernel-token')).Trim()) }
+   $bindings = @(Invoke-RestMethod "$base/v1/channels" -Headers $headers)
+   $binding = $bindings | Where-Object { $_.spec.name -eq 'qq-personal' }
+   if (@($binding).Count -ne 1) { throw 'Expected one qq-personal binding; inspect configuration' }
+   $channelId = $binding.id
+   $binding | Select-Object id, conversation_id, reply_enabled, grant_revision
+   $snapshot = Invoke-RestMethod "$base/v1/channels/$channelId" -Headers $headers
+   $snapshot.deliveries | Select-Object id, state, receipt
+   ```
+
+   If you chose another binding name, change the filter. A binding/ready Kernel
+   alone does not prove NapCat connected; a real accepted input and matched send
+   receipt establish the live path. `doctor` in this second window may report the
+   Actor credential unavailable locally because it is held only in the first
+   window; inspect the daemon's Actor diagnostics as well. Refresh `$snapshot`
+   after each test to inspect `incoming`, `batches` and `deliveries`.
+
+5. Run these small checks in order:
+
+   | Action | Expected evidence |
+   | --- | --- |
+   | Send Lain a plain Chinese private message | One accepted input/batch and a visible reply; delivery `confirmed` with a receipt |
+   | Send two or three short messages quickly | A trailing 750 ms quiet window, capped at 3 seconds, groups inputs; in-flight supplements may join the same bounded turn, with original IDs/text retained |
+   | Mention a harmless detail, wait for completion, Ctrl-C/restart Kernel, ask about it | Same binding/conversation ID and recent conversational context; this is not proof of semantic memory |
+   | After a completed reply, disable/re-enable NapCat's WS endpoint, then send a new message once reconnected | New message can complete, old confirmed replies are not resent; messages during disconnection are not guaranteed to be recovered |
+   | Revoke, send a message, explicitly re-grant, send a new message | No new reply under revoked permission; re-grant does not replay the revoked backlog |
+
+   Revoke/re-grant from the second window using the **current** revision each time:
+
+   ```powershell
+   $snapshot = Invoke-RestMethod "$base/v1/channels/$channelId" -Headers $headers
+   $body = @{ enabled = $false; expected_revision = $snapshot.binding.grant_revision } | ConvertTo-Json
+   Invoke-RestMethod "$base/v1/channels/$channelId/reply-grant" -Method Post `
+       -Headers $headers -ContentType 'application/json' -Body $body | Out-Null
+   # Test revoked behavior, then explicitly grant again with its new revision.
+   $snapshot = Invoke-RestMethod "$base/v1/channels/$channelId" -Headers $headers
+   $body = @{ enabled = $true; expected_revision = $snapshot.binding.grant_revision } | ConvertTo-Json
+   Invoke-RestMethod "$base/v1/channels/$channelId/reply-grant" -Method Post `
+       -Headers $headers -ContentType 'application/json' -Body $body | Out-Null
+   ```
+
+   If a turn waits for an action decision, use `& $lain chat --conversation
+   $binding.conversation_id` in the second window to inspect and explicitly deny
+   or approve the exact proposal. QQ “同意” cannot approve it. If sending is
+   `unknown`, inspect the real chat before any new request; never retry the old
+   intent automatically. Record the step, timestamp, safe IDs/state, visible reply
+   and latency. A `confirmed` delivery means platform acknowledgement, not human
+   read confirmation. Stop the test daemon with Ctrl-C when finished.
+
 - No replies: inspect the grant, configured Actor, private-friend/text-array format,
   account binding and pending confirmation. Check safe channel warnings by ID.
 - Connection rejected: verify endpoint type, token and authenticated login account;
@@ -194,7 +391,8 @@ Assess persona and timing using real responses; deterministic fixtures cannot
 establish naturalness. Do not deliberately create uncertain real sends repeatedly
 just to reproduce an already covered fake-server failure.
 
-Q1 remains pending real acceptance. Phase 6.6/7.1 real-provider gaps, including
+Basic ordinary private conversation is manually confirmed; the remaining Q1 live
+reliability/experience checks remain pending. Phase 6.6/7.1 real-provider gaps, including
 failed memory-retrieval evidence, remain unchanged. No native Linux/macOS result
 is implied by a Windows build.
 
@@ -209,3 +407,14 @@ running NapCat release. Exact installed-version compatibility is a live gate.
 - [OneBot forward WebSocket contract](https://github.com/botuniverse/onebot-11/blob/master/communication/ws.md)
 - [OneBot bearer authentication](https://github.com/botuniverse/onebot-11/blob/master/communication/authorization.md)
 - [OneBot public API](https://github.com/botuniverse/onebot-11/blob/master/api/public.md)
+
+## Bounded private-history lookup (Q2-B1)
+
+Source reads require a separate default-off administrative grant selecting a fixed
+received-UTC window (at most 31 days, ending in the past). Reply and memory grants
+do not enable it. Search/inspect operate on existing records only, exclude Q2-A
+suppressed sources and report partial coverage. Unknown sending outcomes remain
+uncertain. The actual personal instance is not upgraded or enabled by development.
+See [CLI source commands](CLI.md#private-history-source-lookup-q2-b1),
+[the source contract](MEMORY.md#implemented-q2-b1-private-source-lookup),
+and [Q2-B1 acceptance and manual steps](Q2_B1_ACCEPTANCE.md).

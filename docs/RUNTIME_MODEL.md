@@ -2,7 +2,11 @@
 
 **Status:** resident-runtime target plus current local runtime contracts
 
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-24
+
+## Q2-B1 private source lookup — 2026-10-25
+
+Q2-B1 source lookup rechecks its independent grant during lookup and before preparing every new model request. All earlier selections in the current turn are freshly projected; changed scope, suppression or reply visibility stops continuation. A second check after inference discards stale generated text/calls and accounts for tokens already used. Source-influenced previews remain held until this check. Subsequent turn context keeps original user requests but omits assistant/action observations from source-reading turns. Preparation under the Kernel storage lock is the authorization linearization point, not proof of HTTP receipt. Revocation after dispatch cannot recall that request. See [ADR 011](adr/011-bounded-private-source-lookup.md).
 
 ## Current target runtime — 2026-10-23
 
@@ -10,7 +14,8 @@ Cloud residency now prioritizes daily QQ interaction. The cloud keeps one identi
 and continuous records; paired PCs own execution and report evidence. Detailed
 proposal: [RESIDENT_DESIGN.md](RESIDENT_DESIGN.md). Chat behavior:
 [CHAT_DESIGN.md](CHAT_DESIGN.md). Distributed execution is not implemented. Q1 now
-has an optional QQ private-text adapter; actual NapCat/model/cloud acceptance remains open.
+has an optional QQ private-text adapter. Basic real private chat was user-confirmed
+on 2026-10-24; full reliability, memory and cloud acceptance remain open.
 
 The target distinguishes receiving, archiving, reading, selecting memory, deciding
 to share and actually sending. Raw message arrival does not require a model call.
@@ -52,8 +57,9 @@ require explicit implementation and native acceptance.
 ### Implemented Q1 event flow
 
 The optional transport verifies its account, filters and normalizes inputs, and
-persists them before waking the channel application. A fixed 750 ms window merges
-up to 16 messages/8 KiB; the pending queue holds at most 128 messages. Inference
+persists them before waking the channel application. A trailing 750 ms quiet window
+capped at three seconds merges up to 16 messages/8 KiB; the pending queue holds at
+most 128 messages. Inference
 does not block transport ingestion or other Kernel/Worker operations. One channel
 conversation waits behind its current turn or explicit pending confirmation.
 
@@ -68,6 +74,46 @@ Prepared batches recover their committed Actor request; interrupted Actor infere
 uses the existing Unknown policy. Revocation blocks queued processing and new sends,
 but cannot undo an already initiated external write. No history backfill or gap-free
 NapCat delivery is assumed. See [QQ_CHANNEL.md](QQ_CHANNEL.md).
+
+### C1 private turn timing and draft truth
+
+Private-chat contexts add explicit Reply/Waiting/NoReply/Superseded/Notice/
+Interrupted decisions, distinct from transport delivery state. Waiting uses one
+1–5-second timer, not idle inference. New input during generation may be adopted
+transactionally into the same batch without changing original request text. It
+invalidates opaque continuation and held drafts, with at most two reconsiderations
+inside existing four-request/four-tool/token/120-second bounds. Returned usage is
+recorded even for a discarded response. Over-cap input remains queued and an
+honest capacity notice replaces the obsolete answer. Work and approvals retain
+their independent lifecycle.
+
+Final text and new actions check current input under the Kernel lock. Selected
+memory IDs/revisions and re-projected source fingerprints are checked on final
+commits and at send checks, in addition to response checks. Revoke/delete/correction,
+historical source suppression and scope/expiry changes block stale recollection
+even after a draft is Ready. Ready ordinary drafts
+can become Superseded. A claimed but prewrite-invalidated request is NotSent;
+Confirmed/Unknown sends retain their actual truth. Approval/failure notices are
+preserved. Later history uses confirmed outgoing text and withholds changed
+memory/source-derived replies. See [ADR 012](adr/012-bounded-private-conversation.md).
+
+### Q2-A request-time memory
+
+No extractor, idle model polling or additional per-message inference job is added.
+An existing channel ActorTurn can select memory within its existing four-request,
+four-tool, token/time limits. Before each model request the Kernel supplies fresh
+bounded relevant Active memory for that binding. It stores only inspected IDs and
+revisions for target checks, not a reusable content cache. Recall receipts carry
+IDs; current records are re-read for the next request. Grant revocation/expiry
+removes subsequent capabilities/context and rejects pending effects under the
+same storage lock used by administrative grant changes. A request already sent
+to a provider cannot be recalled. Recent dialogue and audit have independent
+lifetimes and are not erased by forgetting semantic memory.
+
+Memory writes, supersession/deletion, old-source tombstones and effect receipts
+are transactional. Restart never re-executes an uncertain effect; inspect its
+receipt. New authorization takes a source sequence watermark, excluding queued
+pre-grant inputs as well as older archives. See [Q2_A_ACCEPTANCE.md](Q2_A_ACCEPTANCE.md).
 
 ## Historical foundation and current implementation
 

@@ -378,7 +378,7 @@ impl Client {
                         ensure!(value.id == id, "Actor snapshot belongs to another turn");
                         snapshot_seen = true;
                         let finished = value.state != lain_wire::ActorTurnState::Running;
-                        (ActorUpdate::Snapshot(value), finished)
+                        (ActorUpdate::Snapshot(Box::new(value)), finished)
                     }
                     "preview" => {
                         ensure!(snapshot_seen, "Actor preview before snapshot");
@@ -401,7 +401,7 @@ impl Client {
 
 #[derive(Debug)]
 pub enum ActorUpdate {
-    Snapshot(lain_wire::ActorSnapshot),
+    Snapshot(Box<lain_wire::ActorSnapshot>),
     Preview(lain_wire::PreviewEvent),
 }
 pub enum NoticeUpdate {

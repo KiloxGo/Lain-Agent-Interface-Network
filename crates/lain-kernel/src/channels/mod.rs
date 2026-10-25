@@ -43,6 +43,15 @@ impl ChannelService {
     pub fn id(&self) -> ChannelId {
         self.binding.id
     }
+    pub(super) fn connection(&self, phase: ConnectionPhase, failure: Option<ConnectionFailure>) {
+        if self
+            .kernel
+            .channel_connection(self.id(), phase, failure)
+            .is_err()
+        {
+            tracing::warn!(channel = %self.id(), "channel connection observation unavailable");
+        }
+    }
     pub async fn receive(&self, input: Input) -> Result<Incoming> {
         self.actor.check_memory_input(&input)?;
         let encoded = serde_json::to_string(&input)?;
@@ -56,19 +65,23 @@ impl ChannelService {
     /// A transport calls this immediately before writing, after queueing/identity checks.
     pub async fn may_send(&self, delivery: &Delivery) -> bool {
         let id = self.id();
-        let revision = delivery.grant_revision;
+        let delivery = delivery.clone();
         delivery.channel_id == id
-            && crate::domain::now_ms().is_ok_and(|now| now < delivery.expires_at_ms)
-            && blocking(&self.kernel, move |k| {
-                let binding = k.channel_binding(id)?;
-                Ok(binding.reply_enabled && binding.grant_revision == revision)
-            })
-            .await
-            .unwrap_or(false)
+            && self.actor.check_memory_input(&delivery).is_ok()
+            && blocking(&self.kernel, move |k| k.channel_may_send(&delivery))
+                .await
+                .unwrap_or(false)
     }
     pub async fn run(self: Arc<Self>, channel: Arc<dyn ConversationChannel>) -> Result<()> {
+        struct Guard(Arc<ChannelService>);
+        impl Drop for Guard {
+            fn drop(&mut self) {
+                self.0.connection(ConnectionPhase::Stopped, None);
+            }
+        }
+        let _guard = Guard(self.clone());
         let shutdown = self.kernel.subscribe_shutdown();
-        let result = self.run_loop(channel).await;
+        let result = self.clone().run_loop(channel).await;
         // Kernel admission can close between a wake-up and a queued storage call.
         // Shutdown leaves committed work for the normal restart recovery policy.
         if *shutdown.borrow() { Ok(()) } else { result }

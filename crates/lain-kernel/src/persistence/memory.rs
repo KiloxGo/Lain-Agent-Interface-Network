@@ -12,7 +12,7 @@ use anyhow::{Context, Result, ensure};
 use lain_wire::{ActionId, RequestId};
 use rusqlite::{OptionalExtension, Transaction, params};
 
-fn key<T: serde::Serialize>(value: &T) -> Result<String> {
+pub(super) fn key<T: serde::Serialize>(value: &T) -> Result<String> {
     Ok(serde_json::to_string(value)?)
 }
 fn decode<T: serde::de::DeserializeOwned>(value: String) -> Result<T> {
@@ -32,7 +32,7 @@ fn read_memory_snapshot(db: &rusqlite::Connection, id: MemoryId) -> Result<Memor
     ensure!(record.id == id, "memory identity mismatch");
     Ok(record)
 }
-fn read_memory(db: &rusqlite::Connection, id: MemoryId) -> Result<MemoryRecord> {
+pub(super) fn read_memory(db: &rusqlite::Connection, id: MemoryId) -> Result<MemoryRecord> {
     let record = read_memory_snapshot(db, id)?;
     crate::memory::validate(&record.draft, &record.provenance)?;
     Ok(record)
@@ -51,13 +51,19 @@ fn read_candidate(db: &rusqlite::Connection, id: CandidateId) -> Result<MemoryCa
     ensure!(candidate.id == id, "memory candidate identity mismatch");
     Ok(candidate)
 }
-fn insert_memory(
+pub(super) fn insert_memory(
     tx: &Transaction<'_>,
     draft: MemoryDraft,
     provenance: MemoryProvenance,
 ) -> Result<MemoryRecord> {
     crate::memory::validate(&draft, &provenance)?;
     let time = now_ms()?;
+    let owner_confirmed_at_ms =
+        if matches!(provenance.source, MemorySource::ChannelSelection { .. }) {
+            None
+        } else {
+            Some(time)
+        };
     let record = MemoryRecord {
         id: MemoryId::new(),
         draft,
@@ -65,10 +71,11 @@ fn insert_memory(
         status: MemoryStatus::Active,
         superseded_by: None,
         recorded_at_ms: time,
-        owner_confirmed_at_ms: time,
+        owner_confirmed_at_ms,
         updated_at_ms: time,
         revision: 1,
     };
+    record.validate().map_err(anyhow::Error::msg)?;
     ensure!(key(&record)?.len() <= 12000, ControlError::InvalidInput);
     tx.execute("INSERT INTO lain_memories(id,kind,scope,status,content,snapshot) VALUES(?1,?2,?3,?4,?5,?6)",
         params![record.id.to_string(),key(&record.draft.kind)?,key(&record.draft.scope)?,key(&record.status)?,record.draft.content,key(&record)?])?;
@@ -221,6 +228,9 @@ impl Store {
             );
         }
         record.status = change.status;
+        if change.status != MemoryStatus::Active {
+            super::private_memory::suppress(&tx, &record)?;
+        }
         record.superseded_by = change.superseded_by;
         record.revision = record
             .revision
@@ -240,6 +250,7 @@ impl Store {
         // that was not recognizable as sensitive when originally stored.
         let record = read_memory_snapshot(&tx, id)?;
         ensure!(record.revision == revision, ControlError::Conflict);
+        super::private_memory::suppress(&tx, &record)?;
         tx.execute("DELETE FROM lain_memories WHERE id=?1", [id.to_string()])?;
         // Remove the semantic candidate copy too. Original Actor/operational audit
         // remains under its own retention; deletion is not secure disk erasure.
@@ -481,7 +492,7 @@ mod tests {
                 .connection
                 .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
                 .unwrap(),
-            8
+            11
         );
         let input = AddMemory {
             request_id: RequestId::new(),

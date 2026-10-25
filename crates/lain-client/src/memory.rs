@@ -41,12 +41,14 @@ impl From<Status> for MemoryStatus {
 #[derive(Args)]
 pub struct Scope {
     /// Absolute workspace directory on the daemon host. No local path resolution.
-    #[arg(long,conflicts_with_all=["global","internal"])]
+    #[arg(long,conflicts_with_all=["global","internal","channel"])]
     workspace: Option<String>,
-    #[arg(long, conflicts_with = "internal")]
+    #[arg(long, conflicts_with_all = ["internal","channel"])]
     global: bool,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "channel")]
     internal: bool,
+    #[arg(long)]
+    channel: Option<lain_wire::ChannelId>,
 }
 impl Scope {
     fn value(self) -> MemoryScope {
@@ -54,6 +56,8 @@ impl Scope {
             MemoryScope::Workspace { path }
         } else if self.internal {
             MemoryScope::Internal
+        } else if let Some(channel_id) = self.channel {
+            MemoryScope::Channel { channel_id }
         } else {
             MemoryScope::Global
         }

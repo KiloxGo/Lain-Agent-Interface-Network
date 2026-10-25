@@ -8,9 +8,15 @@
 
 **实现状态：** Phase 7.1 基础包括 Rust Kernel/CLI、Codex 工作监督、持久对话、
 明确确认的工具操作、独立记忆和事实结果回传。新增 Q1 解耦 QQ 私聊实现，
-真实 NapCat/模型对话和部署仍待验收。设备执行端、长期自主授权与新的
+基础真实 NapCat/模型私聊于 2026-10-24 由用户人工确认，完整可靠性与部署仍待验收。
+Q1 连接诊断与 Q2-A 默认关闭的绑定私聊记忆授权、回忆、纠正和忘记已实现，
+真实实例尚未升级或启用记忆授权。设备执行端、通用自主授权与新的
 日常活动系统尚未实现。Web 保留且冻结。原有跨平台验收和
 Phase 6.6/7.1 真实模型验收仍有缺口；详见验收文档，不以产品设计替代测试证据。
+
+C1 已接入自然私聊的表达分层、有限等待与收尾、生成中补充重考虑及旧草稿失效，
+开发与本地确定性验收已完成；真实自然度未验收。机制参考、离线命令和人工多轮场景见
+[C1 验收](docs/C1_ACCEPTANCE.md)。
 
 ## 从这里阅读
 
@@ -21,11 +27,12 @@ Phase 6.6/7.1 真实模型验收仍有缺口；详见验收文档，不以产品
 | [聊天与日常活动](docs/CHAT_DESIGN.md) | 人格、时机、自然回忆、纠正、主动联系 |
 | [QQ 私聊操作指南](docs/QQ_CHANNEL.md) | 配置、授权、恢复、部署边界与真实联调 |
 | [Q1 实现验收](docs/Q1_IMPLEMENTATION.md) | 本轮实现范围、离线证据与未完成验收 |
+| [Q2-A 验收与实测](docs/Q2_A_ACCEPTANCE.md) | 连接诊断修补、私聊记忆、权限边界和分阶段人工验证 |
 | [MaiBot 参考研究](docs/MAIBOT_REFERENCE.md) | 已阅读的机制、适合借鉴之处与未验证范围 |
 | [架构](docs/ARCHITECTURE.md) | 新目标与当前本地实现的区别 |
 | [领域模型](docs/DOMAIN_MODEL.md) | 对话、工作、记忆及拟议实体边界 |
 | [运行模型](docs/RUNTIME_MODEL.md) | 生命周期、活动与恢复语义 |
-| [记忆](docs/MEMORY.md) | 自主可纠正目标与当前 Phase 7.1 契约 |
+| [记忆](docs/MEMORY.md) | Phase 7.1 契约与 Q2-A 受限私聊记忆 |
 | [路线图](ROADMAP.md) | QQ 优先的新顺序与旧阶段记录 |
 | [ADR 009](docs/adr/009-cloud-resident-equal-companion.md) | 哪些旧决策被替代、哪些实现边界仍有效 |
 | [开发记录](DEVLOG.md) | 实际推进与验证结果 |
@@ -146,3 +153,8 @@ Native macOS fixtures validate the path; real-provider Phase 7.1 retrieval and
 Windows/Linux acceptance remain unverified.
 
 Before architectural work, read `AGENTS.md` and `ROADMAP.md`.
+
+Q2-B1 adds separately authorized, bounded private-history source search/inspect over
+existing channel records, with actual source IDs, grant revision/window, honest
+delivery state and content-free read audits. It defaults off and cannot approve
+Work or restore forgotten memory. See [Q2-B1 acceptance](docs/Q2_B1_ACCEPTANCE.md).

@@ -15,6 +15,9 @@ use crate::{
 mod channels;
 mod delegation;
 mod memory;
+pub(crate) mod private_chat;
+mod private_memory;
+mod sources;
 
 pub(crate) struct Store {
     connection: Connection,
@@ -75,7 +78,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 8,
+            version <= 11,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -146,6 +149,15 @@ impl Store {
         }
         if version < 8 {
             transaction.execute_batch(include_str!("../migrations/008_channels.sql"))?;
+        }
+        if version < 9 {
+            transaction.execute_batch(include_str!("../migrations/009_private_memory.sql"))?;
+        }
+        if version < 10 {
+            transaction.execute_batch(include_str!("../migrations/010_source_lookup.sql"))?;
+        }
+        if version < 11 {
+            transaction.execute_batch(include_str!("../migrations/011_private_chat.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
@@ -611,12 +623,21 @@ impl Store {
         turn: &mut crate::actor::domain::ActorTurn,
         create: bool,
     ) -> Result<()> {
+        let tx = self.connection.transaction()?;
+        Self::save_actor_in_transaction(&tx, turn, create)?;
+        tx.commit()?;
+        Ok(())
+    }
+    fn save_actor_in_transaction(
+        tx: &rusqlite::Transaction,
+        turn: &mut crate::actor::domain::ActorTurn,
+        create: bool,
+    ) -> Result<()> {
         turn.validate()?;
         turn.revision = turn
             .revision
             .checked_add(1)
             .context("Actor revision exhausted")?;
-        let tx = self.connection.transaction()?;
         if create {
             tx.execute("INSERT INTO lain_actor_turns(id, conversation_id, request_id, snapshot) VALUES (?1, ?2, ?3, '{}')", (turn.id.to_string(),turn.conversation_id.to_string(),turn.request_id.to_string()))?;
             turn.sequence = tx.last_insert_rowid().try_into()?;
@@ -632,9 +653,8 @@ impl Store {
             "UPDATE lain_conversations SET updated_at_ms = max(updated_at_ms, ?2) WHERE id = ?1",
             (turn.conversation_id.to_string(), i64::try_from(now_ms()?)?),
         )?;
-        Self::settle_delegation_submission(&tx, turn)?;
-        Self::sync_memory_candidates(&tx, turn)?;
-        tx.commit()?;
+        Self::settle_delegation_submission(tx, turn)?;
+        Self::sync_memory_candidates(tx, turn)?;
         Ok(())
     }
     pub fn recover_actor(&mut self) -> Result<()> {
@@ -662,6 +682,10 @@ impl Store {
                     .checked_add(1)
                     .context("Actor revision exhausted")?;
                 turn.state = TurnState::Unknown;
+                if let Some(c) = &mut turn.private_chat {
+                    c.decision = lain_wire::chat::ChatDecision::Interrupted;
+                    c.wait_until_ms = None;
+                }
                 turn.error = Some(
                     "Kernel restarted during inference or execution; no action was replayed".into(),
                 );
@@ -759,6 +783,9 @@ mod actor_record_tests {
             model_requests: 1,
             usage_tokens: 0,
             timing: Default::default(),
+            channel_memory: None,
+            channel_source: None,
+            private_chat: None,
         };
         turn.message(MessageRole::Assistant, "已完成的正文".into())
             .unwrap();

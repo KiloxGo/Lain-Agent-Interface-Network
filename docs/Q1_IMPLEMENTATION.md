@@ -1,7 +1,46 @@
 # Q1 implementation and acceptance
 
-Status: implemented, final revision verification deferred by the user, 2026-10-23.
-No real QQ/model/deployment acceptance.
+Status: implemented; final-revision deterministic gates passed on native Windows,
+2026-10-24. See the dated verification below.
+Basic real QQ/model private conversation was manually confirmed by the user on
+2026-10-24. Full Q1 reliability, experience and deployment acceptance remains open.
+
+C1 (2026-10-25) supersedes Q1's fixed collection window and always-reply flow with
+bounded trailing batching, explicit wait/no-reply and draft reconsideration. The
+Q1 records below remain historical evidence; current contracts and offline/live
+acceptance are in [C1 acceptance](C1_ACCEPTANCE.md) and [QQ_CHANNEL.md](QQ_CHANNEL.md).
+
+## User-confirmed private conversation — 2026-10-24
+
+The user supplied a screenshot of multiple Chinese friend-private exchanges,
+including a greeting, a short follow-up, an identity question and a reciprocal
+greeting, and explicitly confirmed ordinary conversation works. This is
+**user-manually-confirmed real private send/receive evidence**, not a fixture run.
+The configured Actor was DeepSeek Flash; no fresh paid call was made by the coding
+agent to reproduce the screenshot, and no usage count or model revision is inferred.
+
+Earlier local troubleshooting verified the online Lain account through the
+installed NapCat's authenticated interfaces and hot-loaded the saved forward-WS
+configuration when port 3001 was not listening. The running Kernel then established
+its connection. This does not establish a complete live reconnect/restart test.
+The screenshot does not verify grant revocation, long-term memory, delivery crash
+boundaries, timing/naturalness over days, cloud deployment or all Q1 exit criteria.
+Phase 6.6/7.1 historical real-provider failures remain unchanged.
+
+## 2026-10-24 diagnostics repair
+
+Authenticated `GET /v1/channels/status`, the existing channel snapshot's connection
+field, and `lain channel list/show` expose ephemeral Kernel-owned observations.
+Handshake stays Authenticating until the account is verified. Restart does not
+restore Online; task exit/shutdown reports Stopped. Closed failure categories
+cover connection, authentication, account mismatch, identity timeout, protocol and
+disconnect; repeated identical failures do not flood logs. No raw error/frame,
+credential or chat content is retained in this observation. Existing reply-grant,
+deduplication, receipt and Unknown/no-replay semantics are unchanged.
+
+The new deterministic evidence, Q2-A memory boundaries and future manual upgrade/
+real acceptance steps are in [Q2_A_ACCEPTANCE.md](Q2_A_ACCEPTANCE.md). This development
+does not update the running personal instance or migrate its database.
 
 ## Selected slice
 
@@ -86,10 +125,10 @@ coverage, the Worker/terminal independence integration test and native CLI ACL t
 
 After that run, protocol review corrected outgoing `send_private_msg.user_id` from
 a JSON string to a number and updated the wire fixture assertion. Configuration
-and internal identities remain strings. The user requested pushing now and doing
-testing separately: **this final correction has not been rebuilt or retested**.
-The preceding green run is evidence for the pre-correction tree, not final-revision
-acceptance. Rerun the gates below before treating the pushed revision as verified.
+and internal identities remain strings. The user requested pushing then doing
+testing separately, so the correction was not rebuilt or retested at that
+checkpoint. The 2026-10-24 verification below covers the corrected tree; the
+earlier run remains pre-correction evidence.
 
 Environment: native x86_64 Windows/PowerShell, Rust 1.99.1. The initial LLVM-MinGW
 20261020 build passed Kernel tests but the CLI test executable failed before test
@@ -97,8 +136,64 @@ entry with Windows access violation `0xc0000005`. This is not a passing CLI resu
 The successful full run used GCC 16.2.0 / MinGW-w64 14.0.0 MSVCRT with
 `RUSTFLAGS=-C link-self-contained=no`, matching the documented
 [Rust Windows GNU toolchain contract](https://doc.rust-lang.org/rustc/platform-support/windows-gnu.html).
-No WSL, emulation or cross-compilation counts as native acceptance. MSVC, macOS
-and Linux remain unverified in this change.
+No WSL, emulation or cross-compilation counts as native acceptance. MSVC was not
+verified at that checkpoint; the follow-up below supplies separate MSVC evidence.
+macOS and Linux remain unverified for Q1.
+
+## Native Windows final-revision verification — 2026-10-24
+
+Rechecked `560ddf9`, including the numeric outgoing `user_id` correction, on native
+x86_64 Windows/PowerShell with Rust/Cargo 1.98.1, `x86_64-pc-windows-msvc`.
+No GNU linker override, emulation, real QQ account or paid model was used.
+
+- `cargo fmt --all -- --check`: passed.
+- `cargo clippy --locked --workspace --all-targets -- -D warnings`: passed.
+- `cargo test --offline --locked --workspace --no-fail-fast`: **111 passed,
+  0 failed, 3 intentionally ignored**, including the numeric wire assertion.
+- `cargo build --offline --locked --workspace`: passed. MSVC emitted two
+  informational linker-output warnings about creating `.lib`/`.exp` files.
+
+The initial Clippy attempt failed before code checking because direct crates.io
+access timed out and the local index lacked locked `webpki-roots` 1.0.10. The
+successful retry used the existing Windows proxy in the Cargo process only;
+no global proxy/Cargo configuration or lockfile was changed. Tests and build then
+used the populated cache offline.
+
+The native CLI smoke exposed test-harness portability issues: its ACL fixture
+inherited incompatible PowerShell 7 modules, its saved-path assertion compared
+Windows path spellings rather than file identity, and its streaming fixture's
+one-second pause could end before the Windows CLI inspected Running. The harness
+now selects Windows PowerShell's own modules, uses `os.path.samefile`, and gates
+fixture completion on the actual CLI history snapshot. Its stale schema-7
+assertion is updated to schema 8. These changes affect fixtures only; no production
+permission, provider or channel behavior changed.
+
+After all functional assertions passed, the Windows cleanup also exposed an open
+SQLite inspection handle: Python's connection context manager ends a transaction
+but does not close the connection. The inspection now uses `contextlib.closing`.
+A focused Windows check executes the actual inspection block against a temporary
+schema-8 database and verifies that its file can immediately be deleted.
+The Windows CLI fixture timeout is 90 seconds rather than 30: repeated native
+PowerShell ACL checks exceeded the old bound during a cold local setup retry.
+Other hosts retain the existing 30-second bound; no product timeout changed.
+The fixture's launcher-readiness deadline is also 90 seconds on Windows (20 on
+other hosts), so an env-file/ACL startup is not interrupted before the daemon can
+install its signal handlers. A retry had exceeded the old 20-second bound before
+the daemon began serving; it is recorded as a failed harness run, not a pass.
+
+The final `python -X utf8 scripts/native_smoke.py --platform windows` rerun exited
+**0 / PASS** with the repaired harness. It covered private setup/reuse/permissions,
+native launcher/shutdown/restart, doctor, authenticated CLI, actual streaming
+before completion, action confirmation, fake Worker independence, scoped memory
+and summary commands, Actor memory retrieval and restart persistence. Temporary
+state cleanup completed. All providers were loopback fixtures and consumed zero
+quota. The embedded acceptance runner still reports native interactive/ConPTY and
+full real-provider acceptance as incomplete; those were not silently promoted by
+the successful deterministic smoke.
+
+These results close the deferred final Rust revision gates. Live NapCat/model
+conversation, installed-version compatibility, persona/timing, deployment,
+interactive ConPTY and other native hosts remain separate acceptance work.
 
 Reproduce the deterministic gates with a working native Rust toolchain:
 

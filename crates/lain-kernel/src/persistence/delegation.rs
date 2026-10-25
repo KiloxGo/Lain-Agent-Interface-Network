@@ -372,6 +372,9 @@ mod tests {
             model_requests: 1,
             usage_tokens: 0,
             timing: Default::default(),
+            channel_memory: None,
+            channel_source: None,
+            private_chat: None,
         };
         actor
             .message(MessageRole::User, "original user request".into())

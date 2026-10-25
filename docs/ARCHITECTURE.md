@@ -4,6 +4,10 @@
 
 **Last reviewed:** 2026-10-23
 
+## Q2-B1 private source lookup — 2026-10-25
+
+Q2-B1 adds an independent default-off SourceGrant for a fixed private receipt-time window. Migration 010 stores revisioned decisions and content-free read audits plus an index over existing Incoming snapshots; SourceRecord is a bounded projection over Incoming/Batch/ActorTurn/Delivery, not another archive. Kernel checks current scope at lookup and every new model disclosure. Actor receipts retain IDs, and later model history excludes source-derived observations. See [ADR 011](adr/011-bounded-private-source-lookup.md) and [Q2-B1 acceptance](Q2_B1_ACCEPTANCE.md).
+
 ## Current target: cloud identity and device execution
 
 [PRODUCT.md](PRODUCT.md) and [ADR 009](adr/009-cloud-resident-equal-companion.md)
@@ -55,12 +59,47 @@ uses loopback bearer-authenticated HTTP/SSE, SQLite and same-host Codex supervis
 The client can connect to an API but is not a remote PC execution agent. Phase 7.1
 memory is explicit/scoped/reviewed. Q1 adds an optional NapCat conversation adapter
 and a narrow persisted reply grant; device pairing, autonomous experiences and
-general standing authorization remain unimplemented. Real QQ/deployment acceptance
-is separate from the offline implementation evidence.
+general standing authorization remain unimplemented. Q2-A adds only the explicit,
+default-off private-binding memory grant described below. Basic real private chat
+was user-confirmed on 2026-10-24; deployment and full live acceptance remain separate.
+
+### C1 bounded private conversation
+
+C1 extends the current Actor/channel/storage path rather than adding a planner
+runtime. Fixed-revision MaiBot research informed separate identity, behavior and
+expression instructions, finite trailing batching, explicit wait/no-reply decisions
+and reconsideration of unsent drafts. Kernel owns the actual bounds, immutable
+input associations, current-input and memory-revision checks, and send admission.
+Chat decisions never become Worker cancellation or permission approval.
+
+Schema 011 adds the batch-input lookup index and versions optional private-chat
+snapshots/obsolete-draft semantics; old snapshots are preserved. Actor usage,
+effects, outgoing intents and confirmed/uncertain transport outcomes stay distinct.
+The behavior contract is [ADR 012](adr/012-bounded-private-conversation.md); local
+and separately authorized real-experience acceptance are [C1](C1_ACCEPTANCE.md).
+
+### Q2-A private memory and channel observations
+
+Schema 009 adds revisioned private-binding memory grants, effect receipts,
+source suppression and inspected-target revisions. It reuses the existing Memory
+and SQLite FTS projection. Only the authenticated administrator can establish a
+grant; the Actor receives no grant-management tool. Each private recall/effect
+checks current grant, expiry, conversation/batch and reply revision under the
+Kernel storage lock. Corrections/deletion and their receipts commit together.
+Old records retain their confirmation timestamps; new ChannelSelection sources
+remain Inferred with no individual confirmation timestamp. See
+[MEMORY.md](MEMORY.md), [ADR 010](adr/010-scoped-private-conversation-memory.md)
+and [Q2-A acceptance](Q2_A_ACCEPTANCE.md).
+
+Connection observations live in a separate Kernel-owned in-memory map, never in
+SQLite or transport protocol objects. They cannot turn a durable binding into an
+online claim after restart. Transport updates do not wait for SQLite; API/CLI
+reads combine the observation with the binding. Account validation precedes Online,
+and transport/application exit and Kernel shutdown close the observation.
 
 ### Q1 conversation adapter boundary
 
-`channels::domain` defines Lain-owned binding/input/batch/delivery IDs and normalized
+`lain-wire` defines Lain-owned binding/input/batch/delivery IDs; `channels::domain` defines normalized
 records; `ChannelService` consumes these through Kernel persistence and the same
 Actor used by terminal chat. `ConversationChannel` exposes connection changes and
 one bounded send result. `channels::napcat` owns authentication, native IDs,

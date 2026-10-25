@@ -10,6 +10,14 @@ use std::sync::{
 use tokio::sync::Semaphore;
 
 const TOKEN: &str = "fixture-owner-token-0123456789abcdef";
+#[path = "chat_tests.rs"]
+mod chat;
+#[path = "diagnostics_tests.rs"]
+mod diagnostics;
+#[path = "private_memory_tests.rs"]
+mod private_memory;
+#[path = "source_tests.rs"]
+mod source;
 fn spec() -> BindingSpec {
     BindingSpec {
         name: "fixture".into(),
@@ -145,6 +153,9 @@ fn durable_binding_dedup_grants_and_restart_never_resurrect_sends() {
         model_requests: 1,
         usage_tokens: 1,
         timing: Default::default(),
+        channel_memory: None,
+        channel_source: None,
+        private_chat: None,
     };
     turn.message(MessageRole::User, batch.text.clone()).unwrap();
     turn.message(MessageRole::Assistant, "晚上好。".into())
@@ -212,7 +223,7 @@ fn durable_binding_dedup_grants_and_restart_never_resurrect_sends() {
 }
 
 #[tokio::test]
-async fn batching_and_new_input_during_generation_use_same_conversation_without_blocking() {
+async fn batching_and_supplements_reconsider_unsent_text_without_blocking() {
     let dir = tempfile::tempdir().unwrap();
     let k = kernel(&dir.path().join("state.sqlite3"));
     let (s, m) = service(&k, 0);
@@ -227,14 +238,28 @@ async fn batching_and_new_input_during_generation_use_same_conversation_without_
     assert_eq!(m.calls.load(Ordering::SeqCst), 1);
     m.gate.add_permits(2);
     eventually(|| {
-        k.channel_snapshot(s.id()).unwrap().deliveries.len() == 2
-            && channel.sent.lock().unwrap().len() == 2
+        k.channel_snapshot(s.id()).unwrap().deliveries.len() == 1
+            && channel.sent.lock().unwrap().len() == 1
     })
     .await;
     let snapshot = k.channel_snapshot(s.id()).unwrap();
     assert_eq!(snapshot.incoming[0].id, first.id);
     assert_eq!(snapshot.batches[0].text, "今天\n有点累");
-    assert_eq!(snapshot.batches[1].text, "但是项目有进展");
+    assert_eq!(snapshot.batches.len(), 1);
+    assert_eq!(snapshot.incoming[2].batch_id, Some(snapshot.batches[0].id));
+    let turn = k
+        .actor_turn(snapshot.batches[0].actor_turn_id.unwrap())
+        .unwrap();
+    assert_eq!(turn.model_requests, 2);
+    assert_eq!(turn.usage_tokens, 20);
+    assert_eq!(turn.private_chat.as_ref().unwrap().reconsiderations, 1);
+    assert_eq!(
+        turn.messages
+            .iter()
+            .filter(|m| m.role == MessageRole::Assistant)
+            .count(),
+        1
+    );
     assert!(
         snapshot
             .batches
@@ -398,22 +423,18 @@ fn queue_and_batch_limits_expire_without_catchup_or_snapshot_starvation() {
         100
     );
     // The oldest item is outside the inspection page, but still drives the timer.
-    assert_eq!(
-        store
-            .channel_deadline(binding.id, first.received_at_ms)
-            .unwrap(),
-        Some(first.received_at_ms + MERGE_MS)
-    );
+    let due = store
+        .channel_deadline(binding.id, first.received_at_ms)
+        .unwrap()
+        .unwrap();
+    assert!((first.received_at_ms + MERGE_MS..=first.received_at_ms + MAX_MERGE_MS).contains(&due));
     assert!(
         store
             .channel_next_batch(binding.id, first.received_at_ms)
             .unwrap()
             .is_none()
     );
-    let batch = store
-        .channel_next_batch(binding.id, first.received_at_ms + MERGE_MS)
-        .unwrap()
-        .unwrap();
+    let batch = store.channel_next_batch(binding.id, due).unwrap().unwrap();
     assert_eq!(batch.text.split('\n').count(), MAX_BATCH);
     let future = crate::domain::now_ms().unwrap() + REPLY_TTL_MS + 1;
     assert!(
@@ -472,6 +493,9 @@ async fn restart_resumes_prepared_work_but_never_regenerates_interrupted_or_read
                 model_requests: 1,
                 usage_tokens: 1,
                 timing: Default::default(),
+                channel_memory: None,
+                channel_source: None,
+                private_chat: None,
             };
             turn.message(MessageRole::User, batch.text.clone()).unwrap();
             if phase == "ready" {
@@ -778,6 +802,9 @@ async fn napcat_wire_identity_reconnect_receive_during_model_and_lost_receipt() 
                 assert_eq!(first["params"]["message"][0]["type"], "text");
                 observed_server.fetch_add(1, Ordering::SeqCst);
                 ws_send(&mut ws,json!({"status":"ok","retcode":0,"data":{"message_id":11},"echo":first["echo"]})).await;
+                // The in-flight supplement now updates the first draft, so a new
+                // input after its confirmed reply exercises a separate uncertain send.
+                ws_send(&mut ws, event(4, "接着聊")).await;
                 let second = ws_json(&mut ws).await;
                 assert_eq!(second["action"], "send_private_msg");
                 observed_server.fetch_add(1, Ordering::SeqCst);
@@ -785,7 +812,7 @@ async fn napcat_wire_identity_reconnect_receive_during_model_and_lost_receipt() 
                 drop(ws);
             } else {
                 ws_send(&mut ws, event(3, "还有一件事")).await;
-                ws_send(&mut ws, event(4, "重连后的新消息")).await;
+                ws_send(&mut ws, event(5, "重连后的新消息")).await;
                 let third = ws_json(&mut ws).await;
                 assert_eq!(third["action"], "send_private_msg");
                 observed_server.fetch_add(1, Ordering::SeqCst);
@@ -803,7 +830,7 @@ async fn napcat_wire_identity_reconnect_receive_during_model_and_lost_receipt() 
     let app = tokio::spawn(s.clone().run(channel));
     eventually(|| k.channel_snapshot(s.id()).unwrap().incoming.len() == 3).await;
     assert_eq!(model.calls.load(Ordering::SeqCst), 1);
-    model.gate.add_permits(3);
+    model.gate.add_permits(4);
     eventually(|| {
         k.channel_snapshot(s.id()).unwrap().deliveries.len() == 3
             && k.channel_snapshot(s.id()).unwrap().deliveries[2].state == DeliveryState::Confirmed
@@ -811,12 +838,12 @@ async fn napcat_wire_identity_reconnect_receive_during_model_and_lost_receipt() 
     .await;
     let snapshot = k.channel_snapshot(s.id()).unwrap();
     assert_eq!(observed.load(Ordering::SeqCst), 3);
-    assert_eq!(snapshot.incoming.len(), 4);
+    assert_eq!(snapshot.incoming.len(), 5);
     assert_eq!(snapshot.batches[0].text, "今天\n不错");
     assert_eq!(snapshot.deliveries[0].state, DeliveryState::Confirmed);
     assert_eq!(snapshot.deliveries[1].state, DeliveryState::Unknown);
     assert_eq!(snapshot.deliveries[2].receipt.as_deref(), Some("13"));
-    assert_eq!(model.calls.load(Ordering::SeqCst), 3);
+    assert_eq!(model.calls.load(Ordering::SeqCst), 4);
     k.shutdown().unwrap();
     app.await.unwrap().unwrap();
     transport.await.unwrap();

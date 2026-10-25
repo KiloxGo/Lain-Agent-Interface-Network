@@ -8,17 +8,17 @@ use anyhow::{Result, ensure};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Serialize, de::DeserializeOwned};
 
-fn decode<T: DeserializeOwned>(text: String) -> Result<T> {
+pub(super) fn decode<T: DeserializeOwned>(text: String) -> Result<T> {
     serde_json::from_str(&text).map_err(|_| anyhow::anyhow!("invalid persisted channel record"))
 }
-fn one<T: DeserializeOwned>(db: &Connection, sql: &str, key: String) -> Result<T> {
+pub(super) fn one<T: DeserializeOwned>(db: &Connection, sql: &str, key: String) -> Result<T> {
     let text = db
         .query_row(sql, [key], |r| r.get::<_, String>(0))
         .optional()?
         .ok_or(crate::backend::ControlError::NotFound)?;
     decode(text)
 }
-fn rows<T: DeserializeOwned>(db: &Connection, sql: &str, key: String) -> Result<Vec<T>> {
+pub(super) fn rows<T: DeserializeOwned>(db: &Connection, sql: &str, key: String) -> Result<Vec<T>> {
     let mut query = db.prepare(sql)?;
     query
         .query_map([key], |r| r.get::<_, String>(0))?
@@ -31,7 +31,7 @@ fn state(value: &impl Serialize) -> Result<String> {
         .ok_or_else(|| anyhow::anyhow!("invalid channel state"))?
         .to_owned())
 }
-fn save_input(db: &Connection, value: &Incoming) -> Result<()> {
+pub(super) fn save_input(db: &Connection, value: &Incoming) -> Result<()> {
     db.execute(
         "UPDATE channel_incoming SET state=?2,snapshot=?3 WHERE id=?1",
         (
@@ -42,7 +42,7 @@ fn save_input(db: &Connection, value: &Incoming) -> Result<()> {
     )?;
     Ok(())
 }
-fn save_batch(db: &Connection, value: &Batch) -> Result<()> {
+pub(super) fn save_batch(db: &Connection, value: &Batch) -> Result<()> {
     db.execute(
         "UPDATE channel_batches SET state=?2,snapshot=?3 WHERE id=?1",
         (
@@ -53,7 +53,7 @@ fn save_batch(db: &Connection, value: &Batch) -> Result<()> {
     )?;
     Ok(())
 }
-fn save_delivery(db: &Connection, value: &Delivery) -> Result<()> {
+pub(super) fn save_delivery(db: &Connection, value: &Delivery) -> Result<()> {
     db.execute(
         "UPDATE channel_deliveries SET state=?2,snapshot=?3 WHERE id=?1",
         (
@@ -64,7 +64,7 @@ fn save_delivery(db: &Connection, value: &Delivery) -> Result<()> {
     )?;
     Ok(())
 }
-fn binding(db: &Connection, id: ChannelId) -> Result<Binding> {
+pub(super) fn binding(db: &Connection, id: ChannelId) -> Result<Binding> {
     one(
         db,
         "SELECT snapshot FROM channel_bindings WHERE id=?1",
@@ -221,7 +221,19 @@ impl Store {
             state: InputState::Queued,
             batch_id: None,
         };
-        self.connection.execute("INSERT INTO channel_incoming(id,channel_id,external_id,state,snapshot) VALUES (?1,?2,?3,'queued',?4)", (record.id.to_string(), id.to_string(), &record.input.external_id, serde_json::to_string(&record)?))?;
+        let tx = self.connection.transaction()?;
+        tx.execute("INSERT INTO channel_incoming(id,channel_id,external_id,state,snapshot) VALUES (?1,?2,?3,'queued',?4)", (record.id.to_string(), id.to_string(), &record.input.external_id, serde_json::to_string(&record)?))?;
+        for mut delivery in rows::<Delivery>(
+            &tx,
+            "SELECT snapshot FROM channel_deliveries WHERE channel_id=?1 AND state='ready' ORDER BY sequence LIMIT 128",
+            id.to_string(),
+        )? {
+            if !super::private_chat::delivery_current(&tx, &delivery)? {
+                delivery.state = DeliveryState::Superseded;
+                save_delivery(&tx, &delivery)?;
+            }
+        }
+        tx.commit()?;
         Ok(record)
     }
     /// Returns the same prepared/running batch after a crash. Request UUID is durable.
@@ -257,6 +269,9 @@ impl Store {
             "SELECT snapshot FROM channel_incoming WHERE channel_id=?1 AND state='queued' ORDER BY sequence LIMIT 128",
             id.to_string(),
         )?;
+        if merge_deadline(pending.iter().map(|i| i.received_at_ms)).is_some_and(|due| now < due) {
+            return Ok(None);
+        }
         let tx = self.connection.transaction()?;
         let mut selected = Vec::new();
         let mut text = String::new();
@@ -271,9 +286,6 @@ impl Store {
                 };
                 save_input(&tx, &input)?;
                 continue;
-            }
-            if selected.is_empty() && now < input.received_at_ms.saturating_add(MERGE_MS) {
-                break;
             }
             if selected.len() >= MAX_BATCH
                 || text.len() + input.input.text.len() + usize::from(!text.is_empty()) > MAX_TEXT
@@ -357,6 +369,8 @@ impl Store {
             return save_batch(&self.connection, &batch);
         }
         let text = match turn.state {
+            TurnState::Completed if turn.private_chat.as_ref().is_some_and(|c|c.decision==lain_wire::chat::ChatDecision::NoReply) => String::new(),
+            TurnState::Completed if turn.private_chat.as_ref().is_some_and(|c|c.decision==lain_wire::chat::ChatDecision::Superseded) => "补充消息已经收到，这轮还没能形成可靠回复。记录已保留；如果有必须处理的一项，请单独说明。".into(),
             TurnState::Completed => turn
                 .messages
                 .iter()
@@ -375,7 +389,7 @@ impl Store {
         let tx = self.connection.transaction()?;
         save_batch(&tx, &batch)?;
         if !text.is_empty() {
-            let delivery = Delivery {
+            let mut delivery = Delivery {
                 id: DeliveryId::new(),
                 channel_id: batch.channel_id,
                 batch_id: batch.id,
@@ -385,8 +399,26 @@ impl Store {
                 created_at_ms: now,
                 expires_at_ms: batch.expires_at_ms,
                 receipt: None,
+                purpose: match turn.state {
+                    TurnState::PendingConfirmation => DeliveryPurpose::Approval,
+                    TurnState::Completed
+                        if turn.private_chat.as_ref().is_none_or(|c| {
+                            !matches!(
+                                c.decision,
+                                lain_wire::chat::ChatDecision::Notice
+                                    | lain_wire::chat::ChatDecision::Superseded
+                            )
+                        }) =>
+                    {
+                        DeliveryPurpose::Conversation
+                    }
+                    _ => DeliveryPurpose::Failure,
+                },
             };
-            tx.execute("INSERT INTO channel_deliveries(id,channel_id,batch_id,state,snapshot) VALUES (?1,?2,?3,'ready',?4)", params![delivery.id.to_string(),delivery.channel_id.to_string(),batch.id.to_string(),serde_json::to_string(&delivery)?])?;
+            if !super::private_chat::delivery_current(&tx, &delivery)? {
+                delivery.state = DeliveryState::Superseded;
+            }
+            tx.execute("INSERT INTO channel_deliveries(id,channel_id,batch_id,state,snapshot) VALUES (?1,?2,?3,?4,?5)", params![delivery.id.to_string(),delivery.channel_id.to_string(),batch.id.to_string(),state(&delivery.state)?,serde_json::to_string(&delivery)?])?;
         }
         tx.commit()?;
         Ok(())
@@ -405,6 +437,8 @@ impl Store {
                     DeliveryState::Revoked
                 } else if now >= delivery.expires_at_ms {
                     DeliveryState::Expired
+                } else if !super::private_chat::delivery_current(&self.connection, &delivery)? {
+                    DeliveryState::Superseded
                 } else {
                     DeliveryState::Sending
                 };
@@ -414,6 +448,23 @@ impl Store {
             }
         }
         Ok(None)
+    }
+    pub fn channel_may_send(&self, delivery: &Delivery) -> Result<bool> {
+        let saved: Delivery = one(
+            &self.connection,
+            "SELECT snapshot FROM channel_deliveries WHERE id=?1",
+            delivery.id.to_string(),
+        )?;
+        let b = binding(&self.connection, delivery.channel_id)?;
+        Ok(saved.state == DeliveryState::Sending
+            && saved.channel_id == delivery.channel_id
+            && saved.batch_id == delivery.batch_id
+            && saved.text == delivery.text
+            && saved.grant_revision == delivery.grant_revision
+            && b.reply_enabled
+            && b.grant_revision == delivery.grant_revision
+            && now_ms()? < saved.expires_at_ms
+            && super::private_chat::delivery_current(&self.connection, &saved)?)
     }
     pub fn channel_settle(&mut self, id: DeliveryId, outcome: SendOutcome) -> Result<()> {
         let mut value: Delivery = one(
@@ -456,6 +507,7 @@ impl Store {
     pub fn channel_snapshot(&self, id: ChannelId) -> Result<ChannelSnapshot> {
         let mut value = ChannelSnapshot {
             binding: binding(&self.connection, id)?,
+            connection: ConnectionStatus::default(),
             incoming: rows(
                 &self.connection,
                 "SELECT snapshot FROM channel_incoming WHERE channel_id=?1 ORDER BY sequence DESC LIMIT 100",
@@ -520,15 +572,18 @@ impl Store {
                 .iter()
                 .any(|t| t.state.active());
         let mut deadlines: Vec<u64> = batches.iter().map(|b| b.expires_at_ms).collect();
-        for input in rows::<Incoming>(
+        let pending = rows::<Incoming>(
             &self.connection,
-            "SELECT snapshot FROM channel_incoming WHERE channel_id=?1 AND state='queued' ORDER BY sequence LIMIT 1",
+            "SELECT snapshot FROM channel_incoming WHERE channel_id=?1 AND state='queued' ORDER BY sequence LIMIT 128",
             id.to_string(),
-        )? {
+        )?;
+        if let Some(input) = pending.first() {
             deadlines.push(if busy {
                 input.received_at_ms.saturating_add(REPLY_TTL_MS)
             } else {
-                input.received_at_ms.saturating_add(MERGE_MS).max(now + 1)
+                merge_deadline(pending.iter().map(|i| i.received_at_ms))
+                    .unwrap()
+                    .max(now + 1)
             });
         }
         for delivery in rows::<Delivery>(
@@ -597,6 +652,9 @@ mod tests {
             model_requests: 1,
             usage_tokens: 1,
             timing: Default::default(),
+            channel_memory: None,
+            channel_source: None,
+            private_chat: None,
         };
         turn.message(MessageRole::User, batch.text).unwrap();
         turn.message(MessageRole::Assistant, "atomic reply".into())

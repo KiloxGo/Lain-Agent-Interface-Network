@@ -77,10 +77,16 @@ async fn run() -> Result<()> {
         )?;
         let stop_transport = transport.abort_handle();
         let application = tokio::spawn(async move {
+            struct Guard(tokio::task::AbortHandle);
+            impl Drop for Guard {
+                fn drop(&mut self) {
+                    self.0.abort();
+                }
+            }
+            let _guard = Guard(stop_transport);
             if service.run(channel).await.is_err() {
                 tracing::error!("channel application stopped; inspect durable channel state");
                 // Do not keep accepting input after the durable consumer has failed.
-                stop_transport.abort();
             }
         });
         Some((transport, application))

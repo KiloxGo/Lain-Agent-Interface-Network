@@ -15,6 +15,8 @@ use crate::{
     worker::WorkerState,
 };
 mod channels;
+mod private_chat;
+mod sources;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -39,6 +41,10 @@ pub struct Kernel {
     events: broadcast::Sender<Event>,
     shutdown_signal: tokio::sync::watch::Sender<bool>,
     channel_events: broadcast::Sender<()>,
+    // Ephemeral transport observations never wait on SQLite or wake the Actor model.
+    channel_connections: Mutex<
+        BTreeMap<crate::channels::domain::ChannelId, crate::channels::domain::ConnectionStatus>,
+    >,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -86,6 +92,7 @@ impl Kernel {
             events: broadcast::channel(256).0,
             shutdown_signal: tokio::sync::watch::channel(false).0,
             channel_events: broadcast::channel(64).0,
+            channel_connections: Mutex::new(BTreeMap::new()),
         })
     }
 
@@ -115,6 +122,15 @@ impl Kernel {
         let mut inner = self.lock()?;
         inner.state = KernelState::ShuttingDown;
         self.shutdown_signal.send_replace(true);
+        for status in self
+            .channel_connections
+            .lock()
+            .map_err(|_| anyhow!("channel observation lock poisoned"))?
+            .values_mut()
+        {
+            status.phase = crate::channels::domain::ConnectionPhase::Stopped;
+            status.changed_at_ms = crate::domain::now_ms()?.max(status.changed_at_ms);
+        }
         tracing::info!(state = ?inner.state, "Kernel shutting down");
         Ok(())
     }
@@ -799,6 +815,25 @@ impl Kernel {
                 crate::backend::ControlError::InvalidInput
             );
         }
+        let channel_memory = channel
+            .map(|(id, _, _)| {
+                inner
+                    .store
+                    .channel_memory_context(id, lain_wire::BatchId(request))
+            })
+            .transpose()?
+            .flatten();
+        let channel_source = channel
+            .map(|(id, _, _)| inner.store.source_context(id, lain_wire::BatchId(request)))
+            .transpose()?
+            .flatten();
+        let private_chat = channel
+            .map(|(id, _, _)| {
+                inner
+                    .store
+                    .private_chat_context(id, lain_wire::BatchId(request))
+            })
+            .transpose()?;
         inner.store.actor_page(conversation, 0, 1)?;
         ensure!(
             !inner
@@ -821,6 +856,9 @@ impl Kernel {
             model_requests: 0,
             usage_tokens: 0,
             timing: Default::default(),
+            channel_memory,
+            channel_source,
+            private_chat,
         };
         turn.message(MessageRole::User, text)?;
         inner.store.save_actor_turn(&mut turn, true)?;
@@ -833,7 +871,33 @@ impl Kernel {
     ) -> Result<crate::actor::domain::ActorTurn> {
         let mut inner = self.lock()?;
         let mut turn = inner.store.actor_turn(id)?;
+        let was_running = turn.state == crate::actor::domain::TurnState::Running;
+        let old_actions = turn.actions.len();
+        let old_assistant = turn
+            .messages
+            .iter()
+            .filter(|m| m.role == crate::actor::domain::MessageRole::Assistant)
+            .count();
         change(&mut turn)?;
+        if turn.private_chat.is_some()
+            && (turn.actions.len() > old_actions
+                || (turn.private_chat.as_ref().is_some_and(|c| {
+                    !matches!(
+                        c.decision,
+                        lain_wire::chat::ChatDecision::Notice
+                            | lain_wire::chat::ChatDecision::Interrupted
+                            | lain_wire::chat::ChatDecision::Superseded
+                    )
+                }) && (turn
+                    .messages
+                    .iter()
+                    .filter(|m| m.role == crate::actor::domain::MessageRole::Assistant)
+                    .count()
+                    > old_assistant
+                    || (was_running && turn.state == crate::actor::domain::TurnState::Completed))))
+        {
+            inner.store.private_chat_check(&turn)?;
+        }
         inner.store.save_actor_turn(&mut turn, false)?;
         Ok(turn)
     }

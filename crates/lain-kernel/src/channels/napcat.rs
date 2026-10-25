@@ -11,6 +11,7 @@ use tokio_tungstenite::{
     connect_async_with_config,
     tungstenite::{Message, client::IntoClientRequest, protocol::WebSocketConfig},
 };
+use tracing::instrument::WithSubscriber;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -192,9 +193,10 @@ pub(super) fn start_authenticated(
         sender,
         connected: state,
     });
-    let task = tokio::spawn(connection_loop(
-        config, service, receiver, connected, shutdown, token,
-    ));
+    let task = tokio::spawn(
+        connection_loop(config, service, receiver, connected, shutdown, token)
+            .with_current_subscriber(),
+    );
     (channel, task)
 }
 async fn connection_loop(
@@ -205,7 +207,22 @@ async fn connection_loop(
     mut shutdown: watch::Receiver<bool>,
     token: SecretValue,
 ) {
+    struct Guard {
+        service: Arc<ChannelService>,
+        connected: watch::Sender<bool>,
+    }
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            self.connected.send_replace(false);
+            self.service.connection(ConnectionPhase::Stopped, None);
+        }
+    }
+    let _guard = Guard {
+        service: service.clone(),
+        connected: connected.clone(),
+    };
     let mut backoff = 1;
+    let mut last_failure = None;
     loop {
         if *shutdown.borrow() {
             break;
@@ -214,12 +231,21 @@ async fn connection_loop(
             _ = shutdown.changed() => break,
             result = session(&config, &service, &mut receiver, &connected, &token) => result,
         };
+        let was_online = *connected.borrow();
         connected.send_replace(false);
         while let Ok(command) = receiver.try_recv() {
             let _ = command.result.send(SendOutcome::NotSent);
         }
-        if result.is_err() {
-            tracing::warn!(channel = %service.id(), "channel disconnected or identity unavailable; source coverage may have a gap");
+        if let Err(error) = result {
+            let failure = error
+                .downcast_ref::<ConnectionFailure>()
+                .copied()
+                .unwrap_or(ConnectionFailure::Disconnected);
+            service.connection(ConnectionPhase::Reconnecting, Some(failure));
+            if was_online || last_failure != Some(failure) {
+                tracing::warn!(channel = %service.id(), ?failure, "channel unavailable; inspect channel status; source coverage may have a gap");
+            }
+            last_failure = Some(failure);
         }
         tokio::select! { _ = shutdown.changed() => break, _ = tokio::time::sleep(Duration::from_secs(backoff)) => {} }
         backoff = (backoff * 2).min(30);
@@ -233,7 +259,10 @@ async fn session(
     connected: &watch::Sender<bool>,
     token: &SecretValue,
 ) -> Result<()> {
-    config.validate()?;
+    config
+        .validate()
+        .map_err(|_| ConnectionFailure::ProtocolError)?;
+    service.connection(ConnectionPhase::Connecting, None);
     let recipient = config
         .user_id
         .parse::<u64>()
@@ -256,8 +285,17 @@ async fn session(
         connect_async_with_config(request, Some(ws_config), false),
     )
     .await
-    .context("channel connect timeout")?
-    .map_err(|_| anyhow::anyhow!("channel connection unavailable"))?;
+    .map_err(|_| ConnectionFailure::ConnectionUnavailable)?
+    .map_err(|error| match error {
+        tokio_tungstenite::tungstenite::Error::Http(response)
+            if matches!(response.status().as_u16(), 401 | 403) =>
+        {
+            ConnectionFailure::AuthenticationFailed
+        }
+        tokio_tungstenite::tungstenite::Error::Protocol(_) => ConnectionFailure::ProtocolError,
+        _ => ConnectionFailure::ConnectionUnavailable,
+    })?;
+    service.connection(ConnectionPhase::Authenticating, None);
     let identity_echo = uuid::Uuid::new_v4().to_string();
     bounded_write(
         socket.send(Message::Text(
@@ -273,29 +311,32 @@ async fn session(
     loop {
         let frame = tokio::time::timeout_at(identity_deadline, socket.next())
             .await
-            .context("identity timeout")?
+            .map_err(|_| ConnectionFailure::IdentityTimeout)?
             .context("channel closed")?
             .map_err(|_| anyhow::anyhow!("identity transport failed"))?;
         match frame {
             Message::Text(text) => {
-                let value: Value = serde_json::from_str(&text)
-                    .map_err(|_| anyhow::anyhow!("invalid identity frame"))?;
+                let value: Value =
+                    serde_json::from_str(&text).map_err(|_| ConnectionFailure::ProtocolError)?;
                 if value.get("echo").and_then(Value::as_str) == Some(&identity_echo) {
                     ensure!(
                         value.get("status").and_then(Value::as_str) == Some("ok")
-                            && value.get("retcode").and_then(Value::as_i64) == Some(0)
-                            && value
-                                .get("data")
-                                .and_then(|d| d.get("user_id"))
-                                .and_then(native_id)
-                                .as_deref()
-                                == Some(config.self_id.as_str()),
-                        "channel account mismatch"
+                            && value.get("retcode").and_then(Value::as_i64) == Some(0),
+                        ConnectionFailure::ProtocolError
+                    );
+                    let account = value
+                        .get("data")
+                        .and_then(|d| d.get("user_id"))
+                        .and_then(native_id)
+                        .ok_or(ConnectionFailure::ProtocolError)?;
+                    ensure!(
+                        account == config.self_id,
+                        ConnectionFailure::AccountMismatch
                     );
                     break;
                 }
                 if let Some(input) = parse_private(config, &value) {
-                    ensure!(buffered.len() < 16, "pre-identity queue full");
+                    ensure!(buffered.len() < 16, ConnectionFailure::ProtocolError);
                     buffered.push(input);
                 }
             }
@@ -307,6 +348,7 @@ async fn session(
         }
     }
     connected.send_replace(true);
+    service.connection(ConnectionPhase::Online, None);
     for input in buffered {
         if service.receive(input).await.is_err() {
             tracing::warn!(channel = %service.id(), "channel input rejected; not acknowledged as accepted");
@@ -342,7 +384,7 @@ async fn session(
                 last_frame = tokio::time::Instant::now();
                 match frame {
                     Message::Text(text) => {
-                        let value: Value = serde_json::from_str(&text).map_err(|_| anyhow::anyhow!("invalid channel frame"))?;
+                        let value: Value = serde_json::from_str(&text).map_err(|_| ConnectionFailure::ProtocolError)?;
                         if let Some((echo, _, _)) = &pending
                             && value.get("echo").and_then(Value::as_str) == Some(echo.as_str()) {
                                 let (_, result, _) = pending.take().unwrap();

@@ -46,6 +46,7 @@ struct State {
     text: zeroize::Zeroizing<String>,
     visible: String,
     closed: bool,
+    held: bool,
     started: Instant,
     timing: ModelTiming,
 }
@@ -68,6 +69,9 @@ impl State {
         }
     }
     fn visible(&mut self, text: String) {
+        if self.held {
+            return;
+        }
         if !text.is_empty() {
             self.visible.push_str(&text);
             self.timing
@@ -97,6 +101,7 @@ impl PreviewSink {
             sanitizer: StreamingRedactor::new(redactor),
             text: zeroize::Zeroizing::new(String::new()),
             closed: false,
+            held: false,
             visible: String::new(),
             started: Instant::now(),
             timing: ModelTiming::default(),
@@ -110,6 +115,15 @@ impl PreviewSink {
             text: String::new(),
         });
         sink
+    }
+    pub(super) fn hold(&self) {
+        self.0.lock().unwrap().held = true;
+    }
+    pub(super) fn interrupt(&self) {
+        self.0.lock().unwrap().discard(DiscardReason::Interrupted);
+    }
+    pub(super) fn timing(&self) -> ModelTiming {
+        self.0.lock().unwrap().timing.clone()
     }
     pub(crate) fn first_byte(&self) {
         let mut s = self.0.lock().unwrap();
@@ -164,6 +178,37 @@ impl Drop for State {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn source_influenced_preview_is_held_and_can_be_discarded_without_text_disclosure() {
+        let (sender, mut receiver) = broadcast::channel(16);
+        let registry = Registry::default();
+        let turn = ActorTurnId::new();
+        let sink = PreviewSink::new(
+            sender,
+            Redactor::new(vec![]),
+            turn,
+            MessageId::new(),
+            &registry,
+        );
+        sink.hold();
+        sink.delta("historical private quote");
+        assert!(
+            matches!(registry.checkpoint(turn).unwrap().update,PreviewUpdate::Started {text} if text.is_empty())
+        );
+        sink.interrupt();
+        sink.finish("");
+        let mut discarded = 0;
+        while let Ok(Observation::Preview(event)) = receiver.try_recv() {
+            match event.update {
+                PreviewUpdate::Delta { .. } | PreviewUpdate::Finished => {
+                    panic!("held source text escaped before authorization check")
+                }
+                PreviewUpdate::Discarded { .. } => discarded += 1,
+                _ => {}
+            }
+        }
+        assert_eq!(discarded, 1);
+    }
     #[test]
     fn slow_subscribers_are_bounded_and_recover_a_sanitized_checkpoint() {
         let (sender, mut receiver) = broadcast::channel(16);

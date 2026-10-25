@@ -2,7 +2,11 @@
 
 **Status:** proposed resident-domain extensions plus existing concrete domain contracts
 
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-24
+
+## Q2-B1 private source lookup — 2026-10-25
+
+Q2-B1 implements `SourceGrant`, `SourceReadContext`, `SourceQuery`/`SourceCursor`, `SourceRecord` and `SourceAudit` in `lain-wire::source`. SourceRecord projects existing private Incoming/Batch/ActorTurn/Delivery records without copying their bodies. A grant selects one binding, revision, fixed half-open received-UTC window, incoming high-water mark and optional expiry. SourceAudit stores IDs/scope/operation and preparation attempts, never comprehension or original text. These are separate from MemoryGrant, MemoryEffect, semantic memory and Work authorization. See [ADR 011](adr/011-bounded-private-source-lookup.md).
 
 ## Current direction and vocabulary
 
@@ -42,12 +46,29 @@ message IDs cannot be assumed globally unique. Occurrence time, receipt time and
 source order are distinct. Observation of an external session does not create
 control rights or prove current runtime status.
 
-Current MemoryProvenance and user confirmation fields describe actual Phase 7.1
-semantics. Future autonomous writes require a source/grant distinction and a real
-migration, not fake confirmation timestamps. Temporary impressions retain evidence,
+Legacy MemoryProvenance and user confirmation fields retain actual Phase 7.1
+semantics. Q2-A introduces ChannelSelection under an explicit private-binding grant
+and schema 009; it uses Inferred authority and a null individual confirmation
+timestamp. Temporary impressions retain evidence,
 validity and uncertainty; correction must affect retrieval and derived records.
 
 See [RESIDENT_DESIGN.md](RESIDENT_DESIGN.md) for lifecycles and ownership.
+
+### Concrete Q2-A records and Q1 observations
+
+`MemoryGrant` is an administrator decision for one ChannelId: enabled, revision,
+optional expiry, change time and source sequence watermark. Each change appends
+a revision; default revision 0 is disabled. ActorTurn optionally captures a
+`ChannelMemoryContext` (binding/batch/grant/deadline), never a new authorization.
+`MemorySource::ChannelSelection` records the real conversation/input/batch/turn/action,
+bounded quote and grant revision/expiry. `MemoryEffect` is a content-free,
+action-idempotent receipt for Remember, Correct or Forget. A new source is
+model interpretation even when its quoted source was explicit user text.
+
+`ConnectionStatus` is ephemeral: NotStarted, Connecting, Authenticating, Online,
+Reconnecting or Stopped, with a closed optional failure category and change time.
+It is independent of binding persistence, reply authorization and Kernel Ready.
+See [MEMORY.md](MEMORY.md) and [QQ_CHANNEL.md](QQ_CHANNEL.md).
 
 ### Concrete Q1 channel records
 
@@ -134,6 +155,24 @@ A conversation may:
 - survive across multiple frontend connections.
 
 Do not model a worker session as merely a nested chat message.
+
+### C1 private conversation decisions
+
+`PrivateChatContext` belongs to an ActorTurn admitted by the existing reply grant.
+It references the actual ChannelId/BatchId, original expiry/revision, admitted input
+sequence, bounded wait/reconsideration counters, decision and optional deadline.
+Only the latest request's selected memory IDs/revisions and at most four bounded
+historical source selections/fingerprints are retained, not source/memory bodies.
+Legacy snapshots default to no private-chat context. These fields grant
+no additional source, memory or Worker permission.
+
+Supplements preserve Incoming IDs, text and times. Their batch association and new
+Actor user messages commit atomically; the root request and Batch.text do not
+change. Reply/Waiting/NoReply/Superseded/Notice/Interrupted describe conversational
+decisions, never human receipt or completed Work. Delivery adds `superseded` for
+obsolete unsent ordinary drafts and an explicit purpose (conversation/approval/
+failure) so a new social input cannot discard required notices. Already Sending,
+Confirmed and Unknown retain their transport evidence. See [ADR 012](adr/012-bounded-private-conversation.md).
 
 ## 5. WorkerBackend
 

@@ -25,6 +25,13 @@ parser does **not** accept `LAIN_NAPCAT_CONFIG`. With the variable absent no QQ 
 is started. Exact schema, initial grant/re-grant semantics and private endpoint
 requirements: [QQ_CHANNEL.md](QQ_CHANNEL.md), [example](../config/napcat.example.json).
 
+Q2-A private-memory permission is a separate persisted administrator decision via
+authenticated API/CLI, not a new `napcat.json` flag or an implication of
+`allow_reply`. It defaults disabled, uses expected revisions and optional expiry,
+and survives restart/revocation. There is no automatic grant at startup. Actor/
+NapCat files and environment are startup selections; saving edits does not reload
+an already running service. See [CLI.md](CLI.md) and [Q2_A_ACCEPTANCE.md](Q2_A_ACCEPTANCE.md).
+
 **Status:** target ownership update plus historical profile design/current configuration
 **Last reviewed:** 2026-10-23
 
@@ -402,7 +409,7 @@ not a general secret detector: arbitrary unknown secret values or encoded secret
 cannot be recognized reliably. Never ask a worker to retrieve/display credentials;
 keep credential files outside its permitted workspace. No transcripts or prompts
 are persisted as raw transcripts by Lain; Phase 3 stores bounded, sanitized
-completed observations in operational history. No semantic memory exists.
+completed observations in operational history. Those observations are not semantic memory.
 
 Phase 6 stores owner/Actor conversation records separately. Phase 6.6 also stores
 the exact non-secret confirmed worker instruction with its delegation link and

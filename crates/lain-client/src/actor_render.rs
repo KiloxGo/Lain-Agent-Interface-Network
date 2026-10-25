@@ -426,6 +426,9 @@ mod tests {
             model_requests: 1,
             usage_tokens: 0,
             timing: ActorTiming::default(),
+            channel_memory: None,
+            channel_source: None,
+            private_chat: None,
         }
     }
     #[test]

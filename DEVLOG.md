@@ -1439,3 +1439,437 @@ run with `RUSTFLAGS=-C link-self-contained=no`. Tools, build output and test log
 directory `C:/Users/example/AppData/Local/Temp/lain-q1-tools/`; no system PATH or
 user runtime configuration was changed. Native MSVC, Linux/macOS, interactive
 terminal acceptance and existing Phase 6.6/7.1 real-provider gaps remain separate.
+
+## 2026-10-24 — Q1 final-revision recheck and Windows fixture repairs
+
+Rechecked the Rust tree at `560ddf9`, including the final outgoing numeric
+OneBot `user_id` correction, on native x86_64 Windows/MSVC with Rust/Cargo 1.98.1.
+Format, strict all-target workspace Clippy, locked workspace tests and workspace
+build passed: **111 tests passed, zero failed, three opt-in tests ignored**.
+The initial crates.io timeout was resolved using the existing Windows proxy only
+for the Cargo retry; tests/build then ran offline. No lockfile, global toolchain,
+proxy configuration, personal database or running QQ process was changed.
+
+The additional native CLI smoke exposed fixture portability problems: inherited
+PowerShell 7 modules, Windows canonical-path string comparison, a speed-dependent
+streaming probe, a stale schema-7 assertion, and a SQLite inspection connection
+left open during Windows temporary-directory cleanup. The fixture now uses
+Windows PowerShell's bundled modules, file identity, an actual Running-snapshot
+gate, schema 8 and an explicitly closed connection. A focused Windows check of
+the actual SQLite inspection block passed immediate file deletion. The Windows
+CLI subprocess bound is 90 seconds because repeated native ACL checks exceeded
+the previous 30-second setup bound; other hosts retain 30 seconds.
+The Windows launcher-readiness bound likewise rises from 20 to 90 seconds after
+an env-file startup exceeded it; other hosts retain 20 seconds. This affects only
+the fixture's waiting budget, not production startup, inference or shutdown policy.
+Production Rust, channel and authorization behavior is unchanged.
+
+The final `python -X utf8 scripts/native_smoke.py --platform windows` run exited
+0/PASS, including setup/ACLs, signals/restart, doctor, streamed Actor, confirmation,
+fake Worker, scoped memory/summary/Actor retrieval and persisted recovery, with
+successful temporary-state cleanup and zero model quota. The embedded runner's
+native interactive/ConPTY and real-provider acceptance flags remain incomplete;
+this is deterministic native evidence only.
+
+Added a Windows hands-on live acceptance walkthrough to `docs/QQ_CHANNEL.md`:
+fresh owner-only local setup on port 18787, explicit Actor/NapCat files, hidden
+credential entry, forward WS settings, receipt inspection, restart/reconnect and
+revocation/re-grant. Its four PowerShell blocks passed native parser checks.
+Official NapCat 4.18.41 Shell and Windows OneKey archives were prepared separately
+outside the checkout, with hashes matched to GitHub release asset digests; they
+were not launched or logged in by the coding agent. Real QQ/model/deployment,
+ConPTY interaction, other native hosts and existing real-provider memory/result
+delivery gaps remain unaccepted. See `docs/Q1_IMPLEMENTATION.md` for evidence.
+
+## 2026-10-24–25 — Q1 diagnostics and Q2-A private-memory boundary
+
+Recorded the user's manually confirmed real Chinese private QQ exchanges as
+ordinary-chat evidence only. Full live reliability, memory experience and cloud
+deployment, and historical Phase 6.6/7.1 real-provider failures remain open.
+
+Added ephemeral Kernel-owned connection phase/failure observations to authenticated
+channel API/CLI. Account verification gates Online; restart never restores an old
+Online flag, and shutdown/task exit closes observations. Failures use safe closed
+categories and repeated identical failures suppress duplicate warnings. Receive,
+reply grants, send receipts and Unknown/no-replay rules remain unchanged.
+
+Q2-A adds an explicit administrator-only, default-off, revisioned private-binding
+memory grant with persistence, revocation and optional expiry. New authorization
+captures an input sequence watermark; queued pre-grant sources cannot backfill.
+Existing Actor turns gain bounded remember/recall/correct/forget capabilities only
+while the grant is current, retaining all existing model/tool/time/token budgets.
+No extraction loop, observer, scheduler or general Worker approval is introduced.
+
+Schema 009 reuses Memory/FTS and adds grant revisions, effect receipts, source
+suppression and inspected-target revisions. Autonomous selections retain actual
+conversation/input/batch/Actor/action and grant provenance, Inferred authority and
+no fabricated individual confirmation time. Old snapshots and confirmations keep
+their exact meaning. Each request refreshes bounded relevant Active memory; target
+correction/forget requires inspection and revision. Semantic effects, relations,
+tombstones and receipts commit transactionally, with idempotent action IDs.
+Dialogue, superseded versions, audit and backups remain separate from forgetting.
+
+Added deterministic transport/API/CLI, grant/race/scope/expiry/migration/rollback
+and actual MemoryId retrieval tests. The independent-memory Actor fixture removes
+the original source from recent dialogue using temporary Kernel-only filler turns,
+reopens storage and proves the selected record reached model context before
+correction/forgetting. Design contracts, ADR 010, roadmap, operating paths and
+staged manual acceptance are updated; see `docs/Q2_A_ACCEPTANCE.md` for final
+commands/results and live gates.
+
+All development uses isolated `target/q2a` outputs and temporary data. MSVC debug
+symbols exhausted the available F: space; only that task-owned build cache was
+cleaned, then dev/test symbols and incremental output were disabled for the local
+validation commands. No running QQ executable, service, personal database, private
+credential or real memory grant was changed. No paid call or real QQ send was made.
+
+Final native Windows validation on 2026-10-25 passed format, strict all-target
+workspace Clippy and workspace build. The final sequential workspace test run
+passed **126 tests, zero failed, three manual tests ignored** across 15 suites.
+The parallel Kernel executable passed
+45 tests with two manual probes ignored. The native CLI smoke passed exit 0 with
+clean temporary-state removal, including ACLs, process restart, fake-model/Worker
+flows and existing memory/candidate/summary retrieval; no paid quota was used.
+Windows PowerShell parsed all nine documented operating blocks without executing
+them. A warning-capture fixture was isolated by unique ChannelId; a Cargo/native
+smoke overlap was corrected after Windows locked the active test exe. Real
+QQ/provider memory, ConPTY and native macOS/Linux remain unverified.
+
+## 2026-10-25 — Q2-A process-level acceptance closeout
+
+Reviewed current Q1/Q2-A transport/service/Kernel/Actor/persistence/API/CLI paths
+against ADR 010 and the acceptance requirements. No additional product defect was
+reproduced within that scope; this task makes no Rust product behavior, schema,
+milestone or deployment change. Existing uncommitted work and historical failed
+real-provider evidence remain intact; HEAD is still `560ddf9`.
+
+Added the focused `scripts/qq_memory_smoke.py` entry point rather than extending
+the broad older CLI/Worker smoke with a new optional dependency. It uses the
+already-installed Python 3.13.5 / websockets 15.0.1, ephemeral loopback fake OneBot
+and Responses servers, actual native laind/lain and the existing fake Codex process.
+An owner-private temporary instance and generated credentials are independent of
+all personal state. No package/framework, product dependency or CI was added.
+
+The 12 normal checks cover identity-gated Online/reconnect, management auth,
+default-off candidate review, sensitive-input rejection, source-linked MemoryId,
+21 real fake-protocol exchanges evicting original dialogue, restart and exact
+record retrieval in actual model HTTP input, correction/forget refresh and later
+empty recall, old-source replay, in-flight revocation/expiry, unchanged Work review
+and an actual pending fake Worker permission, and persisted receipts/tombstones/
+semantic/FTS deletion/secret redaction. The provider uses actual source/record IDs
+and revisions from request data. No memory is pre-seeded in SQLite.
+
+All 12 passed, with 42 localhost fake model requests and zero paid calls. Separate
+startup and provider-failure injections each returned expected exit 1 and cleaned
+the daemon, fake services, background threads and temporary state. Operations and
+cleanup are bounded; failure output reports a safe stage/assertion, not credentials
+or provider bodies. The local ignored report is
+`target/q2a/qq-memory-closeout.json`, including tested binary SHA-256 hashes.
+
+The current native Windows rerun passed format, strict workspace/all-target Clippy,
+workspace tests (**126 passed, zero failed, three manual tests ignored**, 15 suites,
+46.98 seconds), workspace build and Python compilation. Cargo steps and process
+acceptance ran sequentially. The previous broad native smoke remains baseline
+evidence; it was not repeated without a relevant change. The operating guide now
+has five manual upgrade/test stages, including consistent stopped-state backup,
+schema-9 rollback requirements and explicit short-lived memory authorization.
+
+This goal added the script and updated DEVLOG/Q2-A evidence only. No commit/push,
+personal credentials/database access, real QQ/model call, grant enablement, service
+restart or deployment occurred. Real memory quality, live reliability, ConPTY and
+native macOS/Linux remain unverified.
+
+## 2026-10-25 — Q2-B1: bounded private-history source lookup
+
+Implemented the separately selected source-read slice on top of Q1 and Q2-A.
+A default-off administrative SourceGrant fixes one private binding, a half-open
+received-UTC window (at most 31 days), captured incoming high-water, CAS revision
+and optional expiry. Reply/memory grants do not imply this permission. No future
+collection, Worker approval, automatic memory restoration, experience summary,
+proactive contact or deployment was added.
+
+SourceRecord projects existing Incoming/Batch/ActorTurn/Delivery. Migration 010
+adds decision/read ledgers and a receive-window index without copying raw chat
+or changing old confirmation meaning. Search seeks the receipt-time/sequence
+index directly, processes at most 512 candidate rows and returns at most 10 admin
+or 3 Actor records / 8 KiB. Cursor scope, time bounds, ID route, high-water,
+truncation, partial coverage, generation and actual delivery/Unknown stay explicit.
+Every original input/reply is checked using current known credential filters
+before excerpting, including opaque configured credentials crossing clip bounds.
+
+The two typed readonly Actor capabilities use IDs-only receipts. All prior source
+selections are freshly projected/fingerprinted before each further request and
+after responses; revoke/narrow/expiry/suppression stops stale text/call dispatch.
+Source-influenced streaming previews are held. Later model history excludes
+assistant/action observations from source-reading turns while retaining original
+user requests and operational snapshots. Q2-A suppressed inputs are excluded;
+merged out-of-window inputs, changed/deleted inspected memory and source-derived
+replies withhold their bodies. Audits say prepared, not comprehended/received.
+Opaque provider continuation is retained only while every selection remains valid.
+Existing request/tool/token/wall budgets and Work/Worker confirmations remain.
+
+Added authenticated source grant/history/search/inspect/read-audit API and CLI,
+ADR 011, the design/domain/runtime/CLI/QQ contracts and Q2_B1_ACCEPTANCE.md with
+requirements-to-test mapping and five separately authorized manual upgrade/test
+steps. Schema 010 rollback needs a consistent stopped pre-upgrade backup. Earlier
+schema-9/Q2-A counts and real-provider failure records remain historical evidence.
+
+Native Windows/MSVC verification passed format, strict all-target workspace
+Clippy, offline locked workspace tests (138 passed, zero failed, three manual
+ignored, 15 suites), and workspace build in target/q2a. New fixtures cover default
+off/CAS/persistence, binding/time/ID/cursors, high-water with clock rollback,
+index seek without temporary sort, count/byte/UTF-8 limits, suppression,
+credential filtering, truthful generation/confirmed/Unknown sends, merged input
+scope, stale inspected memory, atomic audit failure, no migration backfill,
+actual IDs after eviction/restart, in-flight revoke/narrow/expiry/disable/forget,
+preview privacy, source-derived history isolation and unchanged Work review.
+
+Extended the existing qq_memory_smoke.py rather than adding a test framework.
+All 18 actual process/HTTP/WS checks passed with 53 local fake model requests,
+zero paid calls and complete cleanup. Source IDs come from real query results,
+with original test inputs delivered over fake OneBot, not inserted into SQLite.
+The normal provider timeout test requires Unknown, two attempted requests, no
+further call or cached quote and successful restart. Startup/model/source failure
+injections each returned expected exit 1 and cleaned services/temporary state.
+The first timeout fixture wrongly expected Failed and did not handle Windows
+connection abort; fixed the fixture, preserving the failed log without changing
+Actor lifecycle semantics to satisfy it.
+
+The initial broad native CLI regression was externally interrupted at six minutes
+while still making progress through native configuration/ACL checks. Its owned
+launcher/daemon were gracefully stopped via their console group and only that
+verified temporary fixture was removed. Its safe daemon log is retained. The
+full rerun passed in 496.34 seconds with native setup/reuse/ACLs, launcher/doctor/
+shutdown/restart, streamed Actor, reviewed fake Worker delegation, independent
+scoped memory/summary retrieval and restart persistence. Native terminal/ConPTY
+and real-provider acceptance remain unverified.
+
+Ignored evidence is under target/q2a/q2b1-*: gates/logs, successful process JSON
+with binary SHA-256, failure results, and the earlier timeout assertion/wrapper
+logs. Existing 45 uncommitted paths were preserved; the combined worktree now has
+56 paths (40 modified, 16 untracked), including eight Q2-B1 files and three extra
+tracked files touched for source preview/SSE snapshot sizing. HEAD remains
+560ddf9. No commit/push, paid model, real QQ, personal credentials/database access,
+F:\Lain-Q1-Acceptance migration/restart or real grant enablement occurred. Real
+provider/QQ experience, ConPTY and native macOS/Linux for this slice remain
+unverified. This stage stops before Q2 experiences or Q3.
+
+## 2026-10-25 — Select C1 natural private conversation as next priority
+
+The user clarified that the desired outcome is MaiBot-like lifelike conversation
+and explicitly requires learning from its chat design. Recorded C1 as the next
+selected priority in PRODUCT, ROADMAP and CHAT_DESIGN: natural everyday expression,
+message/turn timing, graceful closure and naturally used correctable memory.
+Q1/Q2-A/Q2-B1 infrastructure remains implemented, not proof of naturalness.
+
+Rechecked the current local persona, channel dispatch and merge bound, and the
+upstream official Bot configuration document. The current private channel still
+submits merged input to Actor; full participation/wait/no-reply and draft
+reconsideration remain unimplemented. Online upstream documentation is recorded
+separately from historical source notes; Git remote lookup failed with connection
+reset, so no fixed-source review or code reuse is claimed. Fixed-revision source
+mapping remains a C1 implementation prerequisite. No new runtime behavior, goal,
+model/QQ call, deployment or commit was made; this is a product-priority/doc change.
+
+## 2026-10-25 — C1: bounded natural private conversation
+
+Completed the selected C1 implementation and deterministic native Windows slice,
+without claiming real-model naturalness. Git transport had failed earlier; the
+official GitHub API and fixed files succeeded at MaiBot revision
+062d45cf8bd4272ac57d7ec03fcf405e5a458211 (2026-10-23T17:46:39Z). Read the actual
+debouncer, wait/stop, optional message steering, private/group gate, context and
+personality/behavior/reply-style assembly. MAIBOT_REFERENCE.md records immutable
+links and Lain's choices. No upstream source or prompt text was copied into product;
+25 downloaded reference files, hashes and LICENSE remain in ignored target data.
+
+Identity v3, always-appended Actor policy, private behavior and private expression
+are assembled separately. Ordinary private recall need not display UUIDs in every
+reply; exact IDs/revisions/provenance remain inspectable. Configured diagnostics
+add private_chat_revision for this bundle. Stable personality, truthful experiences,
+typed tool policy and explicit Work/Worker review remain enforced. No extra Planner,
+Replyer, background extraction, random personality or paid evaluation was introduced.
+
+The private channel now uses a trailing 750ms quiet window, capped at three seconds,
+with the original 16-input/8KiB/128-queued bounds and ten-minute expiry. chat.wait is
+once per turn for 1–5 seconds and wakes on new input/deadline; chat.finish records
+an inferred social closure with no delivery. A conservative guard refuses silence
+for protected requests; rejection removes finish for the remaining chain. Semantic
+classification and naturalness still require real feedback, not fixture text.
+
+In-flight supplements retain original IDs/text/times and associate atomically with
+the current batch/Actor; root request and Batch.text remain unchanged. A returned
+stale response is accounted but its text/calls are discarded. At most two
+reconsiderations use the existing four-request/four-tool/reported-token/120-second
+budgets without resetting counters. Over-cap input stays queued for a fresh turn,
+with an honest capacity notice replacing the obsolete reply. Opaque continuation
+is rebuilt across new input, with IDs-only receipts of already committed memory
+effects. Private draft previews are held. No Worker is cancelled by reconsideration.
+
+Final conversation text/new actions and private memory effects recheck current
+input. Latest selected memory IDs/revisions and bounded source selections/hashes
+are revalidated at commit/send boundaries. The final review found and fixed the
+Ready historical-quote gap: revoke/expiry/suppression after generation now makes
+that unsent quote ineligible, with prepared audit/fingerprints committed together.
+The service also reapplies current credential filters immediately before writing
+stored drafts. Ready ordinary drafts become Superseded; prewrite refusal is known
+NotSent. Confirmed/Unknown outcomes and approval/failure notices retain their truth.
+Later model history uses confirmed speech and withholds stale/uncertain drafts or
+changed memory/source-derived replies. Migration 011 adds the batch-input index;
+legacy snapshots are preserved without inventing old chat decisions or memory.
+
+Native Windows gates passed format, strict all-target workspace Clippy, locked/
+offline workspace tests (157 passed, zero failed, three manual ignored, 15 suites),
+and workspace build. Nineteen added C1 tests cover quiet/cap/rollback, atomic input
+adoption, bounded interruption/cumulative usage, protected requests, wait/deadline/
+cancel/restart, proposal isolation, delivery truth, memory/source changes, private
+preview/history, schema-10 compatibility and stored-credential prewrite filtering.
+The original identity/dedup/receipt-loss fixtures remain; a separate post-confirmation
+input now exercises the uncertain second send after an in-flight supplement is
+merged into the first turn. Early old fixed-window/two-reply expectations and an
+invalid approval fixture were corrected, not recorded as passes. One transient
+Windows mapped-source formatting error was resolved by retrying without killing
+user processes.
+
+Extended the existing qq_memory_smoke.py: 22 actual native process/HTTP/WS checks
+passed with 61 local fake model requests, zero paid calls and complete cleanup.
+All original Q2-A/Q2-B1 scenes remain. Added C1 merge/original IDs, silent closure/
+question protection, wait/new-input wake and in-flight negation/stale proposal
+checks. Startup/model/source injections each returned expected exit 1 and cleaned
+owned state/processes. Current binary SHA-256 values match the successful report.
+Final broad native CLI regression passed in 237.12 seconds, including owner ACLs,
+launcher/shutdown/restart, doctor, streamed Actor, reviewed fake Worker submission,
+independent memory/summary retrieval and persistence. No concurrent Cargo build
+ran against those process fixtures.
+
+Updated ADR 012, product/chat/architecture/domain/runtime/memory/Actor/CLI/QQ docs,
+README and ROADMAP. C1_ACCEPTANCE.md contains requirements-to-evidence mapping,
+the repeatable offline command, twelve multi-turn experience scenes/rating criteria
+and five separately authorized manual upgrade/test steps with schema-11 rollback.
+Evidence is ignored under target/q2a/c1-*: gates, process/failure/native logs and
+reports, reference hashes and preserved baseline fingerprints. Prior failed
+real-provider records and historical Q2-B1 counts retain their original meaning.
+
+Preserved all 57 pre-existing dirty paths; the combined tree has 69 paths (42
+modified, 27 untracked), including the new C1 files and existing Q1/Q2 work. HEAD
+remains 560ddf9. No commit/push/deploy, personal credentials/database read, real
+QQ/model call, real grant enablement or F:\Lain-Q1-Acceptance upgrade/restart occurred.
+The real instance still needs a separately authorized upgrade and experience review.
+Naturalness, intent misclassification, real latency/cost, ConPTY and native
+macOS/Linux remain unverified. Stop this bounded C1 here; no Q2 experiences/Q3 work.
+
+
+## 2026-10-25 — C1.1: upgrade rehearsal, live acceptance pending
+
+Prepared a concrete per-instance plan and a hash-checked launcher candidate under
+ignored target/c1-1. Read only file/process metadata, startup AST and selected
+non-secret settings. The existing entry selects target/debug; accepted C1 binaries
+are in target/q2a/debug. No personal credentials, SQLite content or authenticated
+personal API was accessed. No personal service was stopped or upgraded.
+
+Extended the existing QQ process smoke script with an isolated --upgrade-from
+mode. Native Windows passed five checks: old schema-8 state creation, stopped
+whole-state backup with owner DACLs, migration to schema 11 preserving identity/
+memory/receipts, old-binary refusal of the future schema, and complete rollback
+with no input/delivery replay. Three local fake requests, zero paid calls and
+complete cleanup. Earlier ACL failures remain in evidence; a DACL-only .NET
+setter avoided the unavailable SeSecurityPrivilege while retaining owner checks.
+
+Normal regression again passed all 22 process checks with 61 local fake requests,
+zero paid calls and cleanup true. Python AST validation and positive/tampered
+launcher inspection passed. Evidence is target/c1-1/upgrade-rehearsal.log and
+normal-regression.log. No Rust/persona behavior changed; the earlier 157-test C1
+result was not rerun or relabeled as C1.1 live evidence. Native macOS/Linux and
+real naturalness, latency, cost and personal migration remain unverified.
+
+Updated C1_1_ACCEPTANCE.md, QQ_CHANNEL.md schema documentation and ROADMAP.
+Pending: consolidated authorization for stopped full backup/upgrade/rollback,
+existing SecretRefs, a bounded model-call budget, the existing private binding,
+and optional short-lived test-memory permission. Then user-led scene feedback
+can support targeted fixes. No commit/push/deployment or Q2/Q3 expansion.
+
+
+## 2026-10-25 — C1.1: authorized upgrade and first real expression feedback
+
+The user explicitly authorized the prepared personal-instance operation, at most
+60 real model requests, the existing private QQ binding, and optional one-hour
+test memory permission with source access off. The user gracefully stopped the
+old launcher; no Work sessions or unfinished channel batches were present.
+
+Backed up all eleven stopped instance files with byte and DACL verification,
+archived exact old binaries, staged only the accepted real CLI/daemon under a
+versioned release, and retained the original entry/settings. Owner-plus-DACL
+initialization of the backup parent failed before credential copy; a DACL-only
+setter verified the existing owner and succeeded without elevation. Extended-path
+spelling also required normalization in the path preflight. Personal migration
+8 to 11 preserved all 38 old incoming/batch/delivery records in their old columns.
+The new foreground entry is task-controlled; doctor paths/configuration agree,
+QQ is identity-gated Online and memory/source grants remain off. Personal rollback
+is prepared but not exercised.
+
+Six actual user-sent greeting/joke/venting inputs used six requests and 21,516
+reported tokens, with all turns completed and deliveries confirmed. User feedback:
+content was generally acceptable but every short reply felt written, repeatedly
+two sentences separated by a blank line with deliberate punctuation. Preserved
+before-change evidence and feedback in the protected backup outside Git. Added
+only short-message expression guidance; no output postprocessing, fixed responses
+or permission/runtime behavior changed. Retest remains pending. Formatting and
+strict workspace all-target Clippy passed; relevant Actor tests/build are underway.
+The first-batch ledger leaves 54 requests. Read-only capture uses persisted Actor
+counters, not the diagnostics endpoint literal model_calls zero. Worker version
+compatibility is unavailable and outside this chat task. No auto commit/push.
+
+
+## 2026-10-26 — C1.1: autonomous real-model repair and restored QQ service
+
+After the user requested debugging without further manual message sending, paused
+the owned personal foreground service and reused the existing native OneBot/process
+fixture for isolated real-provider replay. Synthetic inputs were not inserted into
+the personal conversation and no automated QQ probe was sent. Combined actual
+request usage is 57/60: 28 user-led real QQ requests and 29 automatic real-model/
+local-transport requests, reporting 255,754 aggregate tokens; monetary cost and
+provider-resolved model revision remain unavailable. Automatic inference has stopped.
+
+The first expression revision failed its actual QQ retest. Explicit user format
+instructions worked, then firmer short-message defaults were tested independently.
+The final cold-start sample, without personal history or style instruction, replied
+in one short line without a final period. Some other replies still use periods or
+formal explanation; broad naturalness is not declared solved.
+
+Actual QQ remember/correct/forget effects succeeded, but the model falsely said
+the preference had never been saved. Instruction clarification plus historical
+IDs-only action projection alone also failed real replay. Added the binding latest
+three committed MemoryEffect receipts to fresh, authorized memory context as Kernel
+operation metadata. They contain no recalled text and grant no capabilities.
+Historical private action observations omit old arguments/result bodies and retain
+only correlated successful effect metadata/state. Failed/Unknown operations cannot
+become committed truth; canonical audit stays unchanged. The identical real-model
+post-forget question and a causal follow-up then correctly acknowledged save,
+correction and deletion and corrected the earlier denial. Inferred provenance and
+ordinary candidate review remain enforced; no memory/approval check was bypassed.
+
+Real-model/local-transport timing: three inputs 101ms apart became one batch and
+one request; successive in-flight corrections reached two reconsiderations in
+three requests, then retained the excess final input for a fresh one-request turn.
+The superseded turn emitted an honest capacity notice; obsolete drafts were not
+sent. Closure followed by an explicit question answered normally. Existing actual
+QQ screenshots and all failed replies remain separately preserved.
+
+Validation passed formatting, strict all-target workspace Clippy, 77 Kernel unit
+tests (two manual ignored), relevant Actor integration tests, workspace build and
+22 cross-process checks with 61 fake requests/zero paid calls/cleanup true. New
+context test covers operation truth without forgotten arguments; existing lifecycle
+test now verifies three same-binding, content-free committed receipts after deletion.
+Disk-full and later PDB LIMIT failures were preserved; only verified regenerable
+q2a incremental/debug-symbol caches were cleared with compilers stopped, then gates
+rerun successfully. A SQLite-handle temporary cleanup failure was repaired and
+verified; a zero-call old-event-ID replay received no acceptance credit, and new
+input/Actor checks precede the valid retest.
+
+Final personal release c1-1-0c5048d155ee started at 00:00 Asia/Shanghai, using the
+unchanged Actor config/identity/binding and schema 11. QQ Online, reply permission
+retained, temporary memory grant revoked at revision 2, source grant never enabled.
+The full stopped schema-8 backup/old binaries remain protected; personal rollback
+was not needed. The new start-c1-qq-test.ps1 selects the verified release; original
+entry and prior releases remain retained. No original dirty work was reset, and no
+commit/push/cloud deployment/Q2/Q3 expansion occurred. C1_1_ACCEPTANCE.md has actual scene
+outcomes, artifact paths, startup/recovery instructions and remaining quality limits.

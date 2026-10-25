@@ -322,6 +322,39 @@ are unverified until these checks actually run on those hosts. Real provider
 acceptance is separately opt-in, never inferred from fixture success.
 
 
+## QQ diagnostics and private memory (Q1 repair / Q2-A)
+
+All commands use the configured Kernel's existing administrator bearer credential
+and invoke no model. Kernel Ready, saved binding and Online are separate states.
+
+```text
+lain channel list
+lain channel show <channel-id>
+lain channel memory-grant <channel-id>
+lain channel memory-enable <channel-id> --revision 0
+lain channel memory-grant <channel-id>
+lain channel memory-revoke <channel-id> --revision 1
+lain channel memory-grants <channel-id>
+lain channel memory-history <channel-id> --after 0
+lain memory list --channel <channel-id>
+lain memory search "柠檬茶" --channel <channel-id>
+lain memory show <memory-id>
+```
+
+Read the current revision before each grant change; example revisions are not
+reusable defaults. Optional `--expires-at-ms <Unix-milliseconds>` requires a future
+deadline. `memory-grants` returns the latest 100 decisions, newest first;
+`memory-history` pages content-free effects (50/page, `next_cursor`/`has_more`).
+`--channel` conflicts with other scope flags. Grant changes and reads do not
+start a disconnected daemon or modify `napcat.json`.
+
+The memory grant defaults off and only governs this binding's selection/recall/
+correction/forgetting. It cannot approve Work or persona changes. Natural-language
+correction requires a clear single target; inspect the resulting MemoryId and
+revision, not merely the assistant's claim. A normal `memory.propose` still waits
+for review. See [MEMORY.md](MEMORY.md) for provenance/deletion bounds and
+[Q2_A_ACCEPTANCE.md](Q2_A_ACCEPTANCE.md) for safe upgrade and staged manual checks.
+
 ## Independent memory and factual summaries (Phase 7.1)
 
 Commands use only the authenticated Kernel API and need no configured LLM:
@@ -381,3 +414,57 @@ and neither automatically creates memory. See [MEMORY.md](MEMORY.md).
 These operations inherit the existing protected local directory/owner-only ACL
 setup and trusted-transport remote boundary. Keep manual `laind` data in a dedicated
 owner-only directory; never use a shared project folder for personal memory.
+
+## Private history source lookup (Q2-B1)
+
+These authenticated commands are administrative. The Actor cannot create grants.
+Use actual ChannelIds from `lain channel list` and Unix **UTC receive** milliseconds;
+the interval is half-open, at most 31 days and must end no later than enabling.
+
+```text
+lain channel source-grant <channel-id>
+lain channel source-enable <channel-id> --revision <current> --from-ms <inclusive> --to-ms <exclusive> [--expires-at-ms <future-utc-ms>]
+lain channel source-revoke <channel-id> --revision <current>
+lain channel source-grants <channel-id>
+lain channel source-search <channel-id> [--text <literal-keywords>] [--from-ms <inclusive> --to-ms <exclusive>] [--limit 3] [--after <exact-next_cursor-JSON>]
+lain channel source-inspect <channel-id> <incoming-id> [--from-ms <inclusive> --to-ms <exclusive>]
+lain channel source-reads <channel-id> [--after <sequence>]
+```
+
+Enable/replacement is CAS, not an upsert with a guessed revision. Default is off;
+reply/memory grants remain independent. Search limits are 1–10 (Actor 1–3), encoded
+records 8 KiB and scan 512 rows/page. A partial no-match is not proof an event never
+happened. Copy the returned JSON cursor unchanged with identical text/window;
+changed grant/filter requires a fresh query. Paired time options narrow the grant.
+
+API: `GET/POST /v1/channels/{id}/source-grant`,
+`GET .../source-grant/history`, `POST .../sources/search`,
+`POST .../sources/inspect`, `GET .../source-reads?after=0`.
+Search body is `{text:null,window:null,after:null,limit:3}`; inspect body is
+`{incoming_id:<actual UUID>,window:null}` (valid JSON uses quoted field names).
+Grant body has `enabled`, `expected_revision`, `window` and `expires_at_ms`;
+disabling requires both window and expiry null. Enabling requires window with
+`from_received_at_ms` and `to_received_at_ms`. Reads/decisions share owner bearer
+middleware and no-store. No raw keywords/source body is stored in read audits.
+
+Schema 010 requires a stopped, consistent pre-upgrade backup for rollback; old
+binaries cannot read it. See [Q2-B1 acceptance](Q2_B1_ACCEPTANCE.md) for the isolated
+repeatable fixture command and at most five separately authorized live steps.
+
+### C1 private chat inspection and upgrade boundary
+
+Current development uses schema 011. New private Actor snapshots add
+`private_chat` with decision, wait/reconsideration counters, admitted input
+sequence, IDs/revisions of memory and bounded source selections/fingerprints
+supplied in the latest request. Existing
+`lain actor show <turn-id>` exposes these fields; `lain channel show <id>` exposes
+original input/batch associations, delivery purpose and `superseded` unsent drafts.
+These are operational records, not authorization or human-read receipts.
+
+`doctor` retains identity `persona_revision` and configured daemon diagnostics add
+`private_chat_revision` for the assembled identity/policy/behavior/expression
+bundle. No new chat-management command, approval shortcut or npm step is required.
+The separate [C1 guide](C1_ACCEPTANCE.md) provides an offline process command,
+multi-turn experience pack and five manual acceptance steps. Schema 011 rollback
+also requires a complete consistent stopped pre-upgrade backup and the old binary;
+never run an old binary against the upgraded personal database.

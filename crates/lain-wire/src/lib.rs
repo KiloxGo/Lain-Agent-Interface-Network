@@ -1,8 +1,10 @@
 //! Small public Actor observation DTOs. No provider objects or Kernel services.
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+pub mod chat;
 pub mod memory;
 pub mod notices;
+pub mod source;
 
 /// Startup revision of validated non-secret configuration/persona content.
 /// Never use this to compare or hash credential values.
@@ -51,6 +53,10 @@ id!(WorkerTurnId);
 id!(MemoryId);
 id!(CandidateId);
 id!(SummaryId);
+id!(ChannelId);
+id!(IncomingId);
+id!(BatchId);
+id!(DeliveryId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -95,6 +101,14 @@ pub enum Sandbox {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "name", content = "arguments", deny_unknown_fields)]
 pub enum ToolCall {
+    #[serde(rename = "source.search")]
+    SourceSearch(source::SourceQuery),
+    #[serde(rename = "chat.wait")]
+    ChatWait(chat::WaitChat),
+    #[serde(rename = "chat.finish")]
+    ChatFinish(chat::FinishChat),
+    #[serde(rename = "source.inspect")]
+    SourceInspect(source::InspectSource),
     #[serde(rename = "memory.search")]
     MemorySearch(memory::MemoryQuery),
     #[serde(rename = "memory.list")]
@@ -106,6 +120,14 @@ pub enum ToolCall {
     },
     #[serde(rename = "memory.propose")]
     MemoryPropose(memory::ProposeMemory),
+    #[serde(rename = "memory.recall")]
+    MemoryRecall(memory::RecallMemory),
+    #[serde(rename = "memory.remember")]
+    MemoryRemember(memory::SelectMemory),
+    #[serde(rename = "memory.correct")]
+    MemoryCorrect(memory::CorrectMemory),
+    #[serde(rename = "memory.forget")]
+    MemoryForget(memory::ForgetMemory),
     #[serde(rename = "work.list")]
     WorkList {},
     #[serde(rename = "work.inspect")]
@@ -145,6 +167,9 @@ impl ToolCall {
                 | Self::WorkCancel { .. }
                 | Self::WorkResume { .. }
                 | Self::MemoryPropose(_)
+                | Self::MemoryRemember(_)
+                | Self::MemoryCorrect(_)
+                | Self::MemoryForget(_)
         )
     }
 }
@@ -180,12 +205,68 @@ pub struct ActorSnapshot {
     pub usage_tokens: u64,
     #[serde(default)]
     pub timing: ActorTiming,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_memory: Option<memory::ChannelMemoryContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_source: Option<source::SourceReadContext>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_chat: Option<chat::PrivateChatContext>,
 }
 impl ActorSnapshot {
     pub fn validate(&self) -> Result<(), &'static str> {
         use std::collections::BTreeSet;
         if self.messages.len() > 32 || self.actions.len() > 4 || self.model_requests > 4 {
             return Err("Actor bounds exceeded");
+        }
+        if self.channel_memory.as_ref().is_some_and(|c| {
+            c.batch_id.0 != self.request_id.0 || c.grant_revision == 0 || c.expires_at_ms == 0
+        }) {
+            return Err("contradictory private memory context");
+        }
+        if self.channel_source.as_ref().is_some_and(|c| {
+            c.batch_id.0 != self.request_id.0 || c.grant_revision == 0 || c.expires_at_ms == 0
+        }) {
+            return Err("contradictory private source context");
+        }
+        if self.private_chat.as_ref().is_some_and(|c| {
+            c.batch_id.0 != self.request_id.0
+                || c.grant_revision == 0
+                || c.expires_at_ms == 0
+                || c.input_through_sequence == 0
+                || c.reconsiderations > chat::MAX_RECONSIDERATIONS
+                || c.waits > 1
+                || c.memory_versions.len() > 3
+                || c.memory_versions.iter().any(|m| m.revision == 0)
+                || c.source_versions.len() > 4
+                || c.source_versions.iter().any(|v| {
+                    v.fingerprint.len() != 64
+                        || !v.fingerprint.bytes().all(|b| b.is_ascii_hexdigit())
+                        || v.selection.channel_id != c.channel_id
+                        || v.selection.grant_revision == 0
+                        || !v.selection.window.valid()
+                        || v.selection.incoming_ids.len() > 3
+                })
+                || (!c.source_versions.is_empty()
+                    && self
+                        .channel_source
+                        .as_ref()
+                        .is_none_or(|s| s.channel_id != c.channel_id || s.batch_id != c.batch_id))
+                || (!c.memory_versions.is_empty()
+                    && self
+                        .channel_memory
+                        .as_ref()
+                        .is_none_or(|m| m.channel_id != c.channel_id || m.batch_id != c.batch_id))
+                || (c.decision == chat::ChatDecision::Waiting) != c.wait_until_ms.is_some()
+                || (c.decision == chat::ChatDecision::Waiting
+                    && self.state != ActorTurnState::Running)
+                || (matches!(
+                    c.decision,
+                    chat::ChatDecision::Reply
+                        | chat::ChatDecision::NoReply
+                        | chat::ChatDecision::Superseded
+                ) && self.state != ActorTurnState::Completed)
+        }) {
+            return Err("contradictory private chat context");
         }
         let mut ids = BTreeSet::new();
         for m in &self.messages {
@@ -283,8 +364,92 @@ mod tests {
             model_requests: 1,
             usage_tokens: 0,
             timing: ActorTiming::default(),
+            channel_memory: None,
+            channel_source: None,
+            private_chat: None,
         };
         assert!(turn.validate().is_ok());
+        let channel = ChannelId::new();
+        turn.private_chat = Some(chat::PrivateChatContext {
+            channel_id: channel,
+            batch_id: BatchId(turn.request_id.0),
+            grant_revision: 1,
+            expires_at_ms: 1,
+            input_through_sequence: 1,
+            reconsiderations: 0,
+            waits: 0,
+            decision: chat::ChatDecision::Reply,
+            wait_until_ms: None,
+            memory_versions: vec![],
+            source_versions: vec![],
+        });
+        assert!(turn.validate().is_ok());
+        turn.private_chat.as_mut().unwrap().waits = 2;
+        assert!(turn.validate().is_err());
+        turn.private_chat.as_mut().unwrap().waits = 0;
+        turn.private_chat
+            .as_mut()
+            .unwrap()
+            .memory_versions
+            .push(chat::ChatMemoryVersion {
+                memory_id: MemoryId::new(),
+                revision: 1,
+            });
+        assert!(
+            turn.validate().is_err(),
+            "selected memory requires its actual grant scope"
+        );
+        turn.channel_memory = Some(memory::ChannelMemoryContext {
+            channel_id: channel,
+            batch_id: BatchId(turn.request_id.0),
+            grant_revision: 1,
+            expires_at_ms: 1,
+        });
+        assert!(turn.validate().is_ok());
+        turn.channel_memory.as_mut().unwrap().channel_id = ChannelId::new();
+        assert!(
+            turn.validate().is_err(),
+            "memory scope must not cross a private binding"
+        );
+        turn.channel_memory = None;
+        turn.private_chat.as_mut().unwrap().memory_versions.clear();
+        turn.private_chat
+            .as_mut()
+            .unwrap()
+            .source_versions
+            .push(chat::ChatSourceVersion {
+                selection: source::SourceSelection {
+                    channel_id: channel,
+                    grant_revision: 1,
+                    window: source::SourceWindow {
+                        from_received_at_ms: 1,
+                        to_received_at_ms: 2,
+                    },
+                    through_sequence: 1,
+                    incoming_ids: vec![],
+                },
+                fingerprint: "a".repeat(64),
+            });
+        assert!(
+            turn.validate().is_err(),
+            "selected sources require the actual read scope"
+        );
+        turn.channel_source = Some(source::SourceReadContext {
+            channel_id: channel,
+            batch_id: BatchId(turn.request_id.0),
+            grant_revision: 1,
+            expires_at_ms: 1,
+        });
+        assert!(turn.validate().is_ok());
+        turn.private_chat.as_mut().unwrap().source_versions[0]
+            .selection
+            .channel_id = ChannelId::new();
+        assert!(
+            turn.validate().is_err(),
+            "selected sources must not cross a private binding"
+        );
+        turn.channel_source = None;
+        turn.private_chat = None;
         turn.state = ActorTurnState::PendingConfirmation;
         assert!(turn.validate().is_err());
         turn.actions.push(ActorAction {
