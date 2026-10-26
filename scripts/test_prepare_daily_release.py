@@ -49,6 +49,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(plan["request_partition_total"], 60)
         self.assertEqual(plan["kind"], "review_only_not_authorized")
         self.assertFalse(plan["target_instance_content_accessed"])
+        self.assertEqual(plan["replay_runner"]["sha256"]["daily_replay.py"], release.digest(release.ROOT / "scripts/daily_replay.py"))
         self.assertNotIn("must-not-copy-this", json.dumps(plan))
         for name, digest in self.hashes.items():
             self.assertEqual(release.digest(out / name), digest)

@@ -101,8 +101,8 @@ the exact URL/retention/processing/contact settings. No article body is packaged
 
 ## Remaining live work
 
-Prepare the autonomous real-model replay runner and complete its bounded fixture
-validation; inspect current installed state only within new authorization; obtain
+The autonomous isolated replay runner now has native fixture validation; see
+[D3c evidence](DAILY_REPLAY_ACCEPTANCE.md). Inspect current installed state only within new authorization; obtain
 one concrete consolidated provider/budget/source/memory/contact/stop/upgrade scope.
 Old C1.1's campaign is closed. No paid model, real QQ, credential access, personal
 migration, source collection or device installation occurred here. Naturalness,

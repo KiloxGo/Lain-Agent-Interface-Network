@@ -10,6 +10,44 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-26 — D3c isolated autonomous replay runner
+
+Added an automatic local OneBot replay over 16 synthetic chat/continuity/memory
+scenes. It records actual incoming/batch/Actor IDs, normalized model outputs,
+memory effects, literal sends and simulated receipts rather than using user-sent
+QQ messages. Mechanical format measurements do not certify naturalness. Real
+mode creates no fake Responses server; free rehearsal is separately labeled.
+
+The runner binds a new decision to exact binaries/config/SecretRef, immutable
+campaign/budget IDs, output directory, request cap, duration and upstream-attempt
+verification reference. It boots headlessly to install the budget before enabling
+model/transport, expires/revokes synthetic memory independently, never approves
+work, and leaves historical source collection off. Controller state is outside
+the instance subtree; intent is flushed before input. Existing or interrupted
+campaign output cannot be replayed. Exit closes grants/budget, stops the owned
+daemon and reconciles the same database in a second headless boot; an attempted
+but interrupted request remains spent and Unknown.
+
+Ten native Windows Python boundary/process tests passed, including a complete
+16-scene fake corpus, finite exhaustion, no-overwrite, tamper/proposal refusal,
+secret filtering and interruption both before and after an actual local HTTP
+attempt. Four release-staging tests passed; its manifest now fingerprints the
+three repository runner dependencies without copying extra files/credentials.
+All calls were fake/0 paid; native schema-16 Rust binaries are unchanged from D3b.
+Details and retained early failures: DAILY_REPLAY_ACCEPTANCE.md, target/d3c/.
+
+Fixed a Windows acceptance-directory ACL helper: verify the existing owner and
+set only the DACL, avoiding an unnecessary WRITE_OWNER request that failed on the
+workspace volume. Current-owner-only validation remains enforced. Early launcher
+setup-in-Git and channel-list shape mistakes failed before model use and were
+corrected in the runner, without weakening runtime credential location checks.
+
+No personal credentials/state were read, no new real model/QQ calls or personal
+upgrade occurred. D3 real-model quality, actual source→share→recall and multi-day
+evidence remain pending; W1–W4 and the combined goal are not complete. Protected
+credential-source access, actual upstream bridge inspection and one concrete
+consolidated live decision still precede paid or personal operations.
+
 ## 2026-10-26 — D3b persistent global inference ceiling
 
 Added a Kernel-wide optional Lain Actor inference limit over conversation,

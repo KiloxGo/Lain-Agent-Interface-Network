@@ -69,6 +69,10 @@ def prepare(*, bins, evidence, out, target, self_id, user_id, urls, replay_cap, 
                 "git_head_at_packaging": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
                 "git_dirty_at_packaging": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True)),
                 "binary_sha256": {name: expected[name] for name in ("lain.exe", "laind.exe")},
+                 "replay_runner": {"location": "repository_scripts_not_copied",
+                                   "sha256": {name: digest(ROOT / "scripts" / name) for name in
+                                              ("daily_replay.py", "qq_memory_smoke.py", "acceptance_files.py")},
+                                   "requires": "native Python with websockets sync API"},
                 "target_instance": str(target), "target_instance_content_accessed": False,
                 "rehearsed_upgrade_from_schema": report["upgrade"]["from_schema"],
                 "qq_recipient_proposal": {"self_id": self_id, "user_id": user_id},
@@ -83,7 +87,7 @@ def prepare(*, bins, evidence, out, target, self_id, user_id, urls, replay_cap, 
                                      "process_checks": len(report["process"]["checks"]),
                                      "upgrade_checks": len(report["upgrade"]["checks"]), "paid_calls": 0},
                 "remaining_before_live_run": ["authorized provider/profile access and source/retention/contact/memory settings",
-                                             "bounded autonomous real-model replay runner and concrete stop/upgrade authorization"]}
+                                              "verified upstream attempts, exact replay authorization record and concrete stop/upgrade authorization"]}
     out.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".lain-release-", dir=out.parent)).resolve()
     if not staging.is_relative_to(safe) or staging == safe:

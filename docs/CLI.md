@@ -1,5 +1,14 @@
 # CLI-first local development
 
+## D3c isolated replay — 2026-10-26
+
+`scripts/daily_replay.py` drives a synthetic OneBot pair automatically, with a
+persisted finite Kernel budget and owner-only output. Fixture mode is free;
+real-model mode requires a new exact authorization record and environment
+SecretRef. It never connects to personal QQ or approves work. Existing/interrupted
+campaigns are inspect-only, with no automatic replay. See
+[the five-step guide and evidence limits](DAILY_REPLAY_ACCEPTANCE.md).
+
 ## D3b inference management — 2026-10-26
 
 `lain inference show/budgets/requests/enable/stop` uses authenticated Kernel APIs.

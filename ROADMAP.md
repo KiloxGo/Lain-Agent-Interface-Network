@@ -23,7 +23,9 @@ source/input rechecks and distinct QQ receipts ([ADR 015](docs/adr/015-bounded-p
 ([ADR 016](docs/adr/016-sharing-receipt-continuity.md), [acceptance](docs/SHARING_RECALL_ACCEPTANCE.md)).
 D3b adds a persistent global Lain inference ceiling and review-only release staging
 ([ADR 017](docs/adr/017-kernel-wide-inference-budget.md), [acceptance](docs/INFERENCE_BUDGET_ACCEPTANCE.md)).
-The remaining autonomous real-model/live/long-term D3 work, W1–W4 and both complete-stage exit criteria remain open.
+D3c adds an isolated autonomous replay runner with native fixture evidence
+([controls and remaining acceptance](docs/DAILY_REPLAY_ACCEPTANCE.md)).
+Real-model/live/long-term D3 work, W1–W4 and both complete-stage exit criteria remain open.
 
 ## Current direction — QQ companionship first
 

@@ -16,8 +16,8 @@ $ErrorActionPreference='Stop'
 $env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')
 $p=$env:LAIN_ACCEPTANCE_PATH
 $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+if ([IO.Directory]::GetAccessControl($p).GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) {throw 'foreign directory owner'}
 $a=New-Object Security.AccessControl.DirectorySecurity
-$a.SetOwner($sid)
 $a.SetAccessRuleProtection($true,$false)
 $a.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')))
 [IO.Directory]::SetAccessControl($p,$a)
