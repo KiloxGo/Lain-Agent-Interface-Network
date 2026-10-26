@@ -628,6 +628,14 @@ async fn expiry_removes_derived_summary_but_keeps_the_fact_of_summary_generation
         .unwrap();
     assert_eq!(e.state, ExperienceState::Expired);
     assert!(e.summary.is_none());
+    let receipt = k.actor_turn(t.id).unwrap();
+    assert_eq!(receipt.state, TurnState::Completed);
+    assert_eq!(receipt.model_requests, 1);
+    assert_eq!(receipt.usage_tokens, 7);
+    assert_eq!(
+        receipt.messages.last().unwrap().content,
+        "[reading summary removed: source unavailable]"
+    );
     assert_eq!(
         k.reading_result(id, Redactor::new(vec![]))
             .unwrap()
@@ -639,6 +647,41 @@ async fn expiry_removes_derived_summary_but_keeps_the_fact_of_summary_generation
             .unwrap()
             .is_empty()
     );
+}
+
+#[tokio::test]
+async fn revoked_summary_receipts_are_scrubbed_including_previously_invalidated_snapshots() {
+    let (dir, k, _) = fixture(2);
+    let id = seed(&k, "source retention test");
+    let (a, _) = model(&k, 1, false);
+    let t = a.process_reading(id).await.unwrap();
+    let completed = settled(&k, t.id).await;
+    k.set_reading_grant(SetReadingGrant {
+        expected_revision: 1,
+        scope: None,
+    })
+    .unwrap();
+    assert_eq!(
+        k.actor_turn(t.id).unwrap().messages.last().unwrap().content,
+        "[reading summary removed: source unavailable]"
+    );
+    let db = rusqlite::Connection::open(dir.path().join("state.db")).unwrap();
+    // Reproduce a pre-fix revoked experience whose canonical receipt kept text.
+    db.execute(
+        "UPDATE lain_actor_turns SET snapshot=?2 WHERE id=?1",
+        (t.id.to_string(), serde_json::to_string(&completed).unwrap()),
+    )
+    .unwrap();
+    k.reading_result(id, Redactor::new(vec![])).unwrap();
+    let repaired = k.actor_turn(t.id).unwrap();
+    assert_eq!(
+        repaired.messages.last().unwrap().content,
+        "[reading summary removed: source unavailable]"
+    );
+    assert_eq!(repaired.model_requests, completed.model_requests);
+    let revision = repaired.revision;
+    k.reading_result(id, Redactor::new(vec![])).unwrap();
+    assert_eq!(k.actor_turn(t.id).unwrap().revision, revision);
 }
 
 #[test]

@@ -84,7 +84,38 @@ deadline and outside-rollback controller remain fixed. Never create a fresh DB o
 replay uncertain mutations to finish a corpus. Inspect effects before issuing
 fresh targeted cases within the existing ledger.
 
+## Targeted repair results
+
+The same isolated database, immutable 48-request budget and fixed expiry were
+reopened after inspecting the failed correction and confirming no mutation had
+committed. Four fresh synthetic inputs used new external IDs, Incoming/Batch/Actor
+records and **8 new returned requests**: correction committed a replacement record,
+lookup returned the replacement, forget committed its effect, and the last lookup
+found no Active preference. Original corpus evidence was retained. The final reply
+was unnecessarily long and repeated the still-visible recent conversation; this
+is not a short-expression or forgotten-content-history acceptance claim.
+Isolated total is **23/48**, 122177 normalized reported tokens; temporary memory
+and budget are stopped, pending requests zero, owned daemon stopped.
+
+The second/final authorized acquisition completed, preserving nine raw form-feed
+characters. One real model request generated a source-linked summary from the
+bounded excerpt (**1/12**, 3716 normalized tokens). The share candidate stayed
+Prepared in the authorized quiet window; there was **no draft request or actual
+QQ send**. Reading/contact grants and budget were revoked/stopped and DND enabled;
+personal memory/history stayed off. Source acquisitions are exhausted at **2/2**.
+Total adapter reservations are **24/60**; token reports are not precise invoices.
+
+Post-revoke inspection found that the experience projection and raw result were
+cleared but the reading Actor's duplicate assistant summary remained. The retention
+repair now replaces that duplicate with a content-free marker on expiry/revoke/
+withdrawal, including previously invalidated snapshots at startup/read cleanup.
+Identity, terminal state, model count and usage survive; no physical SQLite/WAL,
+backup or provider-erasure claim is made. Regression coverage includes ordinary
+expiry, revoke, pre-fix invalidated snapshots and idempotent cleanup. Native schema16
+workspace: **209 passed, 0 failed, 3 manual ignored**, strict all-target Clippy and
+locked native build passed. Actual stopped-instance cleanup is recorded separately.
+
 Protected operational reports are kept locally outside normal source history;
 no credentials, personal DB, real chat transcript or raw test artifact is committed.
-Actual share delivery/recall, full memory cycle after repair, user feedback,
+Actual share delivery/recall, personal memory testing, user feedback,
 multi-day use, macOS/Linux and both complete-stage exit criteria remain open.

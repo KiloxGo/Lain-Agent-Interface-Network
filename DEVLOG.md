@@ -10,6 +10,19 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-26 — D3 targeted real follow-up and reading receipt retention
+
+Four fresh isolated memory scenes now commit/recall correction and forget using
+the same original DB and budget: eight new calls, cumulative 23/48. The final
+absence response remains verbose. The last allowed RFC acquisition completed with
+nine form feeds and one bounded model summary (personal 1/12); quiet hours kept
+sharing Prepared with zero QQ sends. All temporary scopes/budgets closed.
+Post-revoke checks exposed a summary duplicate in the root Actor receipt. Cleanup
+now removes that content too, including old invalidated snapshots, without losing
+operation/usage facts. Native schema16 workspace 209 passed/3 manual ignored,
+strict Clippy and locked build passed. Full-stage quality/live send remain open.
+See docs/D3_LIVE_ACCEPTANCE.md; no personal data or credentials committed.
+
 ## 2026-10-26 — D3 live regression repair on schema 16
 
 The new authorized campaign used 15/48 isolated real-model requests before a
