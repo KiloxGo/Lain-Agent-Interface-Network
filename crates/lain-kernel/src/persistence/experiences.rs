@@ -253,8 +253,34 @@ pub(super) fn invalidate(db: &Connection, now: u64) -> Result<()> {
             save_experience(db, &e)?;
         }
     }
+    // A summary's retention also covers its duplicate in the processing receipt.
+    // Include already invalidated experiences so startup repairs older snapshots.
+    let turns = {
+        let mut q = db.prepare("SELECT a.snapshot FROM reading_jobs j JOIN lain_actor_turns a ON a.id=j.actor_turn_id WHERE EXISTS(SELECT 1 FROM json_each(a.snapshot,'$.messages') m WHERE json_extract(m.value,'$.role')='assistant' AND json_extract(m.value,'$.content')<>?1)")?;
+        q.query_map([REMOVED_SUMMARY], |r| r.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+    for row in turns {
+        let mut t = super::decode_actor(&row)?;
+        if t.reading_activity
+            .is_some_and(|id| source(db, id, now).is_err())
+        {
+            for m in &mut t.messages {
+                if m.role == MessageRole::Assistant {
+                    m.content = REMOVED_SUMMARY.into();
+                }
+            }
+            t.revision = t.revision.checked_add(1).ok_or(ControlError::Conflict)?;
+            db.execute(
+                "UPDATE lain_actor_turns SET snapshot=?2 WHERE id=?1",
+                (t.id.to_string(), super::encode_actor(&t)?),
+            )?;
+        }
+    }
     Ok(())
 }
+
+const REMOVED_SUMMARY: &str = "[reading summary removed: source unavailable]";
 
 impl Store {
     pub fn reading_budget(&self) -> Result<Value> {

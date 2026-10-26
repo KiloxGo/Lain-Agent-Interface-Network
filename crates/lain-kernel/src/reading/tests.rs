@@ -298,6 +298,17 @@ async fn fixture(
 
 #[tokio::test]
 async fn actual_transport_pins_host_accepts_only_complete_bounded_utf8_text() {
+    assert_eq!(fixture("HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Length: 3\r\n\r\na\u{000c}b",10,vec![]).await.unwrap(),"a\u{000c}b");
+    assert_eq!(
+        fixture(
+            "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 3\r\n\r\na\u{001b}b",
+            10,
+            vec![]
+        )
+        .await
+        .unwrap_err(),
+        ReadingFailure::UnsupportedContent
+    );
     assert_eq!(fixture("HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: 5\r\n\r\nhello",10,vec![]).await.unwrap(),"hello");
     assert_eq!(
         fixture(

@@ -7,6 +7,16 @@ Import/correction/tombstones create no semantic memory, experience or managed
 Worker. Archive bodies do not enter model context automatically; typed disclosure
 and derived invalidation remain W1 work. See [ADR 018](adr/018-selected-visible-source-archives.md).
 
+## D3 live regression repair — 2026-10-26
+
+Private `memory_recall.text` accepts an exact MemoryId from a receipt as well as
+short keywords. Exact-ID lookup still requires the current private grant, the same
+binding and an Active record; generic memory_inspect remains unable to access
+channel scope. Fresh records/revisions enter the next bounded context before a
+correction/forget effect. Long-input automatic terms retain bounded prefix and
+suffix coverage rather than dropping a correction's topic at the end. This does
+not infer permission, restore deleted records or relax inspected-revision guards.
+
 ## D3a outbound continuity — 2026-10-26
 
 Own proactive-contact receipts remain operational facts, not semantic memory.

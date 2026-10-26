@@ -239,19 +239,32 @@ impl Store {
         }
         drop(stmt);
         let mut candidates = std::collections::BTreeMap::new();
-        for term in recall_terms(text) {
-            let page = self.memory_page(&MemoryQuery {
-                scope: MemoryScope::Channel {
-                    channel_id: c.channel_id,
-                },
-                kind: None,
-                status: Some(MemoryStatus::Active),
-                text: Some(term),
-                after: 0,
-                limit: 3,
-            })?;
-            for record in page.records {
-                candidates.insert(record.id, record);
+        if let Ok(id) = text.parse::<MemoryId>() {
+            let record = read_memory(&self.connection, id)?;
+            ensure!(
+                record.status == MemoryStatus::Active
+                    && record.draft.scope
+                        == (MemoryScope::Channel {
+                            channel_id: c.channel_id
+                        }),
+                ControlError::NotFound
+            );
+            candidates.insert(record.id, record);
+        } else {
+            for term in recall_terms(text) {
+                let page = self.memory_page(&MemoryQuery {
+                    scope: MemoryScope::Channel {
+                        channel_id: c.channel_id,
+                    },
+                    kind: None,
+                    status: Some(MemoryStatus::Active),
+                    text: Some(term),
+                    after: 0,
+                    limit: 3,
+                })?;
+                for record in page.records {
+                    candidates.insert(record.id, record);
+                }
             }
         }
         let mut records: Vec<_> = candidates.into_values().collect();
@@ -483,11 +496,12 @@ fn recall_terms(text: &str) -> Vec<String> {
                 }
             }
         }
-        if terms.len() >= 8 {
-            break;
-        }
     }
-    terms.truncate(8);
+    if terms.len() > 8 {
+        let tail = terms.split_off(terms.len() - 4);
+        terms.truncate(4);
+        terms.extend(tail);
+    }
     terms
 }
 
@@ -958,6 +972,49 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn correction_relevance_keeps_suffix_and_receipt_ids_are_binding_scoped() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::open(&dir.path().join("state.db")).unwrap();
+        let b = binding(&mut s, "one");
+        enable(&mut s, &b);
+        let old = remember(&mut s, &b, "用户喝茶喜欢无糖。");
+        let text = "更正一下，那条测试偏好改成喝茶微糖，不是无糖";
+        let (mut t, e) = turn(&mut s, &b, text);
+        let context = s.private_memory_context(t.id, text).unwrap();
+        assert!(
+            context["records"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|r| r["id"] == json!(old.id))
+        );
+        let exact = s.private_memory_context(t.id, &old.id.to_string()).unwrap();
+        assert_eq!(exact["records"][0]["id"], json!(old.id));
+        let other = binding(&mut s, "other");
+        enable(&mut s, &other);
+        let foreign = remember(&mut s, &other, "foreign memory");
+        assert!(
+            s.private_memory_context(t.id, &foreign.id.to_string())
+                .is_err()
+        );
+        let a = action(
+            &mut s,
+            &mut t,
+            Tool::MemoryCorrect(CorrectMemory {
+                memory_id: old.id,
+                expected_revision: 1,
+                selection: SelectMemory {
+                    content: "喝茶喜欢微糖。".into(),
+                    kind: MemoryKind::Preference,
+                    evidence: e,
+                },
+            }),
+        );
+        assert!(s.private_memory_effect(t.id, a).is_ok());
+        assert!(s.private_memory_context(t.id, &old.id.to_string()).is_err());
     }
 
     #[test]

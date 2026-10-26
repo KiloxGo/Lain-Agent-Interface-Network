@@ -90,7 +90,9 @@ schema 11; source/memory/live-call authority is not inferred from this milestone
    suppresses that exact URL and removes all its stored bodies/derived summaries.
    `reading restore-source <url>` permits new explicit acquisitions only; old
    withdrawals, old jobs and spent requests do not reset. This is not an archive,
-   canonical Actor audit or backup erasure operation.
+   general Actor audit or backup erasure operation. The reading job's duplicated
+   assistant summary is replaced by a removal marker; operation state and usage
+   receipts remain. Startup also repairs older invalidated receipt snapshots.
 5. Cancel pending acquisition/processing with `reading cancel <id>`; inspect the
    processing cancellation request and Actor's actual uncertain outcome. Revoke the
    grant with its current revision to stop future processing/disclosure. No contact

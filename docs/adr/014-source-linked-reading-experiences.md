@@ -107,8 +107,11 @@ An explicit administrator restore permits only new acquisitions under an otherwi
 valid grant; it restores neither old bodies nor withdrawn experiences, nor budget.
 Suppression and restore decisions are audited. Grant changes/expiry also remove
 derived summary content; the existing finite retention timer drives cleanup.
-SQLite pages/WAL, backups, prior provider disclosures and canonical Actor audits
-are not claimed securely erased. This scope does not implement arbitrary archive
+The reading job's canonical Actor receipt replaces its assistant summary with a
+content-free removal marker, retaining identity, state, usage and operation facts.
+Startup/read cleanup also repairs receipts invalidated before this fix. SQLite
+pages/WAL, backups and prior provider disclosures are not claimed securely erased.
+This scope does not implement arbitrary archive
 or memory deletion through a summary endpoint.
 
 Migration 013 appends job/reservation/experience/read-audit/edit/suppression tables

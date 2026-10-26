@@ -6,6 +6,13 @@ not completion of experiences, autonomous reading or proactive contact.
 
 ## Decision
 
+2026-10-26 narrow content compatibility update: ordinary ASCII form feed (U+000C),
+used as a plain-text page separator, is retained verbatim alongside CR/LF/tab.
+It stays escaped in JSON transport/CLI output. Other control characters such as
+ESC remain rejected. Body limits, UTF-8 validation, redirects, address policy and
+credential rejection are unchanged; retaining the byte avoids false raw-source
+or excerpt-length claims. This is not general terminal-control acceptance.
+
 Kernel owns one current ReadingGrant and its immutable revision history. Default
 revision zero is disabled. Administrator CAS changes specify exact canonical HTTPS
 URLs (at most eight), an expiry no more than 31 days away, a positive retention

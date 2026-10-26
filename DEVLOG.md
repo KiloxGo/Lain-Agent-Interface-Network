@@ -44,6 +44,43 @@ controller and exact source/binary snapshots are outside personal rollback state
 W1 is excluded from that installation/collection authority. Real D3 operations
 and outcomes are tracked separately. The complete two-stage goal remains active.
 
+## 2026-10-26 — D3 targeted real follow-up and reading receipt retention
+
+Four fresh isolated memory scenes now commit/recall correction and forget using
+the same original DB and budget: eight new calls, cumulative 23/48. The final
+absence response remains verbose. The last allowed RFC acquisition completed with
+nine form feeds and one bounded model summary (personal 1/12); quiet hours kept
+sharing Prepared with zero QQ sends. All temporary scopes/budgets closed.
+Post-revoke checks exposed a summary duplicate in the root Actor receipt. Cleanup
+now removes that content too, including old invalidated snapshots, without losing
+operation/usage facts. Native schema16 workspace 209 passed/3 manual ignored,
+strict Clippy and locked build passed. Full-stage quality/live send remain open.
+See docs/D3_LIVE_ACCEPTANCE.md; no personal data or credentials committed.
+
+## 2026-10-26 — D3 live regression repair on schema 16
+
+The new authorized campaign used 15/48 isolated real-model requests before a
+private-memory correction failed safely: prefix-only automatic terms omitted
+late topic words, generic global memory inspection could not inspect a private
+ID, and correction lacked a valid inspection. No correction effect committed;
+temporary scope/budget closed. Actual source acquisition failed UnsupportedContent,
+with 0 personal model calls/0 sends. The personal target was backed up completely
+and upgraded 11→16 headlessly before its finite 12-request budget was installed.
+
+Repair keeps schema 16 and existing permission/revision guards. Private recall
+supports exact receipt IDs within the active binding and bounded prefix/suffix
+terms; generic inspect remains general-scope only. Bounded plain-text acquisition
+retains benign ASCII form-feed page separators with JSON escaping while still
+rejecting ESC/other forbidden controls. The first source failure's exact cause is
+not asserted without the remaining actual acquisition. No extra URL or allowance.
+
+Native Windows: 208 passed, 0 failed, 3 manual ignored; format/check, strict Clippy
+and locked build passed. Native fake protocol: 28 checks/76 fake calls; synthetic
+schema11→16 full rollback: 5 checks/3 fake calls; 0 paid/cleanup true. Real follow-up
+must retain the existing DBs, budget IDs, caps and deadline, inspect failed effects
+before fresh cases, and respect the now-active 23:00–09:00 contact quiet period.
+Raw operational data/credentials remain outside Git. See D3_LIVE_ACCEPTANCE.md.
+
 ## 2026-10-26 — D3c isolated autonomous replay runner
 
 Added an automatic local OneBot replay over 16 synthetic chat/continuity/memory
