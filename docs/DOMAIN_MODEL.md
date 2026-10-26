@@ -1,5 +1,14 @@
 # Domain Model
 
+## D3a receipt projections — 2026-10-26
+
+ShareQuery bounds UTC claim time/topic/record count. Private ShareVersion binds a
+DeliveryId and receipt fingerprint, with an ExperienceVersion only when source
+content was disclosed. Automatic recent pointers contain no source words. A
+withheld projection does not erase the historical delivery outcome. Original
+outbound text is not replaced by a corrected summary. Contract and migration 015:
+[ADR 016](adr/016-sharing-receipt-continuity.md).
+
 ## D2 sharing records — 2026-10-26
 
 ShareGrant is independent contact authority; Attention is an explicit revisioned

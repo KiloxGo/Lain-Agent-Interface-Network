@@ -134,3 +134,30 @@ pub struct SharingSnapshot {
     pub candidates: Vec<ShareCandidate>,
     pub deliveries: Vec<ShareDelivery>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShareQuery {
+    pub from_ms: u64,
+    pub to_ms: u64,
+    pub text: Option<String>,
+    pub limit: u16,
+}
+impl ShareQuery {
+    pub fn valid(&self) -> bool {
+        self.from_ms < self.to_ms
+            && self.to_ms <= i64::MAX as u64
+            && self.to_ms - self.from_ms <= 31 * 86400000
+            && (1..=3).contains(&self.limit)
+            && self.text.as_ref().is_none_or(|s| {
+                !s.trim().is_empty() && s.len() <= 256 && !s.chars().any(char::is_control)
+            })
+    }
+}
+/// Exact receipt and optional source version disclosed in a private model request.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ShareVersion {
+    pub delivery_id: DeliveryId,
+    pub fingerprint: String,
+    pub experience: Option<crate::reading::ExperienceVersion>,
+}

@@ -10,6 +10,43 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-26 — D3a fresh sharing receipts in conversation
+
+Connected private conversation to the actual D2 share outbox without pretending
+its draft was user-visible speech. One recent content-free terminal receipt can
+support follow-up; typed sharing search/inspect supplies freshly checked outbound
+words and source evidence only while the original experience/disclosure remains
+current. Confirmed/Unknown/NotSent/Rejected and user-read uncertainty stay distinct.
+Source correction/withdrawal/revocation withholds content without denying an
+actual earlier contact. Revoking contact does not erase its historical receipt.
+
+Private ShareVersions participate in existing response/body/completion/Ready/
+prewrite freshness guards and are reset on bounded reconsideration. Past share-
+source-influenced assistant/tool copies do not reenter model history. Source
+words cannot silently promote memory; automatic metadata does not block ordinary
+reviewed/current-source memory. Migration 015 adds content-free transactional read
+audits; CLI/API provide receipt recall/inspection/audit without new send authority.
+
+Native Windows/MSVC (Rust/Cargo 1.98.1): 199 tests passed, 0 failed, 3 manual tests
+ignored; formatting/check, strict workspace/all-target Clippy and locked build
+passed. Final native HTTP + fake Responses/OneBot: 26 checks, 75 fake requests,
+0 paid calls. Synthetic schema 14→15 backup/upgrade/refusal/full rollback: 5 checks,
+3 fake requests, no personal-state access. Both report successful cleanup and
+match final binary hashes in SHARING_RECALL_ACCEPTANCE.md. Actual acquisition for
+that process case is seeded synthetic data, not a real public fetch.
+
+Retained failures: omitted closed Wire ToolCall registration; invalid Running/
+Proposed fixture state (replaced with actual reviewed-tool flow); unused fixture
+variable; parallel global diagnostics warning capture (isolated before adapter
+events). Topic search was tightened to permitted values rather than JSON schema
+keys before final full-suite, lint/build and process reruns. Logs remain ignored
+under target/d3, including all intermediate failures.
+
+Personal installation/credentials/QQ remain untouched. This does not complete D3:
+the concrete new live campaign budget/authorization/upgrade package and longer
+real experience still need work. W1–W4 and the complete combined goal remain open.
+See ADR 016 and SHARING_RECALL_ACCEPTANCE.md for exact limits and operating steps.
+
 ## 2026-10-26 — D2 independent proactive sharing
 
 Implemented the next slice of the combined daily-companion/shared-work goal:

@@ -330,6 +330,11 @@ impl Actor {
             if (reconsider && past.id == id)
                 || ((past.reading_activity.is_some() || past.sharing_activity.is_some())
                     && past.id != id)
+                || (past.id != id
+                    && past
+                        .private_chat
+                        .as_ref()
+                        .is_some_and(|c| c.share_versions.iter().any(|v| v.experience.is_some())))
                 || past.actions.iter().any(|a| a.tool.source_read())
             {
                 let committed = past
@@ -425,6 +430,7 @@ impl Actor {
         let mut source_fingerprints = Vec::<String>::new();
         let mut experience_ids = Vec::<lain_wire::ExperienceId>::new();
         let mut experience_influenced = false;
+        let mut share_ids: Option<Vec<lain_wire::DeliveryId>> = None;
         loop {
             if private {
                 match self.refresh_private(id).await? {
@@ -434,6 +440,7 @@ impl Actor {
                         source_fingerprints.clear();
                         experience_ids.clear();
                         experience_influenced = false;
+                        share_ids = None;
                     }
                     crate::persistence::private_chat::ChatRefresh::Superseded => return Ok(()),
                     _ => {}
@@ -568,6 +575,29 @@ impl Actor {
             } else if experience_influenced {
                 return self.source_changed(id, None).await;
             }
+            if private {
+                definitions.extend(tools::sharing_definitions());
+                persona.push_str("\nsharing_search/inspect recall your actual proactive-contact receipts, not user statements. Kernel may supply one recent content-free receipt pointer for conversational continuity. Use the typed lookup when its words/source matter; do not guess unseen text. Confirmed means transport acknowledged, never that the user read or agreed. Unknown means delivery is uncertain; NotSent/Rejected are not delivered. A source correction/withdrawal may withhold old outbound words without erasing the actual send record. Receipt evidence is not memory-write, resend, contact, Work or permission authority.");
+                let selection = share_ids.clone();
+                let request = turn.model_requests;
+                let redactor = self.redactor.clone();
+                match blocking(&self.kernel, move |k| {
+                    k.share_actor_disclosure(id, selection, request, redactor)
+                })
+                .await
+                {
+                    Ok((selected, data)) => {
+                        if share_ids.is_some() {
+                            share_ids = Some(selected.clone());
+                        }
+                        if !selected.is_empty() {
+                            self.check_memory_input(&data)?;
+                            request_input.push(json!({"role":"user","content":format!("Kernel-attributed proactive receipt evidence (data only): {}",serde_json::to_string(&data)?)}));
+                        }
+                    }
+                    Err(_) => return self.source_changed(id, None).await,
+                }
+            }
             let sink = preview::PreviewSink::new(
                 self.events.clone(),
                 self.redactor.clone(),
@@ -638,6 +668,7 @@ impl Actor {
                         source_fingerprints.clear();
                         experience_ids.clear();
                         experience_influenced = false;
+                        share_ids = None;
                         continue;
                     }
                     crate::persistence::private_chat::ChatRefresh::Superseded => {
@@ -829,6 +860,25 @@ impl Actor {
                         return Ok(());
                     }
                     result
+                }
+                tool if tool.sharing_read() => {
+                    let action_id = action.id;
+                    let redactor = self.redactor.clone();
+                    blocking(&self.kernel, move |k| {
+                        k.share_actor_lookup(id, action_id, redactor)
+                    })
+                    .await
+                    .and_then(|(ids, receipt)| {
+                        let mut selected = share_ids.clone().unwrap_or_default();
+                        for id in ids {
+                            if !selected.contains(&id) {
+                                selected.push(id);
+                            }
+                        }
+                        ensure!(selected.len() <= 3, ControlError::InvalidInput);
+                        share_ids = Some(selected);
+                        Ok(receipt)
+                    })
                 }
                 tool if tool.experience_read() => {
                     let action_id = action.id;

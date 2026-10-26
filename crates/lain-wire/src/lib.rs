@@ -106,6 +106,10 @@ pub enum Sandbox {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "name", content = "arguments", deny_unknown_fields)]
 pub enum ToolCall {
+    #[serde(rename = "sharing.search")]
+    SharingSearch(sharing::ShareQuery),
+    #[serde(rename = "sharing.inspect")]
+    SharingInspect { delivery_id: DeliveryId },
     #[serde(rename = "source.search")]
     SourceSearch(source::SourceQuery),
     #[serde(rename = "chat.wait")]
@@ -264,6 +268,17 @@ impl ActorSnapshot {
                 || c.memory_versions.iter().any(|m| m.revision == 0)
                 || c.source_versions.len() > 4
                 || c.experience_versions.len() > 3
+                || c.share_versions.len() > 3
+                || c.share_versions.iter().any(|s| {
+                    s.fingerprint.len() != 64
+                        || !s.fingerprint.bytes().all(|b| b.is_ascii_hexdigit())
+                        || s.experience.as_ref().is_some_and(|e| {
+                            e.revision == 0
+                                || e.grant_revision == 0
+                                || e.fingerprint.len() != 64
+                                || !e.fingerprint.bytes().all(|b| b.is_ascii_hexdigit())
+                        })
+                })
                 || c.experience_grant_revision == Some(0)
                 || (!c.experience_versions.is_empty() && c.experience_grant_revision.is_none())
                 || c.experience_versions.iter().any(|v| {
@@ -420,6 +435,7 @@ mod tests {
             source_versions: vec![],
             experience_versions: vec![],
             experience_grant_revision: None,
+            share_versions: vec![],
         });
         assert!(turn.validate().is_ok());
         turn.private_chat.as_mut().unwrap().waits = 2;

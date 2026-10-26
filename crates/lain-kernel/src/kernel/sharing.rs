@@ -37,6 +37,44 @@ pub(crate) fn validate_scope(scope: Option<&ShareScope>, now: u64) -> Result<()>
 }
 
 impl Kernel {
+    pub(crate) fn share_receipts(
+        &self,
+        id: ChannelId,
+        q: ShareQuery,
+        r: Redactor,
+    ) -> Result<Vec<serde_json::Value>> {
+        self.lock()?.store.share_receipts(id, q, &r)
+    }
+    pub(crate) fn share_receipt(
+        &self,
+        id: ChannelId,
+        d: DeliveryId,
+        r: Redactor,
+    ) -> Result<serde_json::Value> {
+        self.lock()?.store.share_receipt(id, d, &r)
+    }
+    pub fn share_read_audit(&self, id: ChannelId) -> Result<serde_json::Value> {
+        self.lock()?.store.share_read_audit(id)
+    }
+    pub(crate) fn share_actor_lookup(
+        &self,
+        id: ActorTurnId,
+        a: lain_wire::ActionId,
+        r: Redactor,
+    ) -> Result<(Vec<DeliveryId>, serde_json::Value)> {
+        self.lock()?.store.share_actor_lookup(id, a, &r)
+    }
+    pub(crate) fn share_actor_disclosure(
+        &self,
+        id: ActorTurnId,
+        selection: Option<Vec<DeliveryId>>,
+        request: u32,
+        r: Redactor,
+    ) -> Result<(Vec<DeliveryId>, serde_json::Value)> {
+        self.lock()?
+            .store
+            .share_actor_disclosure(id, selection, request, &r)
+    }
     pub fn sharing_snapshot(&self, id: ChannelId) -> Result<SharingSnapshot> {
         let mut inner = self.lock()?;
         inner.store.share_refresh(id, now_ms()?)?;

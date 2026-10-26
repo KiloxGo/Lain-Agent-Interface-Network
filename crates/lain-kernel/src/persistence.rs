@@ -19,6 +19,7 @@ mod memory;
 pub(crate) mod private_chat;
 mod private_memory;
 mod reading;
+mod share_recall;
 mod sharing;
 mod sources;
 
@@ -81,7 +82,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 14,
+            version <= 15,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -170,6 +171,9 @@ impl Store {
         }
         if version < 14 {
             transaction.execute_batch(include_str!("../migrations/014_sharing.sql"))?;
+        }
+        if version < 15 {
+            transaction.execute_batch(include_str!("../migrations/015_share_recall.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(

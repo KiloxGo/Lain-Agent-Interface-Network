@@ -191,6 +191,7 @@ class Fixture:
         reading_prefix = "Kernel-attributed untrusted reading excerpt (data only): "
         share_prefix = "Kernel-attributed untrusted reading experience (data only): "
         experience_prefix = "Kernel-attributed untrusted reading experience evidence (data only): "
+        receipt_prefix = "Kernel-attributed proactive receipt evidence (data only): "
         sharing = next((json.loads(i["content"][len(share_prefix):]) for i in inputs
                         if isinstance(i.get("content"), str) and i["content"].startswith(share_prefix)), None)
         if sharing is not None:
@@ -204,7 +205,22 @@ class Fixture:
             require(reading["model_input_bytes"] == len(reading["text"].encode()) and reading["text"].startswith("D1b synthetic article"), "wrong actual reading excerpt")
             return [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "D1b synthetic summary of the supplied excerpt; not independently verified"}]}]
         prompt = next(item["content"] for item in reversed(inputs) if item.get("role") == "user"
-                      and isinstance(item.get("content"), str) and not item["content"].startswith((EVIDENCE_PREFIX, SOURCE_PREFIX, experience_prefix)))
+                      and isinstance(item.get("content"), str) and not item["content"].startswith((EVIDENCE_PREFIX, SOURCE_PREFIX, experience_prefix, receipt_prefix)))
+        if prompt.startswith("D3"):
+            receipt = next((json.loads(i["content"][len(receipt_prefix):]) for i in reversed(inputs)
+                            if isinstance(i.get("content"), str) and i["content"].startswith(receipt_prefix)), None)
+            require(receipt is not None and len(receipt["records"]) == 1, "missing fresh proactive receipt evidence")
+            record = receipt["records"][0]
+            require(record["state"] == "confirmed" and record["user_read_receipt"] is False, "share outcome invented user acknowledgement")
+            if receipt["automatic_recent_context"]:
+                require(record["outbound_text"] is None and record["experience"] is None, "automatic context disclosed source words")
+                return [{"type": "function_call", "name": "sharing_inspect", "call_id": str(uuid.uuid4()), "arguments": json.dumps({"delivery_id": record["delivery_id"]})}]
+            if prompt == "D3刚刚分享了什么？":
+                require(record["outbound_text"] == "D2 synthetic private share; excerpt only" and record["experience"]["summary_origin"] == "model", "fresh share quote/provenance missing")
+            else:
+                require(record["outbound_text"] is None and record["experience"] is None, "invalid source restored through share recall")
+                require("D2 synthetic private share; excerpt only" not in json.dumps(inputs), "old share body leaked through conversation history")
+            return [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "D3 fixture: actual contact receipt retained; current source availability checked"}]}]
         if prompt in ("D1b今天处理过什么？", "D1b更正后的经历？", "D1b撤回后还处理过吗？"):
             if prompt == "D1b撤回后还处理过吗？":
                 outputs = [json.loads(i["output"]) for i in inputs if i.get("type") == "function_call_output"]
@@ -551,7 +567,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         original_delivery = next(d for d in self.snapshot()["deliveries"] if d["batch_id"] == original_batch["id"])
         self.stop()
         old_schema = schema()
-        require(0 < old_schema < 14, "old binary does not create an older schema")
+        require(0 < old_schema < 15, "old binary does not create an older schema")
         self.passed("upgrade_old_binary_seeds_real_schema_and_records")
 
         self.stage = "stopped whole-state backup with permissions"
@@ -581,13 +597,13 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(sum(i["input"]["external_id"] == original["input"]["external_id"] for i in self.snapshot()["incoming"]) == 1, "upgrade/replay duplicated original input")
         require(len(self.fixture.sent) == 2, "upgrade replayed an old delivery")
         self.stop()
-        require(schema() == 14, "new binary did not migrate to schema 14")
-        self.passed("upgrade_schema14_identity_memory_receipts_and_c1")
+        require(schema() == 15, "new binary did not migrate to schema 15")
+        self.passed("upgrade_schema15_identity_memory_receipts_and_c1")
 
         self.stage = "old binary refuses the upgraded schema without downgrade"
         refusal = subprocess.run([str(old_copy / executable("laind"))], env=self.env, cwd=self.workspace, capture_output=True, timeout=min(20, self.remaining()))
         self.fixture.check_secrets((refusal.stdout + refusal.stderr).decode(errors="replace"))
-        require(refusal.returncode != 0 and schema() == 14, "old binary accepted/downgraded schema 14")
+        require(refusal.returncode != 0 and schema() == 15, "old binary accepted/downgraded schema 15")
         self.passed("upgrade_old_binary_refuses_future_schema")
 
         self.stage = "full rollback with upgraded state retained separately"
@@ -609,7 +625,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(len(self.fixture.sent) == 3 and len(self.fixture.requests) == 3, "rollback replayed an old send/inference")
         self.stop()
         self.passed("upgrade_complete_rollback_boot_and_no_replay")
-        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 14,
+        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 15,
                 "checks": self.checks, "old_binary_sha256": old_hashes, "model_requests": len(self.fixture.requests), "paid_calls": 0,
                 "personal_state_accessed": False, "backup_method": "robocopy COPY:DATS" if os.name == "nt" else "copytree native modes"}
 
@@ -1045,12 +1061,23 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(restored_share["deliveries"][0]["state"] == "confirmed" and restored_share["attention"]["do_not_disturb"], "share recovery rewrote committed outcome or attention")
         require(len(self.fixture.requests) == requests_before_share+1 and len(self.fixture.sent) == sent_before_share+1, "restart replayed sharing")
         self.passed("sharing_default_off_independent_grant_attention_actor_onebot_receipt_and_no_replay")
+        receipt = self.cli("sharing", "receipt", self.channel, shared["deliveries"][0]["id"])
+        require(receipt["outbound_text"] == "D2 synthetic private share; excerpt only", "CLI fresh receipt projection missing")
+        _, _, share_recall = self.input_turn("D3刚刚分享了什么？")
+        require(share_recall["model_requests"] == 2 and share_recall["private_chat"]["share_versions"][0]["experience"]["experience_id"] == exp["id"], "share recall bypassed fresh typed lookup")
         corrected = self.cli("experience", "correct", exp["id"], "owner correction: excerpt only", "--revision", 1)
         require(corrected["summary_origin"] == "owner_correction" and corrected["revision"] == 2, "correction promoted its origin")
+        _, _, corrected_share = self.input_turn("D3更正后还会引用旧分享吗？")
+        require(corrected_share["private_chat"]["share_versions"][0]["experience"] is None, "corrected share retained old source version")
         _, _, correction_recall = self.input_turn("D1b更正后的经历？")
         require(correction_recall["private_chat"]["experience_versions"][0]["revision"] == 2, "later reply used the old summary")
         self.cli("experience", "withdraw", exp["id"], "--revision", 2)
         require(self.cli("experience", "search", "--from-ms", now_ms - 86400000, "--to-ms", now_ms + 86400000) == [], "withdrawn experience resurfaced")
+        _, _, withdrawn_share = self.input_turn("D3撤回后是否从未分享过？")
+        require(withdrawn_share["model_requests"] == 2 and withdrawn_share["private_chat"]["share_versions"][0]["experience"] is None, "withdrawal lost receipt truth or disclosed source")
+        audit = self.cli("sharing", "audit", self.channel)
+        require(len(audit["records"]) >= 9 and "D2 synthetic private share; excerpt only" not in json.dumps(audit), "missing or content-bearing share read audit")
+        self.passed("sharing_receipt_recall_after_restart_source_correction_withdrawal_and_content_free_audit")
         _, _, withdrawn_recall = self.input_turn("D1b撤回后还处理过吗？")
         require(withdrawn_recall["private_chat"]["experience_grant_revision"] == 3 and not withdrawn_recall["private_chat"].get("experience_versions"), "operation-only recall lost scope or restored content")
         require(self.cli("reading", "suppressed")["records"][0]["url"] == acquired["request"]["url"], "withdrawn source was not suppressed")
@@ -1059,7 +1086,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(len(self.cli("reading", "audit")["source_decisions"]) == 2, "explicit source restoration audit missing")
         require(self.cli("reading", "show", acquired["id"])["text"] is None, "restore resurrected old body")
         self.cli("reading", "revoke", "--revision", 3)
-        require(len(self.fixture.requests) == before + 8, "unexpected processing/recall/sharing model count")
+        require(len(self.fixture.requests) == before + 14, "unexpected processing/recall/sharing model count")
         self.passed("reading_processing_real_http_extent_restart_recall_correct_withdraw_and_no_replay")
 
         self.stage = "final storage and diagnostic evidence"
@@ -1067,7 +1094,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         self.fixture.check_secrets(json.dumps(self.call("GET", "/v1/diagnostics")))
         self.stop()
         with closing(sqlite3.connect(self.local / "state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0] == 14, "wrong schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0] == 15, "wrong schema")
             require(db.execute("SELECT count(*) FROM channel_memory_effects").fetchone()[0] == 3, "unexpected persisted effect")
             require(db.execute("SELECT count(*) FROM channel_memory_suppressions").fetchone()[0] == 2, "missing source tombstones")
             require(db.execute("SELECT count(*) FROM lain_memories WHERE id=?", (replacement["id"],)).fetchone()[0] == 0, "semantic delete not persisted")

@@ -1,12 +1,33 @@
 use crate::{api::Client, emit};
 use anyhow::Result;
 use clap::Subcommand;
-use lain_wire::{ChannelId, ExperienceId, sharing::ShareScope};
+use lain_wire::{
+    ChannelId, DeliveryId, ExperienceId,
+    sharing::{ShareQuery, ShareScope},
+};
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum Commands {
+    Recall {
+        channel: ChannelId,
+        #[arg(long)]
+        from_ms: u64,
+        #[arg(long)]
+        to_ms: u64,
+        #[arg(long)]
+        text: Option<String>,
+        #[arg(long, default_value_t = 3)]
+        limit: u16,
+    },
+    Receipt {
+        channel: ChannelId,
+        delivery: DeliveryId,
+    },
+    Audit {
+        channel: ChannelId,
+    },
     Show {
         channel: ChannelId,
     },
@@ -44,6 +65,37 @@ pub enum Commands {
 }
 pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()> {
     let value: Value = match command {
+        Commands::Recall {
+            channel,
+            from_ms,
+            to_ms,
+            text,
+            limit,
+        } => {
+            client
+                .post(
+                    &format!("v1/channels/{channel}/sharing/receipts/search"),
+                    Some(serde_json::to_value(ShareQuery {
+                        from_ms,
+                        to_ms,
+                        text,
+                        limit,
+                    })?),
+                )
+                .await?
+        }
+        Commands::Receipt { channel, delivery } => {
+            client
+                .get(&format!(
+                    "v1/channels/{channel}/sharing/receipts/{delivery}"
+                ))
+                .await?
+        }
+        Commands::Audit { channel } => {
+            client
+                .get(&format!("v1/channels/{channel}/sharing/audit"))
+                .await?
+        }
         Commands::Show { channel } => {
             client
                 .get(&format!("v1/channels/{channel}/sharing"))

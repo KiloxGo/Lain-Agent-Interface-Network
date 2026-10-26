@@ -19,7 +19,9 @@ source-linked experiences and revision-checked private recall/correction/withdra
 [acceptance](docs/EXPERIENCE_ACCEPTANCE.md)). Its real-provider/source/QQ quality
 remains unaccepted. D2 adds independent default-off proactive sharing and attention with durable budgets,
 source/input rechecks and distinct QQ receipts ([ADR 015](docs/adr/015-bounded-proactive-sharing.md),
-[acceptance](docs/SHARING_ACCEPTANCE.md)). D3–W4 and both complete-stage exit criteria remain open.
+[acceptance](docs/SHARING_ACCEPTANCE.md)). D3a now adds fresh sharing-receipt continuity without reviving withdrawn source words
+([ADR 016](docs/adr/016-sharing-receipt-continuity.md), [acceptance](docs/SHARING_RECALL_ACCEPTANCE.md)).
+The rest of D3, W1–W4 and both complete-stage exit criteria remain open.
 
 ## Current direction — QQ companionship first
 

@@ -97,3 +97,5 @@ calendar, DST, multi-day naturalness, personal migration or native Linux/macOS
 acceptance is claimed. D3 must add source-linked sharing-receipt conversation
 continuity and the authorized complete-chain review. W1–W4 remain unimplemented.
 The old C1.1 budget is closed and supplies no authority for these operations.
+D3a subsequently implements fresh sharing-receipt continuity, with separate
+[evidence](SHARING_RECALL_ACCEPTANCE.md); it does not close live/long-term acceptance.

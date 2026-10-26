@@ -1,5 +1,13 @@
 # CLI-first local development
 
+## D3a sharing receipt commands — 2026-10-26
+
+`lain sharing recall <channel> --from-ms <UTC> --to-ms <UTC> [--text <topic>]`
+searches current permitted projections; `sharing receipt <channel> <delivery>`
+inspects one actual receipt; `sharing audit <channel>` shows content-free prepared
+reads. These use the authenticated API and cannot send/retry or restore sources.
+See [D3a controls and evidence](SHARING_RECALL_ACCEPTANCE.md).
+
 ## D2 sharing controls — 2026-10-26
 
 `lain sharing show/enable/revoke/dnd/available/consider` manage independent

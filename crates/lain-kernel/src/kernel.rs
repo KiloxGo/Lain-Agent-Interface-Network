@@ -893,11 +893,10 @@ impl Kernel {
             turn.reading_activity == reading_activity && turn.sharing_activity == sharing_activity,
             crate::backend::ControlError::InvalidInput
         );
-        if turn
-            .private_chat
-            .as_ref()
-            .is_some_and(|c| c.experience_grant_revision.is_some())
-        {
+        if turn.private_chat.as_ref().is_some_and(|c| {
+            c.experience_grant_revision.is_some()
+                || c.share_versions.iter().any(|v| v.experience.is_some())
+        }) {
             for action in turn.actions.iter().skip(old_actions) {
                 ensure!(
                     !matches!(

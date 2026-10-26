@@ -1,5 +1,14 @@
 # Runtime Model
 
+## D3a fresh receipt reads — 2026-10-26
+
+Private model requests can use a recent content-free receipt pointer or typed
+sharing reads. Fresh projection/audit/version commits precede disclosure; response,
+completion, Ready and prewrite checks reject changed transport/source versions.
+New-input reconsideration clears selected receipts within existing finite caps.
+There is no new model polling, retry or send path.
+See [ADR 016](adr/016-sharing-receipt-continuity.md).
+
 ## D2 sharing runtime — 2026-10-26
 
 New eligible reading completions wake channel consumers through Kernel events,

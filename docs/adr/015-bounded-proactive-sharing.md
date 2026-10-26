@@ -98,3 +98,7 @@ experience/receipt recall, live-quality and multi-day acceptance plus its concre
 upgrade/rollback authorization package. W1–W4 remain separate unfinished parts of
 the same goal. D2 does not imply autonomous source discovery, scheduled reading,
 real QQ approval, remote device execution or a new generic agent framework.
+
+D3a follow-up (2026-10-26): [ADR 016](016-sharing-receipt-continuity.md) now
+implements fresh receipt/source projections for subsequent private conversation.
+Historical operational records remain separate from current model disclosure.

@@ -117,7 +117,9 @@ pub(super) fn check_current(db: &Connection, t: &ActorTurn) -> Result<()> {
     Ok(())
 }
 pub(super) fn memory_current(db: &Connection, t: &ActorTurn) -> Result<bool> {
-    if !super::experiences::selected_current(db, t)? {
+    if !super::experiences::selected_current(db, t)?
+        || !super::share_recall::selected_current(db, t)?
+    {
         return Ok(false);
     }
     let Some(chat) = &t.private_chat else {
@@ -231,6 +233,7 @@ impl Store {
             source_versions: vec![],
             experience_versions: vec![],
             experience_grant_revision: None,
+            share_versions: vec![],
         })
     }
     pub fn private_chat_refresh(&mut self, id: ActorTurnId, now: u64) -> Result<ChatRefresh> {
@@ -313,6 +316,7 @@ impl Store {
         c.source_versions.clear();
         c.experience_versions.clear();
         c.experience_grant_revision = None;
+        c.share_versions.clear();
         t.private_chat = Some(c);
         // Actor and input association share the commit; original request text is untouched.
         Self::save_actor_in_transaction(&tx, &mut t, false)?;

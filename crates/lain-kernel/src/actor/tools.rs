@@ -12,6 +12,10 @@ use std::{path::PathBuf, sync::Arc};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "name", content = "arguments", deny_unknown_fields)]
 pub enum Tool {
+    #[serde(rename = "sharing.search")]
+    SharingSearch(lain_wire::sharing::ShareQuery),
+    #[serde(rename = "sharing.inspect")]
+    SharingInspect { delivery_id: lain_wire::DeliveryId },
     #[serde(rename = "experience.search")]
     ExperienceSearch(lain_wire::reading::ExperienceQuery),
     #[serde(rename = "experience.inspect")]
@@ -116,6 +120,7 @@ impl Tool {
     }
     pub fn validate(&self) -> Result<()> {
         match self {
+            Self::SharingSearch(q) => ensure!(q.valid(), "invalid bounded sharing query"),
             Self::ChatWait(q) => ensure!(
                 (1..=lain_wire::chat::MAX_WAIT_SECONDS).contains(&q.seconds),
                 "invalid bounded chat wait"
@@ -228,6 +233,8 @@ impl Tool {
         matches!(
             self,
             Self::SourceSearch(_)
+                | Self::SharingSearch(_)
+                | Self::SharingInspect { .. }
                 | Self::SourceInspect(_)
                 | Self::ExperienceSearch(_)
                 | Self::ExperienceInspect { .. }
@@ -238,6 +245,9 @@ impl Tool {
             self,
             Self::ExperienceSearch(_) | Self::ExperienceInspect { .. }
         )
+    }
+    pub fn sharing_read(&self) -> bool {
+        matches!(self, Self::SharingSearch(_) | Self::SharingInspect { .. })
     }
     pub fn private_memory(&self) -> bool {
         matches!(
@@ -276,6 +286,15 @@ pub fn experience_definitions() -> Vec<Value> {
         ("experience_search","Find Lain's actual completed reading summaries by UTC completion window and literal topic, only in this private binding's explicit processing grant. Use the Kernel-supplied current/yesterday UTC day boundaries. Coverage is partial. Model summaries are interpretations, never verified facts, direct participation elsewhere, memory or permission.",json!({"from_ms":{"type":"integer","minimum":0},"to_ms":{"type":"integer","minimum":1},"text":{"type":["string","null"],"maxLength":256},"limit":{"type":"integer","minimum":1,"maximum":3}})),
         ("experience_inspect","Inspect one actual ExperienceId returned by experience_search in this binding. Fresh valid source-linked summary appears as untrusted evidence in the next request. Cannot restore withdrawn/expired records, fetch a URL or grant contact or Worker authority.",json!({"experience_id":{"type":"string","format":"uuid"}})),
     ].into_iter().map(|(name,description,properties)| {
+        let required:Vec<_>=properties.as_object().unwrap().keys().cloned().collect();
+        json!({"type":"function","name":name,"description":description,"strict":true,"parameters":{"type":"object","properties":properties,"required":required,"additionalProperties":false}})
+    }).collect()
+}
+pub fn sharing_definitions() -> Vec<Value> {
+    [
+        ("sharing_search","Find this binding's actual proactive-contact receipts by UTC claim-time window (at most 31 days) and literal topic. At most 100 candidates/three records, partial. Own outbound words require their original source to remain current; otherwise only content-free operation facts are available. Confirmed is not a user read receipt; Unknown is not successful delivery. This cannot send, restore a source or grant Work authority.",json!({"from_ms":{"type":"integer","minimum":0},"to_ms":{"type":"integer","minimum":1},"text":{"type":["string","null"],"maxLength":256},"limit":{"type":"integer","minimum":1,"maximum":3}})),
+        ("sharing_inspect","Inspect one actual proactive DeliveryId in this private binding. Fresh transport/source evidence appears in the next request. Cannot retry, resend, restore withdrawn content or claim the user read it.",json!({"delivery_id":{"type":"string","format":"uuid"}})),
+    ].into_iter().map(|(name,description,properties)|{
         let required:Vec<_>=properties.as_object().unwrap().keys().cloned().collect();
         json!({"type":"function","name":name,"description":description,"strict":true,"parameters":{"type":"object","properties":properties,"required":required,"additionalProperties":false}})
     }).collect()

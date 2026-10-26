@@ -317,6 +317,21 @@ async fn identity_timeout_is_distinct_and_does_not_mark_online() {
 #[tokio::test]
 #[allow(clippy::result_large_err)]
 async fn repeated_authentication_failures_emit_one_safe_warning() {
+    // Install the process-global capture before this child's first adapter event;
+    // parallel tests may already have registered/used the same tracing callsite.
+    const CHILD: &str = "LAIN_DIAGNOSTIC_WARN_CAPTURE_CHILD";
+    if std::env::var_os(CHILD).is_none() {
+        let result=std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact","channels::tests::diagnostics::repeated_authentication_failures_emit_one_safe_warning","--nocapture"])
+            .env(CHILD,"1").output().unwrap();
+        assert!(
+            result.status.success(),
+            "isolated warning-capture fixture failed: {} {}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+        return;
+    }
     use tracing_subscriber::{Layer, layer::SubscriberExt};
     struct Warnings {
         channel: String,

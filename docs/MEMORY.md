@@ -1,5 +1,15 @@
 # Lain Memory
 
+## D3a outbound continuity — 2026-10-26
+
+Own proactive-contact receipts remain operational facts, not semantic memory.
+Source-derived outbound words require a fresh original experience/disclosure
+check and cannot silently become proposed/selected/corrected memory. Content-free
+automatic receipt pointers do not disable unrelated reviewed/current-source memory
+operations. Past share-source-influenced responses/tool receipts are excluded from
+later model history; source withdrawal preserves the send fact without restoring
+old content. See [ADR 016](adr/016-sharing-receipt-continuity.md).
+
 ## D1b experiences remain separate — 2026-10-26
 
 ReadingExperience is a source-linked projection of actual bounded Actor summary

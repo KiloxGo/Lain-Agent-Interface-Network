@@ -1,5 +1,14 @@
 # Architecture
 
+## D3a sharing receipt continuity — 2026-10-26
+
+Private conversation reads fresh own-outbound receipts separately from the D2
+share Actor and normal reply batches. A content-free recent pointer and typed
+sharing search/inspect preserve actual transport truth; source words require the
+original current experience/disclosure scope. Private ShareVersions are rechecked
+through send. Migration 015 adds content-free read audits, not new authority.
+See [ADR 016](adr/016-sharing-receipt-continuity.md). D3/live and W1–W4 remain open.
+
 ## D2 proactive sharing — 2026-10-26
 
 Kernel owns independent default-off ShareGrant/Attention decisions, source-linked

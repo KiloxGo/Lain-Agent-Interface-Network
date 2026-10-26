@@ -190,7 +190,7 @@ fn schema11_migration_preserves_old_rows_and_does_not_invent_authority() {
     let s = Store::open(&path).unwrap();
     drop(s);
     let db = rusqlite::Connection::open(&path).unwrap();
-    db.execute_batch("DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; PRAGMA user_version=11;").unwrap();
+    db.execute_batch("DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; PRAGMA user_version=11;").unwrap();
     let profiles: String = db
         .query_row("SELECT snapshot FROM runtime_profiles LIMIT 1", [], |r| {
             r.get(0)
@@ -205,7 +205,7 @@ fn schema11_migration_preserves_old_rows_and_does_not_invent_authority() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        14
+        15
     );
     assert_eq!(
         db.query_row("SELECT snapshot FROM runtime_profiles LIMIT 1", [], |r| {

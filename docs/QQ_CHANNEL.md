@@ -1,5 +1,13 @@
 # QQ private conversation channel
 
+## D3a proactive receipt recall — 2026-10-26
+
+Private chat can inspect its own proactive DeliveryIds with fresh source versions;
+contact revocation stops new sends without erasing historical transport facts.
+Withheld content is not a retracted QQ message or a claim that contact never
+occurred. No new send/login right is introduced.
+See [D3a acceptance](SHARING_RECALL_ACCEPTANCE.md).
+
 ## D2 ordinary proactive contact — 2026-10-26
 
 Optional sharing uses a separate default-off grant and explicit attention, never

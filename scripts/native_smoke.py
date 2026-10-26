@@ -456,7 +456,7 @@ def run(platform):
             with closing(sqlite3.connect(local / "lain.sqlite3")) as db:
                 persisted = "\n".join(db.iterdump())
                 assert token not in persisted and "fixture-actor-credential" not in persisted
-                assert db.execute("PRAGMA user_version").fetchone()[0] == 14
+                assert db.execute("PRAGMA user_version").fetchone()[0] == 15
             assert token.encode() not in log.read_bytes() and b"fixture-actor-credential" not in log.read_bytes()
             # A listening unrelated service is never terminated or replaced.
             unrelated = ThreadingHTTPServer(("127.0.0.1", port), type("Unrelated", (BaseHTTPRequestHandler,), {"log_message": lambda *args: None, "do_GET": lambda self: (self.send_response(401), self.end_headers())}))
