@@ -61,6 +61,7 @@ async fn run() -> Result<()> {
     };
     kernel.mark_ready()?;
     let reading_maintenance = tokio::spawn(lain_kernel::reading::maintain(kernel.clone()));
+    let archive_maintenance = tokio::spawn(lain_kernel::archives::maintain(kernel.clone()));
     let channel_tasks = if let Some(channel_config) = channel_config {
         let binding =
             kernel.channel_bind(channel_config.binding_spec(), channel_config.allow_reply)?;
@@ -96,6 +97,7 @@ async fn run() -> Result<()> {
     };
     let result = api::serve_router(listener, kernel.clone(), app, shutdown).await;
     let _ = reading_maintenance.await;
+    let _ = archive_maintenance.await;
     if let Some((transport, application)) = channel_tasks {
         // Wake transport first, preserving unknown state for any in-flight send.
         let _ = transport.await;

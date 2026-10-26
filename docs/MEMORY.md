@@ -1,5 +1,12 @@
 # Lain Memory
 
+## W1a source archive separation — 2026-10-26
+
+Selected visible archives have an explicit owner-import foundation (schema 17).
+Import/correction/tombstones create no semantic memory, experience or managed
+Worker. Archive bodies do not enter model context automatically; typed disclosure
+and derived invalidation remain W1 work. See [ADR 018](adr/018-selected-visible-source-archives.md).
+
 ## D3a outbound continuity — 2026-10-26
 
 Own proactive-contact receipts remain operational facts, not semantic memory.

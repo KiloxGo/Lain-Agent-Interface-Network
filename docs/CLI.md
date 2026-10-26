@@ -1,5 +1,13 @@
 # CLI-first local development
 
+## W1a selected archive owner commands — 2026-10-26
+
+`lain archive sources/register/source/grants/enable/revoke/import/query/record/
+edits/correct/forget` uses authenticated Kernel APIs over bounded explicitly
+selected JSON inputs. Registration is default-off. Imported slices remain data;
+no live account connection, model reading or external-session control is implied.
+See [the five-step guide and evidence](ARCHIVE_ACCEPTANCE.md).
+
 ## D3c isolated replay — 2026-10-26
 
 `scripts/daily_replay.py` drives a synthetic OneBot pair automatically, with a

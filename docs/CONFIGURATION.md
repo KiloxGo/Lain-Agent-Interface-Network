@@ -1,5 +1,14 @@
 # Configuration and Runtime Profiles
 
+## W1a source selection — 2026-10-26
+
+Archive identities/scopes are explicit authenticated Kernel records, not ambient
+environment discovery or global Worker settings. Registration grants nothing;
+scope requires revision, expiry, body-retention duration and admission cap. Inputs
+are bounded selected JSON files. No account login, credential, live observer or
+archive path scan is configured by declaring a source key. See
+[the owner controls](ARCHIVE_ACCEPTANCE.md).
+
 ## D3b inference budgets — 2026-10-26
 
 An optional persisted Kernel-wide Lain inference ceiling is managed through the

@@ -27,6 +27,11 @@ D3c adds an isolated autonomous replay runner with native fixture evidence
 ([controls and remaining acceptance](docs/DAILY_REPLAY_ACCEPTANCE.md)).
 Real-model/live/long-term D3 work, W1–W4 and both complete-stage exit criteria remain open.
 
+W1a now adds a selected visible-source archive foundation: explicit owner imports,
+default-off per-source scope, sequence cursors, bounded retention and corrective
+operation receipts ([ADR 018](docs/adr/018-selected-visible-source-archives.md)).
+Actual read-only QQ/Codex adapters and source-to-continuity integration remain W1 work.
+
 ## Current direction — QQ companionship first
 
 The user selected QQ daily companionship as the next product priority on

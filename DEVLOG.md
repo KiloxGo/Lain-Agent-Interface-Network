@@ -10,6 +10,40 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-26 — W1a selected visible-source archive imports
+
+Implemented the Kernel-owned archive foundation for declared QQ-group/Codex-session
+sources: default-off revisioned import/disclosure scopes, bounded atomic owner
+imports, exact per-source event identity, commit-order cursor windows, finite body
+retention, correction/forget tombstones and content-free edit receipts. No source
+import creates a conversation, model call, semantic memory, experience or managed
+Worker. Owner declarations are explicitly not authenticated provider observation,
+complete coverage or participation. Actual read adapters/derived continuity remain W1.
+
+Schema 017 appends four tables/indexes and preserves prior grants/records/control.
+Replays neither renew retention nor refund admission. Same-ID changed payloads
+conflict atomically; different source accounts/events remain distinct. Corrections
+label owner text; original-event replay cannot undo correction/forget. Grant expiry,
+explicit revoke, body expiry and previous grant epochs have separate projections.
+Startup/fresh-read checks and one nearest-deadline timer enforce expiry without
+idle inference. CLI/API expose bounded selected JSON operations and audits.
+
+Native Windows/MSVC: 215 Rust tests passed, 0 failed, 3 manual ignored; fmt/check,
+strict workspace/all-target Clippy and locked native build passed. Eight archive
+tests include credential-rotation response filtering and actual timer-driven body
+clearing. Native fake HTTP/OneBot: 33 checks, 76 fake model calls, 0 paid calls;
+archive cases add no inference. Whole-backup/schema16→17/old-version refusal/full
+rollback: 5 checks, 3 fake calls, 0 paid, no personal state. Fourteen Python
+replay/staging tests passed. Cleanup and binary hashes match; ARCHIVE_ACCEPTANCE.md
+and ignored target/w1a/ retain evidence, including early compilation and stale
+schema-expectation failures. No actual group or Worker history was collected.
+
+The owner subsequently authorized the separate D3 live plan: a new fixed 48+12
+request split and 6-hour deadline over the selected schema-16 release. Its protected
+controller and exact source/binary snapshots are outside personal rollback state;
+W1 is excluded from that installation/collection authority. Real D3 operations
+and outcomes are tracked separately. The complete two-stage goal remains active.
+
 ## 2026-10-26 — D3c isolated autonomous replay runner
 
 Added an automatic local OneBot replay over 16 synthetic chat/continuity/memory

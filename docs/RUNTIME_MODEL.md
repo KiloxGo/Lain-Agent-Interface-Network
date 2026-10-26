@@ -1,5 +1,13 @@
 # Runtime Model
 
+## W1a archive runtime — 2026-10-26
+
+Explicit authenticated imports commit bounded batches and source-scoped identities
+transactionally without Actor/Worker wake-up. Startup pruning, nearest-retention
+timers and fresh reads remove expired bodies. Replay cannot renew retention/refund
+caps; revoke/regrant cannot redisclose old epochs. No source poller or external
+session resume is added. See [ADR 018](adr/018-selected-visible-source-archives.md).
+
 ## D3b inference admission — 2026-10-26
 
 Every Lain Actor model request reserves against the same current finite ceiling

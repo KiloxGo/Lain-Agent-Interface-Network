@@ -492,7 +492,7 @@ mod tests {
                 .connection
                 .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
                 .unwrap(),
-            16
+            crate::persistence::SCHEMA_VERSION
         );
         let input = AddMemory {
             request_id: RequestId::new(),

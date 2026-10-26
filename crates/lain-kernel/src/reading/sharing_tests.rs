@@ -373,7 +373,7 @@ async fn sharing_schema13_upgrade_preserves_existing_receipts_and_stays_off() {
         .collect()
     };
     let before = rows(&db);
-    db.execute_batch("DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; PRAGMA user_version=13;").unwrap();
+    db.execute_batch("DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; PRAGMA user_version=13;").unwrap();
     drop(db);
     let k = Kernel::open(&path).unwrap();
     k.mark_ready().unwrap();
@@ -390,7 +390,7 @@ async fn sharing_schema13_upgrade_preserves_existing_receipts_and_stays_off() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        16
+        crate::persistence::SCHEMA_VERSION
     );
 }
 

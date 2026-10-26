@@ -1,3 +1,4 @@
+mod archives;
 mod channels;
 mod inference;
 mod memory;
@@ -78,6 +79,7 @@ pub fn actor_router(
         .merge(reading::routes())
         .merge(sharing::routes())
         .merge(inference::routes())
+        .merge(archives::routes())
         .route(
             "/health",
             get(|| async { Json(serde_json::json!({"status": "ok", "service":"lain-kernel", "version":env!("CARGO_PKG_VERSION")})) }),

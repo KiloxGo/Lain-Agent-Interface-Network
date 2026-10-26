@@ -1,5 +1,13 @@
 # Architecture
 
+## W1a selected visible archives — 2026-10-26
+
+Kernel owns default-off per-source import/disclosure grants, bounded owner-imported
+visible records, correction/forget receipts, scoped sequence pages and retention.
+Migration 017 is separate from private source projections, memory and managed
+work. Imports invoke no model or control. Actual QQ/Codex collection and model
+continuity remain W1 work. See [ADR 018](adr/018-selected-visible-source-archives.md).
+
 ## D3b inference ceiling — 2026-10-26
 
 Kernel owns an optional global Lain Actor request ceiling and content-free request

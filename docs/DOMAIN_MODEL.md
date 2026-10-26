@@ -1,5 +1,14 @@
 # Domain Model
 
+## W1a visible archives — 2026-10-26
+
+ArchiveSourceId/ArchiveRecordId identify declared QQ-group/Codex-session sources
+and imported visible events. ArchiveGrant bounds import/disclosure; ArchiveRecord
+separates occurrence/position claims from Kernel receipt UTC/commit sequence.
+OwnerImport/OwnerCorrection and incomplete coverage preserve provenance without
+fabricating participation/control. These are not private SourceRecord or managed
+WorkSession IDs. See [ADR 018](adr/018-selected-visible-source-archives.md).
+
 ## D3b inference records — 2026-10-26
 
 InferenceLimit is an immutable ID/ceiling/UTC-expiry specification. Revisioned

@@ -1,5 +1,6 @@
 pub mod actor;
 pub mod api;
+pub mod archives;
 pub mod backend;
 pub mod channels;
 pub mod config;

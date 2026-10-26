@@ -12,6 +12,7 @@ use crate::{
     events::{Event, EventKind, HistoryPage},
     worker::WorkerState,
 };
+mod archives;
 mod channels;
 mod delegation;
 mod experiences;
@@ -23,6 +24,7 @@ mod reading;
 mod share_recall;
 mod sharing;
 mod sources;
+pub(crate) const SCHEMA_VERSION: u32 = 17;
 
 pub(crate) struct Store {
     connection: Connection,
@@ -83,7 +85,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 16,
+            version <= SCHEMA_VERSION,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -178,6 +180,9 @@ impl Store {
         }
         if version < 16 {
             transaction.execute_batch(include_str!("../migrations/016_inference_budget.sql"))?;
+        }
+        if version < 17 {
+            transaction.execute_batch(include_str!("../migrations/017_archives.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(

@@ -1,5 +1,13 @@
 # Agent Backend Integration
 
+## W1a declared visible archive imports — 2026-10-26
+
+The [archive foundation](ARCHIVE_ACCEPTANCE.md) stores bounded owner-imported
+visible Codex-session slices with declared installation/workspace/session origin.
+It does not call Codex, authenticate that declaration, attach/resume a thread or
+create a managed WorkSession. Actual supported read-only history integration and
+native version verification remain W1 work; existing control contracts are unchanged.
+
 ## Target archive and device boundary — 2026-10-23
 
 The product now includes archives of both Lain-created and independently created

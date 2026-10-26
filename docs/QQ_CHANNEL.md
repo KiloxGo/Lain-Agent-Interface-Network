@@ -1,5 +1,12 @@
 # QQ private conversation channel
 
+## W1a declared group archives — 2026-10-26
+
+The separate [archive foundation](ARCHIVE_ACCEPTANCE.md) can store explicit
+owner-imported normalized group slices under a default-off source scope. It is
+not a group observer/participant transport. The Q1 private adapter below remains
+private-text only; no live group collection or source authenticity is claimed.
+
 ## D3a proactive receipt recall — 2026-10-26
 
 Private chat can inspect its own proactive DeliveryIds with fresh source versions;

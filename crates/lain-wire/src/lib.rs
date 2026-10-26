@@ -1,6 +1,7 @@
 //! Small public Actor observation DTOs. No provider objects or Kernel services.
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+pub mod archives;
 pub mod chat;
 pub mod inference;
 pub mod memory;
@@ -64,6 +65,8 @@ id!(ReadingId);
 id!(ExperienceId);
 id!(ShareId);
 id!(InferenceBudgetId);
+id!(ArchiveSourceId);
+id!(ArchiveRecordId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
