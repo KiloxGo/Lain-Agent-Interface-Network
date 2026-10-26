@@ -1,5 +1,14 @@
 # Architecture
 
+## Independent QQ source service — 2026-10-27
+
+The appended user goal selects `services/qq-knowledge` as a separately deployed
+QQ message/image source store and keyed API for Utakera. It imports no Kernel
+runtime/database and owns no persona, semantic memory or Worker control. A
+read-only selected-source observer and bounded image interpretation feed source
+data; Kernel continuity remains independently scoped. See
+[ADR 019](adr/019-independent-qq-knowledge-service.md).
+
 ## W1a selected visible archives — 2026-10-26
 
 Kernel owns default-off per-source import/disclosure grants, bounded owner-imported

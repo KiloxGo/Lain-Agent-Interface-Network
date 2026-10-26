@@ -10,6 +10,36 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-27 — Independent QQ message/image knowledge service deployed
+
+The user extended the active goal with decoupled QQ messages/images, DeepSeek
+vision and a keyed hosted API for Utakera, explicitly authorizing server deployment.
+Added a separately runnable Python source store and read-only NapCat observer:
+source revisions/allowlists, ordered segments/media provenance, source-scoped image
+hash/cache, bounded direct vision, durable conservative budget, retention/tombstones,
+search/change feed, role-specific API keys and a durable bounded upload outbox.
+No Kernel/persona/semantic-memory/Worker runtime dependency or historical DB upload.
+
+Actual Ubuntu/Caddy/Docker deployment serves a loopback-only unprivileged container
+through verified public HTTPS at hub.example.com/lain-knowledge. A real synthetic
+image was stored/downloaded with equal SHA-256 and described by DeepSeek Flash:
+one request, 322 reported tokens, independent lifetime cap 10. Duplicate event
+delivery did not spend another call; synthetic source subsequently revoked.
+No-auth 401/read 200/read-key mutation 403 passed. Three API roles/model key are
+protected outside Git. Existing unrelated services were not restarted.
+
+Native Windows and actual server Linux Python each passed 13 deterministic tests,
+including an actual local WebSocket observer fixture. Ruff check/format passed.
+The current-user hidden observer task is Running, actual NapCat identity verified,
+outbox drained; only established bot/owner private pair enabled, groups empty.
+MSIX AppData redirection initially broke scheduled-task paths; installation now
+uses the physical resolved path and checks runtime health, not just registration.
+Original Rust W1+D3 merge passes 217 tests/3 manual ignored and strict Clippy;
+personal schema16 grants/budget remain closed. MaiBot mechanism research and
+Utakera reference commits, API/operating limits and remaining actual-image/client/
+Kernel-continuity evidence are recorded in ADR 019 and QQ_KNOWLEDGE_ACCEPTANCE.md.
+The complete expanded goal remains unfinished; no multi-day or Worker acceptance.
+
 ## 2026-10-26 — W1a selected visible-source archive imports
 
 Implemented the Kernel-owned archive foundation for declared QQ-group/Codex-session

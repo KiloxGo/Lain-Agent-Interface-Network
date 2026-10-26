@@ -2,7 +2,25 @@
 
 **Status:** QQ-first product delivery proposal plus historical implementation record
 
-**Last reviewed:** 2026-10-26
+**Last reviewed:** 2026-10-27
+
+## Appended QQ storage/deployment goal — 2026-10-27
+
+The user added received QQ messages/images, DeepSeek visual descriptions and an
+independently hosted keyed API for Utakera, explicitly authorizing deployment to
+the supplied server. This is additional work, not a replacement for the combined
+goal. The standalone source service and selected private read observer are now
+implemented/deployed; actual hosted HTTPS storage and one real synthetic-image
+provider round trip passed. Native Windows/server Linux service tests pass.
+See [ADR 019](docs/adr/019-independent-qq-knowledge-service.md) and
+[evidence/remaining integration](docs/QQ_KNOWLEDGE_ACCEPTANCE.md). Actual QQ-image
+coverage, source-to-Kernel continuity and Apple UI remain separately unverified.
+No group, personal-memory grant, old DB cloud migration or Worker control is implied.
+
+D3's targeted real follow-up repaired private correction/forget and source format;
+23/48 isolated plus 1/12 personal adapter reservations, two source acquisitions,
+zero real proactive sends during quiet hours. Temporary grants/budgets closed.
+Long-term naturalness, real proactive delivery/recall and W1–W4 stay open.
 
 ## Combined daily-companion / shared-work goal — 2026-10-26
 

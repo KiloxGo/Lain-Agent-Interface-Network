@@ -2,9 +2,20 @@
 
 **状态：** 2026-10-23 用户讨论确认的产品方向；不是已实现功能清单。
 
-**最近更新：** 2026-10-26（Asia/Shanghai）
+**最近更新：** 2026-10-27（Asia/Shanghai）
 
 **决策：** [ADR 009](adr/009-cloud-resident-equal-companion.md)
+
+## 追加：独立 QQ 消息与图片知识库 — 2026-10-27
+
+用户追加选择：保存收到的 QQ 消息和图片，使用 DeepSeek 视觉模型形成有来源的
+描述，并将存储解耦为服务器上的带密钥 API，供 Utakera 等客户端调用。
+现已实现独立服务、只读观察器和分角色 API，并完成实际服务器部署与真实合成图片
+模型验证；现有本人私聊已连接，群来源未开启。原消息、图片和推断描述分开，
+不自动成为 Lain 语义记忆，不迁移整份个人数据库。该增量不代表上一组合目标、
+真实 QQ 图片链路、Apple 界面或长期相处体验已全部通过；见
+[ADR 019](adr/019-independent-qq-knowledge-service.md) 与
+[验收记录](QQ_KNOWLEDGE_ACCEPTANCE.md)。
 
 ## Q2-B1 private source lookup — 2026-10-25
 

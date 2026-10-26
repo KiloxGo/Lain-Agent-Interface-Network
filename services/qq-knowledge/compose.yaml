@@ -1,0 +1,21 @@
+services:
+  knowledge:
+    build: .
+    image: lain-knowledge:local
+    restart: unless-stopped
+    env_file:
+      - ${KNOWLEDGE_ENV_FILE:-/etc/lain-knowledge/runtime.env}
+    ports:
+      - "127.0.0.1:8788:8788"
+    volumes:
+      - ${KNOWLEDGE_DATA_DIR:-/var/lib/lain-knowledge}:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.5
