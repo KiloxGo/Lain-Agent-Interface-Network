@@ -608,6 +608,8 @@ impl Actor {
             if private || reading || sharing || !sources.is_empty() {
                 sink.hold();
             }
+            let request_number = turn.model_requests;
+            blocking(&self.kernel, move |k| k.begin_inference(id, request_number)).await?;
             let reply = self
                 .model
                 .as_ref()
@@ -621,6 +623,11 @@ impl Actor {
                     sink.clone(),
                 )
                 .await?;
+            let tokens = reply.usage_tokens;
+            blocking(&self.kernel, move |k| {
+                k.inference_returned(id, request_number, tokens)
+            })
+            .await?;
             if reading || sharing {
                 let tokens = reply.usage_tokens;
                 let timing = sink.timing();
@@ -1140,6 +1147,7 @@ fn safe_tool_error(error: &anyhow::Error) -> Value {
         Some(ControlError::InvalidInput) => "invalid_input",
         Some(ControlError::Unavailable) => "backend_unavailable",
         Some(ControlError::Conflict) => "state_conflict",
+        Some(ControlError::InferenceDenied) => "inference_budget_denied",
         None => "tool_operation_failed",
     };
     json!({"error":code,"success":false,"retry":"never automatically replay an uncertain mutation"})

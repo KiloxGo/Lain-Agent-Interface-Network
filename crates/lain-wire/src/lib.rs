@@ -2,6 +2,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 pub mod chat;
+pub mod inference;
 pub mod memory;
 pub mod notices;
 pub mod reading;
@@ -62,6 +63,7 @@ id!(DeliveryId);
 id!(ReadingId);
 id!(ExperienceId);
 id!(ShareId);
+id!(InferenceBudgetId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

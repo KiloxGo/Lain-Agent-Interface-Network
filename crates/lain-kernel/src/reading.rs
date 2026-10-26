@@ -127,6 +127,7 @@ async fn fetch_pinned(
     addresses: &[SocketAddr],
 ) -> std::result::Result<String, ReadingFailure> {
     let client = reqwest::Client::builder()
+        .retry(reqwest::retry::never())
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
         .resolve_to_addrs(

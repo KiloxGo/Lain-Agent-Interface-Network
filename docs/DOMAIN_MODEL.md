@@ -1,5 +1,14 @@
 # Domain Model
 
+## D3b inference records — 2026-10-26
+
+InferenceLimit is an immutable ID/ceiling/UTC-expiry specification. Revisioned
+InferenceDecision can enable or stop it while retaining its totals. InferenceRequest
+records one Actor/request number, typed conversation/private/reading/sharing reason
+and Prepared/Attempting/Returned/NotAttempted/Unknown phase, without content or
+credentials. It is not semantic memory, action permission or proof of billing.
+Schema 016 and boundaries: [ADR 017](adr/017-kernel-wide-inference-budget.md).
+
 ## D3a receipt projections — 2026-10-26
 
 ShareQuery bounds UTC claim time/topic/record count. Private ShareVersion binds a

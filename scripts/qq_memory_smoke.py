@@ -25,6 +25,8 @@ import time
 import traceback
 import uuid
 
+from acceptance_files import protect_directory
+
 import websockets
 from websockets.exceptions import ConnectionClosed
 from websockets.sync.server import serve
@@ -483,27 +485,7 @@ class Smoke:
         """Protect an owned rehearsal directory before copying any fixture state."""
         require(path.resolve().is_relative_to(self.root.resolve()), "directory outside rehearsal")
         path.mkdir(mode=0o700)
-        if os.name == "nt":
-            script = r"""
-$ErrorActionPreference='Stop'
-$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')
-$p=$env:LAIN_UPGRADE_PATH
-$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
-$a=New-Object Security.AccessControl.DirectorySecurity
-$a.SetOwner($sid)
-$a.SetAccessRuleProtection($true,$false)
-$a.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')))
-[IO.Directory]::SetAccessControl($p,$a)
-$b=Get-Acl -LiteralPath $p
-if (-not $b.AreAccessRulesProtected -or $b.GetOwner([Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) {throw 'owner ACL'}
-foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {if($r.IdentityReference.Value -ne $sid.Value -or $r.AccessControlType -ne 'Allow'){throw 'non-owner ACL'}}
-"""
-            env = {k: v for k, v in os.environ.items() if k.upper() in {"SYSTEMROOT", "WINDIR", "PATH", "TEMP", "TMP", "USERPROFILE", "LOCALAPPDATA", "APPDATA", "COMSPEC", "PATHEXT"}}
-            env["LAIN_UPGRADE_PATH"] = str(path)
-            result = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script], env=env, capture_output=True, timeout=30)
-            error = result.stderr.decode(errors="replace")
-            self.fixture.check_secrets(error)
-            require(result.returncode == 0, "rehearsal private directory ACL failed: " + error[-1200:])
+        protect_directory(path)
 
     def copy_stopped_state(self, source, destination):
         require(self.process is None or self.process.poll() is not None, "state copy while owned daemon running")
@@ -567,7 +549,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         original_delivery = next(d for d in self.snapshot()["deliveries"] if d["batch_id"] == original_batch["id"])
         self.stop()
         old_schema = schema()
-        require(0 < old_schema < 15, "old binary does not create an older schema")
+        require(0 < old_schema < 16, "old binary does not create an older schema")
         self.passed("upgrade_old_binary_seeds_real_schema_and_records")
 
         self.stage = "stopped whole-state backup with permissions"
@@ -597,13 +579,13 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(sum(i["input"]["external_id"] == original["input"]["external_id"] for i in self.snapshot()["incoming"]) == 1, "upgrade/replay duplicated original input")
         require(len(self.fixture.sent) == 2, "upgrade replayed an old delivery")
         self.stop()
-        require(schema() == 15, "new binary did not migrate to schema 15")
-        self.passed("upgrade_schema15_identity_memory_receipts_and_c1")
+        require(schema() == 16, "new binary did not migrate to schema 16")
+        self.passed("upgrade_schema16_identity_memory_receipts_and_c1")
 
         self.stage = "old binary refuses the upgraded schema without downgrade"
         refusal = subprocess.run([str(old_copy / executable("laind"))], env=self.env, cwd=self.workspace, capture_output=True, timeout=min(20, self.remaining()))
         self.fixture.check_secrets((refusal.stdout + refusal.stderr).decode(errors="replace"))
-        require(refusal.returncode != 0 and schema() == 15, "old binary accepted/downgraded schema 15")
+        require(refusal.returncode != 0 and schema() == 16, "old binary accepted/downgraded schema 16")
         self.passed("upgrade_old_binary_refuses_future_schema")
 
         self.stage = "full rollback with upgraded state retained separately"
@@ -625,7 +607,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(len(self.fixture.sent) == 3 and len(self.fixture.requests) == 3, "rollback replayed an old send/inference")
         self.stop()
         self.passed("upgrade_complete_rollback_boot_and_no_replay")
-        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 15,
+        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 16,
                 "checks": self.checks, "old_binary_sha256": old_hashes, "model_requests": len(self.fixture.requests), "paid_calls": 0,
                 "personal_state_accessed": False, "backup_method": "robocopy COPY:DATS" if os.name == "nt" else "copytree native modes"}
 
@@ -642,6 +624,15 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         self.fixture.login_release.set()
         self.wait(lambda: self.snapshot()["connection"]["phase"] == "online", "identity not validated")
         self.passed("identity_gates_online")
+
+        self.stage = "persistent Kernel-wide inference ceiling"
+        self.call("GET", "/v1/inference/budget", auth=False, expected=401)
+        initial_budget = self.cli("inference", "show")
+        require(initial_budget["admission"] == "existing_limits_only" and initial_budget["reserved_requests"] == 0, "migration invented a paid budget")
+        inference_id = str(uuid.uuid4())
+        inference_expiry = int(time.time()*1000)+600000
+        self.cli("inference", "enable", "--revision", 0, "--id", inference_id, "--max-requests", 200, "--expires-at-ms", inference_expiry)
+        self.passed("inference_management_auth_and_explicit_campaign")
 
         self.stage = "transport disconnect and recovery"
         self.fixture.connection.close()
@@ -1089,12 +1080,37 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(len(self.fixture.requests) == before + 14, "unexpected processing/recall/sharing model count")
         self.passed("reading_processing_real_http_extent_restart_recall_correct_withdraw_and_no_replay")
 
+        self.stage = "global inference accounting and no restart/refill escape"
+        budget = self.cli("inference", "show")
+        require(budget["decision"]["limit"]["id"] == inference_id and budget["reserved_requests"] >= len(self.fixture.requests), "cross-chain requests escaped the global ceiling")
+        requests = self.cli("inference", "requests", "--budget", inference_id)
+        require({"reading", "sharing", "private_conversation"} <= {r["reason"] for r in requests}, "reading/sharing/chat use different campaign counters")
+        used, calls = budget["reserved_requests"], len(self.fixture.requests)
+        self.cli("inference", "stop", "--revision", 1)
+        self.stop(); self.start()
+        stopped = self.cli("inference", "show")
+        require(stopped["admission"] == "stopped" and stopped["reserved_requests"] == used, "restart removed the stop or refunded requests")
+        self.cli("inference", "enable", "--revision", 2, "--id", inference_id, "--max-requests", 200, "--expires-at-ms", inference_expiry)
+        require(self.cli("inference", "show")["reserved_requests"] == used, "reopening the same campaign refilled it")
+        single = str(uuid.uuid4())
+        self.cli("inference", "enable", "--revision", 3, "--id", single, "--max-requests", 1, "--expires-at-ms", inference_expiry)
+        self.input_turn("一条有额度的普通消息")
+        require(len(self.fixture.requests) == calls+1 and self.cli("inference", "show")["admission"] == "exhausted", "last allowed model call was not counted")
+        # A fresh unbound conversation cannot evade a budget exhausted by private chat.
+        conversation = self.call("POST", "/v1/conversations", expected=201)
+        submitted = self.call("POST", f"/v1/conversations/{conversation['id']}/turns", {"request_id": str(uuid.uuid4()), "text": "must not bypass the exhausted campaign"}, expected=202)
+        denied = self.wait(lambda: (t if (t := self.call("GET", f"/v1/actor-turns/{submitted['id']}"))["state"] != "running" else None), "budget-denied Actor did not settle")
+        require(denied["model_requests"] == 0 and denied["state"] == "unknown" and len(self.fixture.requests) == calls+1, "new conversation bypassed global model ceiling")
+        campaigns = self.cli("inference", "budgets")
+        require(next(b for b in campaigns if b["limit"]["id"] == inference_id)["reserved_requests"] == used, "old campaign evidence disappeared")
+        self.passed("inference_shared_ledger_stop_restart_reopen_and_cross_conversation_hard_cap")
+
         self.stage = "final storage and diagnostic evidence"
         self.fixture.check_secrets(json.dumps(self.cli("channel", "show", self.channel)))
         self.fixture.check_secrets(json.dumps(self.call("GET", "/v1/diagnostics")))
         self.stop()
         with closing(sqlite3.connect(self.local / "state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0] == 15, "wrong schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0] == 16, "wrong schema")
             require(db.execute("SELECT count(*) FROM channel_memory_effects").fetchone()[0] == 3, "unexpected persisted effect")
             require(db.execute("SELECT count(*) FROM channel_memory_suppressions").fetchone()[0] == 2, "missing source tombstones")
             require(db.execute("SELECT count(*) FROM lain_memories WHERE id=?", (replacement["id"],)).fetchone()[0] == 0, "semantic delete not persisted")

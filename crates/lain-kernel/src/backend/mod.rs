@@ -27,6 +27,8 @@ pub enum ControlError {
     InvalidInput,
     #[error("workspace policy denies the requested profile")]
     ProfileDenied,
+    #[error("Lain inference budget denies this request")]
+    InferenceDenied,
 }
 
 #[derive(Debug, Clone, Serialize)]

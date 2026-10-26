@@ -1,5 +1,15 @@
 # Runtime Model
 
+## D3b inference admission — 2026-10-26
+
+Every Lain Actor model request reserves against the same current finite ceiling
+in the Actor transaction, including tool continuations and reconsiderations.
+Budget/epoch/expiry is rechecked before adapter entry. Returned normalized usage
+is recorded even if later source checks reject speech. Terminal/restart recovery
+marks prepared work NotAttempted and attempted work Unknown, with no refund/retry.
+Own model/text HTTP clients explicitly disable built-in retries. There is no new
+idle model poll. See [ADR 017](adr/017-kernel-wide-inference-budget.md).
+
 ## D3a fresh receipt reads — 2026-10-26
 
 Private model requests can use a recent content-free receipt pointer or typed

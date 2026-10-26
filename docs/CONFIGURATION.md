@@ -1,5 +1,16 @@
 # Configuration and Runtime Profiles
 
+## D3b inference budgets — 2026-10-26
+
+An optional persisted Kernel-wide Lain inference ceiling is managed through the
+authenticated API/CLI, independently of startup model/SecretRef configuration.
+Unconfigured migration keeps prior limits; after enable, stop/expiry/exhaustion
+deny future calls until an explicit finite decision. New limit IDs are owner
+budget decisions, not automatic profile or restart refills. A live campaign must
+bootstrap with model/QQ disabled, set its ceiling first, then restart approved
+configuration. See [ADR 017](adr/017-kernel-wide-inference-budget.md) and
+[D3b acceptance](INFERENCE_BUDGET_ACCEPTANCE.md).
+
 ## Target configuration ownership — 2026-10-23
 
 [RESIDENT_DESIGN.md](RESIDENT_DESIGN.md) extends the target to one cloud identity

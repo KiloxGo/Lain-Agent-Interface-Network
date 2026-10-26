@@ -8,7 +8,7 @@ use tokio::sync::watch;
 #[path = "share_recall_tests.rs"]
 mod recall;
 
-fn scope() -> ShareScope {
+pub(super) fn scope() -> ShareScope {
     ShareScope {
         urls: vec!["https://example.org/article.txt".into()],
         expires_at_ms: now_ms().unwrap() + 600000,
@@ -373,7 +373,7 @@ async fn sharing_schema13_upgrade_preserves_existing_receipts_and_stays_off() {
         .collect()
     };
     let before = rows(&db);
-    db.execute_batch("DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; PRAGMA user_version=13;").unwrap();
+    db.execute_batch("DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; PRAGMA user_version=13;").unwrap();
     drop(db);
     let k = Kernel::open(&path).unwrap();
     k.mark_ready().unwrap();
@@ -390,7 +390,7 @@ async fn sharing_schema13_upgrade_preserves_existing_receipts_and_stays_off() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        15
+        16
     );
 }
 

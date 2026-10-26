@@ -412,7 +412,7 @@ fn schema_ten_upgrade_adds_only_the_input_index_and_preserves_old_actor_snapshot
         )
         .unwrap();
     s.connection
-        .execute_batch("DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP INDEX channel_incoming_batch; PRAGMA user_version=10;")
+        .execute_batch("DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP INDEX channel_incoming_batch; PRAGMA user_version=10;")
         .unwrap();
     drop(s);
     let s = Store::open(&dir.path().join("chat.db")).unwrap();
@@ -431,7 +431,7 @@ fn schema_ten_upgrade_adds_only_the_input_index_and_preserves_old_actor_snapshot
         s.connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        15
+        16
     );
     assert!(
         s.connection

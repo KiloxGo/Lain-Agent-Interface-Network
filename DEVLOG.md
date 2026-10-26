@@ -10,6 +10,47 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-26 — D3b persistent global inference ceiling
+
+Added a Kernel-wide optional Lain Actor inference limit over conversation,
+private chat, reading, sharing, tool continuations and reconsideration. Immutable
+budget IDs, revisioned enable/stop decisions and transactional Actor/request
+reservations prevent turn/grant/restart refills. Adapter entry rechecks the limit;
+returned normalized usage is recorded before later source/body rejection. Failure,
+cancellation, timeout and restart preserve spent reservations and honest
+Prepared/Attempting/Returned/NotAttempted/Unknown phases. No prompt, source body,
+outbound words or credentials are stored in the ledger. Worker costs and actual
+upstream invoices are explicitly outside its coverage.
+
+Migration 016 preserves old limits until explicit opt-in and never invents paid
+authority. After opt-in, stop/expiry/exhaustion stay closed until a finite owner
+decision; reopening the same ID retains all usage. A budget cannot enable source,
+memory, contact, Worker permissions or model access. CLI/API provide show/budgets/
+requests/enable/stop without adding an Actor grant tool. Local reqwest 0.13.5
+inspection revealed default protocol-safe retries; own model and text adapters now
+explicitly disable retries as well as redirects.
+
+Prepared a review-only release packager: exact evidence-matched binaries, non-secret
+scope proposal and five-step full backup/upgrade/rollback note under owner-only
+workspace storage. It never opens a target instance, loads credentials, starts a
+service or authorizes live calls. Existing native ACL protection is shared with
+the synthetic upgrade fixture. A real upgrade must bootstrap without model/QQ
+configuration, install the finite campaign first, then restart approved settings.
+
+Native Windows/MSVC (Rust/Cargo 1.98.1): 207 tests passed, 0 failed, 3 manual ignored;
+format/check, strict workspace/all-target Clippy and locked build passed. Native
+fake HTTP/OneBot: 28 checks, 76 fake requests, 0 paid calls. Full synthetic schema
+15→16 and 11→16 backup/upgrade/refusal/rollback each passed 5 checks/3 fake calls;
+no personal state access, cleanup passed. Four native Python package-staging tests
+passed. Evidence and final hashes are in INFERENCE_BUDGET_ACCEPTANCE.md; local logs
+and unapproved packages remain ignored under target/d3b.
+
+No real provider, QQ contact or personal upgrade was performed. D3c still needs
+the bounded autonomous real-model replay runner and concrete consolidated live
+authorization, including source/retention/memory/contact/stop scope and verification
+of any upstream bridge. Naturalness/multi-day evidence and W1–W4 remain open; the
+combined goal is active and not complete.
+
 ## 2026-10-26 — D3a fresh sharing receipts in conversation
 
 Connected private conversation to the actual D2 share outbox without pretending

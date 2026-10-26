@@ -15,6 +15,7 @@ use crate::{
 mod channels;
 mod delegation;
 mod experiences;
+mod inference;
 mod memory;
 pub(crate) mod private_chat;
 mod private_memory;
@@ -82,7 +83,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 15,
+            version <= 16,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -174,6 +175,9 @@ impl Store {
         }
         if version < 15 {
             transaction.execute_batch(include_str!("../migrations/015_share_recall.sql"))?;
+        }
+        if version < 16 {
+            transaction.execute_batch(include_str!("../migrations/016_inference_budget.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
@@ -650,6 +654,7 @@ impl Store {
         create: bool,
     ) -> Result<()> {
         turn.validate()?;
+        inference::sync_actor(tx, turn, create)?;
         experiences::sync_actor(tx, turn)?;
         sharing::sync_actor(tx, turn)?;
         turn.revision = turn

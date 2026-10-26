@@ -3,6 +3,7 @@ mod api;
 mod channel;
 mod chat;
 mod chat_notice;
+mod inference;
 mod local;
 mod memory;
 mod reading;
@@ -28,6 +29,10 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    Inference {
+        #[command(subcommand)]
+        command: inference::Commands,
+    },
     Sharing {
         #[command(subcommand)]
         command: sharing::Commands,
@@ -288,6 +293,7 @@ async fn run(args: Args) -> Result<()> {
         }
         Command::Reading { command } => reading::run(&client, command, json_output).await,
         Command::Sharing { command } => sharing::run(&client, command, json_output).await,
+        Command::Inference { command } => inference::run(&client, command, json_output).await,
         Command::Channel { command } => channel::run(&client, command, json_output).await,
         Command::Memory { command } => memory::run(&client, command, json_output).await,
         Command::Summary { command } => memory::summaries(&client, command, json_output).await,

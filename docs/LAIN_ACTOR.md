@@ -1,5 +1,14 @@
 # Lain Actor — first voice
 
+## D3b aggregate request ceiling — 2026-10-26
+
+Conversation, reading and sharing Actor invocations share an optional persistent
+Kernel-wide budget in addition to four-request/tool/token/time and activity
+limits. Reservation precedes model adapter entry; every failure/cancel/uncertain
+reservation remains counted. Actor cannot grant/change that ceiling. Worker calls
+and exact upstream charges are outside this ledger. See
+[ADR 017](adr/017-kernel-wide-inference-budget.md).
+
 ## D1b Kernel reading mode — 2026-10-26
 
 Actor may execute one source-linked Kernel reading job under an explicitly enabled

@@ -1,5 +1,13 @@
 # CLI-first local development
 
+## D3b inference management — 2026-10-26
+
+`lain inference show/budgets/requests/enable/stop` uses authenticated Kernel APIs.
+Enable requires explicit revision, immutable budget UUID, request cap and UTC
+expiry. Stop retains usage; reopening an identical UUID cannot refill it. Request
+records are content-free and partial latest-100 inspection does not limit actual
+counting. See [D3b operation and release preparation](INFERENCE_BUDGET_ACCEPTANCE.md).
+
 ## D3a sharing receipt commands — 2026-10-26
 
 `lain sharing recall <channel> --from-ms <UTC> --to-ms <UTC> [--text <topic>]`

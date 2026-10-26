@@ -1,5 +1,14 @@
 # Architecture
 
+## D3b inference ceiling — 2026-10-26
+
+Kernel owns an optional global Lain Actor request ceiling and content-free request
+ledger, intersecting existing conversation/reading/sharing limits. Counter and
+reservation commit together, adapter entry rechecks the decision, return usage
+precedes later source checks, and restart never refunds or replays. Migration 016
+preserves legacy compatibility without inventing a campaign. Worker provider use
+is excluded. See [ADR 017](adr/017-kernel-wide-inference-budget.md).
+
 ## D3a sharing receipt continuity — 2026-10-26
 
 Private conversation reads fresh own-outbound receipts separately from the D2

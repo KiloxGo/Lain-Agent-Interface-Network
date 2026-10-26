@@ -90,6 +90,7 @@ impl ResponsesModel {
     pub fn new(config: ModelConfig) -> Result<Self> {
         config.validate()?;
         let http = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(5))
             .timeout(Duration::from_secs(config.timeout_seconds))

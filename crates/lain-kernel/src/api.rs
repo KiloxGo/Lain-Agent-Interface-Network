@@ -1,4 +1,5 @@
 mod channels;
+mod inference;
 mod memory;
 mod reading;
 mod sharing;
@@ -76,6 +77,7 @@ pub fn actor_router(
         .merge(channels::routes())
         .merge(reading::routes())
         .merge(sharing::routes())
+        .merge(inference::routes())
         .route(
             "/health",
             get(|| async { Json(serde_json::json!({"status": "ok", "service":"lain-kernel", "version":env!("CARGO_PKG_VERSION")})) }),
@@ -463,6 +465,9 @@ fn control_error(error: anyhow::Error) -> ApiError {
             ControlError::InvalidInput => ApiError(StatusCode::BAD_REQUEST, "invalid_input"),
             ControlError::ProfileDenied => {
                 ApiError(StatusCode::FORBIDDEN, "workspace_profile_denied")
+            }
+            ControlError::InferenceDenied => {
+                ApiError(StatusCode::TOO_MANY_REQUESTS, "inference_budget_denied")
             }
         };
     }

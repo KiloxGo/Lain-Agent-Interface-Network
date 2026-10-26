@@ -21,7 +21,9 @@ remains unaccepted. D2 adds independent default-off proactive sharing and attent
 source/input rechecks and distinct QQ receipts ([ADR 015](docs/adr/015-bounded-proactive-sharing.md),
 [acceptance](docs/SHARING_ACCEPTANCE.md)). D3a now adds fresh sharing-receipt continuity without reviving withdrawn source words
 ([ADR 016](docs/adr/016-sharing-receipt-continuity.md), [acceptance](docs/SHARING_RECALL_ACCEPTANCE.md)).
-The rest of D3, W1–W4 and both complete-stage exit criteria remain open.
+D3b adds a persistent global Lain inference ceiling and review-only release staging
+([ADR 017](docs/adr/017-kernel-wide-inference-budget.md), [acceptance](docs/INFERENCE_BUDGET_ACCEPTANCE.md)).
+The remaining autonomous real-model/live/long-term D3 work, W1–W4 and both complete-stage exit criteria remain open.
 
 ## Current direction — QQ companionship first
 

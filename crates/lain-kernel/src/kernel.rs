@@ -15,6 +15,7 @@ use crate::{
     worker::WorkerState,
 };
 mod channels;
+mod inference;
 mod private_chat;
 mod reading;
 pub(crate) mod sharing;
@@ -84,6 +85,7 @@ impl Kernel {
             .context("recover channel deliveries")?;
         store.recover_reading(crate::domain::now_ms()?)?;
         store.recover_sharing()?;
+        store.recover_inference()?;
         tracing::info!(state = ?KernelState::Recovering, "recovering sessions");
         let (sessions, workers) = store.recover().context("recover Kernel state")?;
         tracing::info!(sessions = sessions.len(), "session recovery committed");
