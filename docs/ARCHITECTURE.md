@@ -1,5 +1,16 @@
 # Architecture
 
+## D1b reading experiences — 2026-10-26
+
+An optional processing scope extends the independent reading grant, default-off
+for old/new acquisition-only decisions. Reuse Actor in an explicit Kernel-reading
+mode with no tools; job identity, request reservations and completion/experience
+publication belong to the Kernel transaction. Private experience tools project fresh
+source-linked summaries under the selected binding, with persisted versions checked
+through delivery. Migration 013 appends processing/experience/audit/suppression
+tables. See [ADR 014](adr/014-source-linked-reading-experiences.md). No new source,
+semantic-memory promotion, planner runtime or contact permission is inherited.
+
 ## D1a text acquisition — 2026-10-26
 
 Kernel owns the independent ReadingGrant, durable admission/attempt budget and

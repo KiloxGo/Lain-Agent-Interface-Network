@@ -109,12 +109,17 @@ pub(super) fn check_current(db: &Connection, t: &ActorTurn) -> Result<()> {
         );
     }
     ensure!(
-        memory_current(db, t)? && super::sources::selected_current(db, t)?,
+        memory_current(db, t)?
+            && super::sources::selected_current(db, t)?
+            && super::experiences::selected_current(db, t)?,
         ChangedChatMemory
     );
     Ok(())
 }
 pub(super) fn memory_current(db: &Connection, t: &ActorTurn) -> Result<bool> {
+    if !super::experiences::selected_current(db, t)? {
+        return Ok(false);
+    }
     let Some(chat) = &t.private_chat else {
         return Ok(true);
     };
@@ -192,7 +197,9 @@ impl Store {
         check_current(&self.connection, t)
     }
     pub fn private_chat_memory_current(&self, id: ActorTurnId) -> Result<bool> {
-        memory_current(&self.connection, &self.actor_turn(id)?)
+        let t = self.actor_turn(id)?;
+        Ok(memory_current(&self.connection, &t)?
+            && super::experiences::selected_current(&self.connection, &t)?)
     }
     pub fn private_chat_context(
         &self,
@@ -222,6 +229,8 @@ impl Store {
             wait_until_ms: None,
             memory_versions: vec![],
             source_versions: vec![],
+            experience_versions: vec![],
+            experience_grant_revision: None,
         })
     }
     pub fn private_chat_refresh(&mut self, id: ActorTurnId, now: u64) -> Result<ChatRefresh> {
@@ -302,6 +311,8 @@ impl Store {
         c.wait_until_ms = None;
         c.memory_versions.clear();
         c.source_versions.clear();
+        c.experience_versions.clear();
+        c.experience_grant_revision = None;
         t.private_chat = Some(c);
         // Actor and input association share the commit; original request text is untouched.
         Self::save_actor_in_transaction(&tx, &mut t, false)?;

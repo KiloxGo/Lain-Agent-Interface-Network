@@ -1,5 +1,17 @@
 # CLI-first local development
 
+## Reading processing and experiences (D1b, 2026-10-26)
+
+Optional `reading enable --model-channel <id> --model-requests <cap>
+--utc-offset-minutes <offset>` authorizes processing/disclosure separately from
+acquisition-only configuration. `reading process/show/cancel/budget/audit` expose
+actual jobs, conservative request reservations, reported usage and content-free
+receipts. `experience search/show/history/correct/withdraw` control source-linked
+projections. Withdraw also suppresses the exact URL; `reading suppressed` inspects
+it, and `reading restore-source <url>` permits only new explicit acquisitions.
+No command enables contact or restores old jobs/content/budget. Full five-step guide
+and evidence distinction: [D1b acceptance](EXPERIENCE_ACCEPTANCE.md).
+
 ## Bounded text acquisition (D1a, 2026-10-26)
 
 `lain reading grant/grants/enable/revoke` manage an independent default-off exact-URL

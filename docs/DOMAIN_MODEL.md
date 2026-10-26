@@ -1,5 +1,18 @@
 # Domain Model
 
+## D1b concrete reading experiences — 2026-10-26
+
+`ReadingModelScope` is an explicit optional reading-grant component selecting one
+private ChannelId, an aggregate processing-request ceiling and a fixed UTC offset.
+`ActorTurn.reading_activity` identifies a Kernel-originated reading task, mutually
+exclusive with private contexts/tool actions. Its original request contains no
+source-body copy. `ReadingExperience` links source/processing receipts, actual
+input/truncation, acquisition/completion times and a bounded summary. Summary origin
+is Model or OwnerCorrection; neither means independently verified. Active/Withdrawn/
+Expired/Revoked are projection availability, separate from historical operation
+truth. `ExperienceVersion` binds private disclosure to actual revision/fingerprint.
+See [ADR 014](adr/014-source-linked-reading-experiences.md).
+
 ## D1a concrete acquisition records — 2026-10-26
 
 `ReadingGrant` is an independent revisioned administrator decision with optional

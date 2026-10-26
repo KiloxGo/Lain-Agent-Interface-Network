@@ -1920,3 +1920,73 @@ No new real-model/public-source/QQ/device acceptance is claimed; old real-call
 budget remains closed. D1b experiences/Actor processing, D2 contact, D3 full daily
 chain and W1–W4 remain outstanding. This is a verified implementation milestone
 for commit/push, not completion of the active combined goal.
+
+
+## 2026-10-26 — D1b: source-linked reading experiences and private recall
+
+Continued the combined goal from clean f4ec0d4. Added optional, default-off model
+processing/disclosure scope to exact-URL reading grants: one private binding,
+a cumulative prepared-request cap and an explicit fixed UTC offset. Schema 013
+adds transactional reading jobs, model reservations, experiences, content-free
+read/edit/source-decision audits and withdrawal/suppression records. Existing
+schema-12 grants decode processing-off without rewriting their raw bytes/bodies.
+
+A successful acquisition event or explicit process action reuses the existing
+Actor in a Kernel-originated reading mode. It has no tools and cannot acquire
+private contexts, memory writes or Worker actions. Source text enters only fresh
+bounded untrusted inference context, not the immutable activity request. Actual
+input/original sizes and truncation are recorded. Source/cancel/expiry/fingerprint
+checks protect response and commit; returned usage is retained before discarding
+a stale or malicious response. Completed Actor and source-linked summary publish
+in one transaction. Idempotent/Unknown jobs never regenerate automatically, and
+budget reservations survive failure, cancellation and restart.
+
+Added typed private experience search/inspect with fresh evidence rather than
+cached tool bodies. Revision/fingerprint and grant checks persist through model
+response, action/final commit and send admission/prewrite. Correction is explicitly
+owner-originated, not retroactively model interpretation or verified fact. Withdraw
+suppresses the exact URL, removes its source bodies and invalidates derivatives;
+explicit restore permits only new acquisitions and does not restore old jobs,
+content or spent requests. Experience-influenced turns cannot silently promote
+unlinked semantic memory; original ordinary memory and Worker review remain.
+
+Closed the analogous C1.1 empty-lookup trap with at most three content-free committed
+summary-operation receipts. No URL, forgotten original, old summary or correction
+enters them. Operation-only reads also retain an admitted grant revision; revocation
+before another request/response/commit/send cannot bypass policy just because the
+selected body list is empty. A withdrawn/expired summary remains an actual past
+operation, while active retrieval correctly returns no content. Real-model quality
+is not inferred from the deterministic model outputs.
+
+Added Rust CLI/API inspection, processing, date/topic search, correction/withdraw,
+source restore, budget and audit. Updated architecture/domain/runtime/memory/chat/
+Actor/CLI/QQ/product docs, ADR 014, combined plan and EXPERIENCE_ACCEPTANCE.md.
+D1b is an implementation milestone; D2 sharing, D3 live daily-chain acceptance
+and W1–W4 sources/devices/work/terminal remain outstanding.
+
+Native Windows/MSVC Rust/Cargo 1.98.1 final gates: fmt, strict workspace/all-target
+Clippy, build and full workspace tests passed (180 passed, zero failed, three
+manual ignored). Reading tests total 22, including source extent, malicious tool
+refusal, durable budget/restart, atomic terminal/experience failure, private scope,
+correction/withdraw/expiry, stale drafts, operation-only truth/revocation, midnight
+and schema-12 body/grant-byte preservation. The new source/model process mode uses
+explicitly seeded synthetic acquisition, actual native HTTP Responses/OneBot and
+fresh Actor identities; it is not claimed as a production public fetch.
+
+Final process regression passed 24 checks with 68 fake requests and cleanup true.
+Schema 11 to 13 native binary-only full backup/migration/refusal/rollback passed
+five checks with three fake requests and cleanup true. Copied only the installed
+C1.1 executable pair into synthetic state; no personal DB, settings or credential
+was read, migrated or restarted. Final binary hashes match both reports under
+ignored target/d1b. All calls were fake/local, zero paid; the old real-call campaign
+remains closed. No real source, QQ contact, device connection or deployment.
+
+Preserved failures and intermediate evidence: a test sliced Chinese text at an
+invalid UTF-8 byte and was fixed; Clippy required lexical lock scopes; the first
+schema-11 rehearsal exposed an old fixture assumption that historical turns had
+no C1 decision. It now compares exact original/migrated fields and checks no reading
+origin/grant/request was invented. Full rebuild/test and final process reruns cover
+the subsequent operation-truth extension; earlier 179-test/66-request reports
+are retained without promoting them to final-extension evidence. Real public
+TLS/source/provider quality, multi-day continuity and native macOS/Linux remain
+unverified. Commit/push this verified milestone; the complete goal stays active.

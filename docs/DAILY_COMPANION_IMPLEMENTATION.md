@@ -10,7 +10,7 @@ repairs. Product direction is in PRODUCT.md and ADR 009.
 | Milestone | Deliverable | Status |
 | --- | --- | --- |
 | D1a | Independent exact-URL text acquisition grant, durable bounded activities, acquisition receipts, cancellation/recovery and retention | Implemented; validation in READING_ACCEPTANCE.md |
-| D1b | Actor reading/processing receipts, source-linked recent experiences, date/topic retrieval, correct/revoke invalidation | Pending |
+| D1b | Actor reading/processing receipts, source-linked recent experiences, date/topic retrieval, correct/revoke invalidation | Implemented; validation in EXPERIENCE_ACCEPTANCE.md; live quality pending |
 | D2 | Sharing candidates, separate contact grants, explicit timezone/quiet periods/DND, cooldown and no-response/expiry controls; safe QQ delivery | Pending |
 | D3 | Complete read → experience → share → later recall chain, cumulative durable model budgets, autonomous replay and authorized live acceptance | Pending |
 | W1 | One selected read-only social source and one supported visible Worker archive; identity, cursors, gaps, retention and derived invalidation | Pending |
@@ -24,10 +24,12 @@ activities, random phrasing or automatic Worker approval. No intent-enhancement
 compiler or Web redesign is selected. One additional social source/Worker adapter
 comes before broader adapter coverage.
 
-D1a deliberately labels its successful result **AcquiredTextOnly**. It has no model
-job, experience assertion, semantic-memory write or sharing permission. D1b must
-connect actual source material to processing attempts/results; an attempted model
-request is not proof of comprehension or independent verification.
+D1a labels an acquisition-only result **AcquiredTextOnly**. D1b adds a separate
+optional processing scope with a persisted cumulative budget and a Kernel-initiated
+Actor mode with no tools. Only an actual completed summary creates a source-linked
+experience; attempted inference never proves comprehension or verification.
+Neither scope grants semantic-memory writes or contact. Active/corrected/withdrawn
+experiences are recallable only in the selected private binding with fresh evidence.
 
 ## Evidence and authorization
 

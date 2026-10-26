@@ -1,5 +1,18 @@
 # Runtime Model
 
+## D1b event-driven reading processing — 2026-10-26
+
+An optional explicitly granted processing event follows acquisition completion;
+otherwise there is no model job. At most one reading job is active, independently
+of private chat/Workers. The existing Actor bounds, no-tool mode, durable pre-request
+reservation and same-transaction completion/experience publication prevent budget
+reset and false results. Cancel/revoke/expiry/source changes invalidate late results;
+already returned usage is retained. Recovery remains Unknown with no auto-processing
+or inference retry. The retention timer also removes derived summary content.
+Private recall rechecks current projections through response/commit/prewrite;
+ordinary reply and Work delivery semantics remain separate. Scope and limits:
+[ADR 014](adr/014-source-linked-reading-experiences.md).
+
 ## D1a finite acquisition runtime — 2026-10-26
 
 Authenticated explicit admission persists an attempt before spawning a finite

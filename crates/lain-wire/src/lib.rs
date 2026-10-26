@@ -59,6 +59,7 @@ id!(IncomingId);
 id!(BatchId);
 id!(DeliveryId);
 id!(ReadingId);
+id!(ExperienceId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -111,6 +112,10 @@ pub enum ToolCall {
     ChatFinish(chat::FinishChat),
     #[serde(rename = "source.inspect")]
     SourceInspect(source::InspectSource),
+    #[serde(rename = "experience.search")]
+    ExperienceSearch(reading::ExperienceQuery),
+    #[serde(rename = "experience.inspect")]
+    ExperienceInspect { experience_id: ExperienceId },
     #[serde(rename = "memory.search")]
     MemorySearch(memory::MemoryQuery),
     #[serde(rename = "memory.list")]
@@ -195,6 +200,9 @@ pub struct ActorAction {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActorSnapshot {
     pub id: ActorTurnId,
+    /// Kernel-initiated reading work; None for user-originated turns.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reading_activity: Option<ReadingId>,
     pub conversation_id: ConversationId,
     pub request_id: RequestId,
     pub sequence: u64,
@@ -217,6 +225,14 @@ pub struct ActorSnapshot {
 impl ActorSnapshot {
     pub fn validate(&self) -> Result<(), &'static str> {
         use std::collections::BTreeSet;
+        if self.reading_activity.is_some()
+            && (self.private_chat.is_some()
+                || self.channel_memory.is_some()
+                || self.channel_source.is_some()
+                || !self.actions.is_empty())
+        {
+            return Err("reading activity cannot acquire chat, memory or Worker actions");
+        }
         if self.messages.len() > 32 || self.actions.len() > 4 || self.model_requests > 4 {
             return Err("Actor bounds exceeded");
         }
@@ -240,6 +256,15 @@ impl ActorSnapshot {
                 || c.memory_versions.len() > 3
                 || c.memory_versions.iter().any(|m| m.revision == 0)
                 || c.source_versions.len() > 4
+                || c.experience_versions.len() > 3
+                || c.experience_grant_revision == Some(0)
+                || (!c.experience_versions.is_empty() && c.experience_grant_revision.is_none())
+                || c.experience_versions.iter().any(|v| {
+                    v.revision == 0
+                        || v.grant_revision == 0
+                        || v.fingerprint.len() != 64
+                        || !v.fingerprint.bytes().all(|b| b.is_ascii_hexdigit())
+                })
                 || c.source_versions.iter().any(|v| {
                     v.fingerprint.len() != 64
                         || !v.fingerprint.bytes().all(|b| b.is_ascii_hexdigit())
@@ -354,6 +379,7 @@ mod tests {
     #[test]
     fn contradictory_durable_actor_records_are_rejected() {
         let mut turn = ActorSnapshot {
+            reading_activity: None,
             id: ActorTurnId::new(),
             conversation_id: ConversationId::new(),
             request_id: RequestId::new(),
@@ -384,6 +410,8 @@ mod tests {
             wait_until_ms: None,
             memory_versions: vec![],
             source_versions: vec![],
+            experience_versions: vec![],
+            experience_grant_revision: None,
         });
         assert!(turn.validate().is_ok());
         turn.private_chat.as_mut().unwrap().waits = 2;

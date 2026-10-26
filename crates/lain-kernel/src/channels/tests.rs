@@ -141,6 +141,7 @@ fn durable_binding_dedup_grants_and_restart_never_resurrect_sends() {
     let now = incoming.received_at_ms + MERGE_MS + 1;
     let batch = store.channel_next_batch(binding.id, now).unwrap().unwrap();
     let mut turn = crate::actor::domain::ActorTurn {
+        reading_activity: None,
         id: crate::actor::domain::ActorTurnId::new(),
         conversation_id: binding.conversation_id,
         request_id: batch.id.0,
@@ -477,6 +478,7 @@ async fn restart_resumes_prepared_work_but_never_regenerates_interrupted_or_read
             .unwrap();
         if phase != "prepared" {
             let mut turn = crate::actor::domain::ActorTurn {
+                reading_activity: None,
                 id: crate::actor::domain::ActorTurnId::new(),
                 conversation_id: binding.conversation_id,
                 request_id: batch.id.0,

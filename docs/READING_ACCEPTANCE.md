@@ -1,5 +1,10 @@
 # D1a bounded text acquisition
 
+This is the historical D1a/schema-12 evidence at `f4ec0d4`. Current development
+adds separately enabled D1b processing and experiences under schema 13; see
+[D1b acceptance](EXPERIENCE_ACCEPTANCE.md). Acquisition-only grants remain default
+processing-off, including existing snapshots. The personal release remains schema 11.
+
 Date: 2026-10-26, native Windows. Implementation contract: [ADR 013](adr/013-bounded-text-acquisition.md).
 This is an acquisition foundation within the [combined goal](DAILY_COMPANION_IMPLEMENTATION.md).
 It does not complete experiences, autonomous Actor reading, contact or device work.

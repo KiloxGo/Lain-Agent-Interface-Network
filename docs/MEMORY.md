@@ -1,5 +1,18 @@
 # Lain Memory
 
+## D1b experiences remain separate — 2026-10-26
+
+ReadingExperience is a source-linked projection of actual bounded Actor summary
+generation, not semantic memory, a diary of every input or independent verification.
+An optional reading processing/disclosure scope selects one private binding; it is
+independent of MemoryGrant/SourceGrant/reply authority. Owner correction retains
+its own attribution; withdrawal suppresses the exact URL and invalidates derived
+content while keeping operation facts. The summary cannot resurrect via old
+model-history copies or unsent speech. Experience-influenced turns cannot silently
+propose/remember/correct semantic memory until derived-memory scope/provenance is
+separately implemented. Ordinary existing candidate review and forget remain intact.
+See [ADR 014](adr/014-source-linked-reading-experiences.md).
+
 **Status:** Phase 7.1, Q2-A private-binding memory and Q2-B1 bounded private source lookup
 
 **Last reviewed:** 2026-10-25

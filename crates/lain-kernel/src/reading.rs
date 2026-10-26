@@ -14,6 +14,16 @@ use std::{
 };
 use url::Url;
 
+pub(crate) fn day_bounds(now: u64, offset_minutes: i16) -> (i128, i128, i128) {
+    let offset = i128::from(offset_minutes) * 60_000;
+    let start = (i128::from(now) + offset).div_euclid(86_400_000) * 86_400_000 - offset;
+    (
+        (start - 86_400_000).max(0),
+        start.max(0),
+        start + 86_400_000,
+    )
+}
+
 pub(crate) fn validate_url(value: &str) -> Result<Url> {
     let u = Url::parse(value).map_err(|_| ControlError::InvalidInput)?;
     ensure!(
@@ -55,6 +65,12 @@ pub(crate) fn validate_scope(scope: Option<&ReadingScope>, now: u64) -> Result<(
         for url in &s.urls {
             validate_url(url)?;
             ensure!(seen.insert(url), ControlError::InvalidInput);
+        }
+        if let Some(p) = &s.processing {
+            ensure!(
+                (1..=100).contains(&p.max_requests) && (-720..=840).contains(&p.utc_offset_minutes),
+                ControlError::InvalidInput
+            );
         }
     }
     Ok(())
@@ -237,5 +253,7 @@ pub async fn maintain(kernel: Arc<Kernel>) {
     }
 }
 
+#[cfg(test)]
+mod experience_tests;
 #[cfg(test)]
 mod tests;

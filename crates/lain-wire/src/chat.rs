@@ -33,6 +33,10 @@ pub struct PrivateChatContext {
     pub memory_versions: Vec<ChatMemoryVersion>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_versions: Vec<ChatSourceVersion>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub experience_versions: Vec<crate::reading::ExperienceVersion>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub experience_grant_revision: Option<u64>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMemoryVersion {

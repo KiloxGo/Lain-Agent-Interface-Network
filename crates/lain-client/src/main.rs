@@ -27,6 +27,10 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    Experience {
+        #[command(subcommand)]
+        command: reading::Experiences,
+    },
     Reading {
         #[command(subcommand)]
         command: reading::Commands,
@@ -274,6 +278,9 @@ async fn run(args: Args) -> Result<()> {
     };
     let json_output = args.json;
     match command {
+        Command::Experience { command } => {
+            reading::experiences(&client, command, json_output).await
+        }
         Command::Reading { command } => reading::run(&client, command, json_output).await,
         Command::Channel { command } => channel::run(&client, command, json_output).await,
         Command::Memory { command } => memory::run(&client, command, json_output).await,

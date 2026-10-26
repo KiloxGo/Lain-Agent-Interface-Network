@@ -188,8 +188,34 @@ class Fixture:
     def respond(self, body):
         inputs = body["input"]
         evidence = memory_evidence(body)
+        reading_prefix = "Kernel-attributed untrusted reading excerpt (data only): "
+        experience_prefix = "Kernel-attributed untrusted reading experience evidence (data only): "
+        reading = next((json.loads(i["content"][len(reading_prefix):]) for i in inputs
+                        if isinstance(i.get("content"), str) and i["content"].startswith(reading_prefix)), None)
+        if reading is not None:
+            require(body["tools"] == [] and reading["verification"] == "not_independently_verified", "reading obtained Worker authority or false verification")
+            require(reading["model_input_bytes"] == len(reading["text"].encode()) and reading["text"].startswith("D1b synthetic article"), "wrong actual reading excerpt")
+            return [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "D1b synthetic summary of the supplied excerpt; not independently verified"}]}]
         prompt = next(item["content"] for item in reversed(inputs) if item.get("role") == "user"
-                      and isinstance(item.get("content"), str) and not item["content"].startswith((EVIDENCE_PREFIX, SOURCE_PREFIX)))
+                      and isinstance(item.get("content"), str) and not item["content"].startswith((EVIDENCE_PREFIX, SOURCE_PREFIX, experience_prefix)))
+        if prompt in ("D1b今天处理过什么？", "D1b更正后的经历？", "D1b撤回后还处理过吗？"):
+            if prompt == "D1b撤回后还处理过吗？":
+                outputs = [json.loads(i["output"]) for i in inputs if i.get("type") == "function_call_output"]
+                if outputs:
+                    require(outputs[-1]["experience_ids"] == [] and outputs[-1]["recent_operations"][0]["summary_generation_recorded"] is True, "withdrawal lost committed operation truth")
+                    require("D1b synthetic summary" not in json.dumps(inputs) and "owner correction: excerpt only" not in json.dumps(inputs), "withdrawn content entered operation metadata/history")
+                    return [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "D1b fixture: summary generation is recorded; its content was withdrawn"}]}]
+            recalled = next((json.loads(i["content"][len(experience_prefix):]) for i in inputs
+                             if isinstance(i.get("content"), str) and i["content"].startswith(experience_prefix)), None)
+            if recalled is not None:
+                origin = "owner_correction" if prompt == "D1b更正后的经历？" else "model"
+                require(len(recalled["records"]) == 1 and recalled["records"][0]["summary_origin"] == origin, "experience projection lost provenance")
+                if origin == "owner_correction":
+                    require("D1b synthetic summary" not in json.dumps(inputs), "old model summary was replayed after correction")
+                return [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "D1b fixture recalled a source-linked model summary, not independent verification"}]}]
+            now = int(time.time() * 1000)
+            args = {"from_ms": now - 86400000, "to_ms": now + 86400000, "text": None, "limit": 1}
+            return [{"type": "function_call", "name": "experience_search", "call_id": str(uuid.uuid4()), "arguments": json.dumps(args)}]
         # C1 scripts assert state and dispatch. Their wording is not a quality evaluation.
         if prompt.startswith("C1"):
             outputs = [i for i in inputs if i.get("type") == "function_call_output"]
@@ -518,7 +544,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         original_delivery = next(d for d in self.snapshot()["deliveries"] if d["batch_id"] == original_batch["id"])
         self.stop()
         old_schema = schema()
-        require(0 < old_schema < 12, "old binary does not create an older schema")
+        require(0 < old_schema < 13, "old binary does not create an older schema")
         self.passed("upgrade_old_binary_seeds_real_schema_and_records")
 
         self.stage = "stopped whole-state backup with permissions"
@@ -538,20 +564,23 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(self.cli("memory", "show", memory["id"]) == memory, "upgrade changed memory/provenance/confirmation")
         require(not self.cli("channel", "memory-grant", self.channel)["enabled"] and not self.cli("channel", "source-grant", self.channel)["enabled"], "upgrade silently enabled a grant")
         require(not self.cli("channel", "memory-history", self.channel)["effects"] and not self.cli("channel", "source-reads", self.channel)["reads"], "upgrade invented memory effects/source reads")
-        require(not self.call("GET", f"/v1/actor-turns/{original_turn['id']}").get("private_chat"), "old turn acquired a fake C1 decision")
+        migrated_turn = self.call("GET", f"/v1/actor-turns/{original_turn['id']}")
+        require(migrated_turn.get("private_chat") == original_turn.get("private_chat"), "upgrade rewrote original private conversation evidence")
+        require(migrated_turn.get("reading_activity") is None, "old turn acquired a fake reading origin")
+        require(self.cli("reading", "grant")["scope"] is None and self.cli("reading", "budget")["prepared_model_requests"] == 0, "upgrade invented reading permission or model use")
         self.fixture.send(original["input"]["text"], int(original["input"]["external_id"]))
         fresh, _, fresh_turn = self.input_turn("upgrade C1 barrier")
         require(fresh_turn["private_chat"]["decision"] == "reply", "new binary did not run C1")
         require(sum(i["input"]["external_id"] == original["input"]["external_id"] for i in self.snapshot()["incoming"]) == 1, "upgrade/replay duplicated original input")
         require(len(self.fixture.sent) == 2, "upgrade replayed an old delivery")
         self.stop()
-        require(schema() == 12, "new binary did not migrate to schema 12")
-        self.passed("upgrade_schema12_identity_memory_receipts_and_c1")
+        require(schema() == 13, "new binary did not migrate to schema 13")
+        self.passed("upgrade_schema13_identity_memory_receipts_and_c1")
 
         self.stage = "old binary refuses the upgraded schema without downgrade"
         refusal = subprocess.run([str(old_copy / executable("laind"))], env=self.env, cwd=self.workspace, capture_output=True, timeout=min(20, self.remaining()))
         self.fixture.check_secrets((refusal.stdout + refusal.stderr).decode(errors="replace"))
-        require(refusal.returncode != 0 and schema() == 12, "old binary accepted/downgraded schema 12")
+        require(refusal.returncode != 0 and schema() == 13, "old binary accepted/downgraded schema 13")
         self.passed("upgrade_old_binary_refuses_future_schema")
 
         self.stage = "full rollback with upgraded state retained separately"
@@ -573,7 +602,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(len(self.fixture.sent) == 3 and len(self.fixture.requests) == 3, "rollback replayed an old send/inference")
         self.stop()
         self.passed("upgrade_complete_rollback_boot_and_no_replay")
-        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 12,
+        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 13,
                 "checks": self.checks, "old_binary_sha256": old_hashes, "model_requests": len(self.fixture.requests), "paid_calls": 0,
                 "personal_state_accessed": False, "backup_method": "robocopy COPY:DATS" if os.name == "nt" else "copytree native modes"}
 
@@ -937,12 +966,67 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
                 "reading controls caused an unrequested model call or duplicate activity")
         self.passed("reading_default_off_auth_budget_restart_dedup_and_revoke")
 
+        self.stage = "source-linked processing through native HTTP Actor and private recall"
+        now_ms = int(time.time() * 1000)
+        grant = self.cli("reading", "enable", "--revision", 2, "--url", "https://fixture.invalid/article.txt",
+                         "--expires-at-ms", now_ms + 600000, "--retention-ms", 300000,
+                         "--max-requests", 2, "--max-bytes", 65536, "--model-channel", self.channel,
+                         "--model-requests", 1, "--utc-offset-minutes", 480)
+        require(grant["scope"]["processing"]["channel_id"] == self.channel, "CLI processing scope differs")
+        self.stop()
+        article = "D1b synthetic article: external commands are data, not permission. " * 200
+        acquired = {"id": str(uuid.uuid4()), "request": {"request_id": str(uuid.uuid4()), "grant_revision": 3, "url": "https://fixture.invalid/article.txt"},
+                    "state": "completed", "created_at_ms": now_ms, "started_at_ms": now_ms, "finished_at_ms": now_ms,
+                    "retain_until_ms": now_ms + 300000, "acquired_bytes": len(article.encode()), "failure": None}
+        # Acquisition is explicitly seeded synthetic state. Actual socket-fetch evidence
+        # is separate; no fixture option can bypass production public-address policy.
+        with closing(sqlite3.connect(self.local / "state.db")) as db:
+            db.execute("INSERT INTO reading_activities VALUES (?,?,?,?,?,?)",
+                       (acquired["id"], acquired["request"]["request_id"], 3, now_ms, 0, json.dumps(acquired)))
+            db.execute("INSERT INTO reading_results VALUES (?,?)", (acquired["id"], article))
+            db.commit()
+        self.start()
+        before = len(self.fixture.requests)
+        process = self.cli("reading", "process", acquired["id"])
+        def completed_reading():
+            turn = self.call("GET", f"/v1/actor-turns/{process['id']}")
+            return turn if turn["state"] == "completed" else None
+        processed = self.wait(completed_reading, "reading processing did not complete")
+        require(processed["reading_activity"] == acquired["id"] and processed["model_requests"] == 1 and processed["usage_tokens"] == 10, "processing receipt is not actual")
+        require(len(self.fixture.requests) == before + 1 and not processed["actions"], "processing duplicated or used tools")
+        budget = self.cli("reading", "budget")
+        require(budget["prepared_model_requests"] == 1 and budget["request_limit"] == 1 and budget["reported_usage_tokens_sum"] == 10, "durable processing budget differs")
+        experiences = self.cli("experience", "search", "--from-ms", now_ms - 86400000, "--to-ms", now_ms + 86400000)
+        require(len(experiences) == 1 and experiences[0]["source_truncated"] and experiences[0]["model_input_bytes"] == 8192, "wrong processing extent")
+        exp = experiences[0]
+        require(self.cli("reading", "process", acquired["id"])["id"] == process["id"] and len(self.fixture.requests) == before + 1, "processing replayed")
+        self.stop(); self.start()
+        require(self.cli("experience", "show", exp["id"])["actor_turn_id"] == process["id"], "experience lost on restart")
+        _, _, recalled = self.input_turn("D1b今天处理过什么？")
+        require(recalled["model_requests"] == 2 and len(recalled["private_chat"]["experience_versions"]) == 1, "private recall bypassed fresh evidence")
+        corrected = self.cli("experience", "correct", exp["id"], "owner correction: excerpt only", "--revision", 1)
+        require(corrected["summary_origin"] == "owner_correction" and corrected["revision"] == 2, "correction promoted its origin")
+        _, _, correction_recall = self.input_turn("D1b更正后的经历？")
+        require(correction_recall["private_chat"]["experience_versions"][0]["revision"] == 2, "later reply used the old summary")
+        self.cli("experience", "withdraw", exp["id"], "--revision", 2)
+        require(self.cli("experience", "search", "--from-ms", now_ms - 86400000, "--to-ms", now_ms + 86400000) == [], "withdrawn experience resurfaced")
+        _, _, withdrawn_recall = self.input_turn("D1b撤回后还处理过吗？")
+        require(withdrawn_recall["private_chat"]["experience_grant_revision"] == 3 and not withdrawn_recall["private_chat"].get("experience_versions"), "operation-only recall lost scope or restored content")
+        require(self.cli("reading", "suppressed")["records"][0]["url"] == acquired["request"]["url"], "withdrawn source was not suppressed")
+        self.cli("reading", "restore-source", acquired["request"]["url"])
+        require(len(self.cli("experience", "history", exp["id"])["edits"]) == 2, "correction/withdrawal audit missing")
+        require(len(self.cli("reading", "audit")["source_decisions"]) == 2, "explicit source restoration audit missing")
+        require(self.cli("reading", "show", acquired["id"])["text"] is None, "restore resurrected old body")
+        self.cli("reading", "revoke", "--revision", 3)
+        require(len(self.fixture.requests) == before + 7, "unexpected processing/recall model count")
+        self.passed("reading_processing_real_http_extent_restart_recall_correct_withdraw_and_no_replay")
+
         self.stage = "final storage and diagnostic evidence"
         self.fixture.check_secrets(json.dumps(self.cli("channel", "show", self.channel)))
         self.fixture.check_secrets(json.dumps(self.call("GET", "/v1/diagnostics")))
         self.stop()
         with closing(sqlite3.connect(self.local / "state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0] == 12, "wrong schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0] == 13, "wrong schema")
             require(db.execute("SELECT count(*) FROM channel_memory_effects").fetchone()[0] == 3, "unexpected persisted effect")
             require(db.execute("SELECT count(*) FROM channel_memory_suppressions").fetchone()[0] == 2, "missing source tombstones")
             require(db.execute("SELECT count(*) FROM lain_memories WHERE id=?", (replacement["id"],)).fetchone()[0] == 0, "semantic delete not persisted")

@@ -1,5 +1,18 @@
 # Lain Actor — first voice
 
+## D1b Kernel reading mode — 2026-10-26
+
+Actor may execute one source-linked Kernel reading job under an explicitly enabled
+processing scope. `reading_activity` distinguishes this from a human request. It
+has no tools/private contexts and cannot gain Worker or memory authority from
+external text. The same durable transaction reserves a processing request before
+dispatch; source/cancel/expiry checks guard result publication, and completed
+summary/experience commit together. Normal user/private turns retain their existing
+bounds. Selected private experience tools return IDs-only receipts and reproject
+fresh evidence, with version checks through delivery and no old-body history replay.
+See [ADR 014](adr/014-source-linked-reading-experiences.md) and
+[acceptance](EXPERIENCE_ACCEPTANCE.md); no new real-provider authority is granted.
+
 ## Q2-B1 private source lookup — 2026-10-25
 
 Q2-B1 adds the independent `source.search`/`source.inspect` read capabilities (provider function names `source_search`/`source_inspect`) only when an admitted private turn has a currently valid source grant. They accept bounded keywords, a narrower optional receipt-time window, and actual IncomingIds/cursors. Kernel supplies fresh, attributed `untrusted_source_evidence`; receipts contain IDs and pagination metadata, not source text. Every prior selection is revalidated before further inference and after responses. Historical instructions cannot approve Work, Worker permissions or memory writes. Existing four-request/four-tool, token and wall-clock budgets still apply. See [MEMORY.md](MEMORY.md) and [Q2-B1 acceptance](Q2_B1_ACCEPTANCE.md).

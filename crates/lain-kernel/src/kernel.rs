@@ -848,6 +848,7 @@ impl Kernel {
             crate::backend::ControlError::Conflict
         );
         let mut turn = ActorTurn {
+            reading_activity: None,
             id: ActorTurnId::new(),
             conversation_id: conversation,
             request_id: request,
@@ -875,6 +876,7 @@ impl Kernel {
     ) -> Result<crate::actor::domain::ActorTurn> {
         let mut inner = self.lock()?;
         let mut turn = inner.store.actor_turn(id)?;
+        let reading_activity = turn.reading_activity;
         let was_running = turn.state == crate::actor::domain::TurnState::Running;
         let old_actions = turn.actions.len();
         let old_assistant = turn
@@ -883,6 +885,27 @@ impl Kernel {
             .filter(|m| m.role == crate::actor::domain::MessageRole::Assistant)
             .count();
         change(&mut turn)?;
+        ensure!(
+            turn.reading_activity == reading_activity,
+            crate::backend::ControlError::InvalidInput
+        );
+        if turn
+            .private_chat
+            .as_ref()
+            .is_some_and(|c| c.experience_grant_revision.is_some())
+        {
+            for action in turn.actions.iter().skip(old_actions) {
+                ensure!(
+                    !matches!(
+                        action.tool,
+                        crate::actor::tools::Tool::MemoryPropose(_)
+                            | crate::actor::tools::Tool::MemoryRemember(_)
+                            | crate::actor::tools::Tool::MemoryCorrect(_)
+                    ),
+                    crate::backend::ControlError::InvalidInput
+                );
+            }
+        }
         if turn.private_chat.is_some()
             && (turn.actions.len() > old_actions
                 || (turn.private_chat.as_ref().is_some_and(|c| {

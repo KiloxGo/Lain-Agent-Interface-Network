@@ -9,6 +9,7 @@ fn scope(now: u64, max_requests: u16) -> ReadingScope {
         retention_ms: 50_000,
         max_requests,
         max_bytes: 1024,
+        processing: None,
     }
 }
 fn request() -> StartReading {
@@ -189,7 +190,7 @@ fn schema11_migration_preserves_old_rows_and_does_not_invent_authority() {
     let s = Store::open(&path).unwrap();
     drop(s);
     let db = rusqlite::Connection::open(&path).unwrap();
-    db.execute_batch("DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; PRAGMA user_version=11;").unwrap();
+    db.execute_batch("DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; PRAGMA user_version=11;").unwrap();
     let profiles: String = db
         .query_row("SELECT snapshot FROM runtime_profiles LIMIT 1", [], |r| {
             r.get(0)
@@ -204,7 +205,7 @@ fn schema11_migration_preserves_old_rows_and_does_not_invent_authority() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        12
+        13
     );
     assert_eq!(
         db.query_row("SELECT snapshot FROM runtime_profiles LIMIT 1", [], |r| {

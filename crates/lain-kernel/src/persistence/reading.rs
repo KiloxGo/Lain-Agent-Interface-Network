@@ -77,6 +77,7 @@ impl Store {
             a.finished_at_ms = Some(now);
             save(&tx, &a)?;
         }
+        super::experiences::invalidate(&tx, now)?;
         tx.commit()?;
         Ok(grant)
     }
@@ -128,6 +129,12 @@ impl Store {
             scope.urls.contains(&request.url),
             ControlError::InvalidInput
         );
+        let suppressed: bool = self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM reading_source_suppressions WHERE url=?1)",
+            [&request.url],
+            |r| r.get(0),
+        )?;
+        ensure!(!suppressed, ControlError::InvalidInput);
         let attempts: i64 = self.connection.query_row(
             "SELECT count(*) FROM reading_activities WHERE grant_revision=?1",
             [i64::try_from(grant.revision)?],
@@ -227,11 +234,14 @@ impl Store {
     }
     pub fn cancel_reading(&mut self, id: ReadingId, now: u64) -> Result<ReadingActivity> {
         let mut a = self.reading_activity(id)?;
+        let tx = self.connection.transaction()?;
         if a.state.unfinished() {
             a.state = ReadingState::Cancelled;
             a.finished_at_ms = Some(now);
-            save(&self.connection, &a)?;
+            save(&tx, &a)?;
         }
+        tx.execute("UPDATE reading_jobs SET cancel_requested_at_ms=COALESCE(cancel_requested_at_ms,?2) WHERE activity_id=?1 AND actor_turn_id IN (SELECT id FROM lain_actor_turns WHERE json_extract(snapshot,'$.state')='running')",(id.to_string(),i64::try_from(now)?))?;
+        tx.commit()?;
         Ok(a)
     }
     pub fn reading_result(&mut self, id: ReadingId, now: u64) -> Result<ReadingResult> {
@@ -245,7 +255,15 @@ impl Store {
                 |r| r.get::<_, String>(0),
             )
             .optional()?;
-        let processing = if activity.state == ReadingState::Completed {
+        let job:Option<(String,Option<i64>)>=self.connection.query_row("SELECT actor_turn_id,cancel_requested_at_ms FROM reading_jobs WHERE activity_id=?1",[id.to_string()],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
+        let summarized: bool = self.connection.query_row(
+            "SELECT EXISTS(SELECT 1 FROM reading_experiences WHERE activity_id=?1)",
+            [id.to_string()],
+            |r| r.get(0),
+        )?;
+        let processing = if summarized {
+            ReadingProcessing::ModelSummaryGenerated
+        } else if activity.state == ReadingState::Completed {
             ReadingProcessing::AcquiredTextOnly
         } else {
             ReadingProcessing::NotAcquired
@@ -254,6 +272,11 @@ impl Store {
             activity,
             text,
             processing,
+            processing_turn: job.as_ref().map(|(id, _)| id.parse()).transpose()?,
+            processing_cancel_requested_at_ms: job
+                .and_then(|(_, t)| t)
+                .map(u64::try_from)
+                .transpose()?,
         })
     }
     pub fn prune_reading(&mut self, now: u64) -> Result<()> {
@@ -266,7 +289,9 @@ impl Store {
         let tx = self.connection.transaction()?;
         for row in rows {
             let mut a: ReadingActivity = decode(row)?;
-            if !grant.active(now)
+            let suppressed:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM reading_source_suppressions WHERE url=?1) OR EXISTS(SELECT 1 FROM reading_withdrawals WHERE activity_id=?2)",(&a.request.url,a.id.to_string()),|r|r.get(0))?;
+            if suppressed
+                || !grant.active(now)
                 || a.request.grant_revision != grant.revision
                 || now >= a.retain_until_ms
             {
@@ -275,12 +300,17 @@ impl Store {
                     [a.id.to_string()],
                 )?;
                 if a.state.unfinished() {
-                    a.state = ReadingState::Expired;
+                    a.state = if suppressed {
+                        ReadingState::Revoked
+                    } else {
+                        ReadingState::Expired
+                    };
                     a.finished_at_ms = Some(now);
                     save(&tx, &a)?;
                 }
             }
         }
+        super::experiences::invalidate(&tx, now)?;
         tx.commit()?;
         Ok(())
     }

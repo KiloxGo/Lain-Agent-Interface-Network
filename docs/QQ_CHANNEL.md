@@ -31,12 +31,21 @@ with the configured person. Databases, persona and semantic memory remain Lain-o
 
 Use an isolated instance and database for initial live acceptance. Do not point
 an experimental binary at existing personal state without a separately reviewed
-backup/migration decision. The development schema is 012 (008 channel, 009 private memory,
-010 source lookup, 011 bounded private chat, 012 independent text acquisition).
+backup/migration decision. The development schema is 013 (008 channel, 009 private memory,
+010 source lookup, 011 bounded private chat, 012 independent text acquisition,
+013 explicitly enabled reading processing/experiences).
 The installed C1.1 personal release remains on schema 011; a development build
-does not upgrade it. Reading grants do not enable QQ contact or Actor processing;
+does not upgrade it. Acquisition-only grants do not enable model processing; the
+optional processing scope is separately specified and never grants proactive QQ contact.
 an older binary cannot open
 the newer schema; rollback needs the consistent pre-upgrade backup.
+
+D1b private `experience.search`/`experience.inspect` can read valid source-linked
+reading summaries only under that optional scope's selected binding. Reply,
+MemoryGrant and historical SourceGrant do not enable it. Correction/withdrawal,
+expiry and source changes are checked before committing/sending affected replies.
+Actual prior Confirmed/Unknown outcomes are retained. See
+[D1b acceptance and operations](EXPERIENCE_ACCEPTANCE.md).
 
 Build `laind` and `lain` with the native Rust toolchain. Ordinary builds do not call
 models or log into QQ. Configure the Actor separately as described in

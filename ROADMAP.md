@@ -13,7 +13,11 @@ validation and milestone push, not new paid inference, personal migration, sourc
 collection, contact or device installation. D1a adds exact-URL text acquisition and
 durable bounded activities ([ADR 013](docs/adr/013-bounded-text-acquisition.md),
 [acceptance](docs/READING_ACCEPTANCE.md)); no experience/comprehension is inferred
-from acquisition. D1b–W4 and both complete-stage exit criteria remain open.
+from acquisition. D1b now adds separately enabled bounded Actor processing,
+source-linked experiences and revision-checked private recall/correction/withdrawal
+([ADR 014](docs/adr/014-source-linked-reading-experiences.md),
+[acceptance](docs/EXPERIENCE_ACCEPTANCE.md)). Its real-provider/source/QQ quality
+remains unaccepted. D2–W4 and both complete-stage exit criteria remain open.
 
 ## Current direction — QQ companionship first
 
