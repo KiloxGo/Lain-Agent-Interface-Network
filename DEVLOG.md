@@ -12,6 +12,13 @@ The Git history remains the authoritative record of exact commits.
 
 ## 2026-10-27 — Independent QQ message/image knowledge service deployed
 
+Final lifecycle follow-up: direct native-interpreter task ownership and an OS
+outbox lock prevent duplicate observers. The original PowerShell wrapper left
+Python children after task stop; only positively identified observers were
+terminated. Actual Stop→zero processes→Start→one authenticated process passed.
+The final independent service suite has 14 tests on native Windows and server
+Linux, with the same 1/10 real vision reservation retained across deployments.
+
 The user extended the active goal with decoupled QQ messages/images, DeepSeek
 vision and a keyed hosted API for Utakera, explicitly authorizing server deployment.
 Added a separately runnable Python source store and read-only NapCat observer:

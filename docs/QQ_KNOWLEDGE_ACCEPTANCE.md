@@ -17,14 +17,15 @@ semantic memory/long-term continuity and Apple client UI remain separate work.
 
 ## Deterministic evidence
 
-- **13 tests pass on native Windows Python 3.13** with Pillow 13.0.0/websockets 17.3.
-- **13 tests pass on actual server Linux x86_64**, Python 3.12 in the production
+- **14 tests pass on native Windows Python 3.13** with Pillow 13.0.0/websockets 17.3.
+- **14 tests pass on actual server Linux x86_64**, Python 3.12 in the production
   image, including the real local WebSocket handshake/get_image/upload fixture.
 - Cases cover unauthorized streams/keys, read-key write rejection, concurrent
   duplicate delivery, changed-ID conflict, source isolation, CAS revoke/re-enable,
   no resurrection, raw image dimensions/hash/URL exclusion, literal Chinese search,
   secret-shaped text, model description search/cache, failed-call cap, restart
-  Unknown/no replay, revoke during inference and expiry/body/description clearing.
+  Unknown/no replay, revoke during inference, expiry/body/description clearing
+  and exclusive outbox ownership/release for restart.
 - These use synthetic events/provider fixtures; they are not actual QQ-image or
   natural-chat-quality evidence. Routine CI was not enlarged.
 
@@ -68,6 +69,13 @@ Only account <bot-qq> / private peer <user-qq> is enabled; group allowlist is
 empty. The package's AppData virtualization initially made scheduled-task paths
 unresolvable; installation now resolves the physical path before registering the
 hidden current-user task. Registration alone was not treated as a running service.
+Further process inspection found orphaned Python children after stopping the
+PowerShell wrapper. Only verified observer processes were terminated; no provider
+or unrelated process was stopped. The task now directly runs one native pythonw
+interpreter with an explicit protected entry and isolated dependency path. A native
+OS file lock prevents two observers from owning the same outbox. Actual task-stop
+left **zero** observer processes; task-start created **one** runtime process and
+reauthenticated NapCat. API usage remained 1/10 across the rollout.
 An actual newly received QQ image has not yet been observed in
 this slice; the full real QQ→CDN→server→provider chain stays pending until then.
 No group is enabled. Receiving pure images does not yet make the existing Lain

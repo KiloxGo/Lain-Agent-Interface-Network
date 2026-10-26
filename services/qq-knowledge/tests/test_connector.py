@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from lain_knowledge.connector import Observer, Outbox, public_image
+from lain_knowledge.connector import Observer, Outbox, public_image, single_instance
 from lain_knowledge.store import Rejected
 from test_service import event, picture
 from websockets.sync.server import serve
@@ -30,6 +30,14 @@ class ConnectorTests(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_one_observer_owns_outbox_lock_and_release_allows_restart(self):
+        with single_instance(self.config["outbox_path"]):
+            with self.assertRaises(Rejected):
+                with single_instance(self.config["outbox_path"]):
+                    self.fail("second observer acquired the lock")
+        with single_instance(self.config["outbox_path"]):
+            pass
 
     def test_only_selected_messages_and_only_read_actions(self):
         obs = Observer(

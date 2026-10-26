@@ -136,6 +136,12 @@ Invalid/conflicting events are recorded as a local gap rather than silently
 changed into successful ingestion. A server source revoke stops/purges that
 source's pending uploads on rejection; offline local copies remain bounded by
 their own one-day expiry and cannot be remotely erased while offline.
+An OS lock next to the outbox enforces one observer instance; the process owns and
+releases it, rather than treating the presence of a file as proof of activity.
+For Windows startup, directly schedule the native background interpreter with
+resolved physical paths; a PowerShell parent can leave child processes behind
+when stopped. The installed current-user task has been checked for zero remaining
+observers on stop and exactly one authenticated runtime on restart.
 
 Use SQLite's online backup API (or stop the service before copying) for consistent
 backups. Keep API/model secrets separate from source exports. Upgrade a versioned

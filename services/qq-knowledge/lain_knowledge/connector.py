@@ -4,6 +4,7 @@ import base64
 import http.client
 import ipaddress
 import json
+import os
 import queue
 import socket
 import sqlite3
@@ -71,6 +72,36 @@ def public_image(url):
         return data
     finally:
         connection.close()
+
+
+@contextmanager
+def single_instance(outbox):
+    path = Path(str(outbox) + ".lock")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+b") as handle:
+        if path.stat().st_size == 0:
+            handle.write(b"\0")
+            handle.flush()
+        handle.seek(0)
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise Rejected(409, "observer_already_running") from None
+        try:
+            yield
+        finally:
+            if os.name == "nt":
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 class Cloud:
@@ -477,12 +508,14 @@ def main():
     credentials = json.loads(
         Path(config["credentials_file"]).read_text(encoding="utf-8")
     )
-    observer = Observer(config, credentials)
     try:
-        observer.run()
+        with single_instance(config["outbox_path"]):
+            observer = Observer(config, credentials)
+            observer.run()
     except KeyboardInterrupt:
-        observer.closed.set()
-        observer.changed.set()
+        if "observer" in locals():
+            observer.closed.set()
+            observer.changed.set()
     except Exception:
         raise SystemExit(
             "Observer stopped; inspect protected outbox health, no raw events logged"
