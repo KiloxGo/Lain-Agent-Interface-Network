@@ -57,6 +57,8 @@ pub struct ActorTurn {
     pub id: ActorTurnId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reading_activity: Option<lain_wire::ReadingId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sharing_activity: Option<lain_wire::ShareId>,
     pub conversation_id: ConversationId,
     pub request_id: Uuid,
     pub sequence: u64,

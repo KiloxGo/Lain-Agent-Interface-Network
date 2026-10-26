@@ -11,13 +11,39 @@ use crate::{
 };
 use anyhow::Result;
 use domain::*;
+use lain_wire::sharing::ShareDelivery;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 use tokio::sync::watch;
+
+pub(super) enum Outgoing {
+    Reply(Delivery),
+    Share(ShareDelivery),
+}
+impl Outgoing {
+    fn id(&self) -> lain_wire::DeliveryId {
+        match self {
+            Self::Reply(d) => d.id,
+            Self::Share(d) => d.id,
+        }
+    }
+    fn text(&self) -> &str {
+        match self {
+            Self::Reply(d) => &d.text,
+            Self::Share(d) => &d.text,
+        }
+    }
+}
 
 /// Implementations own all platform protocol/credentials. Never automatically retry send.
 pub trait ConversationChannel: Send + Sync {
     fn connected(&self) -> watch::Receiver<bool>;
     fn send(&self, delivery: Delivery) -> Pin<Box<dyn Future<Output = SendOutcome> + Send + '_>>;
+    fn send_share(
+        &self,
+        _delivery: ShareDelivery,
+    ) -> Pin<Box<dyn Future<Output = SendOutcome> + Send + '_>> {
+        Box::pin(async { SendOutcome::NotSent })
+    }
 }
 
 pub struct ChannelService {
@@ -72,6 +98,20 @@ impl ChannelService {
                 .await
                 .unwrap_or(false)
     }
+    pub async fn may_send_share(&self, delivery: &ShareDelivery) -> bool {
+        let delivery = delivery.clone();
+        delivery.channel_id == self.id()
+            && self.actor.check_memory_input(&delivery).is_ok()
+            && blocking(&self.kernel, move |k| k.share_may_send(&delivery))
+                .await
+                .unwrap_or(false)
+    }
+    pub(super) async fn may_send_outgoing(&self, delivery: &Outgoing) -> bool {
+        match delivery {
+            Outgoing::Reply(d) => self.may_send(d).await,
+            Outgoing::Share(d) => self.may_send_share(d).await,
+        }
+    }
     pub async fn run(self: Arc<Self>, channel: Arc<dyn ConversationChannel>) -> Result<()> {
         struct Guard(Arc<ChannelService>);
         impl Drop for Guard {
@@ -91,6 +131,7 @@ impl ChannelService {
         let mut observations = self.actor.subscribe();
         let mut shutdown = self.kernel.subscribe_shutdown();
         let mut connection = channel.connected();
+        let mut shares = tokio::task::JoinSet::<Result<()>>::new();
         loop {
             if *shutdown.borrow() {
                 return Ok(());
@@ -141,11 +182,54 @@ impl ChannelService {
                     }
                 }
             }
+            // Ordinary shares are admitted only after current replies/input work.
+            if *connection.borrow() {
+                let id = self.id();
+                if let Some(delivery) = blocking(&self.kernel, move |k| k.share_claim(id)).await? {
+                    let service = self.clone();
+                    let channel = channel.clone();
+                    shares.spawn(async move {
+                        let delivery_id = delivery.id;
+                        let outcome = if service.may_send_share(&delivery).await {
+                            tokio::time::timeout(
+                                Duration::from_secs(20),
+                                channel.send_share(delivery),
+                            )
+                            .await
+                            .unwrap_or(SendOutcome::Unknown)
+                        } else {
+                            SendOutcome::NotSent
+                        };
+                        blocking(&service.kernel, move |k| {
+                            k.share_settle(delivery_id, outcome)
+                        })
+                        .await
+                    });
+                    continue;
+                }
+                if let Some(candidate) =
+                    blocking(&self.kernel, move |k| k.share_next_job(id)).await?
+                {
+                    if self.actor.draft_share(candidate).await.is_err() {
+                        blocking(&self.kernel, move |k| k.share_fail_start(candidate)).await?;
+                    }
+                    continue;
+                }
+            } else {
+                let id = self.id();
+                blocking(&self.kernel, move |k| k.sharing_snapshot(id)).await?;
+            }
             // Timers correspond to a queued batch's merge window or finite expiry,
             // never an idle model polling loop. Broadcast loss merely triggers a rescan.
             let id = self.id();
             let now = crate::domain::now_ms()?;
-            let due = blocking(&self.kernel, move |k| k.channel_deadline(id, now)).await?;
+            let due = blocking(&self.kernel, move |k| {
+                Ok(k.channel_deadline(id, now)?
+                    .into_iter()
+                    .chain(k.share_deadline(id, now)?)
+                    .min())
+            })
+            .await?;
             let wait = async {
                 if let Some(due) = due {
                     tokio::time::sleep(Duration::from_millis(due.saturating_sub(now).max(1))).await;
@@ -154,6 +238,7 @@ impl ChannelService {
                 }
             };
             tokio::select! {
+                result=shares.join_next(), if !shares.is_empty()=>{if let Some(result)=result {result??;}},
                 _ = shutdown.changed() => {},
                 _ = changes.recv() => {},
                 _ = observations.recv() => {},

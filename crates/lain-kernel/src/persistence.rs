@@ -19,6 +19,7 @@ mod memory;
 pub(crate) mod private_chat;
 mod private_memory;
 mod reading;
+mod sharing;
 mod sources;
 
 pub(crate) struct Store {
@@ -80,7 +81,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 13,
+            version <= 14,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -166,6 +167,9 @@ impl Store {
         }
         if version < 13 {
             transaction.execute_batch(include_str!("../migrations/013_reading_experiences.sql"))?;
+        }
+        if version < 14 {
+            transaction.execute_batch(include_str!("../migrations/014_sharing.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
@@ -643,6 +647,7 @@ impl Store {
     ) -> Result<()> {
         turn.validate()?;
         experiences::sync_actor(tx, turn)?;
+        sharing::sync_actor(tx, turn)?;
         turn.revision = turn
             .revision
             .checked_add(1)
@@ -781,6 +786,7 @@ mod actor_record_tests {
     fn legacy_message_metadata_migrates_but_current_invalid_records_fail_closed() {
         let mut turn = ActorTurn {
             reading_activity: None,
+            sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: ConversationId::new(),
             request_id: uuid::Uuid::new_v4(),

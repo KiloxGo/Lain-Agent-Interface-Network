@@ -1,5 +1,15 @@
 # Runtime Model
 
+## D2 sharing runtime — 2026-10-26
+
+New eligible reading completions wake channel consumers through Kernel events,
+including publication by a different Actor instance. Current replies/batches take
+priority. A bounded no-tool share Actor runs independently of chat; a service-owned
+send task keeps receipt waiting off chat inference. Persisted admission and fresh
+prewrite gates enforce attention, source/input revisions, quotas and no-response
+control. Restart expires unsent candidates, marks in-flight sends Unknown and
+advances the boot watermark without replay. See [ADR 015](adr/015-bounded-proactive-sharing.md).
+
 ## D1b event-driven reading processing — 2026-10-26
 
 An optional explicitly granted processing event follows acquisition completion;

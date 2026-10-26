@@ -541,7 +541,7 @@ async fn phase4_database_migration_preserves_identity_history_and_local_resume()
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        13
+        14
     );
     let persisted: String = db
         .query_row("SELECT snapshot FROM worker_state", [], |r| r.get(0))

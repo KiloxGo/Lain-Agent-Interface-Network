@@ -1,5 +1,14 @@
 # Architecture
 
+## D2 proactive sharing — 2026-10-26
+
+Kernel owns independent default-off ShareGrant/Attention decisions, source-linked
+candidates, bounded no-tool Actor drafts, durable request/attempt reservations and
+distinct share deliveries. ChannelService prioritizes current chat and owns bounded
+share-send tasks; NapCat reuses its existing protocol through a typed reply/share
+envelope. Migration 014 adds only sharing records; no user Batch is invented.
+See [ADR 015](adr/015-bounded-proactive-sharing.md). Live contact and D3–W4 remain open.
+
 ## D1b reading experiences — 2026-10-26
 
 An optional processing scope extends the independent reading grant, default-off

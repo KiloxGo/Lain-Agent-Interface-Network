@@ -1,6 +1,7 @@
 mod channels;
 mod memory;
 mod reading;
+mod sharing;
 
 use std::{convert::Infallible, future::Future, path::PathBuf, sync::Arc, time::Duration};
 
@@ -74,6 +75,7 @@ pub fn actor_router(
         .merge(memory::routes())
         .merge(channels::routes())
         .merge(reading::routes())
+        .merge(sharing::routes())
         .route(
             "/health",
             get(|| async { Json(serde_json::json!({"status": "ok", "service":"lain-kernel", "version":env!("CARGO_PKG_VERSION")})) }),

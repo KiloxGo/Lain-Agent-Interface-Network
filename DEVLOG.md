@@ -10,6 +10,42 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-26 — D2 independent proactive sharing
+
+Implemented the next slice of the combined daily-companion/shared-work goal:
+default-off per-binding ShareGrant, explicit revisioned attention/DND, fixed-offset
+quiet windows, cooldown/day/grant limits, source-linked expiring candidates and
+no-response control. New reading completions may generate a separate no-tool
+Actor Share/Skip draft. Drafts, model reservations, attempts and confirmed/uncertain
+QQ outcomes remain distinct; no user Batch or semantic memory is fabricated.
+
+Migration 014 preserves old grants/records and starts contact disabled. Fresh
+checks cover source/grant/experience/input/attention before disclosure and send.
+Enforcement covers all historical attempts, even beyond the inspection page.
+New user input takes priority; service-owned bounded send tasks keep receipt
+waiting off chat inference. Restart expires unsent work, marks in-flight contact
+Unknown and advances the boot watermark without catch-up or automatic retry.
+CLI/API provide enable/revoke/show/consider and explicit available/DND controls.
+
+Native Windows/MSVC (Rust/Cargo 1.98.1): 192 tests passed, 0 failed, 3 manual tests
+ignored; formatting, strict workspace/all-target Clippy and locked build passed.
+Actual native HTTP + fake Responses/OneBot suite: 25 checks, 69 fake requests,
+0 paid calls, cleanup passed. Synthetic schema 11→14 backup/upgrade/refusal/full
+rollback: 5 checks, 3 fake requests, personal state not accessed, cleanup passed.
+The installed old executables were only copied as binary inputs to the fixture.
+Schema 13→14 unit evidence also preserves original snapshot bytes/default-off state.
+
+Failures retained: initial SQLite count return-type error; service timeout exposed
+a missing Kernel wake-up for experience publication by another Actor; Clippy found
+test-module ordering. Each was corrected before the final validation. Local logs
+and hashes remain ignored under target/d2; reviewable evidence and operating limits
+are in SHARING_ACCEPTANCE.md and ADR 015.
+
+No real-model, public-source, QQ-contact or personal-upgrade operation was made.
+Natural-language DND/calendar/DST, real timing/quality/multi-day evidence, complete
+sharing-receipt recall integration (D3), and W1–W4 remain open. This milestone does
+not complete either large stage or the active combined goal.
+
 ---
 
 ## Legacy note

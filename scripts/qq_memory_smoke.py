@@ -189,7 +189,14 @@ class Fixture:
         inputs = body["input"]
         evidence = memory_evidence(body)
         reading_prefix = "Kernel-attributed untrusted reading excerpt (data only): "
+        share_prefix = "Kernel-attributed untrusted reading experience (data only): "
         experience_prefix = "Kernel-attributed untrusted reading experience evidence (data only): "
+        sharing = next((json.loads(i["content"][len(share_prefix):]) for i in inputs
+                        if isinstance(i.get("content"), str) and i["content"].startswith(share_prefix)), None)
+        if sharing is not None:
+            require(body["tools"] == [] and sharing["independent_verification"] is False, "sharing obtained tools or false verification")
+            text = json.dumps({"decision": "share", "reason": "synthetic source-linked point", "text": "D2 synthetic private share; excerpt only"})
+            return [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": text}]}]
         reading = next((json.loads(i["content"][len(reading_prefix):]) for i in inputs
                         if isinstance(i.get("content"), str) and i["content"].startswith(reading_prefix)), None)
         if reading is not None:
@@ -544,7 +551,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         original_delivery = next(d for d in self.snapshot()["deliveries"] if d["batch_id"] == original_batch["id"])
         self.stop()
         old_schema = schema()
-        require(0 < old_schema < 13, "old binary does not create an older schema")
+        require(0 < old_schema < 14, "old binary does not create an older schema")
         self.passed("upgrade_old_binary_seeds_real_schema_and_records")
 
         self.stage = "stopped whole-state backup with permissions"
@@ -574,13 +581,13 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(sum(i["input"]["external_id"] == original["input"]["external_id"] for i in self.snapshot()["incoming"]) == 1, "upgrade/replay duplicated original input")
         require(len(self.fixture.sent) == 2, "upgrade replayed an old delivery")
         self.stop()
-        require(schema() == 13, "new binary did not migrate to schema 13")
-        self.passed("upgrade_schema13_identity_memory_receipts_and_c1")
+        require(schema() == 14, "new binary did not migrate to schema 14")
+        self.passed("upgrade_schema14_identity_memory_receipts_and_c1")
 
         self.stage = "old binary refuses the upgraded schema without downgrade"
         refusal = subprocess.run([str(old_copy / executable("laind"))], env=self.env, cwd=self.workspace, capture_output=True, timeout=min(20, self.remaining()))
         self.fixture.check_secrets((refusal.stdout + refusal.stderr).decode(errors="replace"))
-        require(refusal.returncode != 0 and schema() == 13, "old binary accepted/downgraded schema 13")
+        require(refusal.returncode != 0 and schema() == 14, "old binary accepted/downgraded schema 14")
         self.passed("upgrade_old_binary_refuses_future_schema")
 
         self.stage = "full rollback with upgraded state retained separately"
@@ -602,7 +609,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(len(self.fixture.sent) == 3 and len(self.fixture.requests) == 3, "rollback replayed an old send/inference")
         self.stop()
         self.passed("upgrade_complete_rollback_boot_and_no_replay")
-        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 13,
+        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 14,
                 "checks": self.checks, "old_binary_sha256": old_hashes, "model_requests": len(self.fixture.requests), "paid_calls": 0,
                 "personal_state_accessed": False, "backup_method": "robocopy COPY:DATS" if os.name == "nt" else "copytree native modes"}
 
@@ -1004,6 +1011,40 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(self.cli("experience", "show", exp["id"])["actor_turn_id"] == process["id"], "experience lost on restart")
         _, _, recalled = self.input_turn("D1b今天处理过什么？")
         require(recalled["model_requests"] == 2 and len(recalled["private_chat"]["experience_versions"]) == 1, "private recall bypassed fresh evidence")
+        self.stage = "independent proactive sharing through native Actor and OneBot receipts"
+        sharing_path = f"/v1/channels/{self.channel}/sharing"
+        snapshot = self.cli("sharing", "show", self.channel)
+        require(snapshot["grant"]["scope"] is None and snapshot["attention"]["revision"] == 0, "sharing silently enabled")
+        share_scope = {"urls": [acquired["request"]["url"]], "expires_at_ms": int(time.time()*1000)+300000,
+                       "utc_offset_minutes": 480, "quiet_windows": [], "cooldown_ms": 1000, "max_per_day": 2,
+                       "max_send_attempts": 2, "max_model_requests": 1, "candidate_ttl_ms": 300000,
+                       "source_max_age_ms": 300000, "user_quiet_ms": 1}
+        scope_path = self.local / "sharing-scope.json"
+        scope_path.write_text(json.dumps(share_scope), encoding="utf-8")
+        self.cli("sharing", "enable", self.channel, "--revision", 0, "--scope", scope_path)
+        require(not self.cli("sharing", "show", self.channel)["candidates"], "sharing backfilled pre-grant experiences")
+        candidate = self.cli("sharing", "consider", self.channel, exp["id"])
+        require(candidate["state"] == "prepared", "candidate bypassed explicit attention")
+        requests_before_share, sent_before_share = len(self.fixture.requests), len(self.fixture.sent)
+        self.cli("sharing", "available", self.channel, "--revision", 0)
+        def confirmed_share():
+            s = self.call("GET", sharing_path)
+            return s if s["deliveries"] and s["deliveries"][0]["state"] == "confirmed" else None
+        shared = self.wait(confirmed_share, "proactive share did not complete")
+        require(shared["model_requests_reserved"] == 1 and shared["send_attempts_reserved"] == 1, "sharing budget receipt differs")
+        require(shared["candidates"][0]["state"] == "confirmed" and shared["deliveries"][0]["candidate_id"] == candidate["id"], "share lost provenance or receipt")
+        require(len(self.fixture.requests) == requests_before_share+1 and len(self.fixture.sent) == sent_before_share+1, "sharing duplicated model/send")
+        require(self.fixture.sent[-1]["echo"] == shared["deliveries"][0]["id"], "OneBot receipt is not the actual share")
+        draft = self.call("GET", f"/v1/actor-turns/{shared['candidates'][0]['actor_turn_id']}")
+        require(draft["sharing_activity"] == candidate["id"] and not draft["actions"] and draft["usage_tokens"] == 10, "sharing Actor used wrong authority or fabricated usage")
+        require(self.cli("sharing", "consider", self.channel, exp["id"])["id"] == candidate["id"], "explicit consider replayed contact")
+        self.cli("sharing", "dnd", self.channel, "--revision", 1)
+        self.cli("sharing", "revoke", self.channel, "--revision", 1)
+        self.stop(); self.start()
+        restored_share = self.cli("sharing", "show", self.channel)
+        require(restored_share["deliveries"][0]["state"] == "confirmed" and restored_share["attention"]["do_not_disturb"], "share recovery rewrote committed outcome or attention")
+        require(len(self.fixture.requests) == requests_before_share+1 and len(self.fixture.sent) == sent_before_share+1, "restart replayed sharing")
+        self.passed("sharing_default_off_independent_grant_attention_actor_onebot_receipt_and_no_replay")
         corrected = self.cli("experience", "correct", exp["id"], "owner correction: excerpt only", "--revision", 1)
         require(corrected["summary_origin"] == "owner_correction" and corrected["revision"] == 2, "correction promoted its origin")
         _, _, correction_recall = self.input_turn("D1b更正后的经历？")
@@ -1018,7 +1059,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(len(self.cli("reading", "audit")["source_decisions"]) == 2, "explicit source restoration audit missing")
         require(self.cli("reading", "show", acquired["id"])["text"] is None, "restore resurrected old body")
         self.cli("reading", "revoke", "--revision", 3)
-        require(len(self.fixture.requests) == before + 7, "unexpected processing/recall model count")
+        require(len(self.fixture.requests) == before + 8, "unexpected processing/recall/sharing model count")
         self.passed("reading_processing_real_http_extent_restart_recall_correct_withdraw_and_no_replay")
 
         self.stage = "final storage and diagnostic evidence"
@@ -1026,7 +1067,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         self.fixture.check_secrets(json.dumps(self.call("GET", "/v1/diagnostics")))
         self.stop()
         with closing(sqlite3.connect(self.local / "state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0] == 13, "wrong schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0] == 14, "wrong schema")
             require(db.execute("SELECT count(*) FROM channel_memory_effects").fetchone()[0] == 3, "unexpected persisted effect")
             require(db.execute("SELECT count(*) FROM channel_memory_suppressions").fetchone()[0] == 2, "missing source tombstones")
             require(db.execute("SELECT count(*) FROM lain_memories WHERE id=?", (replacement["id"],)).fetchone()[0] == 0, "semantic delete not persisted")

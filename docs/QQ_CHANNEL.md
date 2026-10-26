@@ -1,5 +1,14 @@
 # QQ private conversation channel
 
+## D2 ordinary proactive contact — 2026-10-26
+
+Optional sharing uses a separate default-off grant and explicit attention, never
+the reply grant alone. It retains the same authenticated account/peer, literal
+text frame, echo/receipt handling and no-retry transport. The service and writer
+recheck source/input/grant/attention immediately before sending. Configuration,
+CLI and recovery: [ADR 015](adr/015-bounded-proactive-sharing.md) and
+[D2 acceptance](SHARING_ACCEPTANCE.md). No real proactive QQ contact is accepted.
+
 Implemented; final-revision deterministic gates passed on native Windows (2026-10-24).
 See [validation evidence and limits](Q1_IMPLEMENTATION.md). Basic real private QQ/model
 conversation is user-confirmed; complete live reliability and cloud deployment

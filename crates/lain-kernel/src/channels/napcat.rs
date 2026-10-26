@@ -1,5 +1,5 @@
 //! OneBot 11 forward-WebSocket text adapter. All QQ identities/protocol live here.
-use super::{ChannelService, ConversationChannel, domain::*};
+use super::{ChannelService, ConversationChannel, Outgoing, domain::*};
 use crate::profiles::{SecretRef, SecretValue, resolve_secret};
 use anyhow::{Context, Result, ensure};
 use futures_util::{SinkExt, StreamExt};
@@ -139,7 +139,7 @@ pub fn parse_private(config: &NapCatConfig, event: &Value) -> Option<Input> {
     Some(input)
 }
 struct SendCommand {
-    delivery: Delivery,
+    delivery: Outgoing,
     result: oneshot::Sender<SendOutcome>,
 }
 pub struct NapCatChannel {
@@ -151,6 +151,20 @@ impl ConversationChannel for NapCatChannel {
         self.connected.clone()
     }
     fn send(&self, delivery: Delivery) -> Pin<Box<dyn Future<Output = SendOutcome> + Send + '_>> {
+        self.enqueue(Outgoing::Reply(delivery))
+    }
+    fn send_share(
+        &self,
+        delivery: lain_wire::sharing::ShareDelivery,
+    ) -> Pin<Box<dyn Future<Output = SendOutcome> + Send + '_>> {
+        self.enqueue(Outgoing::Share(delivery))
+    }
+}
+impl NapCatChannel {
+    fn enqueue(
+        &self,
+        delivery: Outgoing,
+    ) -> Pin<Box<dyn Future<Output = SendOutcome> + Send + '_>> {
         Box::pin(async move {
             if !*self.connected.borrow() {
                 return SendOutcome::NotSent;
@@ -369,12 +383,12 @@ async fn session(
             command = async { tokio::time::sleep_until(next_send_at).await; receiver.recv().await }, if pending.is_none() => {
                 let Some(command) = command else { return Ok(()); };
                 if command.result.is_closed() { continue; }
-                if !service.may_send(&command.delivery).await { let _ = command.result.send(SendOutcome::NotSent); continue; }
+                if !service.may_send_outgoing(&command.delivery).await { let _ = command.result.send(SendOutcome::NotSent); continue; }
                 // The outer send deadline may have elapsed during the storage check.
                 if command.result.is_closed() { continue; }
-                let echo = command.delivery.id.to_string();
+                let echo = command.delivery.id().to_string();
                 next_send_at = tokio::time::Instant::now() + Duration::from_secs(1);
-                let frame = json!({"action":"send_private_msg","params":{"user_id":recipient,"message":[{"type":"text","data":{"text":command.delivery.text}}]},"echo":echo});
+                let frame = json!({"action":"send_private_msg","params":{"user_id":recipient,"message":[{"type":"text","data":{"text":command.delivery.text()}}]},"echo":echo});
                 // A failed write may have partially reached the server. Never retry it.
                 pending = Some((echo, command.result, tokio::time::Instant::now() + Duration::from_secs(15)));
                 bounded_write(socket.send(Message::Text(frame.to_string().into()))).await?;

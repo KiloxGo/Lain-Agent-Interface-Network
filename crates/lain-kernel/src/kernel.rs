@@ -17,6 +17,7 @@ use crate::{
 mod channels;
 mod private_chat;
 mod reading;
+pub(crate) mod sharing;
 mod sources;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -82,6 +83,7 @@ impl Kernel {
             .recover_channels()
             .context("recover channel deliveries")?;
         store.recover_reading(crate::domain::now_ms()?)?;
+        store.recover_sharing()?;
         tracing::info!(state = ?KernelState::Recovering, "recovering sessions");
         let (sessions, workers) = store.recover().context("recover Kernel state")?;
         tracing::info!(sessions = sessions.len(), "session recovery committed");
@@ -849,6 +851,7 @@ impl Kernel {
         );
         let mut turn = ActorTurn {
             reading_activity: None,
+            sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: conversation,
             request_id: request,
@@ -877,6 +880,7 @@ impl Kernel {
         let mut inner = self.lock()?;
         let mut turn = inner.store.actor_turn(id)?;
         let reading_activity = turn.reading_activity;
+        let sharing_activity = turn.sharing_activity;
         let was_running = turn.state == crate::actor::domain::TurnState::Running;
         let old_actions = turn.actions.len();
         let old_assistant = turn
@@ -886,7 +890,7 @@ impl Kernel {
             .count();
         change(&mut turn)?;
         ensure!(
-            turn.reading_activity == reading_activity,
+            turn.reading_activity == reading_activity && turn.sharing_activity == sharing_activity,
             crate::backend::ControlError::InvalidInput
         );
         if turn
@@ -926,6 +930,11 @@ impl Kernel {
             inner.store.private_chat_check(&turn)?;
         }
         inner.store.save_actor_turn(&mut turn, false)?;
+        if turn.reading_activity.is_some()
+            && turn.state == crate::actor::domain::TurnState::Completed
+        {
+            let _ = self.channel_events.send(());
+        }
         Ok(turn)
     }
     pub fn storage_healthy(&self) -> Result<bool> {

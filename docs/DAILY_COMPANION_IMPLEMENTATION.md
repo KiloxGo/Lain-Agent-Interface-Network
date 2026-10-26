@@ -11,7 +11,7 @@ repairs. Product direction is in PRODUCT.md and ADR 009.
 | --- | --- | --- |
 | D1a | Independent exact-URL text acquisition grant, durable bounded activities, acquisition receipts, cancellation/recovery and retention | Implemented; validation in READING_ACCEPTANCE.md |
 | D1b | Actor reading/processing receipts, source-linked recent experiences, date/topic retrieval, correct/revoke invalidation | Implemented; validation in EXPERIENCE_ACCEPTANCE.md; live quality pending |
-| D2 | Sharing candidates, separate contact grants, explicit timezone/quiet periods/DND, cooldown and no-response/expiry controls; safe QQ delivery | Pending |
+| D2 | Sharing candidates, separate contact grants, explicit timezone/quiet periods/DND, cooldown and no-response/expiry controls; safe QQ delivery | Implemented; validation in SHARING_ACCEPTANCE.md; live contact pending |
 | D3 | Complete read → experience → share → later recall chain, cumulative durable model budgets, autonomous replay and authorized live acceptance | Pending |
 | W1 | One selected read-only social source and one supported visible Worker archive; identity, cursors, gaps, retention and derived invalidation | Pending |
 | W2 | Device pairing/revocation, capability and workspace ownership, durable command/receipt/event/resync protocol | Pending |

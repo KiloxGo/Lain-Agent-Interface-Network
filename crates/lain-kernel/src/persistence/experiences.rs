@@ -74,7 +74,7 @@ fn source(
 fn fingerprint(text: &str) -> String {
     lain_wire::actor_configuration_revision(text.as_bytes())
 }
-fn read_experience(db: &Connection, id: ExperienceId) -> Result<ReadingExperience> {
+pub(super) fn read_experience(db: &Connection, id: ExperienceId) -> Result<ReadingExperience> {
     decode(
         db.query_row(
             "SELECT snapshot FROM reading_experiences WHERE id=?1",
@@ -96,7 +96,7 @@ fn save_experience(db: &Connection, e: &ReadingExperience) -> Result<()> {
     )?;
     Ok(())
 }
-fn visible(
+pub(super) fn visible(
     db: &Connection,
     e: &ReadingExperience,
     channel: Option<lain_wire::ChannelId>,
@@ -533,6 +533,7 @@ impl Store {
         let mut t = ActorTurn {
             id: ActorTurnId::new(),
             reading_activity: None,
+            sharing_activity: None,
             conversation_id: c,
             request_id: id.0,
             sequence: 0,
@@ -727,7 +728,7 @@ impl Store {
     }
 }
 
-fn project(e: &ReadingExperience) -> Value {
+pub(super) fn project(e: &ReadingExperience) -> Value {
     let mut value = serde_json::to_value(e).expect("experience serialization");
     value["summary"] = e
         .summary

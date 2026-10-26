@@ -17,7 +17,9 @@ from acquisition. D1b now adds separately enabled bounded Actor processing,
 source-linked experiences and revision-checked private recall/correction/withdrawal
 ([ADR 014](docs/adr/014-source-linked-reading-experiences.md),
 [acceptance](docs/EXPERIENCE_ACCEPTANCE.md)). Its real-provider/source/QQ quality
-remains unaccepted. D2–W4 and both complete-stage exit criteria remain open.
+remains unaccepted. D2 adds independent default-off proactive sharing and attention with durable budgets,
+source/input rechecks and distinct QQ receipts ([ADR 015](docs/adr/015-bounded-proactive-sharing.md),
+[acceptance](docs/SHARING_ACCEPTANCE.md)). D3–W4 and both complete-stage exit criteria remain open.
 
 ## Current direction — QQ companionship first
 
@@ -74,7 +76,8 @@ authorized by this plan. Historical Q1/Q2 checkboxes below keep their narrow mea
 Implementation and deterministic evidence: [Q1_IMPLEMENTATION.md](docs/Q1_IMPLEMENTATION.md).
 Operation and live prerequisites: [QQ_CHANNEL.md](docs/QQ_CHANNEL.md).
 Checked items describe the narrow implementation, not full Q1 acceptance. There is
-no observer account, general autonomous grant, proactive contact or device runtime.
+no observer account, general autonomous grant or device runtime. D2's narrow
+default-off sharing implementation is separate from Q1 evidence and not live accepted.
 The manual conversation evidence does not close live reconnect/restart/revocation
 or long-term memory acceptance. Q1 diagnostics and the narrow Q2-A private memory
 slice are implemented; see [ADR 010](docs/adr/010-scoped-private-conversation-memory.md)

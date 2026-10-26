@@ -6,6 +6,7 @@ mod chat_notice;
 mod local;
 mod memory;
 mod reading;
+mod sharing;
 mod signals;
 mod tui;
 
@@ -27,6 +28,10 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    Sharing {
+        #[command(subcommand)]
+        command: sharing::Commands,
+    },
     Experience {
         #[command(subcommand)]
         command: reading::Experiences,
@@ -282,6 +287,7 @@ async fn run(args: Args) -> Result<()> {
             reading::experiences(&client, command, json_output).await
         }
         Command::Reading { command } => reading::run(&client, command, json_output).await,
+        Command::Sharing { command } => sharing::run(&client, command, json_output).await,
         Command::Channel { command } => channel::run(&client, command, json_output).await,
         Command::Memory { command } => memory::run(&client, command, json_output).await,
         Command::Summary { command } => memory::summaries(&client, command, json_output).await,

@@ -145,6 +145,7 @@ fn running(s: &mut Store, b: &Binding) -> ActorTurn {
         .unwrap();
     let mut turn = ActorTurn {
         reading_activity: None,
+        sharing_activity: None,
         id: ActorTurnId::new(),
         conversation_id: b.conversation_id,
         request_id: batch.id.0,
@@ -630,7 +631,7 @@ fn schema_nine_source_migration_preserves_snapshots_and_creates_no_fake_reads() 
             |r| r.get(0),
         )
         .unwrap();
-    s.connection.execute_batch("DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; PRAGMA user_version=9;").unwrap();
+    s.connection.execute_batch("DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; PRAGMA user_version=9;").unwrap();
     drop(s);
     let s = Store::open(&path).unwrap();
     let after: String = s
@@ -654,6 +655,6 @@ fn schema_nine_source_migration_preserves_snapshots_and_creates_no_fake_reads() 
         s.connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        13
+        14
     );
 }

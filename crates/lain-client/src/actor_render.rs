@@ -415,6 +415,7 @@ mod tests {
     fn running() -> ActorSnapshot {
         ActorSnapshot {
             reading_activity: None,
+            sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: ConversationId::new(),
             request_id: RequestId::new(),

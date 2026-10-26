@@ -5,6 +5,7 @@ pub mod chat;
 pub mod memory;
 pub mod notices;
 pub mod reading;
+pub mod sharing;
 pub mod source;
 
 /// Startup revision of validated non-secret configuration/persona content.
@@ -60,6 +61,7 @@ id!(BatchId);
 id!(DeliveryId);
 id!(ReadingId);
 id!(ExperienceId);
+id!(ShareId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -203,6 +205,8 @@ pub struct ActorSnapshot {
     /// Kernel-initiated reading work; None for user-originated turns.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reading_activity: Option<ReadingId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sharing_activity: Option<ShareId>,
     pub conversation_id: ConversationId,
     pub request_id: RequestId,
     pub sequence: u64,
@@ -225,13 +229,16 @@ pub struct ActorSnapshot {
 impl ActorSnapshot {
     pub fn validate(&self) -> Result<(), &'static str> {
         use std::collections::BTreeSet;
-        if self.reading_activity.is_some()
+        if (self.reading_activity.is_some() || self.sharing_activity.is_some())
             && (self.private_chat.is_some()
                 || self.channel_memory.is_some()
                 || self.channel_source.is_some()
                 || !self.actions.is_empty())
         {
             return Err("reading activity cannot acquire chat, memory or Worker actions");
+        }
+        if self.reading_activity.is_some() && self.sharing_activity.is_some() {
+            return Err("conflicting activity origin");
         }
         if self.messages.len() > 32 || self.actions.len() > 4 || self.model_requests > 4 {
             return Err("Actor bounds exceeded");
@@ -380,6 +387,7 @@ mod tests {
     fn contradictory_durable_actor_records_are_rejected() {
         let mut turn = ActorSnapshot {
             reading_activity: None,
+            sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: ConversationId::new(),
             request_id: RequestId::new(),

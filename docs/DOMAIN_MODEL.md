@@ -1,5 +1,15 @@
 # Domain Model
 
+## D2 sharing records — 2026-10-26
+
+ShareGrant is independent contact authority; Attention is an explicit revisioned
+availability restriction. ShareCandidate binds an actual experience revision and
+fingerprint, source age, input watermark and expiry to a Share/Skip draft.
+ActorTurn.sharing_activity denotes a Kernel activity with no tools/private scope,
+mutually exclusive with reading_activity. ShareDelivery records a single attempted
+contact and its true transport outcome, not a reply Batch or memory. Migration 014
+and lifecycle: [ADR 015](adr/015-bounded-proactive-sharing.md).
+
 ## D1b concrete reading experiences — 2026-10-26
 
 `ReadingModelScope` is an explicit optional reading-grant component selecting one

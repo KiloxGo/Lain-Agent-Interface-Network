@@ -1,5 +1,13 @@
 # CLI-first local development
 
+## D2 sharing controls — 2026-10-26
+
+`lain sharing show/enable/revoke/dnd/available/consider` manage independent
+proactive contact over the authenticated Kernel API. Enable takes an explicit
+complete ShareScope JSON file; available/DND uses a separate attention revision.
+No field supplies a product default or live-operation permission. See
+[D2 controls and upgrade boundary](SHARING_ACCEPTANCE.md).
+
 ## Reading processing and experiences (D1b, 2026-10-26)
 
 Optional `reading enable --model-channel <id> --model-requests <cap>
