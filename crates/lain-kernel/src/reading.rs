@@ -184,7 +184,7 @@ async fn fetch_pinned(
     if text.trim().is_empty()
         || text
             .chars()
-            .any(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t'))
+            .any(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t' | '\u{000c}'))
     {
         return Err(ReadingFailure::UnsupportedContent);
     }
