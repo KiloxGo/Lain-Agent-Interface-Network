@@ -10,5 +10,6 @@ pub mod kernel;
 pub mod memory;
 mod persistence;
 pub mod profiles;
+pub mod reading;
 mod redaction;
 mod worker;

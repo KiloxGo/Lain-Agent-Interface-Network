@@ -4,6 +4,7 @@ use uuid::Uuid;
 pub mod chat;
 pub mod memory;
 pub mod notices;
+pub mod reading;
 pub mod source;
 
 /// Startup revision of validated non-secret configuration/persona content.
@@ -57,6 +58,7 @@ id!(ChannelId);
 id!(IncomingId);
 id!(BatchId);
 id!(DeliveryId);
+id!(ReadingId);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

@@ -410,7 +410,7 @@ fn schema_ten_upgrade_adds_only_the_input_index_and_preserves_old_actor_snapshot
         )
         .unwrap();
     s.connection
-        .execute_batch("DROP INDEX channel_incoming_batch; PRAGMA user_version=10;")
+        .execute_batch("DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP INDEX channel_incoming_batch; PRAGMA user_version=10;")
         .unwrap();
     drop(s);
     let s = Store::open(&dir.path().join("chat.db")).unwrap();
@@ -429,7 +429,7 @@ fn schema_ten_upgrade_adds_only_the_input_index_and_preserves_old_actor_snapshot
         s.connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        11
+        12
     );
     assert!(
         s.connection

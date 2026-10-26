@@ -1,5 +1,16 @@
 # Architecture
 
+## D1a text acquisition — 2026-10-26
+
+Kernel owns the independent ReadingGrant, durable admission/attempt budget and
+activity/result transaction. `reading` contains the finite asynchronous HTTP
+adapter and next-retention-deadline maintenance; it has no Actor/model or Worker
+authority. `lain-wire::reading` contains only Lain DTOs; CLI/API are authenticated
+clients. Migration 012 appends tables, leaving existing grants and records intact.
+See [ADR 013](adr/013-bounded-text-acquisition.md) and the
+[combined milestone plan](DAILY_COMPANION_IMPLEMENTATION.md). Experiences, processing
+and sharing remain subsequent work; successful acquisition is not comprehension.
+
 **Status:** revised target architecture plus historical/local implementation contracts
 
 **Last reviewed:** 2026-10-23

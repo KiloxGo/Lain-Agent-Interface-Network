@@ -518,7 +518,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         original_delivery = next(d for d in self.snapshot()["deliveries"] if d["batch_id"] == original_batch["id"])
         self.stop()
         old_schema = schema()
-        require(0 < old_schema < 11, "old binary does not create an older schema")
+        require(0 < old_schema < 12, "old binary does not create an older schema")
         self.passed("upgrade_old_binary_seeds_real_schema_and_records")
 
         self.stage = "stopped whole-state backup with permissions"
@@ -545,13 +545,13 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(sum(i["input"]["external_id"] == original["input"]["external_id"] for i in self.snapshot()["incoming"]) == 1, "upgrade/replay duplicated original input")
         require(len(self.fixture.sent) == 2, "upgrade replayed an old delivery")
         self.stop()
-        require(schema() == 11, "new binary did not migrate to schema 11")
-        self.passed("upgrade_schema11_identity_memory_receipts_and_c1")
+        require(schema() == 12, "new binary did not migrate to schema 12")
+        self.passed("upgrade_schema12_identity_memory_receipts_and_c1")
 
         self.stage = "old binary refuses the upgraded schema without downgrade"
         refusal = subprocess.run([str(old_copy / executable("laind"))], env=self.env, cwd=self.workspace, capture_output=True, timeout=min(20, self.remaining()))
         self.fixture.check_secrets((refusal.stdout + refusal.stderr).decode(errors="replace"))
-        require(refusal.returncode != 0 and schema() == 11, "old binary accepted/downgraded schema 11")
+        require(refusal.returncode != 0 and schema() == 12, "old binary accepted/downgraded schema 12")
         self.passed("upgrade_old_binary_refuses_future_schema")
 
         self.stage = "full rollback with upgraded state retained separately"
@@ -573,7 +573,7 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require(len(self.fixture.sent) == 3 and len(self.fixture.requests) == 3, "rollback replayed an old send/inference")
         self.stop()
         self.passed("upgrade_complete_rollback_boot_and_no_replay")
-        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 11,
+        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 12,
                 "checks": self.checks, "old_binary_sha256": old_hashes, "model_requests": len(self.fixture.requests), "paid_calls": 0,
                 "personal_state_accessed": False, "backup_method": "robocopy COPY:DATS" if os.name == "nt" else "copytree native modes"}
 
@@ -904,12 +904,45 @@ foreach($r in $b.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifi
         require("must never dispatch stale proposal" not in json.dumps(self.fixture.requests[-1]), "C1 opaque stale continuation reused")
         self.passed("chat_inflight_correction_discards_stale_work_proposal")
 
+        self.stage = "reading authority and interrupted acquisition recovery"
+        model_count = len(self.fixture.requests)
+        self.call("GET", "/v1/reading/grant", auth=False, expected=401)
+        require(self.cli("reading", "grant")["scope"] is None, "reading is not default-off")
+        now_ms = int(time.time() * 1000)
+        reading_scope = {"urls": ["https://fixture.invalid/article.txt"], "expires_at_ms": now_ms + 600000,
+                         "retention_ms": 300000, "max_requests": 1, "max_bytes": 1024}
+        self.call("POST", "/v1/reading/grant", {"expected_revision": 0, "scope": reading_scope})
+        self.call("POST", "/v1/reading/activities", {"request_id": str(uuid.uuid4()), "grant_revision": 1,
+                  "url": "https://127.0.0.1/private"}, expected=400)
+        self.stop()
+        reading_request = {"request_id": str(uuid.uuid4()), "grant_revision": 1, "url": reading_scope["urls"][0]}
+        reading = {"id": str(uuid.uuid4()), "request": reading_request, "state": "pending", "created_at_ms": now_ms,
+                   "started_at_ms": None, "finished_at_ms": None, "retain_until_ms": now_ms + 300000,
+                   "acquired_bytes": 0, "failure": None}
+        # Seed an interrupted submission in synthetic state; do not perform a public fetch.
+        with closing(sqlite3.connect(self.local / "state.db")) as db:
+            db.execute("INSERT INTO reading_activities VALUES (?,?,?,?,?,?)",
+                       (reading["id"], reading_request["request_id"], 1, now_ms, 1, json.dumps(reading)))
+            db.commit()
+        self.start()
+        restored = self.cli("reading", "show", reading["id"])
+        require(restored["activity"]["state"] == "unknown" and restored["text"] is None, "reading recovery fabricated completion")
+        duplicate = self.call("POST", "/v1/reading/activities", reading_request)
+        require(duplicate["id"] == reading["id"] and duplicate["state"] == "unknown", "reading duplicate replayed work")
+        fresh_request = dict(reading_request, request_id=str(uuid.uuid4()))
+        self.call("POST", "/v1/reading/activities", fresh_request, expected=409)
+        require(self.cli("reading", "revoke", "--revision", 1)["revision"] == 2, "reading revocation failed")
+        self.call("POST", "/v1/reading/grant", {"expected_revision": 1, "scope": reading_scope}, expected=409)
+        require(len(self.cli("reading", "list")) == 1 and len(self.fixture.requests) == model_count,
+                "reading controls caused an unrequested model call or duplicate activity")
+        self.passed("reading_default_off_auth_budget_restart_dedup_and_revoke")
+
         self.stage = "final storage and diagnostic evidence"
         self.fixture.check_secrets(json.dumps(self.cli("channel", "show", self.channel)))
         self.fixture.check_secrets(json.dumps(self.call("GET", "/v1/diagnostics")))
         self.stop()
         with closing(sqlite3.connect(self.local / "state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0] == 11, "wrong schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0] == 12, "wrong schema")
             require(db.execute("SELECT count(*) FROM channel_memory_effects").fetchone()[0] == 3, "unexpected persisted effect")
             require(db.execute("SELECT count(*) FROM channel_memory_suppressions").fetchone()[0] == 2, "missing source tombstones")
             require(db.execute("SELECT count(*) FROM lain_memories WHERE id=?", (replacement["id"],)).fetchone()[0] == 0, "semantic delete not persisted")

@@ -1873,3 +1873,50 @@ was not needed. The new start-c1-qq-test.ps1 selects the verified release; origi
 entry and prior releases remain retained. No original dirty work was reset, and no
 commit/push/cloud deployment/Q2/Q3 expansion occurred. C1_1_ACCEPTANCE.md has actual scene
 outcomes, artifact paths, startup/recovery instructions and remaining quality limits.
+
+
+## 2026-10-26 — D1a: bounded text acquisition in the combined companionship/work goal
+
+The user selected both large stages together. Read the full goal and current
+architecture/evidence; baseline main/origin main was clean at 3bfb855. Added an
+explicit D1a–D3/W1–W4 delivery plan without declaring either complete. Corrected
+PRODUCT current-state statements to reflect C1.1 real QQ/model replay and the
+installed schema-11 release with temporary memory revoked and source access off.
+Historical failed/live records retain their original meaning.
+
+Implemented a separate default-off CAS ReadingGrant selecting exact HTTPS URLs,
+expiry, retention and attempt/body limits. Migration 012 appends grant/activity/
+result tables; no old authority is changed. One unfinished acquisition, durable
+attempt charging, immutable request dedup, actual timestamps and safe closed
+failures survive restart. Restart marks unfinished work Unknown without fetching;
+cancel/revoke/expiry prevent late content commits. Completed content/state commit
+atomically. Grant replacement removes old content without inheriting its authority.
+
+The asynchronous reader pins validated public DNS addresses, disables proxies,
+redirects and ambient auth, accepts only bounded complete UTF-8 plain text, checks
+known credentials and has finite connect/overall deadlines. Stored text remains
+untrusted administrator-inspectable data. AcquiredTextOnly never claims reading,
+comprehension, summarization or verification. A next-retention-deadline timer is
+rebuilt from storage and deletes bodies without model polling. Operation metadata,
+WAL/backups and semantic erasure remain distinct. Added authenticated API and
+Rust reading CLI; no Actor tool, model job, experience or contact is yet added.
+
+Native Windows workspace run: 167 passed, zero failed, three manual ignored;
+fmt, strict all-target Clippy and workspace build passed. Added one further atomic
+rollback test afterward; focused reading suite passed all ten, including timer
+expiry inspected directly through SQLite. Actual native QQ/Worker regression
+passed 23 cross-process checks with 61 fake requests, zero paid and full cleanup.
+Independent full backup/migration/rollback rehearsal passed five checks from
+schema 8 to 12, three fake requests, no paid calls/personal data and full cleanup.
+Schema 11 preservation is separately covered at the storage unit level.
+
+Preserved failures: initial SQLite unsigned conversion/test-constructor compile
+errors fixed; a later workspace compile exhausted disk and was rerun successfully
+after cleaning only verified generated target artifacts with compilers stopped.
+Process-scoped no-incremental/no-debug-symbol build settings limited disk use.
+No global tool config, personal runtime, credential, database or grant was changed.
+Evidence and binary hashes are under ignored target/d1a and READING_ACCEPTANCE.md.
+No new real-model/public-source/QQ/device acceptance is claimed; old real-call
+budget remains closed. D1b experiences/Actor processing, D2 contact, D3 full daily
+chain and W1–W4 remain outstanding. This is a verified implementation milestone
+for commit/push, not completion of the active combined goal.

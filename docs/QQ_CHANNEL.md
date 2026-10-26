@@ -31,8 +31,10 @@ with the configured person. Databases, persona and semantic memory remain Lain-o
 
 Use an isolated instance and database for initial live acceptance. Do not point
 an experimental binary at existing personal state without a separately reviewed
-backup/migration decision. The current schema is 011 (008 channel, 009 private memory,
-010 source lookup, 011 bounded private chat);
+backup/migration decision. The development schema is 012 (008 channel, 009 private memory,
+010 source lookup, 011 bounded private chat, 012 independent text acquisition).
+The installed C1.1 personal release remains on schema 011; a development build
+does not upgrade it. Reading grants do not enable QQ contact or Actor processing;
 an older binary cannot open
 the newer schema; rollback needs the consistent pre-upgrade backup.
 

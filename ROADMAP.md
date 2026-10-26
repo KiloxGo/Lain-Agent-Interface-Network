@@ -2,7 +2,18 @@
 
 **Status:** QQ-first product delivery proposal plus historical implementation record
 
-**Last reviewed:** 2026-10-25
+**Last reviewed:** 2026-10-26
+
+## Combined daily-companion / shared-work goal — 2026-10-26
+
+The user selected both large stages together. Follow the incremental
+[delivery plan](docs/DAILY_COMPANION_IMPLEMENTATION.md); this supersedes treating
+Q2/Q3/W1 selection as still awaiting a development prompt. It grants code/isolated
+validation and milestone push, not new paid inference, personal migration, source
+collection, contact or device installation. D1a adds exact-URL text acquisition and
+durable bounded activities ([ADR 013](docs/adr/013-bounded-text-acquisition.md),
+[acceptance](docs/READING_ACCEPTANCE.md)); no experience/comprehension is inferred
+from acquisition. D1b–W4 and both complete-stage exit criteria remain open.
 
 ## Current direction — QQ companionship first
 

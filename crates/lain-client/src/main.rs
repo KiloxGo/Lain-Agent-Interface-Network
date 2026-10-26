@@ -5,6 +5,7 @@ mod chat;
 mod chat_notice;
 mod local;
 mod memory;
+mod reading;
 mod signals;
 mod tui;
 
@@ -26,6 +27,10 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    Reading {
+        #[command(subcommand)]
+        command: reading::Commands,
+    },
     Channel {
         #[command(subcommand)]
         command: channel::Commands,
@@ -269,6 +274,7 @@ async fn run(args: Args) -> Result<()> {
     };
     let json_output = args.json;
     match command {
+        Command::Reading { command } => reading::run(&client, command, json_output).await,
         Command::Channel { command } => channel::run(&client, command, json_output).await,
         Command::Memory { command } => memory::run(&client, command, json_output).await,
         Command::Summary { command } => memory::summaries(&client, command, json_output).await,

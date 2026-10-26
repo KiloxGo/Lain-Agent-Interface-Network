@@ -1,5 +1,14 @@
 # CLI-first local development
 
+## Bounded text acquisition (D1a, 2026-10-26)
+
+`lain reading grant/grants/enable/revoke` manage an independent default-off exact-URL
+authorization. `reading start/list/show/cancel` inspect/control durable acquisition
+activities. Start requires a caller-saved `--request-id` and grant `--revision`;
+enable requires explicit URL, expiry, retention and request/body limits. No model
+is called, and an acquired body is not a claim of reading/comprehension.
+See the [five-step guide, API and rollback boundary](READING_ACCEPTANCE.md).
+
 > **2026-10-23 scope:** this is the current local CLI operating guide, not the
 > next product priority. QQ daily companionship now comes first; see
 > [PRODUCT.md](PRODUCT.md) and [ROADMAP.md](../ROADMAP.md). Cloud pairing, a local

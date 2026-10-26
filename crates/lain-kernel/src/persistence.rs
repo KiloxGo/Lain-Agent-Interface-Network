@@ -17,6 +17,7 @@ mod delegation;
 mod memory;
 pub(crate) mod private_chat;
 mod private_memory;
+mod reading;
 mod sources;
 
 pub(crate) struct Store {
@@ -78,7 +79,7 @@ impl Store {
         let transaction = connection.transaction().context("begin schema migration")?;
         let version: u32 = transaction.pragma_query_value(None, "user_version", |r| r.get(0))?;
         ensure!(
-            version <= 11,
+            version <= 12,
             "unsupported database schema version {version}"
         );
         if version == 0 {
@@ -158,6 +159,9 @@ impl Store {
         }
         if version < 11 {
             transaction.execute_batch(include_str!("../migrations/011_private_chat.sql"))?;
+        }
+        if version < 12 {
+            transaction.execute_batch(include_str!("../migrations/012_reading.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(

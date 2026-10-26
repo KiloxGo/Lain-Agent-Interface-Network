@@ -1,5 +1,18 @@
 # Runtime Model
 
+## D1a finite acquisition runtime — 2026-10-26
+
+Authenticated explicit admission persists an attempt before spawning a finite
+asynchronous acquisition. Only one unfinished activity is admitted; retries of the
+same request return its recorded state. A 20-second outer bound includes DNS;
+scope/retention are checked again under the Kernel lock before result commit.
+Cancellation, grant changes and shutdown notify the task; there is no fetch replay
+after restart. Unfinished eligible work becomes Unknown, never fabricated success.
+One next-deadline timer deletes expired bodies and is rebuilt from durable records
+at startup; no pending deadline means event-wait only. It makes no model calls.
+See [ADR 013](adr/013-bounded-text-acquisition.md) for exact limits and the distinction
+between completed acquisition and read/summary/verification.
+
 **Status:** resident-runtime target plus current local runtime contracts
 
 **Last reviewed:** 2026-10-24

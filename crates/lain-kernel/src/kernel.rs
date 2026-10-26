@@ -16,6 +16,7 @@ use crate::{
 };
 mod channels;
 mod private_chat;
+mod reading;
 mod sources;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -41,6 +42,7 @@ pub struct Kernel {
     events: broadcast::Sender<Event>,
     shutdown_signal: tokio::sync::watch::Sender<bool>,
     channel_events: broadcast::Sender<()>,
+    reading_events: broadcast::Sender<()>,
     // Ephemeral transport observations never wait on SQLite or wake the Actor model.
     channel_connections: Mutex<
         BTreeMap<crate::channels::domain::ChannelId, crate::channels::domain::ConnectionStatus>,
@@ -79,6 +81,7 @@ impl Kernel {
         store
             .recover_channels()
             .context("recover channel deliveries")?;
+        store.recover_reading(crate::domain::now_ms()?)?;
         tracing::info!(state = ?KernelState::Recovering, "recovering sessions");
         let (sessions, workers) = store.recover().context("recover Kernel state")?;
         tracing::info!(sessions = sessions.len(), "session recovery committed");
@@ -92,6 +95,7 @@ impl Kernel {
             events: broadcast::channel(256).0,
             shutdown_signal: tokio::sync::watch::channel(false).0,
             channel_events: broadcast::channel(64).0,
+            reading_events: broadcast::channel(16).0,
             channel_connections: Mutex::new(BTreeMap::new()),
         })
     }

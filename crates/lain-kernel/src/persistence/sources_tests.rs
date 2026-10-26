@@ -629,7 +629,7 @@ fn schema_nine_source_migration_preserves_snapshots_and_creates_no_fake_reads() 
             |r| r.get(0),
         )
         .unwrap();
-    s.connection.execute_batch("DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; PRAGMA user_version=9;").unwrap();
+    s.connection.execute_batch("DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; PRAGMA user_version=9;").unwrap();
     drop(s);
     let s = Store::open(&path).unwrap();
     let after: String = s
@@ -653,6 +653,6 @@ fn schema_nine_source_migration_preserves_snapshots_and_creates_no_fake_reads() 
         s.connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        11
+        12
     );
 }

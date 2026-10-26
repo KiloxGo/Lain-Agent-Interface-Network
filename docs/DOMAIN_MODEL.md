@@ -1,5 +1,17 @@
 # Domain Model
 
+## D1a concrete acquisition records — 2026-10-26
+
+`ReadingGrant` is an independent revisioned administrator decision with optional
+`ReadingScope`; it is default-off and selects exact URLs, expiry, retention and
+attempt/body caps. `StartReading` binds an immutable RequestId, URL and grant
+revision. `ReadingActivity` records admission/start/finish UTC milliseconds,
+terminal uncertainty/cancellation/failure and actual acquired bytes. `ReadingResult`
+is a separate expiring untrusted text body, not memory, summary or experience.
+`ReadingProcessing::AcquiredTextOnly` states actual past acquisition even after
+the body becomes unavailable; it never denotes comprehension/verification.
+States and invalidation: [ADR 013](adr/013-bounded-text-acquisition.md).
+
 **Status:** proposed resident-domain extensions plus existing concrete domain contracts
 
 **Last reviewed:** 2026-10-24

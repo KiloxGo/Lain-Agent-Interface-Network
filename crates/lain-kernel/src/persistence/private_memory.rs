@@ -983,7 +983,7 @@ mod tests {
             )
             .unwrap();
         assert!(legacy.owner_confirmed_at_ms.is_some());
-        s.connection.execute_batch("DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; DROP TABLE channel_memory_inspections; DROP TABLE channel_memory_suppressions; DROP TABLE channel_memory_effects; DROP TABLE channel_memory_grants; PRAGMA user_version=8;").unwrap();
+        s.connection.execute_batch("DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; DROP TABLE channel_memory_inspections; DROP TABLE channel_memory_suppressions; DROP TABLE channel_memory_effects; DROP TABLE channel_memory_grants; PRAGMA user_version=8;").unwrap();
         drop(s);
         let s = Store::open(&path).unwrap();
         assert_eq!(s.memory(legacy.id).unwrap(), legacy);
@@ -1010,7 +1010,7 @@ mod tests {
             s.connection
                 .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
                 .unwrap(),
-            11
+            12
         );
     }
 
