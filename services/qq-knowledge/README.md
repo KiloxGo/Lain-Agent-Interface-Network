@@ -25,6 +25,9 @@ returns 404 instead of silently ignoring an unknown query parameter. No Kernel
 or Utakera dependency is introduced.
 Kernel's independently authorized bounded bridge is described in
 [ADR 022](../../docs/adr/022-scoped-knowledge-archive-pulls.md).
+Its optional finite standing synchronization scope is defined in
+[ADR 023](../../docs/adr/023-finite-knowledge-synchronization.md); it requires no
+service-side collection, model or Kernel dependency.
 
 All endpoints require `Authorization: Bearer <key>` over HTTPS. Three independent
 keys have admin, ingest and read roles; give Utakera **only the read key**. The

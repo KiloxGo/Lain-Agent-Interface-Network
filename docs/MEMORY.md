@@ -1,5 +1,13 @@
 # Lain Memory
 
+## W1e source synchronization remains non-semantic — 2026-10-27
+
+Finite scheduled knowledge reads refresh only selected archive projections.
+They grant no private disclosure or semantic-memory write. Existing exact private
+source suppressions, correction/forget and freshness checks still apply. No
+automatic extraction is introduced; see [ADR 023](adr/023-finite-knowledge-synchronization.md).
+
+
 ## W1d same-event source suppression — 2026-10-27
 
 Independent knowledge pulls create bounded archive projections, not semantic

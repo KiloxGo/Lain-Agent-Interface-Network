@@ -1,10 +1,20 @@
 # Configuration and Runtime Profiles
 
+## W1e finite standing source reads — 2026-10-27
+
+`archive knowledge-sync-enable` explicitly freezes the daemon-selected knowledge
+reader identity with a finite source/archive-revision scope. Configuration alone
+still enables no collection. Each scheduler wake resolves the protected read
+SecretRef; missing/changed configuration stops the selected policy. No model key
+is needed. Inspect/revoke separately; see [operation](KNOWLEDGE_SYNC_ACCEPTANCE.md).
+
+
 ## W1d selected independent knowledge service — 2026-10-27
 
 `LAIN_KNOWLEDGE_CONFIG` selects a bounded JSON file with exact HTTPS `endpoint`,
 expected persistent `store_id` and read-only `secret_ref`. Its credential resolves
-only for an explicit pull, never into archive/model/profile synchronization. No
+for explicit pulls or independently granted source synchronization, never into
+archive/model/profile data. No
 proxy, redirect or retry; loopback HTTP is reserved for synthetic local fixtures.
 Config identity participates in the cursor/source binding. Register/enable the
 exact source independently, then use `archive knowledge-pull`; this setting alone

@@ -213,6 +213,8 @@ pub struct ArchiveReadJob {
     pub reader: ArchiveReaderKind,
     #[serde(default)]
     pub reader_revision: Option<String>,
+    #[serde(default)]
+    pub sync_revision: Option<u64>,
     pub source_id: ArchiveSourceId,
     pub state: ArchiveReadState,
     pub created_at_ms: u64,
@@ -247,6 +249,46 @@ pub struct KnowledgeArchiveState {
     pub last_read: crate::RequestId,
     pub observed_at_ms: u64,
     pub fresh_until_ms: u64,
+}
+
+/// Independent, default-off authority for scheduled GETs of one source.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KnowledgeSyncScope {
+    pub archive_revision: u64,
+    pub expires_at_ms: u64,
+    pub max_requests: u32,
+    pub interval_ms: u64,
+    pub limit: u16,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SetKnowledgeSync {
+    pub expected_revision: u64,
+    pub scope: Option<KnowledgeSyncScope>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KnowledgeSyncStop {
+    Expired,
+    Exhausted,
+    ScopeChanged,
+    ReaderChanged,
+    ReadFailed,
+    SourceUnavailable,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeSyncGrant {
+    pub source_id: ArchiveSourceId,
+    pub revision: u64,
+    pub scope: Option<KnowledgeSyncScope>,
+    pub reader_revision: Option<String>,
+    pub used_requests: u32,
+    pub next_at_ms: u64,
+    pub last_read: Option<crate::RequestId>,
+    pub pending: bool,
+    pub stopped: Option<KnowledgeSyncStop>,
+    pub changed_at_ms: u64,
 }
 
 /// Disclosure to one private conversation is independent of archive import/read.

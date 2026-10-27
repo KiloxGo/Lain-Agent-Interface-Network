@@ -27,7 +27,8 @@ W1a 已实现选定来源的小批量归档、游标、保留与更正／忘记�
 Codex 可见历史的显式只读接入。W1c 增加独立默认关闭的私聊档案回查授权和旧证据
 失效检查，见[归档](ARCHIVE_ACCEPTANCE.md)、[读取](ARCHIVE_READ_ACCEPTANCE.md)与
 [回查验收](ARCHIVE_RECALL_ACCEPTANCE.md)。W1d 已增加独立 QQ 服务到 Kernel 的显式
-有界读取与来源失效检查，见[桥接验收](KNOWLEDGE_BRIDGE_ACCEPTANCE.md)；持续采集、
+有界读取与来源失效检查，见[桥接验收](KNOWLEDGE_BRIDGE_ACCEPTANCE.md)。W1e 新增默认关闭、
+有限请求数和期限的选定来源同步，见[同步验收](KNOWLEDGE_SYNC_ACCEPTANCE.md)；真实长期采集、
 真实群来源、持久派生认识和长期连续性仍未全部完成。
 
 Lain 是常驻云端、拥有统一身份、持续经历和独立记忆的个人智能体。

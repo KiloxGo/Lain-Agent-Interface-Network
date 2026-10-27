@@ -7,6 +7,23 @@ use std::{io::Read, path::PathBuf};
 
 #[derive(Subcommand)]
 pub enum Commands {
+    KnowledgeSyncGrants {
+        id: ArchiveSourceId,
+    },
+    KnowledgeSync {
+        id: ArchiveSourceId,
+    },
+    /// File selects finite request/interval/expiry scope and current archive revision.
+    KnowledgeSyncEnable {
+        id: ArchiveSourceId,
+        #[arg(long)]
+        file: PathBuf,
+    },
+    KnowledgeSyncRevoke {
+        id: ArchiveSourceId,
+        #[arg(long)]
+        revision: u64,
+    },
     KnowledgeState {
         id: ArchiveSourceId,
     },
@@ -129,6 +146,10 @@ fn file(path: PathBuf) -> Result<Value> {
 }
 pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()> {
     let value:Value=match command {
+        Commands::KnowledgeSyncGrants{id}=>client.get(&format!("v1/archives/sources/{id}/knowledge/sync/grants")).await?,
+        Commands::KnowledgeSync{id}=>client.get(&format!("v1/archives/sources/{id}/knowledge/sync")).await?,
+        Commands::KnowledgeSyncEnable{id,file:p}=>client.post(&format!("v1/archives/sources/{id}/knowledge/sync"),Some(file(p)?)).await?,
+        Commands::KnowledgeSyncRevoke{id,revision}=>client.post(&format!("v1/archives/sources/{id}/knowledge/sync"),Some(json!({"expected_revision":revision,"scope":null}))).await?,
         Commands::KnowledgeState{id}=>client.get(&format!("v1/archives/sources/{id}/knowledge")).await?,
         Commands::KnowledgePull{id,request_id,revision,after,limit}=>client.post(&format!("v1/archives/sources/{id}/knowledge/pull"),Some(json!({"request_id":request_id,"expected_revision":revision,"after":after,"limit":limit}))).await?,
         Commands::RecallGrant{channel}=>client.get(&format!("v1/archives/recall/{channel}")).await?,

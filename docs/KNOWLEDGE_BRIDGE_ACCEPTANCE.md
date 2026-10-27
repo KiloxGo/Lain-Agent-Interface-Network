@@ -1,5 +1,9 @@
 # W1d explicit QQ knowledge archive pulls
 
+W1e now adds a separate finite standing synchronization scope; see
+[current synchronization acceptance](KNOWLEDGE_SYNC_ACCEPTANCE.md). The explicit
+pull evidence and then-remaining synchronization work below describe W1d.
+
 2026-10-27 (Asia/Shanghai). Contract: [ADR 022](adr/022-scoped-knowledge-archive-pulls.md).
 This slice connects one selected independent source to Kernel archives. Continuous
 collection, persistent derived memory and full W1–W4 remain active work.

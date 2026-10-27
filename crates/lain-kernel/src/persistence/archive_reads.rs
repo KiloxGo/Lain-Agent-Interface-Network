@@ -26,6 +26,89 @@ pub(super) fn save(db: &Connection, j: &ArchiveReadJob) -> Result<()> {
     );
     Ok(())
 }
+pub(super) fn admit(
+    db: &Connection,
+    source: ArchiveSourceId,
+    q: ReadArchive,
+    reader: ArchiveReaderKind,
+    reader_revision: Option<String>,
+) -> Result<(ArchiveReadJob, bool)> {
+    if let Some(encoded) = db
+        .query_row(
+            "SELECT snapshot FROM archive_reads WHERE id=?1",
+            [q.request_id.to_string()],
+            |r| r.get::<_, String>(0),
+        )
+        .optional()?
+    {
+        let old: ArchiveReadJob = decode(encoded)?;
+        ensure!(
+            old.source_id == source
+                && old.request == q
+                && old.reader == reader
+                && old.reader_revision == reader_revision,
+            ControlError::Conflict
+        );
+        return Ok((old, false));
+    }
+    let g = archives::grant(db, source)?;
+    ensure!(g.revision == q.expected_revision, ControlError::Conflict);
+    archives::active(&g, now_ms()?)?;
+    ensure!(!db.query_row("SELECT EXISTS(SELECT 1 FROM archive_reads WHERE json_extract(snapshot,'$.state') IN ('prepared','reading'))",[],|r|r.get::<_,bool>(0))?,ControlError::Conflict);
+    ensure!(
+        db.query_row("SELECT count(*) FROM archive_reads", [], |r| r
+            .get::<_, i64>(0))?
+            < 10000,
+        ControlError::Conflict
+    );
+    if let Some(after) = q.after {
+        let previous = job(db, after)?;
+        ensure!(
+            previous.state == ArchiveReadState::Completed
+                && previous.source_id == source
+                && previous.request.expected_revision == g.revision
+                && previous.reader == reader
+                && previous.reader_revision == reader_revision
+                && previous.next == Some(after),
+            ControlError::Conflict
+        );
+    }
+    let j = ArchiveReadJob {
+        reader,
+        reader_revision,
+        sync_revision: None,
+        request: q,
+        source_id: source,
+        state: ArchiveReadState::Prepared,
+        created_at_ms: now_ms()?,
+        started_at_ms: None,
+        finished_at_ms: None,
+        adapter_version: None,
+        record_ids: vec![],
+        new_records: 0,
+        duplicate_records: 0,
+        updated_records: 0,
+        withdrawn_records: 0,
+        omitted_items: 0,
+        waiting_for_source: false,
+        next: None,
+        failure: None,
+        provider_error_code: None,
+        coverage: "bounded_terminal_turn_visible_items_partial_no_participation_claim".into(),
+    };
+    db.execute(
+        "INSERT INTO archive_reads VALUES (?1,?2,?3,NULL)",
+        (
+            j.request.request_id.to_string(),
+            source.to_string(),
+            serde_json::to_string(&j)?,
+        ),
+    )?;
+    if reader == ArchiveReaderKind::Knowledge {
+        db.execute("UPDATE knowledge_sources SET snapshot=json_set(snapshot,'$.fresh_until_ms',0) WHERE source_id=?1",[source.to_string()])?;
+    }
+    Ok((j, true))
+}
 impl Store {
     pub fn archive_read_job(&self, id: RequestId) -> Result<ArchiveReadJob> {
         job(&self.connection, id)
@@ -45,81 +128,9 @@ impl Store {
         reader_revision: Option<String>,
     ) -> Result<(ArchiveReadJob, bool)> {
         let tx = self.connection.transaction()?;
-        if let Some(encoded) = tx
-            .query_row(
-                "SELECT snapshot FROM archive_reads WHERE id=?1",
-                [q.request_id.to_string()],
-                |r| r.get::<_, String>(0),
-            )
-            .optional()?
-        {
-            let old: ArchiveReadJob = decode(encoded)?;
-            ensure!(
-                old.source_id == source
-                    && old.request == q
-                    && old.reader == reader
-                    && old.reader_revision == reader_revision,
-                ControlError::Conflict
-            );
-            return Ok((old, false));
-        }
-        let g = archives::grant(&tx, source)?;
-        ensure!(g.revision == q.expected_revision, ControlError::Conflict);
-        archives::active(&g, now_ms()?)?;
-        ensure!(!tx.query_row("SELECT EXISTS(SELECT 1 FROM archive_reads WHERE json_extract(snapshot,'$.state') IN ('prepared','reading'))",[],|r|r.get::<_,bool>(0))?,ControlError::Conflict);
-        ensure!(
-            tx.query_row("SELECT count(*) FROM archive_reads", [], |r| r
-                .get::<_, i64>(0))?
-                < 10000,
-            ControlError::Conflict
-        );
-        if let Some(after) = q.after {
-            let previous = job(&tx, after)?;
-            ensure!(
-                previous.state == ArchiveReadState::Completed
-                    && previous.source_id == source
-                    && previous.request.expected_revision == g.revision
-                    && previous.reader == reader
-                    && previous.reader_revision == reader_revision
-                    && previous.next == Some(after),
-                ControlError::Conflict
-            );
-        }
-        let j = ArchiveReadJob {
-            reader,
-            reader_revision,
-            request: q,
-            source_id: source,
-            state: ArchiveReadState::Prepared,
-            created_at_ms: now_ms()?,
-            started_at_ms: None,
-            finished_at_ms: None,
-            adapter_version: None,
-            record_ids: vec![],
-            new_records: 0,
-            duplicate_records: 0,
-            updated_records: 0,
-            withdrawn_records: 0,
-            omitted_items: 0,
-            waiting_for_source: false,
-            next: None,
-            failure: None,
-            provider_error_code: None,
-            coverage: "bounded_terminal_turn_visible_items_partial_no_participation_claim".into(),
-        };
-        tx.execute(
-            "INSERT INTO archive_reads VALUES (?1,?2,?3,NULL)",
-            (
-                j.request.request_id.to_string(),
-                source.to_string(),
-                serde_json::to_string(&j)?,
-            ),
-        )?;
-        if reader == ArchiveReaderKind::Knowledge {
-            tx.execute("UPDATE knowledge_sources SET snapshot=json_set(snapshot,'$.fresh_until_ms',0) WHERE source_id=?1",[source.to_string()])?;
-        }
+        let result = admit(&tx, source, q, reader, reader_revision)?;
         tx.commit()?;
-        Ok((j, true))
+        Ok(result)
     }
     pub fn archive_read_claim(
         &mut self,
@@ -129,6 +140,10 @@ impl Store {
         let mut j = job(&tx, id)?;
         ensure!(
             j.state == ArchiveReadState::Prepared,
+            ControlError::Conflict
+        );
+        ensure!(
+            super::knowledge_sync::read_allowed(&tx, &j, now_ms()?)?,
             ControlError::Conflict
         );
         let g = archives::grant(&tx, j.source_id)?;

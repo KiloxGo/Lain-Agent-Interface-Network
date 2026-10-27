@@ -8,7 +8,10 @@ use anyhow::{Result, ensure};
 use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 use rusqlite::{Connection, OptionalExtension};
 
-fn state(db: &Connection, source: ArchiveSourceId) -> Result<Option<KnowledgeArchiveState>> {
+pub(super) fn state(
+    db: &Connection,
+    source: ArchiveSourceId,
+) -> Result<Option<KnowledgeArchiveState>> {
     db.query_row(
         "SELECT snapshot FROM knowledge_sources WHERE source_id=?1",
         [source.to_string()],
@@ -17,6 +20,28 @@ fn state(db: &Connection, source: ArchiveSourceId) -> Result<Option<KnowledgeArc
     .optional()?
     .map(decode)
     .transpose()
+}
+pub(super) fn admit(
+    db: &Connection,
+    source: ArchiveSourceId,
+    q: ReadArchive,
+    revision: String,
+) -> Result<(ArchiveReadJob, bool)> {
+    let exists: bool = db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM archive_reads WHERE id=?1)",
+        [q.request_id.to_string()],
+        |r| r.get(0),
+    )?;
+    if !exists {
+        match state(db, source)? {
+            Some(s) if s.local_grant_revision == q.expected_revision => ensure!(
+                s.reader_revision == revision && q.after == Some(s.last_read),
+                ControlError::Conflict
+            ),
+            _ => ensure!(q.after.is_none(), ControlError::Conflict),
+        }
+    }
+    archive_reads::admit(db, source, q, ArchiveReaderKind::Knowledge, Some(revision))
 }
 pub(super) fn available(db: &Connection, id: ArchiveRecordId, now: u64) -> Result<bool> {
     let linked = db
@@ -82,21 +107,10 @@ impl Store {
         q: ReadArchive,
         revision: String,
     ) -> Result<(ArchiveReadJob, bool)> {
-        let exists: bool = self.connection.query_row(
-            "SELECT EXISTS(SELECT 1 FROM archive_reads WHERE id=?1)",
-            [q.request_id.to_string()],
-            |r| r.get(0),
-        )?;
-        if !exists {
-            match state(&self.connection, source)? {
-                Some(s) if s.local_grant_revision == q.expected_revision => ensure!(
-                    s.reader_revision == revision && q.after == Some(s.last_read),
-                    ControlError::Conflict
-                ),
-                _ => ensure!(q.after.is_none(), ControlError::Conflict),
-            }
-        }
-        self.archive_read_admit_for(source, q, ArchiveReaderKind::Knowledge, Some(revision))
+        let tx = self.connection.transaction()?;
+        let result = admit(&tx, source, q, revision)?;
+        tx.commit()?;
+        Ok(result)
     }
     pub fn knowledge_finish(&mut self, id: RequestId, page: Page) -> Result<ArchiveReadJob> {
         let now = now_ms()?;
@@ -104,6 +118,10 @@ impl Store {
         let mut j = archive_reads::job(&tx, id)?;
         ensure!(
             j.state == ArchiveReadState::Reading && j.reader == ArchiveReaderKind::Knowledge,
+            ControlError::Conflict
+        );
+        ensure!(
+            super::knowledge_sync::read_allowed(&tx, &j, now)?,
             ControlError::Conflict
         );
         let g = archives::grant(&tx, j.source_id)?;

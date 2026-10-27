@@ -20,6 +20,7 @@ mod delegation;
 mod experiences;
 mod inference;
 mod knowledge;
+mod knowledge_sync;
 mod memory;
 pub(crate) mod private_chat;
 mod private_memory;
@@ -27,7 +28,7 @@ mod reading;
 mod share_recall;
 mod sharing;
 mod sources;
-pub(crate) const SCHEMA_VERSION: u32 = 20;
+pub(crate) const SCHEMA_VERSION: u32 = 21;
 
 pub(crate) struct Store {
     connection: Connection,
@@ -195,6 +196,9 @@ impl Store {
         }
         if version < 20 {
             transaction.execute_batch(include_str!("../migrations/020_knowledge_archives.sql"))?;
+        }
+        if version < 21 {
+            transaction.execute_batch(include_str!("../migrations/021_knowledge_sync.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(

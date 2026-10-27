@@ -1,5 +1,14 @@
 # Domain Model
 
+## W1e selected-source network authority — 2026-10-27
+
+KnowledgeSyncGrant retains revisioned finite scope, frozen reader identity, used
+requests, next deadline, last read, pending state and stop reason. Scope binds one
+archive epoch; ArchiveReadJob.sync_revision attributes scheduled receipts. Import,
+private recall and model budgets remain separate. Migration 021 enables nothing.
+See [ADR 023](adr/023-finite-knowledge-synchronization.md).
+
+
 ## W1d independent-source projections — 2026-10-27
 
 ArchiveSourceKey adds QqPrivate. ReadArchive (the ReadWorkerArchive compatibility

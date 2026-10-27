@@ -3,6 +3,36 @@ use crate::{archives, backend::ControlError, domain::now_ms, redaction::Redactor
 use anyhow::{Result, ensure};
 use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 impl Kernel {
+    pub(crate) fn knowledge_sync_grants(
+        &self,
+        id: ArchiveSourceId,
+    ) -> Result<Vec<KnowledgeSyncGrant>> {
+        self.lock()?.store.knowledge_sync_grants(id)
+    }
+    pub(crate) fn knowledge_sync_grant(&self, id: ArchiveSourceId) -> Result<KnowledgeSyncGrant> {
+        self.lock()?.store.knowledge_sync_grant(id)
+    }
+    pub(crate) fn knowledge_sync_set(
+        &self,
+        id: ArchiveSourceId,
+        q: SetKnowledgeSync,
+        reader: Option<String>,
+    ) -> Result<KnowledgeSyncGrant> {
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
+        let g = inner.store.knowledge_sync_set(id, q, reader, now_ms()?)?;
+        let _ = self.archive_events.send(());
+        let _ = self.channel_events.send(());
+        Ok(g)
+    }
+    pub(crate) fn knowledge_sync_plan(
+        &self,
+        reader: Option<String>,
+    ) -> Result<(Option<ArchiveReadJob>, Option<u64>)> {
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
+        inner.store.knowledge_sync_plan(reader, now_ms()?)
+    }
     pub(crate) fn knowledge_state(
         &self,
         id: ArchiveSourceId,
@@ -132,6 +162,7 @@ impl Kernel {
         let g = inner.store.archive_source(j.source_id)?.grant;
         Ok(inner.state == KernelState::Ready
             && j.state == ArchiveReadState::Reading
+            && inner.store.knowledge_read_allowed(&j, now_ms()?)?
             && g.revision == j.request.expected_revision
             && g.scope
                 .is_some_and(|s| s.expires_at_ms > now_ms().unwrap_or(u64::MAX)))

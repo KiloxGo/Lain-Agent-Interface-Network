@@ -30,6 +30,10 @@ class Source:
     def __init__(self, token):
         self.token, self.store_id, self.calls = token, str(uuid.uuid4()), 0
         self.sequence, self.withdrawn, self.caption = 1, False, "synthetic red square"
+        self.record_id = 1
+        self.fail_status = None
+        self.gate = threading.Event()
+        self.gate.set()
         source = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -43,9 +47,15 @@ class Source:
                     self.send_error(403)
                     return
                 source.calls += 1
+                if not source.gate.wait(20):
+                    self.send_error(503)
+                    return
+                if source.fail_status:
+                    self.send_error(source.fail_status)
+                    return
                 after = int(query["after"][0])
                 stamp = int(time.time() * 1000)
-                msg = dict(id=1, source_id="qq:1001:private:2002", external_id="1234", sender="2002", occurred_at_ms=stamp-3000,
+                msg = dict(id=source.record_id, source_id="qq:1001:private:2002", external_id=str(1233+source.record_id), sender="2002", occurred_at_ms=stamp-3000,
                            received_at_ms=stamp-2000, expires_at_ms=source.expires, state="recalled" if source.withdrawn else "active", revision=source.sequence,
                            text=None if source.withdrawn else "synthetic original message",
                            images=[] if source.withdrawn else [dict(id="synthetic-asset", description=source.caption, model="fixture-vision", prompt_revision="v1", state="completed")])
@@ -57,7 +67,10 @@ class Source:
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                self.wfile.write(body)
+                try:
+                    self.wfile.write(body)
+                except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                    pass
 
         self.expires = int(time.time() * 1000)+300000
         self.http = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
@@ -66,6 +79,7 @@ class Source:
         self.endpoint = f"http://127.0.0.1:{self.http.server_port}"
 
     def close(self):
+        self.gate.set()
         self.http.shutdown()
         self.http.server_close()
         self.thread.join(5)
@@ -76,9 +90,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bin-dir", type=Path, required=True)
     parser.add_argument("--cloud-client", type=Path)
+    parser.add_argument("--verify-sync", action="store_true", help="also authorize exactly two scheduled reads of the selected hosted source")
     parser.add_argument("--account", default="1001")
     parser.add_argument("--peer", default="2002")
     args = parser.parse_args()
+    require(not args.verify_sync or args.cloud_client is not None,"--verify-sync requires an explicit cloud client")
     bins = args.bin_dir.resolve()
     for name in ("lain", "laind", "lain-test-app-server"):
         require((bins/executable(name)).is_file(), "build native binaries first")
@@ -161,11 +177,75 @@ def main():
             last,_=pull(withdrawn["request"]["request_id"])
             require(last["new_records"]==0 and smoke.cli("archive","record",record)["text"] is None,"withdrawn copy resurrected")
             smoke.passed("native_caption_update_recall_and_no_resurrection")
+            # The administrator enables a different authority from archive retention.
+            require(smoke.cli("archive","knowledge-sync",source)["scope"] is None,"sync was implicitly enabled")
+            smoke.call("GET",f"/v1/archives/sources/{source}/knowledge/sync",auth=False,expected=401)
+            smoke.call("POST",f"/v1/archives/sources/{source}/knowledge/sync",dict(expected_revision=0,scope=None),auth=False,expected=401)
+            sync_file=root/"sync.json"
+            def enable_sync(revision,maximum=3):
+                sync_file.write_text(json.dumps(dict(expected_revision=revision,scope=dict(archive_revision=1,
+                    expires_at_ms=int(time.time()*1000)+60000,max_requests=maximum,interval_ms=5000,limit=16))),encoding="utf-8")
+                return smoke.cli("archive","knowledge-sync-enable",source,"--file",sync_file)
+            def settled_sync(used):
+                g=smoke.cli("archive","knowledge-sync",source)
+                return g if g["used_requests"]==used and not g["pending"] else None
+            fixture.record_id=2;fixture.sequence=5;fixture.caption="scheduled image observation"
+            before=fixture.calls
+            enable_sync(0)
+            g=smoke.wait(lambda:settled_sync(1),"first scheduled read did not finish")
+            first_sync=smoke.cli("archive","read-job",g["last_read"])
+            scheduled_record=first_sync["record_ids"][0]
+            require(first_sync["sync_revision"]==1 and fixture.calls==before+1,"unattributed or repeated scheduled GET")
+            smoke.stop();smoke.start()
+            require(smoke.cli("archive","knowledge-sync",source)["used_requests"]==1,"restart reset source budget")
+            fixture.sequence=6;fixture.caption="scheduled changed caption"
+            smoke.wait(lambda:settled_sync(2),"second scheduled read did not finish")
+            record=smoke.cli("archive","record",scheduled_record)
+            require(record["revision"]==2 and fixture.caption in record["text"],"scheduled caption update lost")
+            fixture.sequence=7;fixture.withdrawn=True
+            exhausted=smoke.wait(lambda:(g if (g:=settled_sync(3)) and g["stopped"]=="exhausted" else None),"source request budget did not close")
+            require(fixture.calls==before+3 and smoke.cli("archive","record",scheduled_record)["text"] is None,"scheduled withdrawal or exact budget failed")
+            time.sleep(5.3)
+            require(fixture.calls==before+3,"exhausted sync issued another GET")
+            smoke.passed("native_scheduled_updates_withdrawal_restart_and_exact_budget")
+            fixture.gate.clear()
+            enable_sync(exhausted["revision"],2)
+            smoke.wait(lambda:fixture.calls==before+4,"revocation fixture did not enter HTTP")
+            running=smoke.cli("archive","knowledge-sync",source)
+            smoke.cli("archive","knowledge-sync-revoke",source,"--revision",running["revision"])
+            cancelled=smoke.wait(lambda:(j if (j:=smoke.cli("archive","read-job",running["last_read"]))["state"]=="cancelled" else None),"revocation did not cancel scheduled GET")
+            require(cancelled["sync_revision"]==running["revision"],"scheduled receipt lost grant epoch")
+            fixture.gate.set()
+            smoke.stop();smoke.start()
+            require(smoke.cli("archive","knowledge-state",source)["last_read"]==exhausted["last_read"],"revoked read advanced committed cursor")
+            require(smoke.cli("archive","knowledge-sync",source)["scope"] is None and fixture.calls==before+4,"restart replayed revoked synchronization")
+            smoke.passed("native_sync_revoke_cancels_inflight_and_restart_never_replays")
+            fixture.fail_status=503
+            enable_sync(3,2)
+            failed=smoke.wait(lambda:(g if (g:=smoke.cli("archive","knowledge-sync",source))["stopped"]=="read_failed" else None),"HTTP failure did not stop source sync")
+            failure=smoke.cli("archive","read-job",failed["last_read"])
+            require(failed["used_requests"]==1 and failure["state"]=="failed" and failure["provider_error_code"]==503,"failure lost reserved attempt or safe HTTP context")
+            smoke.stop();smoke.start();time.sleep(5.3)
+            require(fixture.calls==before+5 and smoke.cli("archive","knowledge-state",source)["last_read"]==exhausted["last_read"],"failed sync retried or advanced cursor")
+            policies=smoke.cli("archive","knowledge-sync-grants",source)
+            require(len(policies)==4 and sum(g["used_requests"] for g in policies)==5,"policy replacement erased earlier spent reservations")
+            smoke.passed("native_sync_http_failure_preserves_attempt_and_stops_without_retry")
+        elif args.verify_sync:
+            sync_file=root/"hosted-sync.json"
+            sync_file.write_text(json.dumps(dict(expected_revision=0,scope=dict(archive_revision=1,
+                expires_at_ms=int(time.time()*1000)+60000,max_requests=2,interval_ms=5000,limit=16))),encoding="utf-8")
+            smoke.cli("archive","knowledge-sync-enable",source,"--file",sync_file)
+            g=smoke.wait(lambda:(g if (g:=smoke.cli("archive","knowledge-sync",source))["used_requests"]==1 and not g["pending"] else None),"first hosted scheduled read failed")
+            require(smoke.cli("archive","read-job",g["last_read"])["state"]=="completed","first hosted scheduled read not completed")
+            smoke.stop();smoke.start()
+            g=smoke.wait(lambda:(g if (g:=smoke.cli("archive","knowledge-sync",source))["stopped"]=="exhausted" else None),"hosted sync did not exhaust exactly two reads")
+            require(g["used_requests"]==2 and smoke.cli("archive","read-job",g["last_read"])["state"]=="completed","hosted sync counter or final receipt incorrect")
+            smoke.passed("native_hosted_finite_sync_and_restart_preserves_budget")
         require(len(smoke.fixture.requests)==0 and not smoke.fixture.sent and not smoke.cli("work","list"), "pull initiated model QQ send or Work")
         smoke.fixture.healthy()
         smoke.stop()
         with closing(sqlite3.connect(smoke.local/"state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0]==20,"wrong schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0]==21,"wrong schema")
             reads=db.execute("SELECT count(*) FROM archive_reads").fetchone()[0]
             require(all(db.execute("SELECT count(*) FROM "+table).fetchone()[0]==0 for table in ("lain_actor_turns","inference_requests","lain_memories")),"pull created Actor inference or semantic memory")
         result=dict(mode="hosted_read_only" if args.cloud_client else "synthetic", checks=smoke.checks, read_jobs=reads,

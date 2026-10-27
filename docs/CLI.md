@@ -1,5 +1,12 @@
 # CLI-first local development
 
+Selected-source synchronization is separately default-off:
+`lain archive knowledge-sync-enable <source> --file <decision>`,
+`knowledge-sync <source>`, and `knowledge-sync-revoke <source> --revision <n>`.
+The finite JSON scope and stop/usage inspection are documented in
+[W1e operation](KNOWLEDGE_SYNC_ACCEPTANCE.md). No model or Worker runs from it.
+
+
 Independent QQ source pull: `lain archive knowledge-pull <source> --request-id
 <uuid> --revision <n> [--after <last committed receipt>] [--limit 1..32]`.
 Inspect `archive read-job <uuid>` and `archive knowledge-state <source>`. Source,

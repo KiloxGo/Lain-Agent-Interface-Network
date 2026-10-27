@@ -1,5 +1,14 @@
 # Runtime Model
 
+## W1e finite synchronization runtime — 2026-10-27
+
+One nearest-deadline timer wakes only for explicitly enabled source policies or
+archive/shutdown notifications. Owned-slot acquisition precedes atomic request
+reservation/Prepared receipt. Successful completion schedules the next interval;
+failure/Unknown stops, and restart preserves allowance/cursor. Revocation/expiry
+reject late results. See [ADR 023](adr/023-finite-knowledge-synchronization.md).
+
+
 ## W1d explicit source bridge runtime — 2026-10-27
 
 One authenticated command admits a bounded, owned read-only HTTP task. Admission

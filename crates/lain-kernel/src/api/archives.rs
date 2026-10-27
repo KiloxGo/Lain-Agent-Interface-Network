@@ -17,6 +17,14 @@ pub(super) fn routes() -> Router<ApiState> {
         .route("/v1/archives/sources/{id}/read", post(read))
         .route("/v1/archives/sources/{id}/knowledge", get(knowledge_state))
         .route(
+            "/v1/archives/sources/{id}/knowledge/sync/grants",
+            get(knowledge_sync_grants),
+        )
+        .route(
+            "/v1/archives/sources/{id}/knowledge/sync",
+            get(knowledge_sync).post(set_knowledge_sync),
+        )
+        .route(
             "/v1/archives/sources/{id}/knowledge/pull",
             post(knowledge_pull),
         )
@@ -26,6 +34,49 @@ pub(super) fn routes() -> Router<ApiState> {
         .route("/v1/archives/records/{id}/edits", get(edits))
         .route("/v1/archives/records/{id}/forget", post(forget))
         .route("/v1/archives/records/{id}/correct", post(correct))
+}
+async fn knowledge_sync_grants(
+    State(s): State<ApiState>,
+    Path(id): Path<ArchiveSourceId>,
+) -> Result<Json<Vec<KnowledgeSyncGrant>>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.knowledge_sync_grants(id))
+            .await
+            .map_err(control_error)?,
+    )
+}
+async fn knowledge_sync(
+    State(s): State<ApiState>,
+    Path(id): Path<ArchiveSourceId>,
+) -> Result<Json<KnowledgeSyncGrant>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.knowledge_sync_grant(id))
+            .await
+            .map_err(control_error)?,
+    )
+}
+async fn set_knowledge_sync(
+    State(s): State<ApiState>,
+    Path(id): Path<ArchiveSourceId>,
+    Json(q): Json<SetKnowledgeSync>,
+) -> Result<Json<KnowledgeSyncGrant>, ApiError> {
+    let revision = if q.scope.is_some() {
+        Some(
+            crate::knowledge::Config::load()
+                .map_err(control_error)?
+                .revision(),
+        )
+    } else {
+        None
+    };
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.knowledge_sync_set(id, q, revision))
+            .await
+            .map_err(control_error)?,
+    )
 }
 async fn knowledge_state(
     State(s): State<ApiState>,

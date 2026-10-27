@@ -1,5 +1,13 @@
 # Architecture
 
+## W1e finite source synchronization — 2026-10-27
+
+An independently enabled per-source finite GET policy reuses the archive reader,
+durable receipts and source projections. One persisted timer and owned slot admit
+attempts atomically with usage. Failed/uncertain work stops without replay. No
+generic scheduler or model loop. See [ADR 023](adr/023-finite-knowledge-synchronization.md).
+
+
 ## W1d independent-source bridge — 2026-10-27
 
 An explicit scoped HTTP pull reuses Kernel archive receipts, with separate reader

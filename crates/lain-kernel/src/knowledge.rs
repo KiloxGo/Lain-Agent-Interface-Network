@@ -1,4 +1,4 @@
-//! One explicitly selected read-only source pull. No model or ongoing collector.
+//! Selected read-only pulls and independently granted finite source synchronization.
 use crate::{
     archives,
     backend::ControlError,
@@ -20,7 +20,7 @@ pub(crate) struct Config {
     pub secret_ref: SecretRef,
 }
 impl Config {
-    fn load() -> Result<Self> {
+    pub(crate) fn load() -> Result<Self> {
         let path = std::env::var_os("LAIN_KNOWLEDGE_CONFIG").ok_or(ControlError::Unavailable)?;
         let f = std::fs::File::open(path).map_err(|_| ControlError::Unavailable)?;
         ensure!(
@@ -334,37 +334,58 @@ async fn start_resolved(
     let revision = c.revision();
     let (job, fresh) = blocking(&k, move |k| k.knowledge_admit(source, q, revision)).await?;
     if fresh {
-        let permit = k.knowledge_slot.clone().try_acquire_owned();
-        let id = job.request.request_id;
-        let Ok(permit) = permit else {
-            return blocking(&k, move |k| {
-                k.archive_read_fail(
-                    id,
-                    ArchiveReadState::Failed,
-                    ArchiveReadFailure::Unavailable,
-                    None,
-                )
-            })
-            .await;
-        };
-        tokio::spawn(async move {
-            let _permit = permit;
-            let result = run(&k, id, &c, &r, &credential).await;
-            if let Err(error) = result {
-                let reason = match error.downcast_ref::<ControlError>() {
-                    Some(ControlError::InvalidInput) => ArchiveReadFailure::InvalidContent,
-                    Some(ControlError::Conflict) => ArchiveReadFailure::ScopeChanged,
-                    _ => ArchiveReadFailure::Unavailable,
-                };
-                let code = error.downcast_ref::<HttpRejected>().map(|e| i64::from(e.0));
-                let _ = blocking(&k, move |k| {
-                    k.archive_read_fail(id, ArchiveReadState::Failed, reason, code)
-                })
-                .await;
-            }
-        });
+        launch(k, job.clone(), r, c, credential).await;
     }
     Ok(job)
+}
+async fn launch(
+    k: Arc<Kernel>,
+    job: ArchiveReadJob,
+    r: Redactor,
+    c: Config,
+    credential: SecretValue,
+) {
+    let permit = k.knowledge_slot.clone().try_acquire_owned();
+    let id = job.request.request_id;
+    let Ok(permit) = permit else {
+        let _ = blocking(&k, move |k| {
+            k.archive_read_fail(
+                id,
+                ArchiveReadState::Failed,
+                ArchiveReadFailure::Unavailable,
+                None,
+            )
+        })
+        .await;
+        return;
+    };
+    launch_owned(k, job, r, c, credential, permit);
+}
+fn launch_owned(
+    k: Arc<Kernel>,
+    job: ArchiveReadJob,
+    r: Redactor,
+    c: Config,
+    credential: SecretValue,
+    permit: tokio::sync::OwnedSemaphorePermit,
+) {
+    let id = job.request.request_id;
+    tokio::spawn(async move {
+        let _permit = permit;
+        let result = run(&k, id, &c, &r, &credential).await;
+        if let Err(error) = result {
+            let reason = match error.downcast_ref::<ControlError>() {
+                Some(ControlError::InvalidInput) => ArchiveReadFailure::InvalidContent,
+                Some(ControlError::Conflict) => ArchiveReadFailure::ScopeChanged,
+                _ => ArchiveReadFailure::Unavailable,
+            };
+            let code = error.downcast_ref::<HttpRejected>().map(|e| i64::from(e.0));
+            let _ = blocking(&k, move |k| {
+                k.archive_read_fail(id, ArchiveReadState::Failed, reason, code)
+            })
+            .await;
+        }
+    });
 }
 async fn run(
     k: &Arc<Kernel>,
@@ -387,9 +408,27 @@ async fn run(
         .transpose()
         .map_err(|_| ControlError::Conflict)?
         .unwrap_or(0);
+    let expiry = if job.sync_revision.is_some() {
+        blocking(k, move |k| k.knowledge_sync_grant(job.source_id))
+            .await?
+            .scope
+            .map(|s| s.expires_at_ms)
+    } else {
+        None
+    };
     let invalid = async {
         loop {
-            let _ = changes.recv().await;
+            let timer = async {
+                if let Some(expiry) = expiry {
+                    tokio::time::sleep(Duration::from_millis(
+                        expiry.saturating_sub(crate::domain::now_ms().unwrap_or(u64::MAX)),
+                    ))
+                    .await;
+                } else {
+                    std::future::pending::<()>().await;
+                }
+            };
+            tokio::select! { _=changes.recv()=>{}, _=timer=>{} }
             if !blocking(k, move |k| k.archive_read_current(id))
                 .await
                 .unwrap_or(false)
@@ -407,6 +446,55 @@ async fn run(
     blocking(k, move |k| k.knowledge_finish(id, page, redactor)).await?;
     Ok(())
 }
+/// One timer for persisted source grants. No generic scheduler or model polling.
+pub async fn maintain(k: Arc<Kernel>, actor: Arc<crate::actor::Actor>) {
+    let r = actor.source_redactor();
+    let mut changes = k.subscribe_archives();
+    let mut shutdown = k.subscribe_shutdown();
+    loop {
+        if *shutdown.borrow() {
+            return;
+        }
+        // Admission must not spend a request while a just-completed read still
+        // owns its runtime slot. Wait for ownership, not a polling retry.
+        let permit = tokio::select! {
+            p=k.knowledge_slot.clone().acquire_owned()=>match p {Ok(p)=>p,Err(_)=>return},
+            _=shutdown.changed()=>{return;}
+        };
+        // Configuration changes stop the selected scope instead of silently moving it.
+        let selected = Config::load()
+            .and_then(|c| {
+                let key = resolve_secret(&c.secret_ref).map_err(|_| ControlError::Unavailable)?;
+                archives::safe(&c.endpoint, &r.for_runtime(Some(&key)))?;
+                Ok((c, key))
+            })
+            .ok();
+        let revision = selected.as_ref().map(|(c, _)| c.revision());
+        let (job, deadline) = match blocking(&k, move |k| k.knowledge_sync_plan(revision)).await {
+            Ok(plan) => plan,
+            Err(_) => {
+                tracing::error!("knowledge synchronization stopped; inspect durable source state");
+                return;
+            }
+        };
+        if let Some(job) = job {
+            let Some((c, key)) = selected else { return };
+            launch_owned(k.clone(), job, r.clone(), c, key, permit);
+        } else {
+            drop(permit);
+        }
+        let timer = async {
+            if let Some(deadline) = deadline {
+                let now = crate::domain::now_ms().unwrap_or(0);
+                tokio::time::sleep(Duration::from_millis(deadline.saturating_sub(now))).await;
+            } else {
+                std::future::pending::<()>().await;
+            }
+        };
+        tokio::select! {_=timer=>{},_=changes.recv()=>{},_=shutdown.changed()=>{}}
+    }
+}
+
 pub async fn drain(k: &Arc<Kernel>) -> Result<()> {
     let _ = tokio::time::timeout(Duration::from_secs(16), k.knowledge_slot.acquire())
         .await

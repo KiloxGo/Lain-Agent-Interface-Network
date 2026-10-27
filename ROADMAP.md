@@ -13,8 +13,8 @@ goal. The standalone source service and selected private read observer are now
 implemented/deployed; actual hosted HTTPS storage and one real synthetic-image
 provider round trip passed. Native Windows/server Linux service tests pass.
 See [ADR 019](docs/adr/019-independent-qq-knowledge-service.md) and
-[evidence/remaining integration](docs/QQ_KNOWLEDGE_ACCEPTANCE.md). Actual QQ-image
-coverage, source-to-Kernel continuity and Apple UI remain separately unverified.
+[evidence/remaining integration](docs/QQ_KNOWLEDGE_ACCEPTANCE.md). W1e adds explicit finite standing source sync ([acceptance](docs/KNOWLEDGE_SYNC_ACCEPTANCE.md)).
+Actual QQ-image coverage, durable derived continuity and Apple UI remain separately unverified.
 No group, personal-memory grant, old DB cloud migration or Worker control is implied.
 
 D3's targeted real follow-up repaired private correction/forget and source format;

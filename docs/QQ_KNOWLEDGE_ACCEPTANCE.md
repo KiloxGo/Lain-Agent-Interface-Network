@@ -1,8 +1,10 @@
 # Independent QQ knowledge service acceptance
 
-2026-10-27 W1d update: the additive, source-specific export and explicit Kernel
-archive bridge are deployed and verified. See
-[W1d acceptance](KNOWLEDGE_BRIDGE_ACCEPTANCE.md) for current evidence and limits.
+2026-10-27 W1d/W1e update: the additive source-specific service export is deployed;
+explicit Kernel pulls and finite synchronization are verified in isolated native
+instances. The personal Kernel was not upgraded. See
+[W1d acceptance](KNOWLEDGE_BRIDGE_ACCEPTANCE.md) and
+[W1e acceptance](KNOWLEDGE_SYNC_ACCEPTANCE.md) for current evidence and limits.
 The original service acceptance below remains historical; its test counts and
 then-pending Kernel integration are not the current W1d status.
 

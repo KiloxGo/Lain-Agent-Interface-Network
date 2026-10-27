@@ -10,6 +10,18 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-27 — W1e finite selected-source synchronization
+
+Continued from pushed `666d1fc`. Added separately enabled source/archive-epoch
+network scopes, retained revision/usage snapshots, atomic attempt/Prepared read
+admission, persisted nearest-deadline scheduling and existing source cursor/update/
+withdrawal handling. Restart preserves spent attempts; failed/unknown reads stop,
+and revoke/expiry block late commits. Migration 021 enables nothing by default.
+No generic scheduler, model calls or personal-instance upgrade is introduced.
+
+Validation and current limits: [KNOWLEDGE_SYNC_ACCEPTANCE](docs/KNOWLEDGE_SYNC_ACCEPTANCE.md).
+Durable derived continuity and the rest of the combined goal remain active work.
+
 ## 2026-10-27 — W1d explicit independent QQ source bridge
 
 Continued from pushed `d954c80`. Added persistent independent store identity and
