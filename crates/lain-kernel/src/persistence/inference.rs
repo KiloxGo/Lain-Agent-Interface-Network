@@ -247,6 +247,10 @@ impl Store {
     pub fn begin_inference(&mut self, id: ActorTurnId, n: u32) -> Result<()> {
         let t = self.actor_turn(id)?;
         ensure!(
+            super::archive_recall::selected_current(&self.connection, &t)?,
+            super::private_chat::ChangedChatMemory
+        );
+        ensure!(
             t.state == TurnState::Running && t.model_requests == n,
             ControlError::Conflict
         );

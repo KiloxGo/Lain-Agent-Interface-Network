@@ -1,11 +1,22 @@
 # Lain Memory
 
+## W1c archive conversation evidence — 2026-10-27
+
+Private archive recall now requires its own finite selected-source grant and
+fresh version checks; it does not select semantic memory. Archive-influenced
+turns cannot propose/remember/correct memory until durable derived provenance is
+implemented. Later model history and private source projections exclude derived
+answer bodies; correction/forget/revoke invalidate unsent citations. Canonical
+past conversation/delivery records and backups have separate retention, not a
+secure-erasure promise. See [ADR 021](adr/021-scoped-archive-conversation-recall.md).
+
 ## W1a source archive separation — 2026-10-26
 
 Selected visible archives have an explicit owner-import foundation (schema 17).
 Import/correction/tombstones create no semantic memory, experience or managed
-Worker. Archive bodies do not enter model context automatically; typed disclosure
-and derived invalidation remain W1 work. See [ADR 018](adr/018-selected-visible-source-archives.md).
+Worker. Archive bodies do not enter model context automatically; W1c adds the
+independently granted typed recall above, while persistent derived memory remains
+W1 work. See [ADR 018](adr/018-selected-visible-source-archives.md).
 
 ## D3 live regression repair — 2026-10-26
 

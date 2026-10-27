@@ -111,6 +111,10 @@ pub enum Sandbox {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "name", content = "arguments", deny_unknown_fields)]
 pub enum ToolCall {
+    #[serde(rename = "archive.search")]
+    ArchiveSearch(archives::ArchiveRecallQuery),
+    #[serde(rename = "archive.inspect")]
+    ArchiveInspect { record_id: ArchiveRecordId },
     #[serde(rename = "sharing.search")]
     SharingSearch(sharing::ShareQuery),
     #[serde(rename = "sharing.inspect")]
@@ -441,6 +445,8 @@ mod tests {
             experience_versions: vec![],
             experience_grant_revision: None,
             share_versions: vec![],
+            archive_recall_revision: None,
+            archive_versions: vec![],
         });
         assert!(turn.validate().is_ok());
         turn.private_chat.as_mut().unwrap().waits = 2;

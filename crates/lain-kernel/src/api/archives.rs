@@ -4,6 +4,11 @@ use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 pub(super) fn routes() -> Router<ApiState> {
     Router::new()
         .route("/v1/archives/sources", get(list).post(register))
+        .route(
+            "/v1/archives/recall/{id}",
+            get(recall_grant).post(recall_set),
+        )
+        .route("/v1/archives/recall/{id}/reads", get(recall_audit))
         .route("/v1/archives/sources/{id}", get(source))
         .route("/v1/archives/sources/{id}/grant", post(set_grant))
         .route("/v1/archives/sources/{id}/grants", get(grants))
@@ -16,6 +21,46 @@ pub(super) fn routes() -> Router<ApiState> {
         .route("/v1/archives/records/{id}/edits", get(edits))
         .route("/v1/archives/records/{id}/forget", post(forget))
         .route("/v1/archives/records/{id}/correct", post(correct))
+}
+async fn recall_grant(
+    State(s): State<ApiState>,
+    Path(id): Path<lain_wire::ChannelId>,
+) -> Result<Json<ArchiveRecallGrant>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.archive_recall_grant(id))
+            .await
+            .map_err(control_error)?,
+    )
+}
+async fn recall_set(
+    State(s): State<ApiState>,
+    Path(id): Path<lain_wire::ChannelId>,
+    Json(q): Json<SetArchiveRecall>,
+) -> Result<Json<ArchiveRecallGrant>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.archive_recall_set(id, q))
+            .await
+            .map_err(control_error)?,
+    )
+}
+#[derive(serde::Deserialize)]
+struct RecallAfter {
+    #[serde(default)]
+    after: u64,
+}
+async fn recall_audit(
+    State(s): State<ApiState>,
+    Path(id): Path<lain_wire::ChannelId>,
+    Query(q): Query<RecallAfter>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.archive_recall_audit(id, q.after))
+            .await
+            .map_err(control_error)?,
+    )
 }
 async fn cancel_read(
     State(s): State<ApiState>,

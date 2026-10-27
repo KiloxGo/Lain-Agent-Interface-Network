@@ -1,5 +1,15 @@
 # Domain Model
 
+## W1c archive recall — 2026-10-27
+
+ArchiveRecallGrant belongs to one ChannelId independently of archive storage and
+reply/semantic-memory authority. Scope selects source/import revisions, finite
+expiry and explicit UTC offset. ArchiveRecallQuery bounds source/time/literal
+topic/count; PrivateChatContext keeps recall revision and ArchiveRecallVersion
+record/source epochs. Audits contain IDs/versions/operation time only. Observed
+reports retain original occurrence claims, receipt time, origin and excerpt bounds.
+See [ADR 021](adr/021-scoped-archive-conversation-recall.md).
+
 ## W1b explicit source-read receipts — 2026-10-27
 
 ReadWorkerArchive binds an immutable administrator request to ArchiveSourceId,

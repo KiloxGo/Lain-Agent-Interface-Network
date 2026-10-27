@@ -212,3 +212,58 @@ pub struct ArchiveReadJob {
     pub provider_error_code: Option<i64>,
     pub coverage: String,
 }
+
+/// Disclosure to one private conversation is independent of archive import/read.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchiveRecallSource {
+    pub source_id: ArchiveSourceId,
+    pub grant_revision: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchiveRecallScope {
+    pub sources: Vec<ArchiveRecallSource>,
+    pub expires_at_ms: u64,
+    pub utc_offset_minutes: i16,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveRecallGrant {
+    pub channel_id: crate::ChannelId,
+    pub revision: u64,
+    pub scope: Option<ArchiveRecallScope>,
+    pub changed_at_ms: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SetArchiveRecall {
+    pub expected_revision: u64,
+    pub scope: Option<ArchiveRecallScope>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchiveRecallQuery {
+    pub source_id: Option<ArchiveSourceId>,
+    pub from_ms: u64,
+    pub to_ms: u64,
+    pub text: Option<String>,
+    pub limit: u16,
+}
+impl ArchiveRecallQuery {
+    pub fn valid(&self) -> bool {
+        self.from_ms < self.to_ms
+            && self.to_ms <= i64::MAX as u64
+            && self.to_ms - self.from_ms <= 31 * 86400000
+            && (1..=3).contains(&self.limit)
+            && self.text.as_ref().is_none_or(|s| {
+                !s.trim().is_empty() && s.len() <= 256 && !s.chars().any(char::is_control)
+            })
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveRecallVersion {
+    pub record_id: ArchiveRecordId,
+    pub revision: u64,
+    pub source_id: ArchiveSourceId,
+    pub source_grant_revision: u64,
+}

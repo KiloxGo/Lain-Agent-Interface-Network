@@ -1,5 +1,14 @@
 # Runtime Model
 
+## W1c archive conversation recall — 2026-10-27
+
+Explicit private tools select up to three stored reports; lookup/audit and Actor
+versions commit together. Further requests project fresh bounded evidence, with
+an archive freshness check at adapter entry and existing response/commit/prewrite
+guards. New-input reconsideration clears selections without resetting budgets;
+later history cannot replay archive-derived bodies. No new idle/background model,
+collection or source-control path. See [ADR 021](adr/021-scoped-archive-conversation-recall.md).
+
 ## W1b read-only archive operations — 2026-10-27
 
 Explicit authenticated admission commits an immutable source/revision receipt

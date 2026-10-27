@@ -1,5 +1,15 @@
 # Configuration and Runtime Profiles
 
+## W1c archive conversation recall — 2026-10-27
+
+Configure through authenticated `archive recall-enable <channel> --file <decision>`;
+there is no global model/collection switch. The revisioned finite decision selects
+at most eight exact archive source/import epochs and one private binding, with
+explicit UTC offset. Old/new bindings remain disabled until that decision. Storage,
+recall, memory, contact and Worker permissions remain independent. Source revoke/
+regrant does not silently refresh the selected recall epoch. See
+[ADR 021](adr/021-scoped-archive-conversation-recall.md).
+
 ## W1b visible archive read selection — 2026-10-27
 
 An explicit read selects the daemon's native Codex executable and local CODEX_HOME,

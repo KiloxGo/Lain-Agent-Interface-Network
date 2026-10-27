@@ -7,6 +7,25 @@ use std::{io::Read, path::PathBuf};
 
 #[derive(Subcommand)]
 pub enum Commands {
+    RecallGrant {
+        channel: lain_wire::ChannelId,
+    },
+    /// File contains expected_revision and a finite selected-source recall scope.
+    RecallEnable {
+        channel: lain_wire::ChannelId,
+        #[arg(long)]
+        file: PathBuf,
+    },
+    RecallRevoke {
+        channel: lain_wire::ChannelId,
+        #[arg(long)]
+        revision: u64,
+    },
+    RecallReads {
+        channel: lain_wire::ChannelId,
+        #[arg(long, default_value_t = 0)]
+        after: u64,
+    },
     /// One explicit local Codex visible-history page; no background collection.
     Read {
         id: ArchiveSourceId,
@@ -96,6 +115,10 @@ fn file(path: PathBuf) -> Result<Value> {
 }
 pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()> {
     let value:Value=match command {
+        Commands::RecallGrant{channel}=>client.get(&format!("v1/archives/recall/{channel}")).await?,
+        Commands::RecallEnable{channel,file:p}=>client.post(&format!("v1/archives/recall/{channel}"),Some(file(p)?)).await?,
+        Commands::RecallRevoke{channel,revision}=>client.post(&format!("v1/archives/recall/{channel}"),Some(json!({"expected_revision":revision,"scope":null}))).await?,
+        Commands::RecallReads{channel,after}=>client.get(&format!("v1/archives/recall/{channel}/reads?after={after}")).await?,
         Commands::Read{id,request_id,revision,after,limit}=>client.post(&format!("v1/archives/sources/{id}/read"),Some(json!({"request_id":request_id,"expected_revision":revision,"after":after,"limit":limit}))).await?,
         Commands::ReadJob{id}=>client.get(&format!("v1/archives/reads/{id}")).await?,
         Commands::CancelRead{id}=>client.post(&format!("v1/archives/reads/{id}/cancel"),None).await?,

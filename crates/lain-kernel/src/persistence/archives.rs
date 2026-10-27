@@ -7,7 +7,7 @@ fn sql(n: u64) -> Result<i64> {
     i64::try_from(n).map_err(|_| ControlError::InvalidInput.into())
 }
 
-fn source(db: &Connection, id: ArchiveSourceId) -> Result<ArchiveSource> {
+pub(super) fn source(db: &Connection, id: ArchiveSourceId) -> Result<ArchiveSource> {
     decode(
         db.query_row(
             "SELECT snapshot FROM archive_sources WHERE id=?1",
@@ -43,7 +43,7 @@ pub(super) fn active(g: &ArchiveGrant, now: u64) -> Result<&ArchiveScope> {
         .filter(|s| now < s.expires_at_ms)
         .ok_or(ControlError::Conflict.into())
 }
-fn record(db: &Connection, id: ArchiveRecordId) -> Result<ArchiveRecord> {
+pub(super) fn record(db: &Connection, id: ArchiveRecordId) -> Result<ArchiveRecord> {
     decode(
         db.query_row(
             "SELECT snapshot FROM archive_records WHERE id=?1",

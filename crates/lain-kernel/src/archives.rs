@@ -117,4 +117,7 @@ pub async fn maintain(kernel: Arc<Kernel>) {
     }
 }
 #[cfg(test)]
+#[path = "archives/recall_actor_tests.rs"]
+mod recall_actor;
+#[cfg(test)]
 mod tests;

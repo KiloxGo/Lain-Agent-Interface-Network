@@ -3,6 +3,55 @@ use crate::{archives, backend::ControlError, domain::now_ms, redaction::Redactor
 use anyhow::{Result, ensure};
 use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 impl Kernel {
+    pub(crate) fn archive_recall_grant(
+        &self,
+        id: lain_wire::ChannelId,
+    ) -> Result<ArchiveRecallGrant> {
+        self.lock()?.store.archive_recall_grant(id)
+    }
+    pub(crate) fn archive_recall_set(
+        &self,
+        id: lain_wire::ChannelId,
+        q: SetArchiveRecall,
+    ) -> Result<ArchiveRecallGrant> {
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
+        let g = inner.store.archive_recall_set(id, q)?;
+        let _ = self.channel_events.send(());
+        Ok(g)
+    }
+    pub(crate) fn archive_recall_audit(
+        &self,
+        id: lain_wire::ChannelId,
+        after: u64,
+    ) -> Result<serde_json::Value> {
+        self.lock()?.store.archive_recall_audit(id, after)
+    }
+    pub(crate) fn archive_actor_scope(
+        &self,
+        id: lain_wire::ActorTurnId,
+        r: Redactor,
+    ) -> Result<serde_json::Value> {
+        let data = self.lock()?.store.archive_actor_scope(id)?;
+        archives::safe(&data, &r)?;
+        Ok(data)
+    }
+    pub(crate) fn archive_actor_lookup(
+        &self,
+        id: lain_wire::ActorTurnId,
+        action: lain_wire::ActionId,
+        r: Redactor,
+    ) -> Result<serde_json::Value> {
+        self.lock()?.store.archive_actor_lookup(id, action, &r)
+    }
+    pub(crate) fn archive_actor_disclosure(
+        &self,
+        id: lain_wire::ActorTurnId,
+        request: u32,
+        r: Redactor,
+    ) -> Result<serde_json::Value> {
+        self.lock()?.store.archive_actor_disclosure(id, request, &r)
+    }
     pub(crate) fn archive_read_admit(
         &self,
         id: ArchiveSourceId,

@@ -2,6 +2,8 @@ use super::*;
 use crate::actor::domain::Action;
 use crate::memory::*;
 use lain_wire::source::{InspectSource, SetSourceGrant, SourceWindow};
+#[path = "archive_recall_tests.rs"]
+mod archive_recall;
 
 fn setup(text: &str) -> (tempfile::TempDir, Store, Binding, Batch, ActorTurn) {
     let dir = tempfile::tempdir().unwrap();
@@ -412,7 +414,7 @@ fn schema_ten_upgrade_adds_only_the_input_index_and_preserves_old_actor_snapshot
         )
         .unwrap();
     s.connection
-        .execute_batch("DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP INDEX channel_incoming_batch; PRAGMA user_version=10;")
+        .execute_batch("DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP INDEX channel_incoming_batch; PRAGMA user_version=10;")
         .unwrap();
     drop(s);
     let s = Store::open(&dir.path().join("chat.db")).unwrap();

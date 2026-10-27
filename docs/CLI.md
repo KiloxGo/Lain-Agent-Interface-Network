@@ -1,5 +1,13 @@
 # CLI-first local development
 
+Archive conversation disclosure is independent of import/read authorization:
+`lain archive recall-grant <channel>`, `recall-enable <channel> --file <decision>`,
+`recall-revoke <channel> --revision <n>`, and `recall-reads <channel> --after <seq>`.
+Decision JSON contains `expected_revision` and optional `scope` with at most eight
+exact `{source_id,grant_revision}` pairs in `sources`, finite `expires_at_ms` and
+explicit `utc_offset_minutes`. No source collector or model runs from enabling it.
+See [five-step operation/limits](ARCHIVE_RECALL_ACCEPTANCE.md).
+
 ## Explicit visible Worker archive reads — 2026-10-27
 
 After registering a local CodexSession source and explicitly enabling finite

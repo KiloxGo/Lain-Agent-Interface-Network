@@ -901,7 +901,8 @@ impl Kernel {
             crate::backend::ControlError::InvalidInput
         );
         if turn.private_chat.as_ref().is_some_and(|c| {
-            c.experience_grant_revision.is_some()
+            c.archive_recall_revision.is_some()
+                || c.experience_grant_revision.is_some()
                 || c.share_versions.iter().any(|v| v.experience.is_some())
         }) {
             for action in turn.actions.iter().skip(old_actions) {

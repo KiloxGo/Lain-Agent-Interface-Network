@@ -1,5 +1,14 @@
 # Architecture
 
+## W1c private archive disclosure — 2026-10-27
+
+A separate default-off private-binding recall grant selects exact archive source/
+import epochs. Typed Actor search/inspect reads bounded stored reports; fresh
+versions/audits and existing private response/commit/send gates prevent stale
+disclosure. Derived answers are excluded from later model/source history and
+cannot silently become memory. Migration 019 creates no enabled scope or collector.
+See [ADR 021](adr/021-scoped-archive-conversation-recall.md).
+
 ## W1b selected visible Worker reads — 2026-10-27
 
 One explicit administrator command can now use the isolated Codex read adapter to

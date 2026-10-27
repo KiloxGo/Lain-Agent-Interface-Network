@@ -50,8 +50,11 @@ default-off per-source scope, sequence cursors, bounded retention and corrective
 operation receipts ([ADR 018](docs/adr/018-selected-visible-source-archives.md)).
 The separate selected QQ source service is deployed; W1b now adds explicit native
 Codex visible-page reads and atomic archive receipts ([read acceptance](docs/ARCHIVE_READ_ACCEPTANCE.md)).
-Source-to-Actor continuity/derived invalidation and ongoing collector decisions
-remain W1 work. W2–W4 and full-stage exit criteria remain open.
+W1c now adds independent private-binding archive recall, fresh source/record
+versions and stale derived-answer suppression ([recall acceptance](docs/ARCHIVE_RECALL_ACCEPTANCE.md)).
+Independent QQ service-to-Kernel ingestion, persistent derived summaries/memory
+and ongoing collector decisions remain W1 work. W2–W4 and full-stage exit criteria
+remain open.
 
 ## Current direction — QQ companionship first
 

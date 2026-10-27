@@ -117,7 +117,8 @@ pub(super) fn check_current(db: &Connection, t: &ActorTurn) -> Result<()> {
     Ok(())
 }
 pub(super) fn memory_current(db: &Connection, t: &ActorTurn) -> Result<bool> {
-    if !super::experiences::selected_current(db, t)?
+    if !super::archive_recall::selected_current(db, t)?
+        || !super::experiences::selected_current(db, t)?
         || !super::share_recall::selected_current(db, t)?
     {
         return Ok(false);
@@ -233,6 +234,8 @@ impl Store {
             source_versions: vec![],
             experience_versions: vec![],
             experience_grant_revision: None,
+            archive_recall_revision: None,
+            archive_versions: vec![],
             share_versions: vec![],
         })
     }
@@ -314,6 +317,8 @@ impl Store {
         c.wait_until_ms = None;
         c.memory_versions.clear();
         c.source_versions.clear();
+        c.archive_recall_revision = None;
+        c.archive_versions.clear();
         c.experience_versions.clear();
         c.experience_grant_revision = None;
         c.share_versions.clear();

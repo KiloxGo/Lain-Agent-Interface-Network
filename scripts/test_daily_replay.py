@@ -11,9 +11,12 @@ import uuid
 from acceptance_files import protect_directory
 from daily_replay import ROOT, Replay, authorized_config, digest, executable, new_campaign, observations, run, write_json
 
+BINS = Path(os.environ.get("LAIN_TEST_BIN_DIR", ROOT / "target/q2a/debug"))
+
 
 class Boundaries(unittest.TestCase):
     def setUp(self):
+        (ROOT / "target").mkdir(exist_ok=True)
         self.temporary = tempfile.TemporaryDirectory(prefix="replay-unit-", dir=ROOT / "target")
         self.root = Path(self.temporary.name)
         protect_directory(self.root)
@@ -118,13 +121,13 @@ class Boundaries(unittest.TestCase):
             replay.fixture.close()
 
 
-@unittest.skipUnless((ROOT / "target/q2a/debug" / executable("laind")).exists(), "build native binaries first")
+@unittest.skipUnless((BINS / executable("laind")).exists(), "build native binaries first")
 class NativeReplay(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="replay-native-", dir=ROOT / "target")
         self.root = Path(self.temporary.name)
         protect_directory(self.root)
-        self.bins = ROOT / "target/q2a/debug"
+        self.bins = BINS
 
     def tearDown(self):
         self.assertTrue(self.root.resolve().is_relative_to((ROOT / "target").resolve()))

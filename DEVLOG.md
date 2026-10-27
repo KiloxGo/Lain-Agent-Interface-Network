@@ -10,6 +10,29 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-27 — W1c selected archive conversation recall
+
+Continued after pushing W1b (`2f7a3eb`) to both development branch and main. Added
+an independent default-off finite private-binding archive recall decision,
+selected source/import epochs, typed archive search/inspect and fresh attributed
+excerpts. Migration 019 enables nothing on existing instances. Source archive
+storage is still independent of semantic memory, actual experiences and control.
+
+Lookup selections/audit commit atomically; version checks cover source/recall
+revoke/expiry, record correction/forget/retention and model adapter admission,
+response, completion and delivery. Empty results retain authorization dependency.
+New-input reconsideration clears selection without resetting budgets; later
+model/source history cannot replay derived answers. Archive-influenced memory
+proposal/remember/correct is blocked pending durable derived-memory provenance.
+
+Seven new domain/Actor regressions and an extended native CLI/HTTP/model-SSE/
+OneBot fixture exercise three-day recall, restart, correction, forget and revoke.
+Final validation evidence/remaining limits are in
+[ARCHIVE_RECALL_ACCEPTANCE](docs/ARCHIVE_RECALL_ACCEPTANCE.md). All this slice's
+model responses are fixtures; no old paid budget or personal migration is reused.
+Independent QQ ingestion into Kernel, persistent derived summaries/recognition,
+actual source collection, long-term naturalness and W2–W4 remain active work.
+
 ## 2026-10-27 — W1b explicit native visible Worker archive reads
 
 Added source/revision-scoped read receipts and explicit CLI/API operations for
