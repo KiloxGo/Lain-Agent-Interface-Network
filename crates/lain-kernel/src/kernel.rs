@@ -89,6 +89,7 @@ impl Kernel {
         store.recover_sharing()?;
         store.recover_inference()?;
         store.archive_prune(crate::domain::now_ms()?)?;
+        store.archive_read_recover()?;
         tracing::info!(state = ?KernelState::Recovering, "recovering sessions");
         let (sessions, workers) = store.recover().context("recover Kernel state")?;
         tracing::info!(sessions = sessions.len(), "session recovery committed");

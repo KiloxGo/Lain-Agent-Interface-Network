@@ -19,6 +19,12 @@ pub(super) struct CodexLaunchSpec {
     credential: Option<SecretValue>,
 }
 impl CodexLaunchSpec {
+    pub(super) fn observation() -> Self {
+        Self {
+            config: vec!["analytics.enabled=false".into()],
+            credential: None,
+        }
+    }
     pub fn new(profile: &ResolvedRuntimeProfile, credential: Option<SecretValue>) -> Result<Self> {
         profile.validate()?;
         ensure!(

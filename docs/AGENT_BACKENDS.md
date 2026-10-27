@@ -1,12 +1,22 @@
 # Agent Backend Integration
 
+## W1b explicit visible-history reader — 2026-10-27
+
+One authenticated `archive read` command can read a bounded page from a registered
+local CodexSession source and atomically store normalized visible records with a
+read receipt. Native 0.160.1 paginated reads were verified on isolated synthetic
+history. Reader compatibility is separate from the unchanged managed-control
+gate at 0.160.0; diagnostics expose `archive_read_version`. Reads never resume
+external work, approve requests or create Lain conversation/memory/inference.
+There is no autonomous collector. See [ADR 020](adr/020-explicit-visible-worker-archive-reads.md).
+
 ## W1a declared visible archive imports — 2026-10-26
 
 The [archive foundation](ARCHIVE_ACCEPTANCE.md) stores bounded owner-imported
 visible Codex-session slices with declared installation/workspace/session origin.
-It does not call Codex, authenticate that declaration, attach/resume a thread or
-create a managed WorkSession. Actual supported read-only history integration and
-native version verification remain W1 work; existing control contracts are unchanged.
+That owner-import path does not call Codex, authenticate the declaration or
+create a managed WorkSession. The separate W1b read path is described above;
+existing Worker control contracts remain unchanged.
 
 ## Target archive and device boundary — 2026-10-23
 

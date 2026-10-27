@@ -1,5 +1,24 @@
 # Codex worker adapter
 
+## Visible archive reader: native 0.160.1 — verified 2026-10-27
+
+The installed CLI now reports 0.160.1. Managed Worker control below remains
+verified only for 0.160.0 and stays unavailable on 0.160.1; reading has a separate
+gate/report. The reader uses initialize/initialized, metadata-only thread/read,
+thread/turns/list (one turn, itemsView notLoaded) and bounded thread/items/list for
+a terminal turn. It never resumes/forks/starts/steers/interrupts a source thread
+or answers its approvals.
+
+Generated 0.160.1 schemas and the official
+[App Server reference](https://learn.chatgpt.com/docs/app-server) define paginated
+history. An unused thread initially rejected some history calls; those method
+rejections remain failures rather than fake empty histories. An isolated real
+native turn using one local fake Responses request produced user/assistant items;
+after restart, native read APIs and the actual Lain CLI archived them without
+resume or another model request. Visible native source rows stayed unchanged.
+This is native read evidence, not real-provider/Worker-execution/personal-history
+acceptance. Contract: [ADR 020](../adr/020-explicit-visible-worker-archive-reads.md).
+
 Status: Phase 2 implemented and real Windows acceptance passed.
 Phase 4 (2026-10-05) explicitly advertises `model_selection` in the provider-neutral
 capability report for the existing validated session `options.model` support.

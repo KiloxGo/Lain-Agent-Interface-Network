@@ -236,12 +236,15 @@ fn source_grants_default_off_revision_persistence_expiry_and_no_memory_expansion
                 enabled: true,
                 expected_revision: disabled.revision,
                 window: g.window,
-                expires_at_ms: Some(now_ms().unwrap() + 30),
+                expires_at_ms: Some(now_ms().unwrap() + 60000),
             },
         )
         .unwrap();
-    assert!(g.active(now_ms().unwrap()));
-    std::thread::sleep(Duration::from_millis(35));
+    let expires = g.expires_at_ms.unwrap();
+    assert!(g.active(expires - 1));
+    assert!(!g.active(expires));
+    // Expire persisted state deterministically; SQLite/fsync can exceed 30 ms.
+    s.connection.execute("UPDATE channel_source_grants SET snapshot=json_set(snapshot,'$.expires_at_ms',?3) WHERE channel_id=?1 AND revision=?2",(b.id.to_string(),i64::try_from(g.revision).unwrap(),i64::try_from(now_ms().unwrap().saturating_sub(1)).unwrap())).unwrap();
     assert!(inspect(&mut s, &b, old.id).is_err());
     assert_eq!(s.source_grants(b.id).unwrap().len(), 3);
     let end = now_ms().unwrap();
@@ -631,7 +634,7 @@ fn schema_nine_source_migration_preserves_snapshots_and_creates_no_fake_reads() 
             |r| r.get(0),
         )
         .unwrap();
-    s.connection.execute_batch("DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; PRAGMA user_version=9;").unwrap();
+    s.connection.execute_batch("DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; PRAGMA user_version=9;").unwrap();
     drop(s);
     let s = Store::open(&path).unwrap();
     let after: String = s

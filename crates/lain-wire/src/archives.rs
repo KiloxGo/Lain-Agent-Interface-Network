@@ -82,6 +82,7 @@ pub enum ArchiveAvailability {
 pub enum ArchiveTextOrigin {
     OwnerImport,
     OwnerCorrection,
+    AdapterObservation,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArchiveRecord {
@@ -156,4 +157,58 @@ pub struct ArchiveEdit {
     pub revision: u64,
     pub kind: String,
     pub at_ms: u64,
+}
+
+/// One explicit authenticated read; this never enables background collection.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadWorkerArchive {
+    pub request_id: crate::RequestId,
+    pub expected_revision: u64,
+    pub after: Option<crate::RequestId>,
+    pub limit: u16,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArchiveReadState {
+    Prepared,
+    Reading,
+    Completed,
+    Failed,
+    Cancelled,
+    Unknown,
+}
+impl ArchiveReadState {
+    pub fn unfinished(self) -> bool {
+        matches!(self, Self::Prepared | Self::Reading)
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArchiveReadFailure {
+    Unavailable,
+    Unsupported,
+    ScopeChanged,
+    InvalidContent,
+    Interrupted,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveReadJob {
+    pub request: ReadWorkerArchive,
+    pub source_id: ArchiveSourceId,
+    pub state: ArchiveReadState,
+    pub created_at_ms: u64,
+    pub started_at_ms: Option<u64>,
+    pub finished_at_ms: Option<u64>,
+    pub adapter_version: Option<String>,
+    pub record_ids: Vec<ArchiveRecordId>,
+    pub new_records: u16,
+    pub duplicate_records: u16,
+    pub omitted_items: u16,
+    pub waiting_for_source: bool,
+    /// A Lain receipt ID, never a caller-supplied provider cursor.
+    pub next: Option<crate::RequestId>,
+    pub failure: Option<ArchiveReadFailure>,
+    pub provider_error_code: Option<i64>,
+    pub coverage: String,
 }

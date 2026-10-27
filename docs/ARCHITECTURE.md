@@ -1,5 +1,13 @@
 # Architecture
 
+## W1b selected visible Worker reads — 2026-10-27
+
+One explicit administrator command can now use the isolated Codex read adapter to
+import a bounded visible-history page with an atomic source/read receipt. It
+reuses owned App Server transport and Kernel archives; it does not create a
+WorkSession, resume/control a source or expose provider cursors. Read support and
+Worker-control compatibility remain separate. See [ADR 020](adr/020-explicit-visible-worker-archive-reads.md).
+
 ## Independent QQ source service — 2026-10-27
 
 The appended user goal selects `services/qq-knowledge` as a separately deployed

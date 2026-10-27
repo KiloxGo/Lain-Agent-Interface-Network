@@ -1,5 +1,5 @@
 use super::*;
-use lain_wire::{ArchiveRecordId, ArchiveSourceId, archives::*};
+use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 
 pub(super) fn routes() -> Router<ApiState> {
     Router::new()
@@ -9,10 +9,55 @@ pub(super) fn routes() -> Router<ApiState> {
         .route("/v1/archives/sources/{id}/grants", get(grants))
         .route("/v1/archives/sources/{id}/import", post(import))
         .route("/v1/archives/sources/{id}/query", post(query))
+        .route("/v1/archives/sources/{id}/read", post(read))
+        .route("/v1/archives/reads/{id}", get(read_job))
+        .route("/v1/archives/reads/{id}/cancel", post(cancel_read))
         .route("/v1/archives/records/{id}", get(record))
         .route("/v1/archives/records/{id}/edits", get(edits))
         .route("/v1/archives/records/{id}/forget", post(forget))
         .route("/v1/archives/records/{id}/correct", post(correct))
+}
+async fn cancel_read(
+    State(s): State<ApiState>,
+    Path(id): Path<RequestId>,
+) -> Result<Json<ArchiveReadJob>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| {
+            k.archive_read_fail(
+                id,
+                ArchiveReadState::Cancelled,
+                ArchiveReadFailure::Interrupted,
+                None,
+            )
+        })
+        .await
+        .map_err(control_error)?,
+    )
+}
+async fn read(
+    State(s): State<ApiState>,
+    Path(id): Path<ArchiveSourceId>,
+    Json(q): Json<ReadWorkerArchive>,
+) -> Result<Json<ArchiveReadJob>, ApiError> {
+    safe(
+        &s,
+        s.workers()?
+            .read_archive(id, q)
+            .await
+            .map_err(control_error)?,
+    )
+}
+async fn read_job(
+    State(s): State<ApiState>,
+    Path(id): Path<RequestId>,
+) -> Result<Json<ArchiveReadJob>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.archive_read_job(id))
+            .await
+            .map_err(control_error)?,
+    )
 }
 fn safe<T: serde::Serialize>(s: &ApiState, value: T) -> Result<Json<T>, ApiError> {
     s.actor.check_memory_input(&value).map_err(control_error)?;

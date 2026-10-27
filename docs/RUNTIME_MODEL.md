@@ -1,5 +1,15 @@
 # Runtime Model
 
+## W1b read-only archive operations — 2026-10-27
+
+Explicit authenticated admission commits an immutable source/revision receipt
+before a bounded native read. One unfinished receipt and one owned reader slot
+bound concurrency. No model/Worker turn is started. Cancel/revoke/shutdown discard
+late results and close the reader; Supervisor shutdown awaits it. Normalized
+import and Completed cursor commit together. Boot marks unfinished reads Unknown
+without replay. No periodic collector/model loop. See
+[ADR 020](adr/020-explicit-visible-worker-archive-reads.md).
+
 ## W1a archive runtime — 2026-10-26
 
 Explicit authenticated imports commit bounded batches and source-scoped identities

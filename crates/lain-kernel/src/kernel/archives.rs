@@ -1,8 +1,86 @@
 use super::{Kernel, KernelState};
 use crate::{archives, backend::ControlError, domain::now_ms, redaction::Redactor};
 use anyhow::{Result, ensure};
-use lain_wire::{ArchiveRecordId, ArchiveSourceId, archives::*};
+use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 impl Kernel {
+    pub(crate) fn archive_read_admit(
+        &self,
+        id: ArchiveSourceId,
+        q: ReadWorkerArchive,
+    ) -> Result<(ArchiveReadJob, bool)> {
+        ensure!((1..=8).contains(&q.limit), ControlError::InvalidInput);
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
+        let source = inner.store.archive_source(id)?;
+        ensure!(
+            matches!(&source.source.key,ArchiveSourceKey::CodexSession{installation,..} if installation=="codex/local"),
+            ControlError::InvalidInput
+        );
+        inner.store.archive_read_admit(id, q)
+    }
+    pub(crate) fn archive_read_claim(
+        &self,
+        id: RequestId,
+    ) -> Result<(ArchiveReadJob, ArchiveSource, Option<String>)> {
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
+        inner.store.archive_read_claim(id)
+    }
+    pub(crate) fn archive_read_job(&self, id: RequestId) -> Result<ArchiveReadJob> {
+        self.lock()?.store.archive_read_job(id)
+    }
+    pub(crate) fn archive_read_fail(
+        &self,
+        id: RequestId,
+        state: ArchiveReadState,
+        reason: ArchiveReadFailure,
+        code: Option<i64>,
+    ) -> Result<ArchiveReadJob> {
+        let result = self
+            .lock()?
+            .store
+            .archive_read_fail(id, state, reason, code)?;
+        let _ = self.archive_events.send(());
+        Ok(result)
+    }
+    pub(crate) fn archive_read_current(&self, id: RequestId) -> Result<bool> {
+        let inner = self.lock()?;
+        let j = inner.store.archive_read_job(id)?;
+        let g = inner.store.archive_source(j.source_id)?.grant;
+        Ok(inner.state == KernelState::Ready
+            && j.state == ArchiveReadState::Reading
+            && g.revision == j.request.expected_revision
+            && g.scope
+                .is_some_and(|s| s.expires_at_ms > now_ms().unwrap_or(u64::MAX)))
+    }
+    pub(crate) fn archive_read_finish(
+        &self,
+        id: RequestId,
+        batch: crate::backend::archive_read::Batch,
+        r: Redactor,
+    ) -> Result<ArchiveReadJob> {
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
+        let job = inner.store.archive_read_job(id)?;
+        archives::safe(&batch.next, &r)?;
+        ensure!(
+            batch.records.len() <= usize::from(job.request.limit)
+                && batch.omitted <= job.request.limit,
+            ControlError::InvalidInput
+        );
+        if !batch.records.is_empty() {
+            let source = inner.store.archive_source(job.source_id)?;
+            let q = ImportArchive {
+                expected_revision: job.request.expected_revision,
+                records: batch.records.clone(),
+            };
+            archives::validate_import(&source.source.key, &q)?;
+            archives::safe(&q, &r)?;
+        }
+        let result = inner.store.archive_read_finish(id, batch)?;
+        let _ = self.archive_events.send(());
+        Ok(result)
+    }
     pub(crate) fn archive_grants(&self, id: ArchiveSourceId) -> Result<Vec<ArchiveGrant>> {
         self.lock()?.store.archive_grants(id)
     }
@@ -35,7 +113,9 @@ impl Kernel {
         archives::validate_scope(q.scope.as_ref(), now)?;
         let mut inner = self.lock()?;
         ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
-        inner.store.archive_set_grant(id, q, now)
+        let result = inner.store.archive_set_grant(id, q, now)?;
+        let _ = self.archive_events.send(());
+        Ok(result)
     }
     pub(crate) fn archive_import(
         &self,

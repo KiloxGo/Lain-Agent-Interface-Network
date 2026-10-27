@@ -1,5 +1,15 @@
 # CLI-first local development
 
+## Explicit visible Worker archive reads — 2026-10-27
+
+After registering a local CodexSession source and explicitly enabling finite
+archive retention/capacity, `lain archive read <source> --request-id <uuid>
+--revision <n> [--after <preceding-read-id>] [--limit 1..8]` authorizes one native
+visible-history page. Use `archive read-job <uuid>` to inspect and `archive
+cancel-read <uuid>` to cancel. Continue using the returned `next` Lain receipt ID;
+no raw provider cursor or directory scan. It does not resume/control work, invoke
+a model or enable background collection. See [ADR 020](adr/020-explicit-visible-worker-archive-reads.md).
+
 ## W1a selected archive owner commands — 2026-10-26
 
 `lain archive sources/register/source/grants/enable/revoke/import/query/record/

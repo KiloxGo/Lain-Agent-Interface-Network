@@ -15,6 +15,12 @@ path = "tests/support/app_server.rs"
 test = false
 doc = false
 
+[[bin]]
+name = "lain-test-archive-server"
+path = "tests/support/archive_server.rs"
+test = false
+doc = false
+
 [dependencies]
 lain-wire = { path = "../lain-wire" }
 anyhow = "1"

@@ -1,12 +1,30 @@
 use crate::{api::Client, emit};
 use anyhow::{Result, ensure};
 use clap::Subcommand;
-use lain_wire::{ArchiveRecordId, ArchiveSourceId};
+use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId};
 use serde_json::{Value, json};
 use std::{io::Read, path::PathBuf};
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// One explicit local Codex visible-history page; no background collection.
+    Read {
+        id: ArchiveSourceId,
+        #[arg(long)]
+        request_id: RequestId,
+        #[arg(long)]
+        revision: u64,
+        #[arg(long)]
+        after: Option<RequestId>,
+        #[arg(long, default_value_t = 4)]
+        limit: u16,
+    },
+    ReadJob {
+        id: RequestId,
+    },
+    CancelRead {
+        id: RequestId,
+    },
     Sources,
     Grants {
         id: ArchiveSourceId,
@@ -78,6 +96,9 @@ fn file(path: PathBuf) -> Result<Value> {
 }
 pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()> {
     let value:Value=match command {
+        Commands::Read{id,request_id,revision,after,limit}=>client.post(&format!("v1/archives/sources/{id}/read"),Some(json!({"request_id":request_id,"expected_revision":revision,"after":after,"limit":limit}))).await?,
+        Commands::ReadJob{id}=>client.get(&format!("v1/archives/reads/{id}")).await?,
+        Commands::CancelRead{id}=>client.post(&format!("v1/archives/reads/{id}/cancel"),None).await?,
         Commands::Sources=>client.get("v1/archives/sources").await?,
         Commands::Grants{id}=>client.get(&format!("v1/archives/sources/{id}/grants")).await?,
         Commands::Edits{id}=>client.get(&format!("v1/archives/records/{id}/edits")).await?,

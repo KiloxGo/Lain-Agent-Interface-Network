@@ -626,7 +626,7 @@ class Smoke:
         original_delivery = next(d for d in self.snapshot()["deliveries"] if d["batch_id"] == original_batch["id"])
         self.stop()
         old_schema = schema()
-        require(0 < old_schema < 17, "old binary does not create an older schema")
+        require(0 < old_schema < 18, "old binary does not create an older schema")
         self.passed("upgrade_old_binary_seeds_real_schema_and_records")
 
         self.stage = "stopped whole-state backup with permissions"
@@ -656,13 +656,13 @@ class Smoke:
         require(sum(i["input"]["external_id"] == original["input"]["external_id"] for i in self.snapshot()["incoming"]) == 1, "upgrade/replay duplicated original input")
         require(len(self.fixture.sent) == 2, "upgrade replayed an old delivery")
         self.stop()
-        require(schema() == 17, "new binary did not migrate to schema 17")
-        self.passed("upgrade_schema17_identity_memory_receipts_and_c1")
+        require(schema() == 18, "new binary did not migrate to schema 18")
+        self.passed("upgrade_schema18_identity_memory_receipts_and_c1")
 
         self.stage = "old binary refuses the upgraded schema without downgrade"
         refusal = subprocess.run([str(old_copy / executable("laind"))], env=self.env, cwd=self.workspace, capture_output=True, timeout=min(20, self.remaining()))
         self.fixture.check_secrets((refusal.stdout + refusal.stderr).decode(errors="replace"))
-        require(refusal.returncode != 0 and schema() == 17, "old binary accepted/downgraded schema 17")
+        require(refusal.returncode != 0 and schema() == 18, "old binary accepted/downgraded schema 18")
         self.passed("upgrade_old_binary_refuses_future_schema")
 
         self.stage = "full rollback with upgraded state retained separately"
@@ -684,7 +684,7 @@ class Smoke:
         require(len(self.fixture.sent) == 3 and len(self.fixture.requests) == 3, "rollback replayed an old send/inference")
         self.stop()
         self.passed("upgrade_complete_rollback_boot_and_no_replay")
-        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 17,
+        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 18,
                 "checks": self.checks, "old_binary_sha256": old_hashes, "model_requests": len(self.fixture.requests), "paid_calls": 0,
                 "personal_state_accessed": False, "backup_method": "robocopy COPY:DATS" if os.name == "nt" else "copytree native modes"}
 
@@ -1188,7 +1188,7 @@ class Smoke:
         self.fixture.check_secrets(json.dumps(self.call("GET", "/v1/diagnostics")))
         self.stop()
         with closing(sqlite3.connect(self.local / "state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0] == 17, "wrong schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0] == 18, "wrong schema")
             require(db.execute("SELECT count(*) FROM channel_memory_effects").fetchone()[0] == 3, "unexpected persisted effect")
             require(db.execute("SELECT count(*) FROM channel_memory_suppressions").fetchone()[0] == 2, "missing source tombstones")
             require(db.execute("SELECT count(*) FROM lain_memories WHERE id=?", (replacement["id"],)).fetchone()[0] == 0, "semantic delete not persisted")

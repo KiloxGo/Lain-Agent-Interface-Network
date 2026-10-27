@@ -1,4 +1,5 @@
 //! Worker supervision. Only the private Codex module knows its wire protocol.
+pub(crate) mod archive_read;
 mod codex;
 mod process;
 mod rpc;
@@ -33,6 +34,7 @@ pub enum ControlError {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct BackendInfo {
+    pub archive_read_version: Option<String>,
     pub backend: &'static str,
     pub version: Option<String>,
     pub available: bool,
@@ -67,6 +69,8 @@ struct Runtime {
 }
 
 pub struct Supervisor {
+    archive_slot: Arc<tokio::sync::Semaphore>,
+    archive_shutdown: watch::Sender<bool>,
     kernel: Arc<Kernel>,
     executable: Option<PathBuf>,
     info: BackendInfo,
@@ -93,7 +97,13 @@ impl Supervisor {
             },
         };
         let available = status == "available";
+        let archive_read_version = if let Some(path) = &executable {
+            archive_read::probe(path).await.ok()
+        } else {
+            None
+        };
         let info = BackendInfo {
+            archive_read_version,
             backend: "codex",
             available,
             status,
@@ -116,6 +126,8 @@ impl Supervisor {
             },
         };
         Arc::new(Self {
+            archive_slot: Arc::new(tokio::sync::Semaphore::new(1)),
+            archive_shutdown: watch::channel(false).0,
             kernel,
             executable: executable.filter(|_| available),
             info,
@@ -592,6 +604,7 @@ impl Supervisor {
         result.await.context("worker stopped during detach")?
     }
     pub async fn shutdown(&self) -> Result<()> {
+        self.archive_shutdown.send_replace(true);
         let runtimes = std::mem::take(&mut *self.runtimes.lock().await);
         let mut tasks = Vec::new();
         for (_, runtime) in runtimes {
@@ -602,6 +615,10 @@ impl Supervisor {
         for task in tasks {
             task.await.context("worker supervisor task failed")?;
         }
+        let _archive_closed =
+            tokio::time::timeout(Duration::from_secs(8), self.archive_slot.acquire())
+                .await
+                .context("archive reader shutdown timeout")??;
         Ok(())
     }
 }

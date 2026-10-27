@@ -1,5 +1,17 @@
 # Configuration and Runtime Profiles
 
+## W1b visible archive read selection — 2026-10-27
+
+An explicit read selects the daemon's native Codex executable and local CODEX_HOME,
+without injecting a Worker profile/model key or rewriting global configuration.
+Register an exact CodexSession key using installation `codex/local`, provider
+session ID and matching canonical local workspace, then separately enable a finite
+archive grant. The authenticated `archive read` command supplies one-operation
+read authority; the grant alone never starts a collector. Native read support is
+0.160.1, exposed separately from the unchanged 0.160.0 managed-control gate.
+No new collection environment flag or implicit global archive scan is added.
+See [ADR 020](adr/020-explicit-visible-worker-archive-reads.md).
+
 ## W1a source selection — 2026-10-26
 
 Archive identities/scopes are explicit authenticated Kernel records, not ambient

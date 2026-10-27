@@ -18,7 +18,7 @@ fn source(db: &Connection, id: ArchiveSourceId) -> Result<ArchiveSource> {
         .ok_or(ControlError::NotFound)?,
     )
 }
-fn grant(db: &Connection, id: ArchiveSourceId) -> Result<ArchiveGrant> {
+pub(super) fn grant(db: &Connection, id: ArchiveSourceId) -> Result<ArchiveGrant> {
     source(db, id)?;
     db.query_row(
         "SELECT snapshot FROM archive_grants WHERE source_id=?1 ORDER BY revision DESC LIMIT 1",
@@ -37,7 +37,7 @@ fn grant(db: &Connection, id: ArchiveSourceId) -> Result<ArchiveGrant> {
         })
     })
 }
-fn active(g: &ArchiveGrant, now: u64) -> Result<&ArchiveScope> {
+pub(super) fn active(g: &ArchiveGrant, now: u64) -> Result<&ArchiveScope> {
     g.scope
         .as_ref()
         .filter(|s| now < s.expires_at_ms)
@@ -103,8 +103,69 @@ fn view(db: &Connection, id: ArchiveSourceId) -> Result<ArchiveSourceView> {
         total_records: total_records.try_into()?,
         current_grant_records: current_grant_records.try_into()?,
         committed_through: through(db, id)?,
-        coverage: "owner_imported_slice_no_completeness_or_participation_claim".into(),
+        coverage: "selected_visible_slice_origin_per_record_no_completeness_or_participation_claim"
+            .into(),
     })
+}
+pub(super) fn import(
+    db: &Connection,
+    id: ArchiveSourceId,
+    q: ImportArchive,
+    now: u64,
+    origin: ArchiveTextOrigin,
+) -> Result<ArchiveImportReceipt> {
+    let g = grant(db, id)?;
+    ensure!(g.revision == q.expected_revision, ControlError::Conflict);
+    let scope = active(&g, now)?;
+    let mut count = db.query_row(
+        "SELECT count(*) FROM archive_records WHERE source_id=?1 AND grant_revision=?2",
+        (id.to_string(), sql(g.revision)?),
+        |r| r.get::<_, i64>(0),
+    )?;
+    let mut result = ArchiveImportReceipt {
+        records: Vec::new(),
+        new_records: 0,
+        duplicate_records: 0,
+        committed_through: 0,
+    };
+    for input in q.records {
+        let fingerprint = lain_wire::actor_configuration_revision(&serde_json::to_vec(&input)?);
+        let old=db.query_row("SELECT id,ingest_fingerprint FROM archive_records WHERE source_id=?1 AND external_id=?2",(id.to_string(),&input.external_id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?;
+        if let Some((old_id, old_fingerprint)) = old {
+            ensure!(old_fingerprint == fingerprint, ControlError::Conflict);
+            result
+                .records
+                .push(project(record(db, old_id.parse()?)?, &g, now));
+            result.duplicate_records += 1;
+            continue;
+        }
+        ensure!(count < i64::from(scope.max_records), ControlError::Conflict);
+        let mut r = ArchiveRecord {
+            id: ArchiveRecordId::new(),
+            sequence: 0,
+            source_id: id,
+            grant_revision: g.revision,
+            revision: 1,
+            external_id: input.external_id,
+            source_position: input.source_position,
+            occurred_at_ms: input.occurred_at_ms,
+            received_at_ms: now,
+            retain_until_ms: now.saturating_add(scope.retention_ms).min(i64::MAX as u64),
+            speaker: input.speaker,
+            kind: input.kind,
+            text: Some(input.text),
+            text_origin: origin,
+            availability: ArchiveAvailability::Stored,
+        };
+        db.execute("INSERT INTO archive_records(id,source_id,external_id,grant_revision,ingest_fingerprint,retain_until_ms,snapshot) VALUES (?1,?2,?3,?4,?5,?6,?7)",(r.id.to_string(),id.to_string(),&r.external_id,sql(g.revision)?,fingerprint,sql(r.retain_until_ms)?,serde_json::to_string(&r)?))?;
+        r.sequence = db.last_insert_rowid().try_into()?;
+        save(db, &r)?;
+        count += 1;
+        result.new_records += 1;
+        result.records.push(r);
+    }
+    result.committed_through = through(db, id)?;
+    Ok(result)
 }
 impl Store {
     pub fn archive_register(
@@ -225,57 +286,7 @@ impl Store {
         now: u64,
     ) -> Result<ArchiveImportReceipt> {
         let tx = self.connection.transaction()?;
-        let g = grant(&tx, id)?;
-        ensure!(g.revision == q.expected_revision, ControlError::Conflict);
-        let scope = active(&g, now)?;
-        let mut count = tx.query_row(
-            "SELECT count(*) FROM archive_records WHERE source_id=?1 AND grant_revision=?2",
-            (id.to_string(), sql(g.revision)?),
-            |r| r.get::<_, i64>(0),
-        )?;
-        let mut result = ArchiveImportReceipt {
-            records: Vec::new(),
-            new_records: 0,
-            duplicate_records: 0,
-            committed_through: 0,
-        };
-        for input in q.records {
-            let fingerprint = lain_wire::actor_configuration_revision(&serde_json::to_vec(&input)?);
-            let old=tx.query_row("SELECT id,ingest_fingerprint FROM archive_records WHERE source_id=?1 AND external_id=?2",(id.to_string(),&input.external_id),|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?;
-            if let Some((old_id, old_fingerprint)) = old {
-                ensure!(old_fingerprint == fingerprint, ControlError::Conflict);
-                result
-                    .records
-                    .push(project(record(&tx, old_id.parse()?)?, &g, now));
-                result.duplicate_records += 1;
-                continue;
-            }
-            ensure!(count < i64::from(scope.max_records), ControlError::Conflict);
-            let mut r = ArchiveRecord {
-                id: ArchiveRecordId::new(),
-                sequence: 0,
-                source_id: id,
-                grant_revision: g.revision,
-                revision: 1,
-                external_id: input.external_id,
-                source_position: input.source_position,
-                occurred_at_ms: input.occurred_at_ms,
-                received_at_ms: now,
-                retain_until_ms: now.saturating_add(scope.retention_ms).min(i64::MAX as u64),
-                speaker: input.speaker,
-                kind: input.kind,
-                text: Some(input.text),
-                text_origin: ArchiveTextOrigin::OwnerImport,
-                availability: ArchiveAvailability::Stored,
-            };
-            tx.execute("INSERT INTO archive_records(id,source_id,external_id,grant_revision,ingest_fingerprint,retain_until_ms,snapshot) VALUES (?1,?2,?3,?4,?5,?6,?7)",(r.id.to_string(),id.to_string(),&r.external_id,sql(g.revision)?,fingerprint,sql(r.retain_until_ms)?,serde_json::to_string(&r)?))?;
-            r.sequence = tx.last_insert_rowid().try_into()?;
-            save(&tx, &r)?;
-            count += 1;
-            result.new_records += 1;
-            result.records.push(r);
-        }
-        result.committed_through = through(&tx, id)?;
+        let result = import(&tx, id, q, now, ArchiveTextOrigin::OwnerImport)?;
         tx.commit()?;
         Ok(result)
     }

@@ -1,5 +1,15 @@
 # Domain Model
 
+## W1b explicit source-read receipts — 2026-10-27
+
+ReadWorkerArchive binds an immutable administrator request to ArchiveSourceId,
+grant revision, bounded limit and optional preceding Lain receipt. ArchiveReadJob
+records Prepared/Reading/Completed/Failed/Cancelled/Unknown, times, record IDs/
+counts, omissions, waiting position and safe failure/code. Native cursors stay
+private. AdapterObservation origin distinguishes reads from owner imports and
+corrections; no WorkSession or ActorTurn is implied. Migration 018/contracts:
+[ADR 020](adr/020-explicit-visible-worker-archive-reads.md).
+
 ## W1a visible archives — 2026-10-26
 
 ArchiveSourceId/ArchiveRecordId identify declared QQ-group/Codex-session sources

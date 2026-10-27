@@ -10,6 +10,34 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-27 — W1b explicit native visible Worker archive reads
+
+Added source/revision-scoped read receipts and explicit CLI/API operations for
+local Codex visible history, separately verified for installed 0.160.1. Managed
+Worker control remains gated to 0.160.0. Metadata/terminal-turn/item pagination
+does not resume/control a source, run inference or create managed work. Private
+native cursors continue through source/grant/version-bound Lain receipt IDs.
+Reasoning/raw/unknown/diff bodies are omitted. Import/dedup and Completed cursor
+commit atomically with adapter_observation origin; cancel/revoke/shutdown await
+owned-reader closure, while boot recovers unfinished reads Unknown without replay.
+
+Migration 018 appends one table/index. Existing owner imports and retention/
+correction/forget remain intact. Native Windows workspace 223 passed/3 manual
+ignored; strict Clippy, format and locked build passed. Six new contract/storage
+tests cover pagination, gates, sensitive/mismatched sources, blocked-reader
+cancellation/exit, receipt-write rollback and interrupted recovery. Fixed an old
+30 ms expiry-test timing assumption using deterministic persisted expiry.
+Fake process suite: 33 checks/76 fake calls; synthetic 17→18 full upgrade/old
+refusal/rollback: 5 checks/3 fake calls; 0 paid and cleanup true.
+
+An actual isolated native Codex turn used one local fake Responses request.
+After restart, the final actual Lain CLI archived its user/assistant items through
+read-only APIs; source rows remained unchanged, revoke withheld archived text,
+and no new Worker/Lain model turn ran. Personal history/database were untouched;
+schema16 personal release and hosted QQ store were not upgraded by this slice.
+See ADR 020 and ARCHIVE_READ_ACCEPTANCE.md. W1 continuity/derived invalidation,
+managed 0.160.1 control, W2–W4 and complete-stage/live quality remain open.
+
 ## 2026-10-27 — Independent QQ message/image knowledge service deployed
 
 Final lifecycle follow-up: direct native-interpreter task ownership and an OS

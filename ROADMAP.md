@@ -48,7 +48,10 @@ Real-model/live/long-term D3 work, W1–W4 and both complete-stage exit criteria
 W1a now adds a selected visible-source archive foundation: explicit owner imports,
 default-off per-source scope, sequence cursors, bounded retention and corrective
 operation receipts ([ADR 018](docs/adr/018-selected-visible-source-archives.md)).
-Actual read-only QQ/Codex adapters and source-to-continuity integration remain W1 work.
+The separate selected QQ source service is deployed; W1b now adds explicit native
+Codex visible-page reads and atomic archive receipts ([read acceptance](docs/ARCHIVE_READ_ACCEPTANCE.md)).
+Source-to-Actor continuity/derived invalidation and ongoing collector decisions
+remain W1 work. W2–W4 and full-stage exit criteria remain open.
 
 ## Current direction — QQ companionship first
 

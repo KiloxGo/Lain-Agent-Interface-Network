@@ -12,6 +12,7 @@ use crate::{
     events::{Event, EventKind, HistoryPage},
     worker::WorkerState,
 };
+mod archive_reads;
 mod archives;
 mod channels;
 mod delegation;
@@ -24,7 +25,7 @@ mod reading;
 mod share_recall;
 mod sharing;
 mod sources;
-pub(crate) const SCHEMA_VERSION: u32 = 17;
+pub(crate) const SCHEMA_VERSION: u32 = 18;
 
 pub(crate) struct Store {
     connection: Connection,
@@ -183,6 +184,9 @@ impl Store {
         }
         if version < 17 {
             transaction.execute_batch(include_str!("../migrations/017_archives.sql"))?;
+        }
+        if version < 18 {
+            transaction.execute_batch(include_str!("../migrations/018_archive_reads.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
