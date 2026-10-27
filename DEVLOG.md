@@ -10,6 +10,25 @@ It is intentionally different from the architecture documents:
 
 The Git history remains the authoritative record of exact commits.
 
+## 2026-10-27 — W1d explicit independent QQ source bridge
+
+Continued from pushed `d954c80`. Added persistent independent store identity and
+source-filtered current change export; deployed the additive protocol after
+native Windows/server Linux service tests, with a stopped protected full backup
+and compatible-container rollback that never rewinds spent vision reservations.
+
+Kernel adds explicit private/group knowledge pulls through the existing durable
+read receipt/cancel/Unknown lifecycle. Migration 020 stores source/event linkage,
+atomic projections/updates/tombstones and short caught-up freshness leases. Raw
+image bytes stay independent; original text and model captions retain separate
+attribution. Exact same-perspective private suppression prevents a mirrored old
+message from bypassing correction/forget. No automatic collection/model/Worker,
+personal-instance upgrade or old budget reuse.
+
+Evidence and remaining scope: [KNOWLEDGE_BRIDGE_ACCEPTANCE](docs/KNOWLEDGE_BRIDGE_ACCEPTANCE.md).
+Continuous ingestion/finite standing network authority, durable derived memory,
+real QQ images/long-term naturalness and W2–W4 remain active work.
+
 ## 2026-10-27 — W1c selected archive conversation recall
 
 Continued after pushing W1b (`2f7a3eb`) to both development branch and main. Added

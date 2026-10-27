@@ -52,8 +52,10 @@ The separate selected QQ source service is deployed; W1b now adds explicit nativ
 Codex visible-page reads and atomic archive receipts ([read acceptance](docs/ARCHIVE_READ_ACCEPTANCE.md)).
 W1c now adds independent private-binding archive recall, fresh source/record
 versions and stale derived-answer suppression ([recall acceptance](docs/ARCHIVE_RECALL_ACCEPTANCE.md)).
-Independent QQ service-to-Kernel ingestion, persistent derived summaries/memory
-and ongoing collector decisions remain W1 work. W2–W4 and full-stage exit criteria
+W1d adds explicit source-filtered independent QQ pulls, atomic copied projections/
+tombstones and fresh private disclosure ([bridge acceptance](docs/KNOWLEDGE_BRIDGE_ACCEPTANCE.md)).
+Persistent derived summaries/memory, continuous collection, cross-account lineage
+and real/long-term acceptance remain W1 work. W2–W4 and full-stage exit criteria
 remain open.
 
 ## Current direction — QQ companionship first

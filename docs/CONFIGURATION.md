@@ -1,5 +1,15 @@
 # Configuration and Runtime Profiles
 
+## W1d selected independent knowledge service — 2026-10-27
+
+`LAIN_KNOWLEDGE_CONFIG` selects a bounded JSON file with exact HTTPS `endpoint`,
+expected persistent `store_id` and read-only `secret_ref`. Its credential resolves
+only for an explicit pull, never into archive/model/profile synchronization. No
+proxy, redirect or retry; loopback HTTP is reserved for synthetic local fixtures.
+Config identity participates in the cursor/source binding. Register/enable the
+exact source independently, then use `archive knowledge-pull`; this setting alone
+does not collect anything. See [ADR 022](adr/022-scoped-knowledge-archive-pulls.md).
+
 ## W1c archive conversation recall — 2026-10-27
 
 Configure through authenticated `archive recall-enable <channel> --file <decision>`;

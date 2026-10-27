@@ -1,5 +1,15 @@
 # Domain Model
 
+## W1d independent-source projections — 2026-10-27
+
+ArchiveSourceKey adds QqPrivate. ReadArchive (the ReadWorkerArchive compatibility
+alias remains) carries a reader kind/revision in its durable ArchiveReadJob;
+update/withdrawal counts distinguish changes from new records. KnowledgeArchiveState
+records independent store/source/local-grant identity, committed receipt/cursor and
+local observed/fresh-until times. Native event identities/tombstones stay separate
+from archive text, and KnowledgeProjection separates observed original excerpts
+from external-model image interpretations. See [ADR 022](adr/022-scoped-knowledge-archive-pulls.md).
+
 ## W1c archive recall — 2026-10-27
 
 ArchiveRecallGrant belongs to one ChannelId independently of archive storage and

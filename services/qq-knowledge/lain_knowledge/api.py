@@ -84,7 +84,11 @@ class Application:
                     number("limit", 50),
                 )
             elif method == "GET" and path == "/v1/changes":
-                result = self.store.changes(number("after", 0), number("limit", 100))
+                result = self.store.changes(number("after", 0), number("limit", 100), arg("source_id"))
+            elif method == "GET" and path.startswith("/v1/sources/") and path.endswith("/changes"):
+                source = path[len("/v1/sources/"):-len("/changes")]
+                require(arg("source_id", source) == source)
+                result = self.store.changes(number("after", 0), number("limit", 100), source)
             elif method == "GET" and path.startswith("/v1/images/"):
                 iid = path.removeprefix("/v1/images/")
                 require(len(iid) == 64 and all(c in "0123456789abcdef" for c in iid))

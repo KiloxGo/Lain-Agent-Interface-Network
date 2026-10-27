@@ -5,6 +5,93 @@ use lain_wire::source::{InspectSource, SetSourceGrant, SourceWindow};
 #[path = "archive_recall_tests.rs"]
 mod archive_recall;
 
+#[test]
+fn knowledge_freshness_lease_invalidates_private_disclosure_without_a_record_revision_change() {
+    use lain_wire::archives::*;
+    let (_dir, mut s, b, _batch, mut t) = setup("上次的资料？");
+    let now = now_ms().unwrap();
+    let source = s
+        .archive_register(
+            ArchiveSourceKey::QqPrivate {
+                observer_account: "1001".into(),
+                peer_id: "2002".into(),
+            },
+            now,
+        )
+        .unwrap()
+        .source
+        .id;
+    s.archive_set_grant(
+        source,
+        SetArchiveGrant {
+            expected_revision: 0,
+            scope: Some(ArchiveScope {
+                expires_at_ms: now + 60000,
+                retention_ms: 60000,
+                max_records: 10,
+            }),
+        },
+        now,
+    )
+    .unwrap();
+    let q = ReadArchive {
+        request_id: lain_wire::RequestId::new(),
+        expected_revision: 1,
+        after: None,
+        limit: 4,
+    };
+    s.knowledge_admit(source, q.clone(), "fixture-reader".into())
+        .unwrap();
+    s.archive_read_claim(q.request_id).unwrap();
+    let source_input = s.channel_snapshot(b.id).unwrap().incoming.remove(0);
+    let page:crate::knowledge::Page=serde_json::from_value(json!({"schema_version":1,"store_id":"c22d2694-7541-453f-b3de-ed7d50d2930c","source":{"id":"qq:1001:private:2002","account":"1001","kind":"private","peer":"2002","revision":1,"enabled":true},"from_after":0,"through":1,"next_after":1,"has_more":false,"items":[{"sequence":1,"message":{"id":1,"source_id":"qq:1001:private:2002","external_id":source_input.input.external_id,"sender":"2002","occurred_at_ms":now,"received_at_ms":now,"expires_at_ms":now+60000,"state":"active","revision":1,"text":"测试来源","images":[]}}]})).unwrap();
+    let done = s.knowledge_finish(q.request_id, page).unwrap();
+    let record = done.record_ids[0];
+    s.archive_recall_set(
+        b.id,
+        SetArchiveRecall {
+            expected_revision: 0,
+            scope: Some(ArchiveRecallScope {
+                sources: vec![ArchiveRecallSource {
+                    source_id: source,
+                    grant_revision: 1,
+                }],
+                expires_at_ms: now + 60000,
+                utc_offset_minutes: 480,
+            }),
+        },
+    )
+    .unwrap();
+    let a = action(&mut s, &mut t, Tool::ArchiveInspect { record_id: record });
+    let redactor = crate::redaction::Redactor::new(vec![]);
+    s.archive_actor_lookup(t.id, a, &redactor).unwrap();
+    assert!(s.private_chat_memory_current(t.id).unwrap());
+    s.connection
+        .execute(
+            "UPDATE knowledge_sources SET snapshot=json_set(snapshot,'$.fresh_until_ms',0)",
+            [],
+        )
+        .unwrap();
+    assert_eq!(s.archive_record(record, now).unwrap().revision, 1);
+    assert!(!s.private_chat_memory_current(t.id).unwrap());
+    assert!(s.archive_actor_disclosure(t.id, 1, &redactor).is_err());
+    s.connection
+        .execute(
+            "UPDATE knowledge_sources SET snapshot=json_set(snapshot,'$.fresh_until_ms',?1)",
+            [i64::try_from(now + 60000).unwrap()],
+        )
+        .unwrap();
+    assert!(s.private_chat_memory_current(t.id).unwrap());
+    s.connection
+        .execute(
+            "INSERT INTO channel_memory_suppressions VALUES (?1,?2)",
+            (b.id.to_string(), source_input.id.to_string()),
+        )
+        .unwrap();
+    assert!(!s.private_chat_memory_current(t.id).unwrap());
+    assert!(s.archive_record(record, now).unwrap().text.is_none());
+}
+
 fn setup(text: &str) -> (tempfile::TempDir, Store, Binding, Batch, ActorTurn) {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(&dir.path().join("chat.db")).unwrap();
@@ -414,7 +501,7 @@ fn schema_ten_upgrade_adds_only_the_input_index_and_preserves_old_actor_snapshot
         )
         .unwrap();
     s.connection
-        .execute_batch("DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP INDEX channel_incoming_batch; PRAGMA user_version=10;")
+        .execute_batch("DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP INDEX channel_incoming_batch; PRAGMA user_version=10;")
         .unwrap();
     drop(s);
     let s = Store::open(&dir.path().join("chat.db")).unwrap();

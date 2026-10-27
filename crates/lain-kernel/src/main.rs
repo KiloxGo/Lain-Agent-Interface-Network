@@ -103,6 +103,7 @@ async fn run() -> Result<()> {
         let _ = transport.await;
         let _ = application.await;
     }
+    let knowledge_shutdown = lain_kernel::knowledge::drain(&kernel).await;
     let worker_shutdown = workers.shutdown().await;
     drop(workers);
     drop(kernel);
@@ -110,7 +111,7 @@ async fn run() -> Result<()> {
         Ok(()) => tracing::info!("laind stopped; storage closed"),
         Err(error) => tracing::error!(%error, "laind stopped with an error"),
     }
-    result.and(worker_shutdown)
+    result.and(knowledge_shutdown).and(worker_shutdown)
 }
 
 #[cfg(unix)]

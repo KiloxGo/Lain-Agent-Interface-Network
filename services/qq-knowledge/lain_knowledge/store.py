@@ -5,6 +5,7 @@ import json
 import re
 import sqlite3
 import time
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -97,6 +98,7 @@ class Store:
                 "INSERT OR IGNORE INTO settings VALUES (?,?)",
                 ("vision_cap", str(vision_cap)),
             )
+            db.execute("INSERT OR IGNORE INTO settings VALUES (?,?)", ("store_id", str(uuid.uuid4())))
             require(
                 int(
                     db.execute(
@@ -524,13 +526,17 @@ class Store:
                 "search": "literal_text_and_model_description",
             }
 
-    def changes(self, after=0, limit=100):
+    def changes(self, after=0, limit=100, source=None):
         self.prune()
         require(after >= 0 and 1 <= limit <= 100)
         with self.db() as db:
+            selected = db.execute("SELECT * FROM sources WHERE id=?", (source,)).fetchone() if source else None
+            require(source is None or selected is not None, 404, "source_not_found")
+            through = db.execute("SELECT COALESCE(max(sequence),0) FROM changes WHERE (? IS NULL OR source_id=?)", (source, source)).fetchone()[0]
+            require(source is None or after <= through, 409, "cursor_ahead_of_source")
             rows = db.execute(
-                "SELECT * FROM changes WHERE sequence>? ORDER BY sequence LIMIT ?",
-                (after, limit + 1),
+                "SELECT * FROM changes WHERE sequence>? AND (? IS NULL OR source_id=?) ORDER BY sequence LIMIT ?",
+                (after, source, source, limit + 1),
             ).fetchall()
             items = []
             for row in rows[:limit]:
@@ -545,6 +551,11 @@ class Store:
                     }
                 )
             return {
+                "schema_version": 1,
+                "store_id": db.execute("SELECT value FROM settings WHERE key='store_id'").fetchone()[0],
+                "source": source_view(selected) if selected else None,
+                "from_after": after,
+                "through": through,
                 "items": items,
                 "has_more": len(rows) > limit,
                 "next_after": items[-1]["sequence"] if items else after,
@@ -565,6 +576,7 @@ class Store:
         with self.db() as db:
             return {
                 "schema_version": 1,
+                "store_id": db.execute("SELECT value FROM settings WHERE key='store_id'").fetchone()[0],
                 "service": "lain-knowledge",
                 "sources": [
                     source_view(r) for r in db.execute("SELECT * FROM sources")

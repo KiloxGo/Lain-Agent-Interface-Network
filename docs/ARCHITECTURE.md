@@ -1,5 +1,14 @@
 # Architecture
 
+## W1d independent-source bridge — 2026-10-27
+
+An explicit scoped HTTP pull reuses Kernel archive receipts, with separate reader
+identity and additive source/record associations (migration 020). Independent
+store UUID/source epochs, atomic projections/tombstones and a short caught-up
+freshness lease protect private recall without merging databases. Same-perspective
+private input suppression remains effective. This is not an ongoing collector or
+new model/Worker capability. See [ADR 022](adr/022-scoped-knowledge-archive-pulls.md).
+
 ## W1c private archive disclosure — 2026-10-27
 
 A separate default-off private-binding recall grant selects exact archive source/

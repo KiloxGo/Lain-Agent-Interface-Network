@@ -3,6 +3,40 @@ use crate::{archives, backend::ControlError, domain::now_ms, redaction::Redactor
 use anyhow::{Result, ensure};
 use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 impl Kernel {
+    pub(crate) fn knowledge_state(
+        &self,
+        id: ArchiveSourceId,
+    ) -> Result<Option<KnowledgeArchiveState>> {
+        self.lock()?.store.knowledge_state(id)
+    }
+    pub(crate) fn knowledge_admit(
+        &self,
+        id: ArchiveSourceId,
+        q: ReadArchive,
+        revision: String,
+    ) -> Result<(ArchiveReadJob, bool)> {
+        ensure!((1..=32).contains(&q.limit), ControlError::InvalidInput);
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
+        crate::knowledge::source_key(&inner.store.archive_source(id)?.source.key)?;
+        inner.store.knowledge_admit(id, q, revision)
+    }
+    pub(crate) fn knowledge_finish(
+        &self,
+        id: RequestId,
+        page: crate::knowledge::Page,
+        r: Redactor,
+    ) -> Result<ArchiveReadJob> {
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
+        for change in &page.items {
+            archives::safe(&change.message, &r)?;
+        }
+        let j = inner.store.knowledge_finish(id, page)?;
+        let _ = self.archive_events.send(());
+        let _ = self.channel_events.send(());
+        Ok(j)
+    }
     pub(crate) fn archive_recall_grant(
         &self,
         id: lain_wire::ChannelId,

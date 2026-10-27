@@ -26,8 +26,9 @@ Q2-B1 已实现独立、默认关闭的私聊历史来源回查：管理员指�
 W1a 已实现选定来源的小批量归档、游标、保留与更正／忘记回执；W1b 已验证原生
 Codex 可见历史的显式只读接入。W1c 增加独立默认关闭的私聊档案回查授权和旧证据
 失效检查，见[归档](ARCHIVE_ACCEPTANCE.md)、[读取](ARCHIVE_READ_ACCEPTANCE.md)与
-[回查验收](ARCHIVE_RECALL_ACCEPTANCE.md)。独立 QQ 服务已部署，但服务到 Kernel 的
-衔接、真实群来源、持久派生认识和长期连续性仍未全部完成。
+[回查验收](ARCHIVE_RECALL_ACCEPTANCE.md)。W1d 已增加独立 QQ 服务到 Kernel 的显式
+有界读取与来源失效检查，见[桥接验收](KNOWLEDGE_BRIDGE_ACCEPTANCE.md)；持续采集、
+真实群来源、持久派生认识和长期连续性仍未全部完成。
 
 Lain 是常驻云端、拥有统一身份、持续经历和独立记忆的个人智能体。
 她与用户平等相处，通过 QQ、未来的 Telegram 和本地终端交流；在约定范围内

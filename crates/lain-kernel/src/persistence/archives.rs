@@ -54,7 +54,7 @@ pub(super) fn record(db: &Connection, id: ArchiveRecordId) -> Result<ArchiveReco
         .ok_or(ControlError::NotFound)?,
     )
 }
-fn save(db: &Connection, r: &ArchiveRecord) -> Result<()> {
+pub(super) fn save(db: &Connection, r: &ArchiveRecord) -> Result<()> {
     ensure!(
         db.execute(
             "UPDATE archive_records SET snapshot=?2 WHERE id=?1",
@@ -64,10 +64,15 @@ fn save(db: &Connection, r: &ArchiveRecord) -> Result<()> {
     );
     Ok(())
 }
-fn project(mut r: ArchiveRecord, g: &ArchiveGrant, now: u64) -> ArchiveRecord {
+fn project(
+    db: &Connection,
+    mut r: ArchiveRecord,
+    g: &ArchiveGrant,
+    now: u64,
+) -> Result<ArchiveRecord> {
     if r.availability != ArchiveAvailability::Stored {
         r.text = None;
-        return r;
+        return Ok(r);
     }
     if r.retain_until_ms <= now {
         r.text = None;
@@ -81,8 +86,11 @@ fn project(mut r: ArchiveRecord, g: &ArchiveGrant, now: u64) -> ArchiveRecord {
     } else if g.revision != r.grant_revision {
         r.text = None;
         r.availability = ArchiveAvailability::PreviousGrant;
+    } else if !super::knowledge::available(db, r.id, now)? {
+        r.text = None;
+        r.availability = ArchiveAvailability::SourceUnavailable;
     }
-    r
+    Ok(r)
 }
 fn through(db: &Connection, id: ArchiveSourceId) -> Result<u64> {
     Ok(db
@@ -135,7 +143,7 @@ pub(super) fn import(
             ensure!(old_fingerprint == fingerprint, ControlError::Conflict);
             result
                 .records
-                .push(project(record(db, old_id.parse()?)?, &g, now));
+                .push(project(db, record(db, old_id.parse()?)?, &g, now)?);
             result.duplicate_records += 1;
             continue;
         }
@@ -293,7 +301,7 @@ impl Store {
     pub fn archive_record(&self, id: ArchiveRecordId, now: u64) -> Result<ArchiveRecord> {
         let r = record(&self.connection, id)?;
         let g = grant(&self.connection, r.source_id)?;
-        Ok(project(r, &g, now))
+        project(&self.connection, r, &g, now)
     }
     pub fn archive_query(
         &self,
@@ -332,7 +340,7 @@ impl Store {
                 ),
                 |r| r.get::<_, String>(0),
             )?
-            .map(|r| Ok(project(decode(r?)?, &g, now)))
+            .map(|r| project(&self.connection, decode(r?)?, &g, now))
             .collect::<Result<Vec<ArchiveRecord>>>()?;
         let last = records.last().map_or(after, |r| r.sequence);
         let more=self.connection.query_row("SELECT EXISTS(SELECT 1 FROM archive_records WHERE source_id=?1 AND grant_revision=?2 AND sequence>?3 AND sequence<=?4)",(id.to_string(),sql(g.revision)?,sql(last)?,sql(through)?),|r|r.get::<_,bool>(0))?;
@@ -360,7 +368,7 @@ impl Store {
                 revision == r.revision || revision.checked_add(1) == Some(r.revision),
                 ControlError::Conflict
             );
-            return Ok(project(r.clone(), &grant(&tx, r.source_id)?, now));
+            return project(&tx, r.clone(), &grant(&tx, r.source_id)?, now);
         }
         ensure!(r.revision == revision, ControlError::Conflict);
         r.text = None;

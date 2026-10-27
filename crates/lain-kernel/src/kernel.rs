@@ -39,6 +39,7 @@ struct Inner {
 }
 
 pub struct Kernel {
+    pub(crate) knowledge_slot: std::sync::Arc<tokio::sync::Semaphore>,
     // ponytail: one lock orders durable writes; async access uses blocking tasks.
     // Split storage/projections only if measured contention warrants it.
     inner: Mutex<Inner>,
@@ -105,6 +106,7 @@ impl Kernel {
             channel_events: broadcast::channel(64).0,
             reading_events: broadcast::channel(16).0,
             archive_events: broadcast::channel(16).0,
+            knowledge_slot: std::sync::Arc::new(tokio::sync::Semaphore::new(1)),
             channel_connections: Mutex::new(BTreeMap::new()),
         })
     }

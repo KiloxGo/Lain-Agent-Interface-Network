@@ -12,6 +12,20 @@ other streams are discarded. No automatic friend/group enumeration or backfill.
 
 ## API contract, version 1
 
+Additive scoped export: authenticated status and changes include persistent
+`store_id`. `GET /v1/sources/qq:1001:private:2002/changes?after=0&limit=16`
+filters before returning message bodies and adds `source`, `from_after` and
+source-specific `through` metadata. Keep `(store_id, source_id, next_after)`
+together; reject a changed store/source identity. A scoped cursor ahead of that
+source is a 409. Disabled sources still export current tombstones; an empty page
+does not erase history or prove complete collection. The original unfiltered
+endpoint remains compatible, and also accepts an optional `source_id` filter.
+Use the dedicated source path for strict clients: an older unfiltered server
+returns 404 instead of silently ignoring an unknown query parameter. No Kernel
+or Utakera dependency is introduced.
+Kernel's independently authorized bounded bridge is described in
+[ADR 022](../../docs/adr/022-scoped-knowledge-archive-pulls.md).
+
 All endpoints require `Authorization: Bearer <key>` over HTTPS. Three independent
 keys have admin, ingest and read roles; give Utakera **only the read key**. The
 ingest key can submit selected-source events and inspect operational status but

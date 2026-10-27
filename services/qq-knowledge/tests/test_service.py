@@ -52,6 +52,33 @@ def event(native=1, image=True, text="测试：周五去图书馆"):
 
 
 class ServiceTests(unittest.TestCase):
+    def test_scoped_changes_bind_persistent_store_source_and_current_tombstones(self):
+        self.store.ingest(event(1, image=False))
+        other = self.store.source("1001", "private", "3003")["id"]
+        data = event(2, image=False, text="other private source")
+        data["event"]["user_id"] = 3003
+        self.store.ingest(data)
+        page = self.store.changes(source=self.source, limit=1)
+        self.assertEqual(len(page["items"]), 1)
+        self.assertEqual(page["source"]["id"], self.source)
+        self.assertNotIn(other, json.dumps(page["items"]))
+        self.assertFalse(page["has_more"])
+        self.assertEqual(page["through"], page["next_after"])
+        self.assertEqual(page["store_id"], Store(self.path, vision_cap=2).status()["store_id"])
+        status, _, body = self.call("GET", "/v1/changes", role="read", query=f"source_id={self.source}&after=0&limit=1")
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)["store_id"], page["store_id"])
+        status, _, body = self.call("GET", f"/v1/sources/{self.source}/changes", role="read", query="after=0&limit=1")
+        self.assertEqual(status, 200)
+        self.assertNotIn(other, json.dumps(json.loads(body)["items"]))
+        self.assertEqual(self.call("GET", f"/v1/sources/{self.source}/changes", role="read", query=f"source_id={other}")[0],400)
+        self.assertEqual(self.call("GET", "/v1/changes", role="read", query=f"source_id={self.source}&after=999")[0], 409)
+        self.store.source("1001", "private", "2002", enabled=False, expected_revision=1)
+        tombstone = self.store.changes(source=self.source, after=page["next_after"])
+        self.assertFalse(tombstone["source"]["enabled"])
+        self.assertEqual(tombstone["items"][0]["message"]["state"], "revoked")
+        self.assertIsNone(tombstone["items"][0]["message"]["text"])
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.path = Path(self.tmp.name) / "state.db"

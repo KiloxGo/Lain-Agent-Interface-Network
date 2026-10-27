@@ -7,6 +7,20 @@ use std::{io::Read, path::PathBuf};
 
 #[derive(Subcommand)]
 pub enum Commands {
+    KnowledgeState {
+        id: ArchiveSourceId,
+    },
+    KnowledgePull {
+        id: ArchiveSourceId,
+        #[arg(long)]
+        request_id: RequestId,
+        #[arg(long)]
+        revision: u64,
+        #[arg(long)]
+        after: Option<RequestId>,
+        #[arg(long, default_value_t = 16)]
+        limit: u16,
+    },
     RecallGrant {
         channel: lain_wire::ChannelId,
     },
@@ -115,6 +129,8 @@ fn file(path: PathBuf) -> Result<Value> {
 }
 pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()> {
     let value:Value=match command {
+        Commands::KnowledgeState{id}=>client.get(&format!("v1/archives/sources/{id}/knowledge")).await?,
+        Commands::KnowledgePull{id,request_id,revision,after,limit}=>client.post(&format!("v1/archives/sources/{id}/knowledge/pull"),Some(json!({"request_id":request_id,"expected_revision":revision,"after":after,"limit":limit}))).await?,
         Commands::RecallGrant{channel}=>client.get(&format!("v1/archives/recall/{channel}")).await?,
         Commands::RecallEnable{channel,file:p}=>client.post(&format!("v1/archives/recall/{channel}"),Some(file(p)?)).await?,
         Commands::RecallRevoke{channel,revision}=>client.post(&format!("v1/archives/recall/{channel}"),Some(json!({"expected_revision":revision,"scope":null}))).await?,

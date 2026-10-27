@@ -15,12 +15,41 @@ pub(super) fn routes() -> Router<ApiState> {
         .route("/v1/archives/sources/{id}/import", post(import))
         .route("/v1/archives/sources/{id}/query", post(query))
         .route("/v1/archives/sources/{id}/read", post(read))
+        .route("/v1/archives/sources/{id}/knowledge", get(knowledge_state))
+        .route(
+            "/v1/archives/sources/{id}/knowledge/pull",
+            post(knowledge_pull),
+        )
         .route("/v1/archives/reads/{id}", get(read_job))
         .route("/v1/archives/reads/{id}/cancel", post(cancel_read))
         .route("/v1/archives/records/{id}", get(record))
         .route("/v1/archives/records/{id}/edits", get(edits))
         .route("/v1/archives/records/{id}/forget", post(forget))
         .route("/v1/archives/records/{id}/correct", post(correct))
+}
+async fn knowledge_state(
+    State(s): State<ApiState>,
+    Path(id): Path<ArchiveSourceId>,
+) -> Result<Json<Option<KnowledgeArchiveState>>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.knowledge_state(id))
+            .await
+            .map_err(control_error)?,
+    )
+}
+async fn knowledge_pull(
+    State(s): State<ApiState>,
+    Path(id): Path<ArchiveSourceId>,
+    Json(q): Json<ReadArchive>,
+) -> Result<Json<ArchiveReadJob>, ApiError> {
+    let r = s.actor.source_redactor();
+    safe(
+        &s,
+        crate::knowledge::start(s.kernel.clone(), id, q, r)
+            .await
+            .map_err(control_error)?,
+    )
 }
 async fn recall_grant(
     State(s): State<ApiState>,

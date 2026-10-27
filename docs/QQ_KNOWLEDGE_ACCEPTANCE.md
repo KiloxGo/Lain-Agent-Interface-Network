@@ -1,5 +1,11 @@
 # Independent QQ knowledge service acceptance
 
+2026-10-27 W1d update: the additive, source-specific export and explicit Kernel
+archive bridge are deployed and verified. See
+[W1d acceptance](KNOWLEDGE_BRIDGE_ACCEPTANCE.md) for current evidence and limits.
+The original service acceptance below remains historical; its test counts and
+then-pending Kernel integration are not the current W1d status.
+
 2026-10-27 (Asia/Shanghai). This is a new requested service/deployment slice,
 not completion of either previous large stage. Scope and boundaries:
 [ADR 019](adr/019-independent-qq-knowledge-service.md).

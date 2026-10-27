@@ -1,5 +1,16 @@
 # Lain Memory
 
+## W1d same-event source suppression — 2026-10-27
+
+Independent knowledge pulls create bounded archive projections, not semantic
+memory. A known exact private observer-account/peer/native-message match honors
+existing ChannelMemory source suppressions before archive/Actor disclosure. A
+cloud mirror cannot bypass correction/forget of that known private source; raw
+retention in the independent service remains a separate operation. No fuzzy or
+cross-account identity is inferred. Freshness expiry/revoke also invalidate old
+private speech without requiring a record revision change. See
+[ADR 022](adr/022-scoped-knowledge-archive-pulls.md).
+
 ## W1c archive conversation evidence — 2026-10-27
 
 Private archive recall now requires its own finite selected-source grant and

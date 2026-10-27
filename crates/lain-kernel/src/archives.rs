@@ -18,7 +18,11 @@ fn identifier(s: &str, max: usize) -> bool {
 }
 pub(crate) fn validate_key(key: &ArchiveSourceKey) -> Result<()> {
     let valid = match key {
-        ArchiveSourceKey::QqGroup {
+        ArchiveSourceKey::QqPrivate {
+            observer_account,
+            peer_id: group_id,
+        }
+        | ArchiveSourceKey::QqGroup {
             observer_account,
             group_id,
         } => [observer_account, group_id].iter().all(|s| {
@@ -70,7 +74,8 @@ pub(crate) fn validate_import(key: &ArchiveSourceKey, q: &ImportArchive) -> Resu
         validate_text(&r.text)?;
         ensure!(
             match key {
-                ArchiveSourceKey::QqGroup { .. } => r.kind == VisibleRecordKind::Message,
+                ArchiveSourceKey::QqGroup { .. } | ArchiveSourceKey::QqPrivate { .. } =>
+                    r.kind == VisibleRecordKind::Message,
                 ArchiveSourceKey::CodexSession { .. } => r.kind != VisibleRecordKind::Message,
             },
             ControlError::InvalidInput

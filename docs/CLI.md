@@ -1,5 +1,13 @@
 # CLI-first local development
 
+Independent QQ source pull: `lain archive knowledge-pull <source> --request-id
+<uuid> --revision <n> [--after <last committed receipt>] [--limit 1..32]`.
+Inspect `archive read-job <uuid>` and `archive knowledge-state <source>`. Source,
+reader configuration and store UUID must match; no raw remote cursor is accepted.
+Caught-up copies have a short freshness lease, not continuous synchronization.
+The source API key stays in the daemon's SecretRef environment. Full operation:
+[knowledge bridge acceptance](KNOWLEDGE_BRIDGE_ACCEPTANCE.md).
+
 Archive conversation disclosure is independent of import/read authorization:
 `lain archive recall-grant <channel>`, `recall-enable <channel> --file <decision>`,
 `recall-revoke <channel> --revision <n>`, and `recall-reads <channel> --after <seq>`.

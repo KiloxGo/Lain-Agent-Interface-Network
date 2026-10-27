@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ArchiveSourceKey {
+    QqPrivate {
+        observer_account: String,
+        peer_id: String,
+    },
     QqGroup {
         observer_account: String,
         group_id: String,
@@ -70,6 +74,7 @@ pub struct ImportArchive {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ArchiveAvailability {
+    SourceUnavailable,
     Stored,
     Expired,
     Forgotten,
@@ -80,6 +85,7 @@ pub enum ArchiveAvailability {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ArchiveTextOrigin {
+    KnowledgeProjection,
     OwnerImport,
     OwnerCorrection,
     AdapterObservation,
@@ -162,11 +168,19 @@ pub struct ArchiveEdit {
 /// One explicit authenticated read; this never enables background collection.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ReadWorkerArchive {
+pub struct ReadArchive {
     pub request_id: crate::RequestId,
     pub expected_revision: u64,
     pub after: Option<crate::RequestId>,
     pub limit: u16,
+}
+pub type ReadWorkerArchive = ReadArchive;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArchiveReaderKind {
+    #[default]
+    Codex,
+    Knowledge,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -195,6 +209,10 @@ pub enum ArchiveReadFailure {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArchiveReadJob {
     pub request: ReadWorkerArchive,
+    #[serde(default)]
+    pub reader: ArchiveReaderKind,
+    #[serde(default)]
+    pub reader_revision: Option<String>,
     pub source_id: ArchiveSourceId,
     pub state: ArchiveReadState,
     pub created_at_ms: u64,
@@ -204,6 +222,10 @@ pub struct ArchiveReadJob {
     pub record_ids: Vec<ArchiveRecordId>,
     pub new_records: u16,
     pub duplicate_records: u16,
+    #[serde(default)]
+    pub updated_records: u16,
+    #[serde(default)]
+    pub withdrawn_records: u16,
     pub omitted_items: u16,
     pub waiting_for_source: bool,
     /// A Lain receipt ID, never a caller-supplied provider cursor.
@@ -211,6 +233,20 @@ pub struct ArchiveReadJob {
     pub failure: Option<ArchiveReadFailure>,
     pub provider_error_code: Option<i64>,
     pub coverage: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeArchiveState {
+    pub source_id: ArchiveSourceId,
+    pub local_grant_revision: u64,
+    pub reader_revision: String,
+    pub store_id: String,
+    pub remote_source_revision: u64,
+    pub remote_source_enabled: bool,
+    pub through: u64,
+    pub last_read: crate::RequestId,
+    pub observed_at_ms: u64,
+    pub fresh_until_ms: u64,
 }
 
 /// Disclosure to one private conversation is independent of archive import/read.

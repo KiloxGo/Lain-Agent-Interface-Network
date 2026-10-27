@@ -4,7 +4,7 @@ use anyhow::{Result, ensure};
 use lain_wire::{ArchiveSourceId, RequestId, archives::*};
 use rusqlite::{Connection, OptionalExtension};
 
-fn job(db: &Connection, id: RequestId) -> Result<ArchiveReadJob> {
+pub(super) fn job(db: &Connection, id: RequestId) -> Result<ArchiveReadJob> {
     decode(
         db.query_row(
             "SELECT snapshot FROM archive_reads WHERE id=?1",
@@ -16,7 +16,7 @@ fn job(db: &Connection, id: RequestId) -> Result<ArchiveReadJob> {
     )
 }
 
-fn save(db: &Connection, j: &ArchiveReadJob) -> Result<()> {
+pub(super) fn save(db: &Connection, j: &ArchiveReadJob) -> Result<()> {
     ensure!(
         db.execute(
             "UPDATE archive_reads SET snapshot=?2 WHERE id=?1",
@@ -35,6 +35,15 @@ impl Store {
         source: ArchiveSourceId,
         q: ReadWorkerArchive,
     ) -> Result<(ArchiveReadJob, bool)> {
+        self.archive_read_admit_for(source, q, ArchiveReaderKind::Codex, None)
+    }
+    pub fn archive_read_admit_for(
+        &mut self,
+        source: ArchiveSourceId,
+        q: ReadArchive,
+        reader: ArchiveReaderKind,
+        reader_revision: Option<String>,
+    ) -> Result<(ArchiveReadJob, bool)> {
         let tx = self.connection.transaction()?;
         if let Some(encoded) = tx
             .query_row(
@@ -46,7 +55,10 @@ impl Store {
         {
             let old: ArchiveReadJob = decode(encoded)?;
             ensure!(
-                old.source_id == source && old.request == q,
+                old.source_id == source
+                    && old.request == q
+                    && old.reader == reader
+                    && old.reader_revision == reader_revision,
                 ControlError::Conflict
             );
             return Ok((old, false));
@@ -67,11 +79,15 @@ impl Store {
                 previous.state == ArchiveReadState::Completed
                     && previous.source_id == source
                     && previous.request.expected_revision == g.revision
+                    && previous.reader == reader
+                    && previous.reader_revision == reader_revision
                     && previous.next == Some(after),
                 ControlError::Conflict
             );
         }
         let j = ArchiveReadJob {
+            reader,
+            reader_revision,
             request: q,
             source_id: source,
             state: ArchiveReadState::Prepared,
@@ -82,6 +98,8 @@ impl Store {
             record_ids: vec![],
             new_records: 0,
             duplicate_records: 0,
+            updated_records: 0,
+            withdrawn_records: 0,
             omitted_items: 0,
             waiting_for_source: false,
             next: None,
@@ -97,6 +115,9 @@ impl Store {
                 serde_json::to_string(&j)?,
             ),
         )?;
+        if reader == ArchiveReaderKind::Knowledge {
+            tx.execute("UPDATE knowledge_sources SET snapshot=json_set(snapshot,'$.fresh_until_ms',0) WHERE source_id=?1",[source.to_string()])?;
+        }
         tx.commit()?;
         Ok((j, true))
     }

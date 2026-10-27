@@ -19,6 +19,7 @@ mod channels;
 mod delegation;
 mod experiences;
 mod inference;
+mod knowledge;
 mod memory;
 pub(crate) mod private_chat;
 mod private_memory;
@@ -26,7 +27,7 @@ mod reading;
 mod share_recall;
 mod sharing;
 mod sources;
-pub(crate) const SCHEMA_VERSION: u32 = 19;
+pub(crate) const SCHEMA_VERSION: u32 = 20;
 
 pub(crate) struct Store {
     connection: Connection,
@@ -191,6 +192,9 @@ impl Store {
         }
         if version < 19 {
             transaction.execute_batch(include_str!("../migrations/019_archive_recall.sql"))?;
+        }
+        if version < 20 {
+            transaction.execute_batch(include_str!("../migrations/020_knowledge_archives.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(

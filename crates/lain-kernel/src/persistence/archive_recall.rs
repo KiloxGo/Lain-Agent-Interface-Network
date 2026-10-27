@@ -51,7 +51,8 @@ fn visible(
     let r = archives::record(db, id)?;
     allowed(db, g, r.source_id, now)?;
     ensure!(
-        r.availability == ArchiveAvailability::Stored
+        super::knowledge::available(db, r.id, now)?
+            && r.availability == ArchiveAvailability::Stored
             && r.text.is_some()
             && r.retain_until_ms > now
             && archives::grant(db, r.source_id)?.revision == r.grant_revision,
@@ -213,7 +214,8 @@ impl Store {
         for selected in &s.sources {
             if allowed(&self.connection, &g, selected.source_id, now_ms()?).is_ok() {
                 // Listing capability exposes Lain IDs only; source details follow a lookup.
-                sources.push(selected.clone());
+                let upstream=self.knowledge_state(selected.source_id)?.map(|s|json!({"last_read":s.last_read,"fresh_until_ms":s.fresh_until_ms,"fresh":s.remote_source_enabled && s.fresh_until_ms>now_ms().unwrap_or(u64::MAX),"remote_source_enabled":s.remote_source_enabled,"coverage":"bounded_snapshot_no_automatic_source_fetch"}));
+                sources.push(json!({"source_id":selected.source_id,"grant_revision":selected.grant_revision,"upstream_snapshot":upstream}));
             }
         }
         Ok(

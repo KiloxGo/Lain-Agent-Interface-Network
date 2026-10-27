@@ -1,5 +1,15 @@
 # Runtime Model
 
+## W1d explicit source bridge runtime — 2026-10-27
+
+One authenticated command admits a bounded, owned read-only HTTP task. Admission
+withholds a prior freshness lease; completion atomically commits source state,
+records/tombstones and its cursor. Cancel/shutdown discard late results and await
+the owned task; interrupted receipts recover Unknown without replay. A caught-up
+snapshot may be recalled for 30 seconds from commit, with fresh expiry/suppression
+checks through delivery. No idle network collector or model polling is started.
+See [ADR 022](adr/022-scoped-knowledge-archive-pulls.md).
+
 ## W1c archive conversation recall — 2026-10-27
 
 Explicit private tools select up to three stored reports; lookup/audit and Actor
