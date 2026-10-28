@@ -50,6 +50,7 @@ fn limit(max: u32) -> InferenceLimit {
 }
 fn enable(k: &Kernel, s: InferenceLimit) -> InferenceDecision {
     k.set_inference_budget(SetInferenceBudget {
+        unlimited_private_channel: None,
         expected_revision: k.inference_snapshot().unwrap().decision.revision,
         limit: Some(s),
     })
@@ -57,10 +58,160 @@ fn enable(k: &Kernel, s: InferenceLimit) -> InferenceDecision {
 }
 fn stop(k: &Kernel) -> InferenceDecision {
     k.set_inference_budget(SetInferenceBudget {
+        unlimited_private_channel: None,
         expected_revision: k.inference_snapshot().unwrap().decision.revision,
         limit: None,
     })
     .unwrap()
+}
+
+#[tokio::test]
+async fn private_daily_is_persistent_scoped_and_preserves_spent_finite_budgets() {
+    let (dir, k, b) = fixture(10);
+    let old = limit(1);
+    enable(&k, old.clone());
+    let (a, m) = counted(&k, 10);
+    let c = k.create_conversation().unwrap();
+    let t = a
+        .submit(c.id, uuid::Uuid::new_v4(), "finite fixture".into())
+        .await
+        .unwrap();
+    assert_eq!(settled(&k, t.id).await.state, TurnState::Completed);
+    k.set_inference_budget(SetInferenceBudget {
+        expected_revision: 1,
+        limit: None,
+        unlimited_private_channel: Some(b.id),
+    })
+    .unwrap();
+    assert_eq!(
+        k.inference_snapshot().unwrap().admission,
+        InferenceAdmission::PrivateConversationOnly
+    );
+    let t = private_turn(&k, &a, &b).await;
+    let done = settled(&k, t.id).await;
+    assert_eq!(done.state, TurnState::Completed);
+    k.channel_finish(lain_wire::BatchId(done.request_id), &done)
+        .unwrap();
+    let c = k.create_conversation().unwrap();
+    let t = a
+        .submit(
+            c.id,
+            uuid::Uuid::new_v4(),
+            "unbound call must be blocked".into(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(settled(&k, t.id).await.model_requests, 0);
+    let id = seed(&k, "reading remains outside daily private scope");
+    let t = a.process_reading(id).await.unwrap();
+    assert_eq!(settled(&k, t.id).await.model_requests, 0);
+    let other = k
+        .channel_bind(
+            BindingSpec {
+                name: "other".into(),
+                adapter: "fixture".into(),
+                account: "1001".into(),
+                peer: "3003".into(),
+            },
+            true,
+        )
+        .unwrap();
+    let t = private_turn(&k, &a, &other).await;
+    assert_eq!(settled(&k, t.id).await.model_requests, 0);
+    assert_eq!(m.requests.lock().unwrap().len(), 2);
+    assert_eq!(
+        k.inference_budgets()
+            .unwrap()
+            .iter()
+            .find(|v| v.limit.id == old.id)
+            .unwrap()
+            .reserved_requests,
+        1
+    );
+    drop(a);
+    drop(k);
+    let k = Kernel::open(&dir.path().join("state.db")).unwrap();
+    k.mark_ready().unwrap();
+    let s = k.inference_snapshot().unwrap();
+    assert_eq!(s.decision.unlimited_private_channel, Some(b.id));
+    assert!(s.decision.limit.is_none() && s.remaining_requests.is_none());
+    assert_eq!(s.reserved_requests, 1);
+    stop(&k);
+    assert_eq!(
+        k.inference_snapshot().unwrap().admission,
+        InferenceAdmission::Stopped
+    );
+    assert!(
+        k.set_inference_budget(SetInferenceBudget {
+            expected_revision: 3,
+            limit: Some(old.clone()),
+            unlimited_private_channel: Some(b.id)
+        })
+        .is_err()
+    );
+    enable(&k, old);
+    assert_eq!(
+        k.inference_snapshot().unwrap().admission,
+        InferenceAdmission::Exhausted
+    );
+}
+
+#[tokio::test]
+async fn private_daily_stop_between_reservation_and_entry_blocks_the_attempt() {
+    let (_dir, k, b) = fixture(10);
+    k.set_inference_budget(SetInferenceBudget {
+        expected_revision: 0,
+        limit: None,
+        unlimited_private_channel: Some(b.id),
+    })
+    .unwrap();
+    assert!(
+        k.set_inference_budget(SetInferenceBudget {
+            expected_revision: 1,
+            limit: None,
+            unlimited_private_channel: Some(lain_wire::ChannelId::new())
+        })
+        .is_err()
+    );
+    k.channel_receive(
+        b.id,
+        Input {
+            account: b.spec.account.clone(),
+            peer: b.spec.peer.clone(),
+            external_id: uuid::Uuid::new_v4().to_string(),
+            text: "prepared fixture".into(),
+        },
+    )
+    .unwrap();
+    tokio::time::sleep(Duration::from_millis(780)).await;
+    let batch = k.channel_next_batch(b.id).unwrap().unwrap();
+    let (t, _) = k
+        .actor_submit_scoped(
+            b.conversation_id,
+            batch.id.0,
+            "prepared fixture".into(),
+            Some((b.id, b.grant_revision, batch.expires_at_ms)),
+        )
+        .unwrap();
+    k.actor_update(t.id, |t| {
+        t.model_requests += 1;
+        Ok(())
+    })
+    .unwrap();
+    stop(&k);
+    assert!(k.begin_inference(t.id, 1).is_err());
+    k.actor_update(t.id, |t| {
+        t.state = TurnState::Unknown;
+        Ok(())
+    })
+    .unwrap();
+    let s = k.inference_snapshot().unwrap();
+    assert_eq!(s.reserved_requests, 1);
+    assert_eq!(
+        s.recent_requests[0].state,
+        InferenceRequestState::NotAttempted
+    );
+    assert!(s.recent_requests[0].attempted_at_ms.is_none());
 }
 
 #[tokio::test]
@@ -237,6 +388,7 @@ async fn inference_stop_during_call_records_return_and_denies_new_scope_until_qu
     stop(&k);
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited_private_channel: None,
             expected_revision: 2,
             limit: Some(limit(1))
         })
@@ -414,6 +566,7 @@ async fn inference_ids_limits_cas_and_legacy_inflight_are_explicit() {
     until(|| m.requests.lock().unwrap().len() == 1).await;
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited_private_channel: None,
             expected_revision: 0,
             limit: Some(limit(1))
         })
@@ -436,6 +589,7 @@ async fn inference_ids_limits_cas_and_legacy_inflight_are_explicit() {
     changed.max_requests = 2;
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited_private_channel: None,
             expected_revision: 2,
             limit: Some(changed)
         })
@@ -443,6 +597,7 @@ async fn inference_ids_limits_cas_and_legacy_inflight_are_explicit() {
     );
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited_private_channel: None,
             expected_revision: 0,
             limit: Some(budget.clone())
         })

@@ -5,6 +5,12 @@ use lain_wire::InferenceBudgetId;
 use serde_json::{Value, json};
 #[derive(Subcommand)]
 pub enum Commands {
+    /// No cumulative count/expiry for this private binding; per-turn limits remain.
+    PrivateDaily {
+        channel: lain_wire::ChannelId,
+        #[arg(long)]
+        revision: u64,
+    },
     Show,
     Budgets,
     Requests {
@@ -30,6 +36,7 @@ pub enum Commands {
 }
 pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()> {
     let value:Value=match command {
+        Commands::PrivateDaily{channel,revision}=>client.post("v1/inference/budget",Some(json!({"expected_revision":revision,"limit":null,"unlimited_private_channel":channel}))).await?,
         Commands::Show=>client.get("v1/inference/budget").await?,
         Commands::Budgets=>client.get("v1/inference/budgets").await?,
         Commands::Requests{budget}=>client.get(&budget.map_or("v1/inference/requests".into(),|id|format!("v1/inference/requests?budget={id}"))).await?,

@@ -1,5 +1,10 @@
 # CLI-first local development
 
+Explicit normal private replies without a cumulative count/expiry: lain inference
+private-daily <channel> --revision <n>. Other conversation/activity scopes remain
+blocked; per-turn limits and accounting remain. Use inference stop to close it.
+See [ADR 024](adr/024-explicit-private-daily-inference.md).
+
 ## D3c isolated replay — 2026-10-26
 
 `scripts/daily_replay.py` drives a synthetic OneBot pair automatically, with a
