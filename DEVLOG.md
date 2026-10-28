@@ -1,5 +1,19 @@
 # L.A.I.N. Development Log
 
+## 2026-10-28 — Explicit private daily inference
+
+The user requested local startup and then removed the proposed count/time limit
+for the existing owner private conversation. Added an explicit binding-scoped
+daily mode, retaining per-turn limits, durable usage, finite campaign history and
+stop/restart gates. No model, memory, contact, Worker or source authority expansion.
+This maintenance backport targets the installed schema16 release; validation and
+installation evidence will be appended after execution. Native Windows/MSVC: 211
+Rust tests passed, 3 manual ignored; format, strict Clippy and locked build passed.
+The native daily-mode process smoke passed 4 checks / 4 fake model requests,
+including auth, exhausted finite history, actual private replies, restart,
+unbound denial and stop; cleanup succeeded. No paid test call or real QQ send.
+See ADR 024.
+
 This file records implementation history, milestone outcomes, important decisions, problems found during development, and the handoff state for the next coding session.
 
 It is intentionally different from the architecture documents:

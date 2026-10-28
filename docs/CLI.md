@@ -1,5 +1,10 @@
 # CLI-first local development
 
+Explicit normal private replies without a cumulative count/expiry: lain inference
+private-daily <channel> --revision <n>. Other conversation/activity scopes remain
+blocked; per-turn limits and accounting remain. Use inference stop to close it.
+See [ADR 024](adr/024-explicit-private-daily-inference.md).
+
 Selected-source synchronization is separately default-off:
 `lain archive knowledge-sync-enable <source> --file <decision>`,
 `knowledge-sync <source>`, and `knowledge-sync-revoke <source> --revision <n>`.
