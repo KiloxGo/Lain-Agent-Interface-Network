@@ -14,6 +14,14 @@ including auth, exhausted finite history, actual private replies, restart,
 unbound denial and stop; cleanup succeeded. No paid test call or real QQ send.
 See ADR 024.
 
+The schema16 maintenance build was installed locally after targeted normal console
+shutdown and verified complete ACL-preserving backup. Personal database stayed
+schema16 and credentials were unchanged. Runtime reached Ready; owner-authorized
+private-daily decision revision 12 selects the existing private binding. QQ login
+was still awaiting phone QR confirmation at this check; no real model/QQ success
+is inferred. The mainline integration separately passes 244 Rust tests (3 manual
+ignored), format, strict Clippy and locked native build.
+
 This file records implementation history, milestone outcomes, important decisions, problems found during development, and the handoff state for the next coding session.
 
 It is intentionally different from the architecture documents:

@@ -1,5 +1,6 @@
 """Native private-daily admission smoke using fake OneBot/model only; no paid calls."""
-import argparse,json,tempfile,hashlib
+import argparse,json,tempfile,hashlib,sqlite3
+from contextlib import closing
 from pathlib import Path
 from qq_memory_smoke import Smoke,executable,require
 from acceptance_files import protect_directory
@@ -40,7 +41,9 @@ def main():
         smoke.cli('inference','stop','--revision',state['decision']['revision'])
         require(smoke.cli('inference','show')['admission']=='stopped','daily stop failed')
         smoke.fixture.healthy();smoke.stop()
-        result={'checks':{'native_cli_auth_scope':True,'native_private_replies_after_finite_exhaustion':True,'native_restart_preserves_mode_and_usage':True,'native_other_conversation_denied_and_stop':True},'fake_model_requests':4,'paid_calls':0,'real_qq_sends':0,'schema':16}
+        with closing(sqlite3.connect(smoke.local/'state.db')) as db:
+            schema=db.execute('PRAGMA user_version').fetchone()[0]
+        result={'checks':{'native_cli_auth_scope':True,'native_private_replies_after_finite_exhaustion':True,'native_restart_preserves_mode_and_usage':True,'native_other_conversation_denied_and_stop':True},'fake_model_requests':4,'paid_calls':0,'real_qq_sends':0,'schema':schema}
     finally:
         if smoke:
             smoke.stop()
