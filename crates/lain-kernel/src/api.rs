@@ -1,5 +1,6 @@
 mod archives;
 mod channels;
+mod devices;
 mod inference;
 mod memory;
 mod reading;
@@ -73,7 +74,14 @@ pub fn actor_router(
     workers: Option<Arc<Supervisor>>,
     actor: Arc<crate::actor::Actor>,
 ) -> Router {
+    let state = ApiState {
+        kernel,
+        workers,
+        actor,
+    };
+    let device_routes = devices::agent_routes(state.clone());
     Router::new()
+        .merge(devices::owner_routes())
         .merge(memory::routes())
         .merge(channels::routes())
         .merge(reading::routes())
@@ -130,9 +138,10 @@ pub fn actor_router(
                 .post(|| async { ApiError(StatusCode::NOT_FOUND, "not_found") }),
         )
         .fallback(|| async { ApiError(StatusCode::NOT_FOUND, "not_found") })
-        .with_state(ApiState { kernel, workers, actor })
+        .with_state(state)
         .layer(DefaultBodyLimit::max(64 * 1024))
         .layer(middleware::from_fn_with_state(token, authenticate))
+        .merge(device_routes)
 }
 
 #[derive(Deserialize)]

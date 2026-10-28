@@ -17,6 +17,7 @@ impl FromStr for ApiToken {
     type Err = ConfigError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         if !(32..=256).contains(&value.len())
+            || value.starts_with("lain-device-")
             || !value
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
@@ -27,6 +28,14 @@ impl FromStr for ApiToken {
         }
         Ok(Self(value.to_owned()))
     }
+}
+
+#[cfg(test)]
+#[test]
+fn device_credentials_cannot_be_configured_as_kernel_administrator_tokens() {
+    let device = format!("lain-device-{}", "ab".repeat(32));
+    assert!(lain_wire::devices::device_credential_fingerprint(&device).is_some());
+    assert!(device.parse::<ApiToken>().is_err());
 }
 
 impl fmt::Debug for ApiToken {

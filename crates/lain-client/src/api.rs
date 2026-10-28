@@ -92,6 +92,23 @@ pub struct Client {
 }
 impl Client {
     pub fn new(url: &str, token: &str) -> Result<Self> {
+        Self::configured(url, token, false)
+    }
+    pub fn device(url: &str, token: &str) -> Result<Self> {
+        let endpoint = Url::parse(url).map_err(|_| anyhow::anyhow!("invalid device endpoint"))?;
+        let loopback = endpoint.host_str().is_some_and(|h| {
+            h == "localhost"
+                || h.trim_matches(['[', ']'])
+                    .parse::<std::net::IpAddr>()
+                    .is_ok_and(|ip| ip.is_loopback())
+        });
+        ensure!(
+            endpoint.scheme() == "https" || (endpoint.scheme() == "http" && loopback),
+            "device endpoint requires HTTPS (HTTP only on loopback)"
+        );
+        Self::configured(url, token, true)
+    }
+    fn configured(url: &str, token: &str, device: bool) -> Result<Self> {
         let mut base =
             Url::parse(url).map_err(|_| anyhow::anyhow!("LAIN_URL must be an HTTP(S) URL"))?;
         ensure!(
@@ -118,13 +135,15 @@ impl Client {
         auth.set_sensitive(true);
         let mut headers = HeaderMap::new();
         headers.insert(AUTHORIZATION, auth);
-        let http = reqwest::Client::builder()
+        let mut builder = reqwest::Client::builder()
             .default_headers(headers)
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(5))
-            .read_timeout(Duration::from_secs(45))
-            .build()
-            .map_err(|e| e.without_url())?;
+            .read_timeout(Duration::from_secs(45));
+        if device {
+            builder = builder.no_proxy().retry(reqwest::retry::never());
+        }
+        let http = builder.build().map_err(|e| e.without_url())?;
         Ok(Self { http, base })
     }
     async fn response(

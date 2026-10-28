@@ -4,6 +4,7 @@ mod archives;
 mod channel;
 mod chat;
 mod chat_notice;
+mod devices;
 mod inference;
 mod local;
 mod memory;
@@ -30,6 +31,10 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    Device {
+        #[command(subcommand)]
+        command: devices::Commands,
+    },
     Archive {
         #[command(subcommand)]
         command: archives::Commands,
@@ -258,6 +263,9 @@ fn emit(value: &impl serde::Serialize, machine: bool) -> Result<()> {
 }
 async fn run(args: Args) -> Result<()> {
     match &args.command {
+        Some(Command::Device { command }) if command.local() => {
+            return devices::local_run(command, args.json).await;
+        }
         Some(Command::Setup { local: true }) => {
             return emit(
                 &local::setup_at(&local::directory()?, "http://127.0.0.1:8787")?,
@@ -286,13 +294,18 @@ async fn run(args: Args) -> Result<()> {
         _ => {}
     }
     let connection = local::connection()?;
-    let client = Client::new(&connection.url, &connection.token)?;
+    let client = if matches!(&args.command, Some(Command::Device { .. })) {
+        Client::device(&connection.url, &connection.token)?
+    } else {
+        Client::new(&connection.url, &connection.token)?
+    };
     let Some(command) = args.command else {
         ensure!(!args.json, "--json requires a non-interactive command");
         return tui::run(client, None).await;
     };
     let json_output = args.json;
     match command {
+        Command::Device { command } => devices::run(&client, command, json_output).await,
         Command::Experience { command } => {
             reading::experiences(&client, command, json_output).await
         }

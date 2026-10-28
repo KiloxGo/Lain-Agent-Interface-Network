@@ -16,6 +16,7 @@ use crate::{
 };
 mod archives;
 mod channels;
+mod devices;
 mod inference;
 mod private_chat;
 mod reading;

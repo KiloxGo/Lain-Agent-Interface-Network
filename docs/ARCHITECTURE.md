@@ -1,5 +1,16 @@
 # Architecture
 
+## W2a enrolled device boundary — 2026-10-28
+
+The Kernel owns a distinct device registry and reported-inventory ledger. Explicit
+administrator admission and device-owned credential/manifest proof establish a
+finite revocable identity. Narrow device routes cannot authenticate as an
+administrator or access Actor/Worker/memory APIs. Device paths/capabilities remain
+declarations; command transport and remote execution are not implemented by this
+slice. Existing local Supervisor ownership and loopback listener remain. See
+[ADR 026](adr/026-explicit-device-enrollment.md) and
+[validation status](DEVICE_PAIRING_ACCEPTANCE.md).
+
 ## W1e finite source synchronization — 2026-10-27
 
 An independently enabled per-source finite GET policy reuses the archive reader,

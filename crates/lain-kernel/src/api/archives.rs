@@ -226,7 +226,7 @@ async fn read_job(
             .map_err(control_error)?,
     )
 }
-fn safe<T: serde::Serialize>(s: &ApiState, value: T) -> Result<Json<T>, ApiError> {
+pub(super) fn safe<T: serde::Serialize>(s: &ApiState, value: T) -> Result<Json<T>, ApiError> {
     s.actor.check_memory_input(&value).map_err(control_error)?;
     Ok(Json(value))
 }

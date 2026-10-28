@@ -1,5 +1,16 @@
 # Runtime Model
 
+## W2a explicit device proof/report runtime — 2026-10-28
+
+Administrator enrollment, device proof, reporting and revocation serialize through
+Kernel storage. Every device operation checks verifier/state/expiry in the same
+critical section as its receipt; authorization cannot survive a prior revoke.
+Report sequence and lifecycle revision are separate. Restart preserves identities,
+receipts and revocation without reenrollment, key rotation or command replay.
+The native CLI probes only its selected workspace paths on an explicit report;
+there is no background heartbeat, model request, remote Worker or public listener.
+See [ADR 026](adr/026-explicit-device-enrollment.md).
+
 ## W1f bounded source-memory selection — 2026-10-28
 
 The existing private Actor selects only after actual archive disclosure and a

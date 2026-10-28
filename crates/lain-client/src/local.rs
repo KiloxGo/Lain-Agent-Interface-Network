@@ -80,7 +80,7 @@ fn reject_link(path: &Path) -> Result<()> {
     Ok(())
 }
 #[cfg(unix)]
-fn private(path: &Path, directory: bool, set: bool) -> Result<()> {
+pub(crate) fn private(path: &Path, directory: bool, set: bool) -> Result<()> {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     reject_link(path)?;
     let metadata = fs::metadata(path)?;
@@ -109,7 +109,7 @@ fn private(path: &Path, directory: bool, set: bool) -> Result<()> {
     Ok(())
 }
 #[cfg(windows)]
-fn private(path: &Path, directory: bool, set: bool) -> Result<()> {
+pub(crate) fn private(path: &Path, directory: bool, set: bool) -> Result<()> {
     reject_link(path)?;
     ensure!(
         fs::metadata(path)?.is_dir() == directory,
@@ -193,7 +193,7 @@ if ($a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.V
     );
     Ok(())
 }
-fn create_private(path: &Path, content: &[u8]) -> Result<()> {
+pub(crate) fn create_private(path: &Path, content: &[u8]) -> Result<()> {
     let mut options = fs::OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
@@ -210,7 +210,7 @@ fn create_private(path: &Path, content: &[u8]) -> Result<()> {
     file.sync_all()?;
     Ok(())
 }
-fn outside_checkout(path: &Path) -> Result<()> {
+pub(crate) fn outside_checkout(path: &Path) -> Result<()> {
     let canonical = path
         .canonicalize()
         .context("resolve local configuration directory")?;
@@ -256,6 +256,7 @@ fn read_token(path: &Path) -> Result<Zeroizing<String>> {
 fn validate_token(token: &str) -> Result<()> {
     ensure!(
         (32..=256).contains(&token.len())
+            && !token.starts_with("lain-device-")
             && token
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b)),

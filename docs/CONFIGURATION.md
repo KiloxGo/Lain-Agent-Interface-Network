@@ -1,5 +1,17 @@
 # Configuration and Runtime Profiles
 
+## W2a separate device enrollment — 2026-10-28
+
+The device CLI keeps a dedicated owner-only `device-credential.json` outside Git;
+only `registration.json` is transferred for explicit administrator admission.
+Kernel state stores a domain-separated high-entropy credential fingerprint,
+immutable device/workspace/capability declarations and finite expiry. Device proof
+also binds the exact manifest. Administrator and device bearers are not
+interchangeable. Device commands require HTTPS except loopback and disable
+proxies/redirects/retries. No global Worker settings, public listener or device
+runtime installation is changed. See [ADR 026](adr/026-explicit-device-enrollment.md)
+and [operation/evidence](DEVICE_PAIRING_ACCEPTANCE.md).
+
 ## W1f finite archive-memory scope — 2026-10-28
 
 `archive memory-enable <channel> --file <decision>` adds a separate default-off

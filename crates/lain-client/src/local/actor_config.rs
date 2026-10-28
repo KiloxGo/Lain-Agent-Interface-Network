@@ -7,7 +7,7 @@ const BUILTIN_PERSONA: &str = include_str!("../../../../identity/persona.md");
 fn non_secret(text: &str, values: &Values) -> Result<()> {
     static PATTERN: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
         regex::Regex::new(
-        r"(?i)(sk-[a-z0-9_-]{12,}|bearer\s+\S+|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
+        r"(?i)(lain-device-[a-f0-9]{12,}|sk-[a-z0-9_-]{12,}|bearer\s+\S+|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
     ).unwrap()
     });
     ensure!(

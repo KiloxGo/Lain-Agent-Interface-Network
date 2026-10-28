@@ -23,7 +23,7 @@ impl Redactor {
     }
     pub fn text(&self, text: &str) -> String {
         static SECRET: LazyLock<Regex> = LazyLock::new(|| {
-            Regex::new(r"(?i)(sk-[a-z0-9_-]{12,}|bearer\s+\S+|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]|-----BEGIN [A-Z ]*PRIVATE KEY-----)").unwrap()
+            Regex::new(r"(?i)(lain-device-[a-f0-9]{12,}|sk-[a-z0-9_-]{12,}|bearer\s+\S+|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[:=]|-----BEGIN [A-Z ]*PRIVATE KEY-----)").unwrap()
         });
         if self
             .known
@@ -60,6 +60,7 @@ impl Redactor {
             let mut pattern = false;
             for prefix in [
                 "sk-",
+                "lain-device-",
                 "bearer",
                 "apikey",
                 "api_key",
@@ -80,7 +81,7 @@ impl Redactor {
                 }
                 if let Some(tail) = lower.strip_prefix(prefix) {
                     pattern |= match prefix {
-                        "sk-" => tail
+                        "sk-" | "lain-device-" => tail
                             .bytes()
                             .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b)),
                         "-----begin " => tail
@@ -150,6 +151,7 @@ mod streaming_tests {
         for value in [
             secret,
             "sk-abcdefghijklmno",
+            "lain-device-abcdef0123456789",
             "Bearer abc",
             "API_KEY = abc",
             "access-token: abc",

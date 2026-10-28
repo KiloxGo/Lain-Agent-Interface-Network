@@ -1,5 +1,12 @@
 # CLI-first local development
 
+Device identity/inventory uses `lain device init/claim/status/report` on the
+selected device and `device list/show/pair/revoke` on the administrator client.
+Agent commands use only the protected device credential file and do not load the
+Kernel administrator setup. Pairing starts no Worker or archive collector.
+Exact flow, transport requirements and validation status:
+[W2a](DEVICE_PAIRING_ACCEPTANCE.md).
+
 Selected source memory has independent controls: `lain archive memory-grant
 <channel>`, `memory-grants <channel>`, `memory-enable <channel> --file <decision>`,
 and `memory-revoke <channel> --revision <n>`. It enables no source collector or

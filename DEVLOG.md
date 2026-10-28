@@ -1,5 +1,37 @@
 # L.A.I.N. Development Log
 
+## 2026-10-28 — W2a explicit device enrollment and inventory
+
+Continued from pushed `67bb620`. Added Kernel-owned Pending/Active/Revoked device
+identity, exact administrator admission plus independent device credential/manifest
+proof, immutable workspace/capability declarations and finite expiry. Dedicated
+device routes cannot use administrator credentials or access other principals.
+The reserved key namespace is rejected as a Kernel administrator token and covered
+by complete-record/streaming redaction. Migration 023 enables no device.
+
+Native CLI generates protected private credentials outside Git, exports only a
+separate registration and bypasses owner connection loading for agent operations.
+It reports actual selected workspace availability without inventing Worker support.
+Monotonic request/sequence receipts survive restart; revoke/expiry prevent late
+reports, old claim/re-enrollment and scope expansion. Device paths are not opened
+by Kernel. No command/executor/heartbeat subsystem or new dependency was added.
+
+Native Windows/MSVC: 267 Rust tests pass, 3 manual ignored; format, strict Clippy,
+locked build and 14 script tests pass. Device process acceptance passes 5 checks,
+3 reports, no model. Schema22→23 stopped backup/upgrade/refusal/full rollback:
+5 checks/3 fake calls. Full chat: 36/83; source memory: 5/16; bridge/sync: 6 checks,
+10 GETs/jobs, no model. Reports match final binary hashes and clean up temporary
+instances. Zero paid calls, real QQ sends or real device installation were initiated.
+See [acceptance](docs/DEVICE_PAIRING_ACCEPTANCE.md) and ADR 026.
+
+At the user's request, regenerated the protected NapCat login QR. After phone
+confirmation, actual existing account <bot-qq> → peer <user-qq> was verified
+Online with no connection failure; personal Kernel remained Ready on its separate
+schema16 maintenance release and authorized private-daily inference decision.
+This development did not migrate it or enable new personal source/memory/Worker
+authority. W2 command/event/resync, W3 native execution, W4 integration and the
+combined goal's live/long-term acceptance remain open.
+
 ## 2026-10-28 — W1f selected source-derived memory
 
 Continued from pushed `d959871`. Added independent finite binding/source-epoch

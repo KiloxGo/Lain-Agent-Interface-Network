@@ -1,5 +1,16 @@
 # Domain Model
 
+## W2a device identity and reported inventory — 2026-10-28
+
+DeviceId and DeviceWorkspaceId belong to Lain. An administrator-admitted immutable
+RegisterDevice document enters Pending, then exact credential/manifest proof
+makes it Active; explicit revoke is terminal. Expiry is checked independently.
+DeviceReport has an independent monotonic sequence/request receipt, device policy
+revision, reported time and Kernel receive time. Workspace availability and
+capability versions are device claims, never Worker authority or an Online
+guarantee. Devices own paths; Kernel stores declarations without opening them.
+No remote WorkSession is invented. See [ADR 026](adr/026-explicit-device-enrollment.md).
+
 ## W1f source-derived semantic selection — 2026-10-28
 
 ArchiveMemoryGrant is a binding-local finite write policy, independent of archive

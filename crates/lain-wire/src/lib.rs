@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 pub mod archives;
 pub mod chat;
+pub mod devices;
 pub mod inference;
 pub mod memory;
 pub mod notices;
@@ -46,6 +47,8 @@ macro_rules! id {
     };
 }
 id!(ConversationId);
+id!(DeviceId);
+id!(DeviceWorkspaceId);
 id!(ActorTurnId);
 id!(MessageId);
 id!(ActionId);

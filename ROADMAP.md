@@ -4,6 +4,12 @@
 
 **Last reviewed:** 2026-10-28
 
+W2a device enrollment/proof, revocation and reported inventory are locally validated
+([contract](docs/adr/026-explicit-device-enrollment.md),
+[evidence](docs/DEVICE_PAIRING_ACCEPTANCE.md)). This slice adds no command,
+remote execution, public Kernel deployment or personal-instance migration.
+W2 command/event/resync, W3 native execution and W4 terminal integration remain.
+
 W1f selected source-derived memory is implemented and locally validated: independent default-off
 finite write grants, inferred flattened lineage, stale-body/draft suppression and
 current-user correction with rebuilt context. See
