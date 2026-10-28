@@ -338,10 +338,39 @@ impl ArchiveRecallQuery {
             })
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArchiveRecallVersion {
     pub record_id: ArchiveRecordId,
     pub revision: u64,
     pub source_id: ArchiveSourceId,
     pub source_grant_revision: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchiveMemoryScope {
+    pub sources: Vec<ArchiveRecallSource>,
+    pub expires_at_ms: u64,
+    pub retention_ms: u64,
+    pub max_writes: u32,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveMemoryGrant {
+    pub channel_id: crate::ChannelId,
+    pub revision: u64,
+    pub scope: Option<ArchiveMemoryScope>,
+    pub used_writes: u32,
+    pub changed_at_ms: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SetArchiveMemory {
+    pub expected_revision: u64,
+    pub scope: Option<ArchiveMemoryScope>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RememberArchive {
+    pub content: String,
+    pub kind: crate::memory::MemoryKind,
 }

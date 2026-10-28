@@ -1,5 +1,16 @@
 # Runtime Model
 
+## W1f bounded source-memory selection — 2026-10-28
+
+The existing private Actor selects only after actual archive disclosure and a
+captured independent write epoch. One transaction commits semantic memory,
+allowance and action receipt. Existing freshness gates cover flattened lineage;
+the archive retention timer also removes expired derived rows. User correction/
+forget clears transient source dependencies and rebuilds subsequent model input
+from current user statements and committed effect metadata. There is no extractor,
+new model scheduler or automatic repair/replay. See
+[ADR 025](adr/025-selected-source-memory.md).
+
 ## W1e finite synchronization runtime — 2026-10-27
 
 One nearest-deadline timer wakes only for explicitly enabled source policies or

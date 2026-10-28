@@ -12,7 +12,7 @@ use rusqlite::{Connection, OptionalExtension};
 use serde_json::{Value, json};
 
 // The absent decision is disabled, including on upgraded databases.
-fn decision(db: &Connection, channel: ChannelId) -> Result<ArchiveRecallGrant> {
+pub(super) fn decision(db: &Connection, channel: ChannelId) -> Result<ArchiveRecallGrant> {
     db.query_row("SELECT snapshot FROM archive_recall_grants WHERE channel_id=?1 ORDER BY revision DESC LIMIT 1", [channel.to_string()], |r|r.get::<_,String>(0))
         .optional()?.map(decode).transpose().map(|g|g.unwrap_or(ArchiveRecallGrant{channel_id:channel,revision:0,scope:None,changed_at_ms:0}))
 }
@@ -42,7 +42,7 @@ fn allowed(
     archives::active(&original, now)?;
     Ok(())
 }
-fn visible(
+pub(super) fn visible(
     db: &Connection,
     g: &ArchiveRecallGrant,
     id: ArchiveRecordId,
@@ -52,6 +52,7 @@ fn visible(
     allowed(db, g, r.source_id, now)?;
     ensure!(
         super::knowledge::available(db, r.id, now)?
+            && !super::archive_memory::suppressed(db, g.channel_id, r.id)?
             && r.availability == ArchiveAvailability::Stored
             && r.text.is_some()
             && r.retain_until_ms > now

@@ -1,6 +1,6 @@
 use super::{
     Store,
-    memory::{insert_memory, key, read_memory},
+    memory::{insert_memory, key},
 };
 use crate::{
     actor::{
@@ -53,7 +53,10 @@ fn batch(db: &Connection, id: BatchId) -> Result<Batch> {
     ensure!(value.id == id, "private memory batch identity mismatch");
     Ok(value)
 }
-fn active(db: &Connection, turn: &ActorTurn) -> Result<(ChannelMemoryContext, MemoryGrant)> {
+pub(super) fn active(
+    db: &Connection,
+    turn: &ActorTurn,
+) -> Result<(ChannelMemoryContext, MemoryGrant)> {
     let context = turn
         .channel_memory
         .clone()
@@ -120,6 +123,7 @@ fn evidence(
     Ok(())
 }
 pub(super) fn suppress(db: &Connection, record: &MemoryRecord) -> Result<()> {
+    super::archive_memory::suppress(db, record)?;
     if let MemorySource::ChannelSelection {
         channel_id,
         incoming_id,
@@ -239,8 +243,9 @@ impl Store {
         }
         drop(stmt);
         let mut candidates = std::collections::BTreeMap::new();
+        let mut withheld_targets = vec![];
         if let Ok(id) = text.parse::<MemoryId>() {
-            let record = read_memory(&self.connection, id)?;
+            let record = super::memory::read_memory_snapshot(&self.connection, id)?;
             ensure!(
                 record.status == MemoryStatus::Active
                     && record.draft.scope
@@ -249,7 +254,18 @@ impl Store {
                         }),
                 ControlError::NotFound
             );
-            candidates.insert(record.id, record);
+            if matches!(
+                record.provenance.source,
+                MemorySource::ArchiveSelection { .. }
+            ) && !super::archive_memory::current(&self.connection, &record, now_ms()?)?
+            {
+                // Exact-ID management may inspect a revision without disclosing its body.
+                self.connection.execute("INSERT INTO channel_memory_inspections VALUES(?1,?2,?3) ON CONFLICT(actor_turn_id,memory_id) DO UPDATE SET revision=excluded.revision",params![turn_id.to_string(),record.id.to_string(),i64::try_from(record.revision)?])?;
+                withheld_targets.push(json!({"memory_id":record.id,"revision":record.revision,"availability":"source_unavailable_body_withheld","authority":"management_metadata_only_not_factual_evidence"}));
+            } else {
+                crate::memory::validate(&record.draft, &record.provenance)?;
+                candidates.insert(record.id, record);
+            }
         } else {
             for term in recall_terms(text) {
                 let page = self.memory_page(&MemoryQuery {
@@ -287,6 +303,22 @@ impl Store {
                 params![turn_id.to_string(),record.id.to_string(),i64::try_from(record.revision)?])?;
         }
         if let Some(chat) = &mut turn.private_chat {
+            for r in &records {
+                if matches!(r.provenance.source, MemorySource::ArchiveSelection { .. }) {
+                    chat.archive_memory_tainted = true;
+                    let v = lain_wire::chat::ChatMemoryVersion {
+                        memory_id: r.id,
+                        revision: r.revision,
+                    };
+                    if !chat.archive_memory_versions.contains(&v) {
+                        chat.archive_memory_versions.push(v);
+                    }
+                }
+            }
+            ensure!(
+                chat.archive_memory_versions.len() <= 12,
+                ControlError::InvalidInput
+            );
             chat.memory_versions = records
                 .iter()
                 .map(|r| lain_wire::chat::ChatMemoryVersion {
@@ -308,6 +340,7 @@ impl Store {
         Ok(
             json!({"context_role":"untrusted_memory_evidence", "channel_id":c.channel_id,
             "grant_revision":c.grant_revision, "current_sources":sources, "records":records,
+            "withheld_targets":withheld_targets,
             "committed_effects_role":"kernel_operation_metadata", "committed_effects":committed_effects}),
         )
     }
@@ -317,6 +350,13 @@ impl Store {
         action_id: ActionId,
     ) -> Result<MemoryEffect> {
         let turn = self.actor_turn(turn_id)?;
+        if turn
+            .actions
+            .iter()
+            .any(|a| a.id == action_id && matches!(a.tool, Tool::ArchiveRemember(_)))
+        {
+            return self.archive_memory_effect(turn_id, action_id);
+        }
         let tx = self.connection.transaction()?;
         let (c, g) = active(&tx, &turn)?;
         super::private_chat::check_current(&tx, &turn)?;
@@ -375,7 +415,10 @@ impl Store {
             }
         }
         let old = previous.map(|(id, revision)| -> Result<MemoryRecord> {
-            let value = read_memory(&tx,id)?;
+            let value = super::memory::read_memory_snapshot(&tx,id)?;
+            if !matches!(value.provenance.source,MemorySource::ArchiveSelection{..}) {
+                crate::memory::validate(&value.draft,&value.provenance)?;
+            }
             ensure!(value.draft.scope == (MemoryScope::Channel { channel_id:c.channel_id })
                 && value.status == MemoryStatus::Active && value.revision == revision,ControlError::Conflict);
             let inspected = tx.query_row("SELECT revision FROM channel_memory_inspections WHERE actor_turn_id=?1 AND memory_id=?2",
@@ -383,6 +426,21 @@ impl Store {
             ensure!(inspected == Some(i64::try_from(revision)?),ControlError::Conflict);
             Ok(value)
         }).transpose()?;
+        if turn
+            .private_chat
+            .as_ref()
+            .is_some_and(|c| c.archive_memory_tainted || !c.archive_memory_versions.is_empty())
+            && operation != MemoryOperation::Forget
+        {
+            ensure!(
+                operation == MemoryOperation::Correct
+                    && old.as_ref().is_some_and(|r| matches!(
+                        r.provenance.source,
+                        MemorySource::ArchiveSelection { .. }
+                    )),
+                ControlError::Conflict
+            );
+        }
         let new = if let Some(s) = selection {
             Some(insert_memory(
                 &tx,
@@ -411,6 +469,14 @@ impl Store {
         } else {
             None
         };
+        let refresh_after_effect = old
+            .as_ref()
+            .is_some_and(|r| matches!(r.provenance.source, MemorySource::ArchiveSelection { .. }))
+            || (previous.is_some()
+                && turn
+                    .private_chat
+                    .as_ref()
+                    .is_some_and(|c| c.archive_memory_tainted));
         if let Some(record) = &new {
             // Every autonomously selected record must fit a subsequent bounded recall.
             ensure!(
@@ -441,6 +507,7 @@ impl Store {
             actor_turn_id: turn_id,
             channel_id: c.channel_id,
             grant_revision: c.grant_revision,
+            archive_grant_revision: None,
             operation,
             memory_id: new
                 .as_ref()
@@ -458,6 +525,21 @@ impl Store {
                 key(&effect)?
             ],
         )?;
+        if refresh_after_effect {
+            let mut fresh = turn.clone();
+            let c = fresh.private_chat.as_mut().ok_or(ControlError::Conflict)?;
+            c.archive_memory_tainted = true;
+            c.memory_versions.clear();
+            c.archive_memory_versions.clear();
+            c.archive_memory_grant_revision = None;
+            c.source_versions.clear();
+            c.archive_versions.clear();
+            c.archive_recall_revision = None;
+            c.experience_versions.clear();
+            c.experience_grant_revision = None;
+            c.share_versions.clear();
+            Self::save_actor_in_transaction(&tx, &mut fresh, false)?;
+        }
         tx.commit()?;
         Ok(effect)
     }
@@ -1042,7 +1124,7 @@ mod tests {
             )
             .unwrap();
         assert!(legacy.owner_confirmed_at_ms.is_some());
-        s.connection.execute_batch("DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; DROP TABLE channel_memory_inspections; DROP TABLE channel_memory_suppressions; DROP TABLE channel_memory_effects; DROP TABLE channel_memory_grants; PRAGMA user_version=8;").unwrap();
+        s.connection.execute_batch("DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; DROP TABLE channel_memory_inspections; DROP TABLE channel_memory_suppressions; DROP TABLE channel_memory_effects; DROP TABLE channel_memory_grants; PRAGMA user_version=8;").unwrap();
         drop(s);
         let s = Store::open(&path).unwrap();
         assert_eq!(s.memory(legacy.id).unwrap(), legacy);

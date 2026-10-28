@@ -43,7 +43,10 @@ impl Kernel {
             inner.state == KernelState::Ready,
             crate::backend::ControlError::Unavailable
         );
-        inner.store.private_memory_effect(turn, action)
+        let effect = inner.store.private_memory_effect(turn, action)?;
+        let _ = self.archive_events.send(());
+        let _ = self.channel_events.send(());
+        Ok(effect)
     }
     pub(crate) fn channel_deadline(&self, id: ChannelId, now: u64) -> Result<Option<u64>> {
         self.lock()?.store.channel_deadline(id, now)

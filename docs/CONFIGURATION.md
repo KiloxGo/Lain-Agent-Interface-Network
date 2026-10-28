@@ -1,5 +1,14 @@
 # Configuration and Runtime Profiles
 
+## W1f finite archive-memory scope — 2026-10-28
+
+`archive memory-enable <channel> --file <decision>` adds a separate default-off
+finite write decision over exact archive source/import epochs. Private memory and
+archive recall must independently be current. Replacing the policy is explicit;
+restart/forget does not replenish its used writes. No startup switch, collection,
+background inference or Worker permission is added. See
+[operation](ARCHIVE_MEMORY_ACCEPTANCE.md) and [ADR 025](adr/025-selected-source-memory.md).
+
 ## W1e finite standing source reads — 2026-10-27
 
 `archive knowledge-sync-enable` explicitly freezes the daemon-selected knowledge

@@ -293,7 +293,12 @@ fn project(
     record.reply.actor_turn_id = Some(turn_id);
     record.reply.actor_state = Some(serde_json::from_value(json!(turn.state))?);
     record.reply.model_request_attempts = Some(turn.model_requests);
-    if turn.actions.iter().any(|a| a.tool.source_read()) {
+    if turn
+        .private_chat
+        .as_ref()
+        .is_some_and(|c| c.archive_memory_tainted || !c.archive_memory_versions.is_empty())
+        || turn.actions.iter().any(|a| a.tool.source_read())
+    {
         record.reply.visibility = ReplyVisibility::SourceDerived;
         return Ok(Some(record));
     }

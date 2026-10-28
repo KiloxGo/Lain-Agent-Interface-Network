@@ -128,6 +128,7 @@ async fn private_daily_is_persistent_scoped_and_preserves_spent_finite_budgets()
             .reserved_requests,
         1
     );
+    until(|| Arc::strong_count(&a) == 1).await;
     drop(a);
     drop(k);
     let k = Kernel::open(&dir.path().join("state.db")).unwrap();

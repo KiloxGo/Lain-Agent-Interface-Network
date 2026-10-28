@@ -476,7 +476,7 @@ mod tests {
             .unwrap();
         let state = serde_json::to_string(&db.knowledge_state(id).unwrap()).unwrap();
         db.connection
-            .execute_batch("DROP TABLE knowledge_sync; PRAGMA user_version=20;")
+            .execute_batch("DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; PRAGMA user_version=20;")
             .unwrap();
         drop(db);
         let mut db = Store::open(&dir.path().join("state.db")).unwrap();
@@ -484,7 +484,7 @@ mod tests {
             db.connection
                 .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
                 .unwrap(),
-            21
+            22
         );
         assert_eq!(
             db.connection

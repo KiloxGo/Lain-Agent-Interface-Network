@@ -31,6 +31,13 @@ pub struct PrivateChatContext {
     /// IDs/revisions supplied in the latest model request; never memory bodies.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub memory_versions: Vec<ChatMemoryVersion>,
+    /// Accumulated source-derived memory dependencies across this turn's requests.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub archive_memory_versions: Vec<ChatMemoryVersion>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub archive_memory_tainted: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archive_memory_grant_revision: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub source_versions: Vec<ChatSourceVersion>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -44,7 +51,7 @@ pub struct PrivateChatContext {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub archive_versions: Vec<crate::archives::ArchiveRecallVersion>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChatMemoryVersion {
     pub memory_id: crate::MemoryId,
     pub revision: u64,

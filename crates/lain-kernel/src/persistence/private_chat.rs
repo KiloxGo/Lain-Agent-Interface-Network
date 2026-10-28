@@ -118,6 +118,7 @@ pub(super) fn check_current(db: &Connection, t: &ActorTurn) -> Result<()> {
 }
 pub(super) fn memory_current(db: &Connection, t: &ActorTurn) -> Result<bool> {
     if !super::archive_recall::selected_current(db, t)?
+        || !super::archive_memory::selected_current(db, t)?
         || !super::experiences::selected_current(db, t)?
         || !super::share_recall::selected_current(db, t)?
     {
@@ -126,7 +127,7 @@ pub(super) fn memory_current(db: &Connection, t: &ActorTurn) -> Result<bool> {
     let Some(chat) = &t.private_chat else {
         return Ok(true);
     };
-    if chat.memory_versions.is_empty() {
+    if chat.memory_versions.is_empty() && chat.archive_memory_versions.is_empty() {
         return Ok(true);
     }
     let Some(scope) = &t.channel_memory else {
@@ -142,7 +143,11 @@ pub(super) fn memory_current(db: &Connection, t: &ActorTurn) -> Result<bool> {
     {
         return Ok(false);
     }
-    for selected in &chat.memory_versions {
+    for selected in chat
+        .memory_versions
+        .iter()
+        .chain(&chat.archive_memory_versions)
+    {
         let Ok(record) = super::memory::read_memory(db, selected.memory_id) else {
             return Ok(false);
         };
@@ -231,6 +236,9 @@ impl Store {
             decision: ChatDecision::Pending,
             wait_until_ms: None,
             memory_versions: vec![],
+            archive_memory_versions: vec![],
+            archive_memory_tainted: false,
+            archive_memory_grant_revision: None,
             source_versions: vec![],
             experience_versions: vec![],
             experience_grant_revision: None,
@@ -316,6 +324,8 @@ impl Store {
         c.decision = ChatDecision::Pending;
         c.wait_until_ms = None;
         c.memory_versions.clear();
+        c.archive_memory_versions.clear();
+        c.archive_memory_grant_revision = None;
         c.source_versions.clear();
         c.archive_recall_revision = None;
         c.archive_versions.clear();

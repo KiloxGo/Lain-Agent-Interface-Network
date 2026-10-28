@@ -12,6 +12,9 @@ use crate::{
     events::{Event, EventKind, HistoryPage},
     worker::WorkerState,
 };
+mod archive_memory;
+#[cfg(test)]
+mod archive_memory_tests;
 mod archive_reads;
 mod archive_recall;
 mod archives;
@@ -28,7 +31,7 @@ mod reading;
 mod share_recall;
 mod sharing;
 mod sources;
-pub(crate) const SCHEMA_VERSION: u32 = 21;
+pub(crate) const SCHEMA_VERSION: u32 = 22;
 
 pub(crate) struct Store {
     connection: Connection,
@@ -199,6 +202,9 @@ impl Store {
         }
         if version < 21 {
             transaction.execute_batch(include_str!("../migrations/021_knowledge_sync.sql"))?;
+        }
+        if version < 22 {
+            transaction.execute_batch(include_str!("../migrations/022_archive_memory.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(

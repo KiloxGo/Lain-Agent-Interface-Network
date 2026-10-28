@@ -1,5 +1,15 @@
 # Domain Model
 
+## W1f source-derived semantic selection — 2026-10-28
+
+ArchiveMemoryGrant is a binding-local finite write policy, independent of archive
+storage, private recall and MemoryGrant. ArchiveSelection is inferred provenance
+over actual request/action/source epochs, a bounded flattened dependency set and
+an expiry. MemoryEffect optionally identifies the archive-write epoch. Suppression
+is binding-local; original archives remain separate. Exact-ID unavailable targets
+can expose management metadata without their semantic body. See
+[ADR 025](adr/025-selected-source-memory.md).
+
 ## W1e selected-source network authority — 2026-10-27
 
 KnowledgeSyncGrant retains revisioned finite scope, frozen reader identity, used

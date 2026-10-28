@@ -3,6 +3,14 @@ use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 
 pub(super) fn routes() -> Router<ApiState> {
     Router::new()
+        .route(
+            "/v1/archives/memory/{id}",
+            get(archive_memory_grant).post(archive_memory_set),
+        )
+        .route(
+            "/v1/archives/memory/{id}/grants",
+            get(archive_memory_grants),
+        )
         .route("/v1/archives/sources", get(list).post(register))
         .route(
             "/v1/archives/recall/{id}",
@@ -34,6 +42,40 @@ pub(super) fn routes() -> Router<ApiState> {
         .route("/v1/archives/records/{id}/edits", get(edits))
         .route("/v1/archives/records/{id}/forget", post(forget))
         .route("/v1/archives/records/{id}/correct", post(correct))
+}
+async fn archive_memory_grant(
+    State(s): State<ApiState>,
+    Path(id): Path<lain_wire::ChannelId>,
+) -> Result<Json<ArchiveMemoryGrant>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.archive_memory_grant(id))
+            .await
+            .map_err(control_error)?,
+    )
+}
+async fn archive_memory_grants(
+    State(s): State<ApiState>,
+    Path(id): Path<lain_wire::ChannelId>,
+) -> Result<Json<Vec<ArchiveMemoryGrant>>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.archive_memory_grants(id))
+            .await
+            .map_err(control_error)?,
+    )
+}
+async fn archive_memory_set(
+    State(s): State<ApiState>,
+    Path(id): Path<lain_wire::ChannelId>,
+    Json(q): Json<SetArchiveMemory>,
+) -> Result<Json<ArchiveMemoryGrant>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.archive_memory_set(id, q))
+            .await
+            .map_err(control_error)?,
+    )
 }
 async fn knowledge_sync_grants(
     State(s): State<ApiState>,

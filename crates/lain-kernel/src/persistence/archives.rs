@@ -279,12 +279,13 @@ impl Store {
         Ok(g)
     }
     pub fn archive_prune(&mut self, now: u64) -> Result<()> {
+        self.connection.execute("DELETE FROM lain_memories WHERE json_extract(snapshot,'$.provenance.source.kind')='archive_selection' AND json_extract(snapshot,'$.provenance.source.evidence.expires_at_ms')<=?1",[sql(now)?])?;
         self.connection.execute("UPDATE archive_records SET snapshot=json_set(snapshot,'$.text',NULL,'$.availability','expired','$.revision',json_extract(snapshot,'$.revision')+1) WHERE retain_until_ms<=?1 AND json_extract(snapshot,'$.text') IS NOT NULL",[sql(now)?])?;
         Ok(())
     }
     pub fn archive_deadline(&mut self, now: u64) -> Result<Option<u64>> {
         self.archive_prune(now)?;
-        let t:Option<i64>=self.connection.query_row("SELECT min(retain_until_ms) FROM archive_records WHERE json_extract(snapshot,'$.text') IS NOT NULL",[],|r|r.get(0))?;
+        let t:Option<i64>=self.connection.query_row("SELECT min(deadline) FROM (SELECT retain_until_ms AS deadline FROM archive_records WHERE json_extract(snapshot,'$.text') IS NOT NULL UNION ALL SELECT json_extract(snapshot,'$.provenance.source.evidence.expires_at_ms') FROM lain_memories WHERE json_extract(snapshot,'$.provenance.source.kind')='archive_selection')",[],|r|r.get(0))?;
         t.map(|t| Ok(t.try_into()?)).transpose()
     }
     pub fn archive_import(

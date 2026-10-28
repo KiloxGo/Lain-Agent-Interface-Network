@@ -18,7 +18,10 @@ pub(super) fn key<T: serde::Serialize>(value: &T) -> Result<String> {
 fn decode<T: serde::de::DeserializeOwned>(value: String) -> Result<T> {
     serde_json::from_str(&value).map_err(|_| anyhow::anyhow!("invalid memory storage record"))
 }
-fn read_memory_snapshot(db: &rusqlite::Connection, id: MemoryId) -> Result<MemoryRecord> {
+pub(super) fn read_memory_snapshot(
+    db: &rusqlite::Connection,
+    id: MemoryId,
+) -> Result<MemoryRecord> {
     let record: MemoryRecord = decode(
         db.query_row(
             "SELECT snapshot FROM lain_memories WHERE id=?1",
@@ -34,6 +37,10 @@ fn read_memory_snapshot(db: &rusqlite::Connection, id: MemoryId) -> Result<Memor
 }
 pub(super) fn read_memory(db: &rusqlite::Connection, id: MemoryId) -> Result<MemoryRecord> {
     let record = read_memory_snapshot(db, id)?;
+    ensure!(
+        super::archive_memory::current(db, &record, now_ms()?)?,
+        ControlError::Unavailable
+    );
     crate::memory::validate(&record.draft, &record.provenance)?;
     Ok(record)
 }
@@ -58,12 +65,14 @@ pub(super) fn insert_memory(
 ) -> Result<MemoryRecord> {
     crate::memory::validate(&draft, &provenance)?;
     let time = now_ms()?;
-    let owner_confirmed_at_ms =
-        if matches!(provenance.source, MemorySource::ChannelSelection { .. }) {
-            None
-        } else {
-            Some(time)
-        };
+    let owner_confirmed_at_ms = if matches!(
+        provenance.source,
+        MemorySource::ChannelSelection { .. } | MemorySource::ArchiveSelection { .. }
+    ) {
+        None
+    } else {
+        Some(time)
+    };
     let record = MemoryRecord {
         id: MemoryId::new(),
         draft,
@@ -180,9 +189,9 @@ impl Store {
         let mut cursor = q.after;
         let mut more = false;
         let mut bytes = 0;
-        for row in rows {
+        for (scanned, row) in rows.enumerate() {
             let (sequence, value) = row?;
-            if records.len() == usize::from(q.limit)
+            if scanned == usize::from(q.limit)
                 || (!records.is_empty() && bytes + value.len() > 14000)
             {
                 more = true;
@@ -191,6 +200,10 @@ impl Store {
             bytes += value.len();
             let record: MemoryRecord = decode(value)?;
             record.validate().map_err(anyhow::Error::msg)?;
+            cursor = sequence.try_into()?;
+            if !super::archive_memory::current(&self.connection, &record, now_ms()?)? {
+                continue;
+            }
             crate::memory::validate(&record.draft, &record.provenance)?;
             ensure!(
                 record.draft.scope == q.scope

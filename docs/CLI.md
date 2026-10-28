@@ -1,5 +1,11 @@
 # CLI-first local development
 
+Selected source memory has independent controls: `lain archive memory-grant
+<channel>`, `memory-grants <channel>`, `memory-enable <channel> --file <decision>`,
+and `memory-revoke <channel> --revision <n>`. It enables no source collector or
+model job; actual typed selection retains inferred lineage and finite allowance.
+See [W1f operation/evidence](ARCHIVE_MEMORY_ACCEPTANCE.md).
+
 Explicit normal private replies without a cumulative count/expiry: lain inference
 private-daily <channel> --revision <n>. Other conversation/activity scopes remain
 blocked; per-turn limits and accounting remain. Use inference stop to close it.

@@ -919,6 +919,22 @@ impl Kernel {
                 );
             }
         }
+        if turn
+            .private_chat
+            .as_ref()
+            .is_some_and(|c| c.archive_memory_tainted || !c.archive_memory_versions.is_empty())
+        {
+            for action in turn.actions.iter().skip(old_actions) {
+                ensure!(
+                    !matches!(
+                        action.tool,
+                        crate::actor::tools::Tool::MemoryPropose(_)
+                            | crate::actor::tools::Tool::MemoryRemember(_)
+                    ),
+                    crate::backend::ControlError::InvalidInput
+                );
+            }
+        }
         if turn.private_chat.is_some()
             && (turn.actions.len() > old_actions
                 || (turn.private_chat.as_ref().is_some_and(|c| {

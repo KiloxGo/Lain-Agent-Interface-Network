@@ -1,5 +1,29 @@
 # L.A.I.N. Development Log
 
+## 2026-10-28 — W1f selected source-derived memory
+
+Continued from pushed `d959871`. Added independent finite binding/source-epoch
+write policy, typed one-selection-per-turn archive memory, inferred provenance
+with flattened source/memory/input lineage, atomic effects/allowance and existing
+freshness/retention gates. Migration 022 changes no old memory or authority.
+Source withdrawal/correction and parent changes withhold derived bodies/drafts;
+quoted private correction/forget can manage an exact unavailable ID without its
+body. Successful correction rebuilds model input and uses the fresh user source.
+Generic source-influenced promotion and Worker review remain unchanged.
+
+Native Windows/MSVC: 254 Rust tests pass, 3 manual ignored; format, strict Clippy,
+locked native build and 14 script tests pass. New native source-memory fixture:
+5 checks/16 fake requests. Full process regression: 36/83. Source bridge: 6 checks,
+10 GETs/jobs, no model requests. Actual schema21→22 upgrade/full rollback: 5 checks,
+3 fake requests. Final binary hashes agree and temporary instances clean up.
+Intermediate failures and their fixes remain documented in
+[acceptance](docs/ARCHIVE_MEMORY_ACCEPTANCE.md); zero paid calls/real QQ sends.
+
+Personal daily instance remains the separately installed schema16 maintenance
+build; this milestone does not migrate it or enable new personal memory/sources.
+Real multi-day continuity, broader summaries/cross-account lineage and W2–W4
+remain active work in the combined goal. See ADR 025.
+
 ## 2026-10-28 — Explicit private daily inference
 
 The user requested local startup and then removed the proposed count/time limit

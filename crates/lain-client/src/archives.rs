@@ -7,6 +7,22 @@ use std::{io::Read, path::PathBuf};
 
 #[derive(Subcommand)]
 pub enum Commands {
+    MemoryGrant {
+        channel: lain_wire::ChannelId,
+    },
+    MemoryGrants {
+        channel: lain_wire::ChannelId,
+    },
+    MemoryEnable {
+        channel: lain_wire::ChannelId,
+        #[arg(long)]
+        file: PathBuf,
+    },
+    MemoryRevoke {
+        channel: lain_wire::ChannelId,
+        #[arg(long)]
+        revision: u64,
+    },
     KnowledgeSyncGrants {
         id: ArchiveSourceId,
     },
@@ -146,6 +162,10 @@ fn file(path: PathBuf) -> Result<Value> {
 }
 pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()> {
     let value:Value=match command {
+        Commands::MemoryGrant{channel}=>client.get(&format!("v1/archives/memory/{channel}")).await?,
+        Commands::MemoryGrants{channel}=>client.get(&format!("v1/archives/memory/{channel}/grants")).await?,
+        Commands::MemoryEnable{channel,file:p}=>client.post(&format!("v1/archives/memory/{channel}"),Some(file(p)?)).await?,
+        Commands::MemoryRevoke{channel,revision}=>client.post(&format!("v1/archives/memory/{channel}"),Some(json!({"expected_revision":revision,"scope":null}))).await?,
         Commands::KnowledgeSyncGrants{id}=>client.get(&format!("v1/archives/sources/{id}/knowledge/sync/grants")).await?,
         Commands::KnowledgeSync{id}=>client.get(&format!("v1/archives/sources/{id}/knowledge/sync")).await?,
         Commands::KnowledgeSyncEnable{id,file:p}=>client.post(&format!("v1/archives/sources/{id}/knowledge/sync"),Some(file(p)?)).await?,

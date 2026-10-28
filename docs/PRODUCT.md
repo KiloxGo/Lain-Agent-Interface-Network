@@ -28,8 +28,10 @@ Codex 可见历史的显式只读接入。W1c 增加独立默认关闭的私聊�
 失效检查，见[归档](ARCHIVE_ACCEPTANCE.md)、[读取](ARCHIVE_READ_ACCEPTANCE.md)与
 [回查验收](ARCHIVE_RECALL_ACCEPTANCE.md)。W1d 已增加独立 QQ 服务到 Kernel 的显式
 有界读取与来源失效检查，见[桥接验收](KNOWLEDGE_BRIDGE_ACCEPTANCE.md)。W1e 新增默认关闭、
-有限请求数和期限的选定来源同步，见[同步验收](KNOWLEDGE_SYNC_ACCEPTANCE.md)；真实长期采集、
-真实群来源、持久派生认识和长期连续性仍未全部完成。
+有限请求数和期限的选定来源同步，见[同步验收](KNOWLEDGE_SYNC_ACCEPTANCE.md)。W1f 已增加
+独立有限授权下的选定来源记忆，保留推断性质、来源依赖及更正／忘记后的失效检查，
+见[来源记忆验收](ARCHIVE_MEMORY_ACCEPTANCE.md)；真实长期采集、真实群来源、
+跨账号关联和长期连续性仍未全部完成。
 
 Lain 是常驻云端、拥有统一身份、持续经历和独立记忆的个人智能体。
 她与用户平等相处，通过 QQ、未来的 Telegram 和本地终端交流；在约定范围内

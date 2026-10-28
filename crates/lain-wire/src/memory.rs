@@ -31,8 +31,13 @@ pub enum MemoryStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum MemorySource {
+    ArchiveSelection {
+        evidence: ArchiveMemoryEvidence,
+    },
     /// Exact text supplied through the authenticated owner memory API.
-    ExplicitOwnerStatement { request_id: RequestId },
+    ExplicitOwnerStatement {
+        request_id: RequestId,
+    },
     /// Model interpretation, even when accepted by the owner.
     LainGenerated {
         conversation_id: ConversationId,
@@ -40,7 +45,9 @@ pub enum MemorySource {
         action_id: ActionId,
     },
     /// Owner-selected claim supported by a bounded factual summary, not verified truth.
-    SessionSummary { summary_id: SummaryId },
+    SessionSummary {
+        summary_id: SummaryId,
+    },
     ChannelSelection {
         channel_id: ChannelId,
         conversation_id: ConversationId,
@@ -52,6 +59,23 @@ pub enum MemorySource {
         grant_revision: u64,
         grant_expires_at_ms: Option<u64>,
     },
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchiveMemoryEvidence {
+    pub model_request: u32,
+    pub channel_id: ChannelId,
+    pub conversation_id: ConversationId,
+    pub batch_id: BatchId,
+    pub actor_turn_id: ActorTurnId,
+    pub action_id: ActionId,
+    pub grant_revision: u64,
+    pub memory_grant_revision: u64,
+    pub recall_revision: u64,
+    pub expires_at_ms: u64,
+    pub records: Vec<crate::archives::ArchiveRecallVersion>,
+    pub memories: Vec<crate::chat::ChatMemoryVersion>,
+    pub incoming_ids: Vec<IncomingId>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -214,6 +238,8 @@ pub struct MemoryEffect {
     pub actor_turn_id: ActorTurnId,
     pub channel_id: ChannelId,
     pub grant_revision: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archive_grant_revision: Option<u64>,
     pub operation: MemoryOperation,
     pub memory_id: MemoryId,
     pub previous_memory_id: Option<MemoryId>,
@@ -233,6 +259,9 @@ impl MemoryProvenance {
             ) | (
                 MemorySource::SessionSummary { .. },
                 MemoryAuthority::UnverifiedSelection
+            ) | (
+                MemorySource::ArchiveSelection { .. },
+                MemoryAuthority::Inferred
             ) | (
                 MemorySource::ChannelSelection { .. },
                 MemoryAuthority::Inferred
@@ -257,7 +286,30 @@ impl MemoryRecord {
         {
             return Err("contradictory memory lifecycle");
         }
-        if let MemorySource::ChannelSelection {
+        if let MemorySource::ArchiveSelection { evidence: e } = &self.provenance.source {
+            if self.owner_confirmed_at_ms.is_some()
+                || self.draft.scope
+                    != (MemoryScope::Channel {
+                        channel_id: e.channel_id,
+                    })
+                || e.grant_revision == 0
+                || e.model_request == 0
+                || e.memory_grant_revision == 0
+                || e.recall_revision == 0
+                || e.expires_at_ms <= self.recorded_at_ms
+                || !(1..=16).contains(&e.records.len())
+                || e.memories.len() > 16
+                || !(1..=16).contains(&e.incoming_ids.len())
+                || e.records
+                    .iter()
+                    .any(|r| r.revision == 0 || r.source_grant_revision == 0)
+                || e.memories
+                    .iter()
+                    .any(|m| m.revision == 0 || m.memory_id == self.id)
+            {
+                return Err("invalid archive memory authority or lineage");
+            }
+        } else if let MemorySource::ChannelSelection {
             channel_id,
             evidence,
             grant_revision,
@@ -294,7 +346,7 @@ impl MemoryCandidate {
         };
         let valid_action = match self.provenance.source {
             MemorySource::LainGenerated { action_id, .. } => self.actor_action == Some(action_id),
-            MemorySource::ChannelSelection { .. } => false,
+            MemorySource::ChannelSelection { .. } | MemorySource::ArchiveSelection { .. } => false,
             _ => self.actor_action.is_none(),
         };
         if !valid_review

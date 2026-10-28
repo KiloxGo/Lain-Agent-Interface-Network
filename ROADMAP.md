@@ -2,7 +2,14 @@
 
 **Status:** QQ-first product delivery proposal plus historical implementation record
 
-**Last reviewed:** 2026-10-27
+**Last reviewed:** 2026-10-28
+
+W1f selected source-derived memory is implemented and locally validated: independent default-off
+finite write grants, inferred flattened lineage, stale-body/draft suppression and
+current-user correction with rebuilt context. See
+[ADR 025](docs/adr/025-selected-source-memory.md) and
+[current evidence](docs/ARCHIVE_MEMORY_ACCEPTANCE.md). This does not complete W1
+or the combined goal and is not installed in the personal schema16 instance.
 
 ## Appended QQ storage/deployment goal — 2026-10-27
 
@@ -54,8 +61,9 @@ W1c now adds independent private-binding archive recall, fresh source/record
 versions and stale derived-answer suppression ([recall acceptance](docs/ARCHIVE_RECALL_ACCEPTANCE.md)).
 W1d adds explicit source-filtered independent QQ pulls, atomic copied projections/
 tombstones and fresh private disclosure ([bridge acceptance](docs/KNOWLEDGE_BRIDGE_ACCEPTANCE.md)).
-Persistent derived summaries/memory, continuous collection, cross-account lineage
-and real/long-term acceptance remain W1 work. W2–W4 and full-stage exit criteria
+W1f adds selected inferred memory with flattened lineage and correction/forget.
+Broader derived summaries, cross-account lineage and real/long-term acceptance
+remain W1 work. W2–W4 and full-stage exit criteria
 remain open.
 
 ## Current direction — QQ companionship first

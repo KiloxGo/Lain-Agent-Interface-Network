@@ -1,5 +1,20 @@
 # Lain Memory
 
+## W1f selected archive interpretations — 2026-10-28
+
+An independent default-off ArchiveMemoryGrant permits one cautious selection per
+conversation turn after bounded archive disclosure, within finite source/expiry/
+retention/write limits. ArchiveSelection records inferred authority, no individual
+confirmation, actual request/preparation evidence and flattened source/memory/input
+lineage. Freshness, correction, withdrawal and suppression gate reads and drafts;
+existing retention timers delete expired derived bodies. Exact-ID management can
+withhold a stale body while allowing quoted correction/forget. A current-user
+correction rebuilds model input and creates a separate ChannelSelection. Old
+source-memory-influenced reply/tool bodies cannot return through history.
+This narrowly supersedes W1c's deferred typed selection; generic promotion remains
+blocked. See [ADR 025](adr/025-selected-source-memory.md) and
+[operation/evidence](ARCHIVE_MEMORY_ACCEPTANCE.md).
+
 ## W1e source synchronization remains non-semantic — 2026-10-27
 
 Finite scheduled knowledge reads refresh only selected archive projections.

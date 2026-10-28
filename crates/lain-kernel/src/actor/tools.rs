@@ -12,6 +12,8 @@ use std::{path::PathBuf, sync::Arc};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "name", content = "arguments", deny_unknown_fields)]
 pub enum Tool {
+    #[serde(rename = "archive.remember")]
+    ArchiveRemember(lain_wire::archives::RememberArchive),
     #[serde(rename = "archive.search")]
     ArchiveSearch(lain_wire::archives::ArchiveRecallQuery),
     #[serde(rename = "archive.inspect")]
@@ -122,10 +124,20 @@ impl Tool {
                 | Self::MemoryRemember(_)
                 | Self::MemoryCorrect(_)
                 | Self::MemoryForget(_)
+                | Self::ArchiveRemember(_)
         )
     }
     pub fn validate(&self) -> Result<()> {
         match self {
+            Self::ArchiveRemember(q) => ensure!(
+                matches!(
+                    q.kind,
+                    crate::memory::MemoryKind::Episodic | crate::memory::MemoryKind::Preference
+                ) && !q.content.trim().is_empty()
+                    && q.content.len() <= 1024
+                    && !q.content.chars().any(char::is_control),
+                "invalid selected archive interpretation"
+            ),
             Self::ArchiveSearch(q) => ensure!(q.valid(), "invalid bounded archive query"),
             Self::SharingSearch(q) => ensure!(q.valid(), "invalid bounded sharing query"),
             Self::ChatWait(q) => ensure!(
@@ -240,6 +252,7 @@ impl Tool {
         matches!(
             self,
             Self::SourceSearch(_)
+                | Self::ArchiveRemember(_)
                 | Self::ArchiveSearch(_)
                 | Self::ArchiveInspect { .. }
                 | Self::SharingSearch(_)
@@ -268,8 +281,14 @@ impl Tool {
                 | Self::MemoryRemember(_)
                 | Self::MemoryCorrect(_)
                 | Self::MemoryForget(_)
+                | Self::ArchiveRemember(_)
         )
     }
+}
+pub fn archive_memory_definitions() -> Vec<Value> {
+    vec![
+        json!({"type":"function","name":"archive_remember","description":"Select one useful, cautious episodic interpretation or stable preference from archive evidence actually read in this turn, only under separate finite archive-memory authority. Kernel captures all disclosed dependencies. No automatic transcript copy, temporary mood labels, verified fact, owner confirmation or participation claim. No grant or Worker authority. At most one successful selection per turn.","strict":true,"parameters":{"type":"object","properties":{"content":{"type":"string","maxLength":1024},"kind":{"type":"string","enum":["episodic","preference"]}},"required":["content","kind"],"additionalProperties":false}}),
+    ]
 }
 pub fn chat_definitions(wait_available: bool) -> Vec<Value> {
     let mut result = vec![

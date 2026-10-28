@@ -3,6 +3,36 @@ use crate::{archives, backend::ControlError, domain::now_ms, redaction::Redactor
 use anyhow::{Result, ensure};
 use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 impl Kernel {
+    pub(crate) fn archive_memory_grant(
+        &self,
+        id: lain_wire::ChannelId,
+    ) -> Result<ArchiveMemoryGrant> {
+        self.lock()?.store.archive_memory_grant(id)
+    }
+    pub(crate) fn archive_memory_grants(
+        &self,
+        id: lain_wire::ChannelId,
+    ) -> Result<Vec<ArchiveMemoryGrant>> {
+        self.lock()?.store.archive_memory_grants(id)
+    }
+    pub(crate) fn archive_memory_set(
+        &self,
+        id: lain_wire::ChannelId,
+        q: SetArchiveMemory,
+    ) -> Result<ArchiveMemoryGrant> {
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, ControlError::Unavailable);
+        let g = inner.store.archive_memory_set(id, q)?;
+        let _ = self.archive_events.send(());
+        let _ = self.channel_events.send(());
+        Ok(g)
+    }
+    pub(crate) fn archive_memory_scope(
+        &self,
+        id: lain_wire::ActorTurnId,
+    ) -> Result<serde_json::Value> {
+        self.lock()?.store.archive_memory_scope(id)
+    }
     pub(crate) fn knowledge_sync_grants(
         &self,
         id: ArchiveSourceId,

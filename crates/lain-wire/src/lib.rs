@@ -111,6 +111,8 @@ pub enum Sandbox {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "name", content = "arguments", deny_unknown_fields)]
 pub enum ToolCall {
+    #[serde(rename = "archive.remember")]
+    ArchiveRemember(archives::RememberArchive),
     #[serde(rename = "archive.search")]
     ArchiveSearch(archives::ArchiveRecallQuery),
     #[serde(rename = "archive.inspect")]
@@ -274,6 +276,9 @@ impl ActorSnapshot {
                 || c.reconsiderations > chat::MAX_RECONSIDERATIONS
                 || c.waits > 1
                 || c.memory_versions.len() > 3
+                || c.archive_memory_versions.len() > 12
+                || c.archive_memory_versions.iter().any(|m| m.revision == 0)
+                || c.archive_memory_grant_revision == Some(0)
                 || c.memory_versions.iter().any(|m| m.revision == 0)
                 || c.source_versions.len() > 4
                 || c.experience_versions.len() > 3
@@ -309,7 +314,9 @@ impl ActorSnapshot {
                         .channel_source
                         .as_ref()
                         .is_none_or(|s| s.channel_id != c.channel_id || s.batch_id != c.batch_id))
-                || (!c.memory_versions.is_empty()
+                || ((!c.memory_versions.is_empty()
+                    || !c.archive_memory_versions.is_empty()
+                    || c.archive_memory_grant_revision.is_some())
                     && self
                         .channel_memory
                         .as_ref()
@@ -441,6 +448,9 @@ mod tests {
             decision: chat::ChatDecision::Reply,
             wait_until_ms: None,
             memory_versions: vec![],
+            archive_memory_versions: vec![],
+            archive_memory_tainted: false,
+            archive_memory_grant_revision: None,
             source_versions: vec![],
             experience_versions: vec![],
             experience_grant_revision: None,
@@ -449,6 +459,28 @@ mod tests {
             archive_versions: vec![],
         });
         assert!(turn.validate().is_ok());
+        let legacy = serde_json::to_value(&turn.private_chat).unwrap();
+        assert!(legacy.get("archive_memory_tainted").is_none());
+        assert!(legacy.get("archive_memory_grant_revision").is_none());
+        let round_trip: chat::PrivateChatContext = serde_json::from_value(legacy).unwrap();
+        assert!(!round_trip.archive_memory_tainted);
+        turn.private_chat
+            .as_mut()
+            .unwrap()
+            .archive_memory_grant_revision = Some(0);
+        assert!(turn.validate().is_err());
+        turn.private_chat
+            .as_mut()
+            .unwrap()
+            .archive_memory_grant_revision = Some(1);
+        assert!(
+            turn.validate().is_err(),
+            "write scope requires actual private memory context"
+        );
+        turn.private_chat
+            .as_mut()
+            .unwrap()
+            .archive_memory_grant_revision = None;
         turn.private_chat.as_mut().unwrap().waits = 2;
         assert!(turn.validate().is_err());
         turn.private_chat.as_mut().unwrap().waits = 0;
