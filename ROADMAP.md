@@ -7,8 +7,9 @@ This increment is implemented with schema024 and deterministic native Windows
 acceptance: actual Responses pixels, ordered text/media, bounded animation,
 explicit unavailability and expiring/revocable visual context. See
 [ADR 027](docs/adr/027-private-visual-conversation.md) and
-[acceptance](docs/VISUAL_CHAT_ACCEPTANCE.md). Personal installation and actual
-provider/QQ visual quality remain pending; the visual goal is not complete yet.
+[acceptance](docs/VISUAL_CHAT_ACCEPTANCE.md). The separately authorized personal
+installation is now Online with visual input enabled. Actual provider/QQ visual
+quality remains pending; the visual goal is not complete yet.
 This does not mark W1–W4 or the broader combined-stage exit criteria complete.
 
 **Status:** QQ-first product delivery proposal plus historical implementation record

@@ -270,4 +270,44 @@ mod tests {
         assert!(dimensions(0, 10).is_err());
         assert!(prepare(b"GIF89a malformed").is_err());
     }
+    #[test]
+    fn apng_and_webp_supply_actual_animation_frames_and_exclude_the_apng_poster() {
+        for raw in [
+            include_bytes!("fixtures/poster-animation.png").as_slice(),
+            include_bytes!("fixtures/animation.webp").as_slice(),
+        ] {
+            let result = prepare(raw).unwrap();
+            assert_eq!(result.decoded_frames, 12);
+            assert!(!result.animation_truncated);
+            assert_eq!(
+                result
+                    .frames
+                    .iter()
+                    .map(|f| (f.metadata.frame_index, f.metadata.at_ms))
+                    .collect::<Vec<_>>(),
+                [(0, 0), (8, 800), (11, 1100)]
+            );
+            for (channel, frame) in result.frames.iter().enumerate() {
+                let pixels = image::load_from_memory(&frame.bytes).unwrap().to_rgb8();
+                let color = pixels.get_pixel(1, 1);
+                assert!(color[channel] > 220);
+                assert!((0..3).filter(|c| *c != channel).all(|c| color[c] < 25));
+            }
+        }
+    }
+    #[test]
+    fn long_animation_stops_at_sixty_four_frames_and_discloses_the_actual_sampled_prefix() {
+        let result = prepare(include_bytes!("fixtures/overlong.gif")).unwrap();
+        assert_eq!(result.decoded_frames, 64);
+        assert!(result.animation_truncated);
+        assert_eq!(
+            result
+                .frames
+                .iter()
+                .map(|f| (f.metadata.frame_index, f.metadata.at_ms))
+                .collect::<Vec<_>>(),
+            [(0, 0), (8, 800), (63, 6300)]
+        );
+        assert_ne!(result.frames[0].bytes, result.frames[2].bytes);
+    }
 }

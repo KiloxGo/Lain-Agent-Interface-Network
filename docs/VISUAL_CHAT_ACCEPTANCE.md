@@ -1,8 +1,44 @@
 # Private visual conversation acceptance
 
 2026-10-28, native Windows/MSVC. Scope: [ADR 027](adr/027-private-visual-conversation.md).
-Implementation is present; real-provider/QQ visual acceptance and personal
-installation are pending. This record does not authorize a live migration.
+Implementation is present. The user separately authorized the personal upgrade,
+which is now installed and Online; actual provider/QQ visual acceptance remains
+pending. The deterministic evidence alone did not authorize the migration.
+
+## Authorized personal installation — 2026-10-28
+
+The owner explicitly approved schema16→24 and current picture/sticker input only
+for the existing bot<bot-qq> ↔ owner<user-qq> private binding. No autonomous
+real-provider replay or new memory/history/contact/Worker scope was authorized.
+The owned hidden console stopped gracefully with no active Worker, inference or
+queued delivery. All 43 files were backed up with native DACL copying and exact
+file hashes under the protected instance backup directory, including credentials
+without displaying their values.
+
+A private backup copy booted schema24 with model and QQ configuration absent.
+Eleven existing core tables matched the stopped original exactly, including
+identity, messages, memory, permissions, inference decision and delivery receipts.
+The preserved backup did not change. The accepted 2d98c70 binary pair was then
+installed as releases/visual-chat-2d98c70; the original launcher was updated to its
+exact path/hashes. Only receive_images and supports_images changed in selected
+configuration. Credential files, kernel token, client settings, provider and the
+existing selected-private unlimited decision were retained.
+
+Actual Kernel Ready, QQ Online, schema24 integrity, matching conversation/binding,
+available existing SecretRef, disabled memory/history grants and empty device
+registry were verified. The new hidden launcher is outside the Codex tool job;
+this does not install reboot autostart. No real-model probe or forged QQ input
+was sent. At this record's update, no actual picture had arrived on the new path,
+so the visual goal is still open for real image/reply evidence.
+
+Supplemental synthetic APNG (including a non-animation poster), animated WebP and
+70-frame GIF tests now verify actual sampled colors, frame times and the explicit
+64-frame prefix limit. They do not change production behavior or the installed
+accepted binary pair. The fixture generator uses Pillow only when regenerating
+test assets, not during Rust builds/tests or runtime.
+The supplemental final workspace run passes 292 Rust tests (3 manual ignored),
+with format and strict Clippy passing. Production decoder code and the accepted
+installed binary hashes are unchanged by these test additions.
 
 ## Implemented path
 
@@ -105,9 +141,10 @@ latest 128 media states, typed failures and sample metadata without pixel bodies
 
 ## Concrete personal upgrade boundary
 
-The existing personal instance F:\Lain-Q1-Acceptance remains schema16 on
-private-daily-5ca1951. Its stable normal private conversation scope is bot
-<bot-qq> ↔ owner<user-qq>. It has not been pointed at the development build.
+Before the separately authorized installation above, F:\Lain-Q1-Acceptance ran
+schema16 on private-daily-5ca1951. Its normal private conversation scope remains
+bot<bot-qq> ↔ owner<user-qq>. The steps below describe the reviewed operation
+and retained rollback boundary; they are not an additional pending approval.
 
 Before installation, review the immutable staged release and fresh diagnostics/
 active work. Stop/drain the owned launcher gracefully; never kill accepted Worker

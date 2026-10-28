@@ -1,5 +1,25 @@
 # L.A.I.N. Development Log
 
+## 2026-10-28 — Authorized personal visual upgrade
+
+After explicit owner approval, normally stopped the owned hidden console with
+no active work/inference/queued delivery, verified the released listener and DB
+lock, and made an ACL-preserving full stopped backup of all 43 instance files.
+A separate backup copy booted schema24 without model/QQ configuration; eleven
+core tables and the selected-private inference decision remained unchanged.
+Installed the previously accepted immutable 2d98c70 binary pair, enabled only
+the selected NapCat/Actor image capabilities, and restarted in a hidden console
+outside the Codex tool job. Actual Ready/Online, schema24 integrity, bound
+identity/conversation, existing credential availability, unchanged private budget,
+disabled memory/history and no enrolled devices were verified. Full rollback
+state is retained privately. No autonomous paid replay or forged input was sent.
+
+Added synthetic APNG-with-poster, animated WebP and overlong GIF fixtures and
+tests for actual sampled pixels/times and the explicit 64-frame prefix limit;
+292 Rust tests pass (3 manual ignored), with format and strict Clippy passing.
+These are test-only additions to the already installed runtime behavior. Real
+QQ picture/reply evidence has not arrived yet; the goal remains active.
+
 ## 2026-10-28 — Current private visual conversation
 
 Continued from pushed 1d33927 after the user selected picture/QQ expression
