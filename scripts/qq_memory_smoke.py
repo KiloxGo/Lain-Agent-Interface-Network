@@ -609,7 +609,7 @@ class Smoke:
             return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in root.rglob("*") if p.is_file()}
         require(hashes(source) == hashes(destination), "whole-state backup differs")
 
-    def upgrade(self, old_bins):
+    def upgrade(self, old_bins, private_daily=False):
         """Actual old/new executables over synthetic state, never a personal database."""
         self.stage = "prepare isolated old/new release copies"
         current_bins = self.bins
@@ -648,12 +648,16 @@ class Smoke:
         bindings = self.call("GET", "/v1/channels")
         self.channel = bindings[0].get("binding", bindings[0])["id"]
         self.conversation = self.snapshot()["binding"]["conversation_id"]
+        old_private_policy = None
+        if private_daily:
+            self.cli("inference", "private-daily", self.channel, "--revision", 0)
+            old_private_policy = self.cli("inference", "show")["decision"]
         original, original_batch, original_turn = self.input_turn("upgrade source sentinel")
         memory = self.cli("memory", "add", "synthetic upgrade memory", "--kind", "preference", "--global", "--request-id", uuid.uuid4())
         original_delivery = next(d for d in self.snapshot()["deliveries"] if d["batch_id"] == original_batch["id"])
         self.stop()
         old_schema = schema()
-        require(0 < old_schema < 23, "old binary does not create an older schema")
+        require(0 < old_schema < 24, "old binary does not create an older schema")
         self.passed("upgrade_old_binary_seeds_real_schema_and_records")
 
         self.stage = "stopped whole-state backup with permissions"
@@ -686,14 +690,19 @@ class Smoke:
         require(memory_scope["revision"] == 0 and memory_scope["scope"] is None and memory_scope["used_writes"] == 0,
                 "upgrade invented source-memory authority or allowance use")
         require(self.cli("device", "list") == [], "upgrade invented a paired device")
+        if private_daily:
+            policy = self.cli("inference", "show")
+            require(policy["decision"] == old_private_policy and policy["admission"] == "private_conversation_only"
+                    and policy["remaining_requests"] is None, "upgrade changed the selected normal private policy")
+            self.passed("upgrade_private_daily_scope_survives_without_new_authority")
         self.stop()
-        require(schema() == 23, "new binary did not migrate to schema 23")
-        self.passed("upgrade_schema23_identity_memory_receipts_and_c1")
+        require(schema() == 24, "new binary did not migrate to schema 24")
+        self.passed("upgrade_schema24_identity_memory_receipts_and_c1")
 
         self.stage = "old binary refuses the upgraded schema without downgrade"
         refusal = subprocess.run([str(old_copy / executable("laind"))], env=self.env, cwd=self.workspace, capture_output=True, timeout=min(20, self.remaining()))
         self.fixture.check_secrets((refusal.stdout + refusal.stderr).decode(errors="replace"))
-        require(refusal.returncode != 0 and schema() == 23, "old binary accepted/downgraded schema 23")
+        require(refusal.returncode != 0 and schema() == 24, "old binary accepted/downgraded schema 24")
         self.passed("upgrade_old_binary_refuses_future_schema")
 
         self.stage = "full rollback with upgraded state retained separately"
@@ -715,7 +724,7 @@ class Smoke:
         require(len(self.fixture.sent) == 3 and len(self.fixture.requests) == 3, "rollback replayed an old send/inference")
         self.stop()
         self.passed("upgrade_complete_rollback_boot_and_no_replay")
-        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 23,
+        return {"mode": "upgrade_rehearsal", "host": sys.platform, "from_schema": old_schema, "to_schema": 24,
                 "checks": self.checks, "old_binary_sha256": old_hashes, "model_requests": len(self.fixture.requests), "paid_calls": 0,
                 "personal_state_accessed": False, "backup_method": "robocopy COPY:DATS" if os.name == "nt" else "copytree native modes"}
 
@@ -1250,7 +1259,7 @@ class Smoke:
         self.fixture.check_secrets(json.dumps(self.call("GET", "/v1/diagnostics")))
         self.stop()
         with closing(sqlite3.connect(self.local / "state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0] == 23, "wrong schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0] == 24, "wrong schema")
             require(db.execute("SELECT count(*) FROM channel_memory_effects").fetchone()[0] == 3, "unexpected persisted effect")
             require(db.execute("SELECT count(*) FROM channel_memory_suppressions").fetchone()[0] == 2, "missing source tombstones")
             require(db.execute("SELECT count(*) FROM lain_memories WHERE id=?", (replacement["id"],)).fetchone()[0] == 0, "semantic delete not persisted")
@@ -1272,9 +1281,12 @@ def main():
     parser.add_argument("--timeout-seconds", type=int, choices=range(60, 901), default=300, metavar="60..900")
     parser.add_argument("--inject-failure", choices=["startup", "model", "source"])
     parser.add_argument("--upgrade-from", type=Path, help="rehearse old/new upgrade and rollback on synthetic state only")
+    parser.add_argument("--upgrade-private-daily", action="store_true", help="also preserve an existing selected normal-private policy")
     args = parser.parse_args()
     if args.upgrade_from and args.inject_failure:
         parser.error("upgrade rehearsal and failure injection are separate modes")
+    if args.upgrade_private_daily and not args.upgrade_from:
+        parser.error("--upgrade-private-daily requires --upgrade-from")
     bins = args.bin_dir.resolve()
     for name in ["lain", "laind", "lain-test-app-server"]:
         require((bins / executable(name)).is_file(), "build native workspace first: " + name)
@@ -1285,7 +1297,7 @@ def main():
         try:
             smoke = Smoke(root, bins, args.inject_failure, args.timeout_seconds)
             if args.upgrade_from:
-                report = smoke.upgrade(args.upgrade_from.resolve())
+                report = smoke.upgrade(args.upgrade_from.resolve(), args.upgrade_private_daily)
             else:
                 smoke.setup(args.inject_failure)
                 report = smoke.run(args.inject_failure)

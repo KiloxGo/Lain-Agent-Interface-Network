@@ -111,6 +111,8 @@ pub struct Input {
     pub peer: String,
     pub external_id: String,
     pub text: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub segments: Vec<lain_wire::media::InputSegment>,
 }
 impl Input {
     pub fn validate(&self) -> Result<()> {
@@ -118,10 +120,75 @@ impl Input {
             validate_reference(reference)?;
         }
         ensure!(
-            !self.text.trim().is_empty() && self.text.len() <= MAX_TEXT,
+            (!self.text.trim().is_empty() || !self.segments.is_empty())
+                && self.text.len() <= MAX_TEXT
+                && self.segments.len() <= 64,
             "invalid channel text"
         );
+        if !self.segments.is_empty() {
+            use lain_wire::media::InputSegment;
+            let mut original = String::new();
+            let mut media = std::collections::BTreeSet::new();
+            for segment in &self.segments {
+                match segment {
+                    InputSegment::Text { text } => original.push_str(text),
+                    InputSegment::Visual { media_id, .. } => {
+                        ensure!(
+                            media.insert(*media_id) && media.len() <= 8,
+                            "invalid visual selection"
+                        );
+                    }
+                    InputSegment::Expression { code, name } => {
+                        ensure!(
+                            !code.is_empty()
+                                && code.len() <= 64
+                                && !code.chars().any(char::is_control)
+                                && name.as_ref().is_none_or(|n| !n.is_empty()
+                                    && n.len() <= 128
+                                    && !n.chars().any(char::is_control)),
+                            "invalid expression metadata"
+                        );
+                    }
+                    InputSegment::QuotedMessage { reference } => validate_reference(reference)?,
+                }
+            }
+            ensure!(
+                original == self.text && self.conversation_text().len() <= MAX_TEXT,
+                "contradictory ordered conversation input"
+            );
+        }
         Ok(())
+    }
+    /// Adapter markers are rendered for conversation, never promoted to user quotations.
+    pub fn conversation_text(&self) -> String {
+        use lain_wire::media::InputSegment;
+        if self.segments.is_empty() {
+            return self.text.clone();
+        }
+        let mut text = String::new();
+        let mut image = 0;
+        for segment in &self.segments {
+            match segment {
+                InputSegment::Text { text: part } => text.push_str(part),
+                InputSegment::Visual { visual_kind, .. } => {
+                    image += 1;
+                    text.push_str(&format!(
+                        "[{} {}]",
+                        if *visual_kind == lain_wire::media::VisualKind::Sticker {
+                            "表情包"
+                        } else {
+                            "图片"
+                        },
+                        image
+                    ));
+                }
+                InputSegment::Expression { code, name } => {
+                    text.push_str(&format!("[QQ表情：{}]", name.as_deref().unwrap_or(code)))
+                }
+                InputSegment::QuotedMessage { .. } => text.push_str("[引用消息，未读取引用正文]"),
+            }
+        }
+        text
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +261,9 @@ pub struct ChannelSnapshot {
     pub incoming: Vec<Incoming>,
     pub batches: Vec<Batch>,
     pub deliveries: Vec<Delivery>,
+    /// Latest 128 media metadata records; never pixel bodies or transport locators.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub media: Vec<lain_wire::media::ConversationMedia>,
 }
 
 /// Transport evidence, not provider error prose or a claim that the person read it.

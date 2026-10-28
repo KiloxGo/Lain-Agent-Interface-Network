@@ -117,6 +117,9 @@ pub(super) fn check_current(db: &Connection, t: &ActorTurn) -> Result<()> {
     Ok(())
 }
 pub(super) fn memory_current(db: &Connection, t: &ActorTurn) -> Result<bool> {
+    if !super::channel_media::selected_current(db, t)? {
+        return Ok(false);
+    }
     if !super::archive_recall::selected_current(db, t)?
         || !super::archive_memory::selected_current(db, t)?
         || !super::experiences::selected_current(db, t)?
@@ -245,9 +248,12 @@ impl Store {
             archive_recall_revision: None,
             archive_versions: vec![],
             share_versions: vec![],
+            media_versions: vec![],
+            viewed_media: vec![],
         })
     }
     pub fn private_chat_refresh(&mut self, id: ActorTurnId, now: u64) -> Result<ChatRefresh> {
+        self.channel_media_maintain(now)?;
         let mut t = self.actor_turn(id)?;
         if t.private_chat.is_none() {
             return Ok(ChatRefresh::Current);
@@ -274,6 +280,11 @@ impl Store {
         }
         let (mut c, b) = active(&self.connection, &t)?;
         let pending = queued(&self.connection, &b, now)?;
+        if let Some(due) =
+            super::channel_media::pending(&self.connection, pending.iter().map(|(_, i)| i.clone()))?
+        {
+            return Ok(ChatRefresh::WaitUntil(due));
+        }
         if pending.is_empty() {
             if latest_input(&self.connection, b.id)? > c.input_through_sequence {
                 // Expired inputs still invalidate an old draft; do not spin on stale context.
@@ -287,7 +298,10 @@ impl Store {
             return Ok(ChatRefresh::Current);
         }
         let old = inputs(&self.connection, b.id, c.batch_id)?;
-        let bytes: usize = old.iter().map(|(_, i)| i.input.text.len()).sum::<usize>()
+        let bytes: usize = old
+            .iter()
+            .map(|(_, i)| i.input.conversation_text().len())
+            .sum::<usize>()
             + old.len().saturating_sub(1);
         if t.model_requests >= 4
             || (t.model_requests > 0 && c.reconsiderations >= MAX_RECONSIDERATIONS)
@@ -295,7 +309,7 @@ impl Store {
             || bytes
                 + pending
                     .iter()
-                    .map(|(_, i)| i.input.text.len() + 1)
+                    .map(|(_, i)| i.input.conversation_text().len() + 1)
                     .sum::<usize>()
                 > MAX_TEXT
         {
@@ -312,7 +326,7 @@ impl Store {
         }
         let tx = self.connection.transaction()?;
         for (sequence, mut input) in pending {
-            t.message(MessageRole::User, input.input.text.clone())?;
+            t.message(MessageRole::User, input.input.conversation_text())?;
             input.state = InputState::Batched;
             input.batch_id = Some(c.batch_id);
             save_input(&tx, &input)?;
@@ -332,6 +346,8 @@ impl Store {
         c.experience_versions.clear();
         c.experience_grant_revision = None;
         c.share_versions.clear();
+        c.media_versions.clear();
+        c.viewed_media.clear();
         t.private_chat = Some(c);
         // Actor and input association share the commit; original request text is untouched.
         Self::save_actor_in_transaction(&tx, &mut t, false)?;
@@ -412,6 +428,13 @@ impl Store {
             .join("\n");
         ensure!(
             args.input_kind == ChatInputKind::Social
+                && input
+                    .iter()
+                    .all(|(_, i)| i.input.segments.iter().all(|s| match s {
+                        lain_wire::media::InputSegment::Visual { media_id, .. } =>
+                            c.viewed_media.iter().any(|v| v.media_id == *media_id),
+                        _ => true,
+                    }))
                 && !reply_required(&text)
                 && t.actions.iter().all(|a| matches!(
                     a.tool,
@@ -456,6 +479,10 @@ impl Store {
             )?;
             if !is_channel {
                 continue;
+            }
+            if !super::channel_media::selected_current(&self.connection, past)? {
+                // Tool arguments/results may also describe pixels; removing only speech revives them.
+                past.actions.clear();
             }
             let delivery: Option<String> = self
                 .connection

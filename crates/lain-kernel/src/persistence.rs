@@ -18,6 +18,9 @@ mod archive_memory_tests;
 mod archive_reads;
 mod archive_recall;
 mod archives;
+pub(crate) mod channel_media;
+#[cfg(test)]
+mod channel_media_tests;
 mod channels;
 mod delegation;
 mod devices;
@@ -34,7 +37,7 @@ mod reading;
 mod share_recall;
 mod sharing;
 mod sources;
-pub(crate) const SCHEMA_VERSION: u32 = 23;
+pub(crate) const SCHEMA_VERSION: u32 = 24;
 
 #[derive(Debug, thiserror::Error)]
 #[error("device authentication denied")]
@@ -215,6 +218,9 @@ impl Store {
         }
         if version < 23 {
             transaction.execute_batch(include_str!("../migrations/023_devices.sql"))?;
+        }
+        if version < 24 {
+            transaction.execute_batch(include_str!("../migrations/024_conversation_media.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(

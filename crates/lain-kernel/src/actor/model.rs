@@ -12,6 +12,8 @@ pub struct ModelConfig {
     pub model: String,
     pub endpoint: String,
     pub secret_ref: SecretRef,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub supports_images: bool,
     #[serde(default)]
     pub reasoning_effort: Option<String>,
     #[serde(default = "timeout")]
@@ -58,6 +60,12 @@ pub struct Request {
     pub persona: String,
     pub input: Vec<Value>,
     pub tools: Vec<Value>,
+    pub images: Vec<InputImage>,
+}
+/// Private pixels never implement Serialize/Debug or enter persisted Actor messages.
+pub struct InputImage {
+    pub label: String,
+    pub jpeg: Vec<u8>,
 }
 #[derive(Debug)]
 pub struct Call {
@@ -72,6 +80,9 @@ pub struct Reply {
     pub continuation: Vec<Value>,
 }
 pub trait ActorModel: Send + Sync {
+    fn supports_images(&self) -> bool {
+        false
+    }
     fn respond_stream(
         &self,
         request: Request,
@@ -100,6 +111,9 @@ impl ResponsesModel {
     }
 }
 impl ActorModel for ResponsesModel {
+    fn supports_images(&self) -> bool {
+        self.config.supports_images
+    }
     fn respond(
         &self,
         request: Request,
@@ -131,6 +145,7 @@ impl ResponsesModel {
                 serde_json::to_vec(&body)?.len() <= 128 * 1024,
                 "Actor request context exceeds bounds"
             );
+            attach_images(&mut body, request.images, self.config.supports_images)?;
             let mut response = self
                 .http
                 .post(format!(
@@ -165,6 +180,33 @@ impl ResponsesModel {
             anyhow::bail!("Actor provider stream ended without completion; inference uncertain")
         })
     }
+}
+fn attach_images(body: &mut Value, images: Vec<InputImage>, supported: bool) -> Result<()> {
+    use base64::Engine;
+    ensure!(
+        images.is_empty() || supported,
+        "Actor image input is not configured"
+    );
+    ensure!(images.len() <= 24, "Actor image frame count exceeds bounds");
+    let input = body["input"]
+        .as_array_mut()
+        .context("Actor input missing")?;
+    for image in images {
+        ensure!(
+            !image.jpeg.is_empty() && image.jpeg.len() <= 384 * 1024 && image.label.len() <= 512,
+            "Actor image frame exceeds bounds"
+        );
+        let data = base64::engine::general_purpose::STANDARD.encode(&image.jpeg);
+        input.push(json!({"role":"user","content":[
+            {"type":"input_text","text":image.label},
+            {"type":"input_image","image_url":format!("data:image/jpeg;base64,{data}"),"detail":"auto"}
+        ]}));
+    }
+    ensure!(
+        serde_json::to_vec(body)?.len() <= 16 * 1024 * 1024,
+        "Actor visual request exceeds bounds"
+    );
+    Ok(())
 }
 #[derive(Default)]
 struct ResponseStream {
@@ -335,6 +377,49 @@ fn parse_response(value: &Value) -> Result<Reply> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn visual_payload_is_provider_local_bounded_and_requires_declared_support() {
+        use base64::Engine;
+        let make = || InputImage {
+            label: "media=fixture frame=0".into(),
+            jpeg: vec![0xff, 0xd8, 0xff, 0xd9],
+        };
+        let mut body = json!({"input":[{"role":"user","content":"original mixed text [picture]"}]});
+        assert!(attach_images(&mut body, vec![make()], false).is_err());
+        assert_eq!(body["input"].as_array().unwrap().len(), 1);
+        attach_images(&mut body, vec![make()], true).unwrap();
+        assert_eq!(body["input"][0]["content"], "original mixed text [picture]");
+        let data = body["input"][1]["content"][1]["image_url"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("data:image/jpeg;base64,")
+            .unwrap();
+        assert_eq!(
+            base64::engine::general_purpose::STANDARD
+                .decode(data)
+                .unwrap(),
+            make().jpeg
+        );
+        assert!(
+            attach_images(
+                &mut json!({"input":[]}),
+                vec![InputImage {
+                    label: "x".into(),
+                    jpeg: vec![0; 384 * 1024 + 1]
+                }],
+                true
+            )
+            .is_err()
+        );
+        assert!(
+            attach_images(
+                &mut json!({"input":[]}),
+                (0..25).map(|_| make()).collect(),
+                true
+            )
+            .is_err()
+        );
+    }
     #[test]
     fn multiline_character_previews_are_private_until_sanitized_and_final_is_authoritative() {
         use crate::actor::{

@@ -1,5 +1,18 @@
 # Domain Model
 
+## Private conversation media — 2026-10-28
+
+InputSegment preserves text, visual reference, QQ expression and quoted-message
+marker order; original Input.text remains the user's text only. MediaId identifies
+a current-event segment independently of signed transport URL rotation.
+ConversationMedia belongs to IncomingId, ChannelId and reply epoch. Its states
+are Pending, Ready, Unavailable, Interrupted, Expired and Withdrawn. MediaFrame
+describes normalized pixels and actual sampled animation positions; bytes are
+private operational BLOBs. PrivateChatContext separates all supplied media/status
+versions from viewed_media (actual pixel influence, including retained history).
+Neither is a semantic memory or collection grant. See
+[ADR 027](adr/027-private-visual-conversation.md).
+
 ## W2a device identity and reported inventory — 2026-10-28
 
 DeviceId and DeviceWorkspaceId belong to Lain. An administrator-admitted immutable

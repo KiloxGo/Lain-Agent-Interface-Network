@@ -177,6 +177,7 @@ async fn private_daily_stop_between_reservation_and_entry_blocks_the_attempt() {
     k.channel_receive(
         b.id,
         Input {
+            segments: vec![],
             account: b.spec.account.clone(),
             peer: b.spec.peer.clone(),
             external_id: uuid::Uuid::new_v4().to_string(),

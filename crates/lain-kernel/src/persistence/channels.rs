@@ -181,6 +181,7 @@ impl Store {
             save_delivery(&tx, &delivery)?;
         }
         // Sending already crossed the commit boundary; revocation cannot unsend it.
+        super::channel_media::invalidate(&tx, id)?;
         tx.commit()?;
         Ok(value)
     }
@@ -223,6 +224,7 @@ impl Store {
         };
         let tx = self.connection.transaction()?;
         tx.execute("INSERT INTO channel_incoming(id,channel_id,external_id,state,snapshot) VALUES (?1,?2,?3,'queued',?4)", (record.id.to_string(), id.to_string(), &record.input.external_id, serde_json::to_string(&record)?))?;
+        super::channel_media::insert(&tx, &record)?;
         for mut delivery in rows::<Delivery>(
             &tx,
             "SELECT snapshot FROM channel_deliveries WHERE channel_id=?1 AND state='ready' ORDER BY sequence LIMIT 128",
@@ -269,6 +271,11 @@ impl Store {
             "SELECT snapshot FROM channel_incoming WHERE channel_id=?1 AND state='queued' ORDER BY sequence LIMIT 128",
             id.to_string(),
         )?;
+        if super::channel_media::pending(&self.connection, pending.iter().take(MAX_BATCH).cloned())?
+            .is_some()
+        {
+            return Ok(None);
+        }
         if merge_deadline(pending.iter().map(|i| i.received_at_ms)).is_some_and(|due| now < due) {
             return Ok(None);
         }
@@ -288,14 +295,17 @@ impl Store {
                 continue;
             }
             if selected.len() >= MAX_BATCH
-                || text.len() + input.input.text.len() + usize::from(!text.is_empty()) > MAX_TEXT
+                || text.len()
+                    + input.input.conversation_text().len()
+                    + usize::from(!text.is_empty())
+                    > MAX_TEXT
             {
                 break;
             }
             if !text.is_empty() {
                 text.push('\n');
             }
-            text.push_str(&input.input.text);
+            text.push_str(&input.input.conversation_text());
             selected.push(input);
         }
         if selected.is_empty() {
@@ -502,10 +512,16 @@ impl Store {
             save_delivery(&tx, &value)?;
         }
         tx.commit()?;
+        self.channel_media_recover()?;
         Ok(())
     }
     pub fn channel_snapshot(&self, id: ChannelId) -> Result<ChannelSnapshot> {
         let mut value = ChannelSnapshot {
+            media: rows(
+                &self.connection,
+                "SELECT snapshot FROM channel_media WHERE channel_id=?1 ORDER BY expires_at_ms DESC,id LIMIT 128",
+                id.to_string(),
+            )?,
             binding: binding(&self.connection, id)?,
             connection: ConnectionStatus::default(),
             incoming: rows(
@@ -532,6 +548,7 @@ impl Store {
 
     fn channel_expire(&mut self, id: ChannelId, now: u64) -> Result<()> {
         let tx = self.connection.transaction()?;
+        super::channel_media::prune(&tx, now)?;
         for mut input in rows::<Incoming>(
             &tx,
             "SELECT snapshot FROM channel_incoming WHERE channel_id=?1 AND state='queued'",
@@ -572,13 +589,23 @@ impl Store {
                 .iter()
                 .any(|t| t.state.active());
         let mut deadlines: Vec<u64> = batches.iter().map(|b| b.expires_at_ms).collect();
+        let media_due:Option<i64>=self.connection.query_row("SELECT min(CASE WHEN state='pending' THEN min(prepare_until_ms,expires_at_ms) ELSE expires_at_ms END) FROM channel_media WHERE channel_id=?1 AND state IN ('pending','ready')",[id.to_string()],|r|r.get(0))?;
+        if let Some(due) = media_due {
+            deadlines.push(due.try_into()?);
+        }
         let pending = rows::<Incoming>(
             &self.connection,
             "SELECT snapshot FROM channel_incoming WHERE channel_id=?1 AND state='queued' ORDER BY sequence LIMIT 128",
             id.to_string(),
         )?;
         if let Some(input) = pending.first() {
-            deadlines.push(if busy {
+            let preparing = super::channel_media::pending(
+                &self.connection,
+                pending.iter().take(MAX_BATCH).cloned(),
+            )?;
+            deadlines.push(if let Some(due) = preparing {
+                due
+            } else if busy {
                 input.received_at_ms.saturating_add(REPLY_TTL_MS)
             } else {
                 merge_deadline(pending.iter().map(|i| i.received_at_ms))
@@ -620,6 +647,7 @@ mod tests {
             .channel_receive(
                 binding.id,
                 Input {
+                    segments: vec![],
                     account: "a".into(),
                     peer: "b".into(),
                     external_id: "1".into(),

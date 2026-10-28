@@ -3,6 +3,42 @@ use crate::{actor::domain::ActorTurn, channels::domain::*};
 use anyhow::{Result, ensure};
 
 impl Kernel {
+    pub(crate) fn channel_media(
+        &self,
+        id: lain_wire::MediaId,
+    ) -> Result<lain_wire::media::ConversationMedia> {
+        self.lock()?.store.channel_media(id)
+    }
+    pub(crate) fn channel_media_finish(
+        &self,
+        id: lain_wire::MediaId,
+        result: std::result::Result<
+            crate::channels::media_image::PreparedImage,
+            lain_wire::media::MediaFailure,
+        >,
+    ) -> Result<()> {
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, "Kernel not ready");
+        inner.store.channel_media_finish(id, result)?;
+        let _ = self.channel_events.send(());
+        Ok(())
+    }
+    pub(crate) fn channel_media_withdraw(&self, id: ChannelId, external: &str) -> Result<()> {
+        let mut inner = self.lock()?;
+        ensure!(inner.state == KernelState::Ready, "Kernel not ready");
+        inner.store.channel_media_withdraw(id, external)?;
+        let _ = self.channel_events.send(());
+        Ok(())
+    }
+    pub(crate) fn private_visual_context(
+        &self,
+        id: lain_wire::ActorTurnId,
+        supports_images: bool,
+    ) -> Result<crate::persistence::channel_media::VisualContext> {
+        self.lock()?
+            .store
+            .private_visual_context(id, supports_images)
+    }
     pub fn memory_grant(&self, id: ChannelId) -> Result<crate::memory::MemoryGrant> {
         self.lock()?.store.memory_grant(id)
     }

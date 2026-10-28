@@ -76,7 +76,7 @@ pub(crate) fn validate_scope(scope: Option<&ReadingScope>, now: u64) -> Result<(
     Ok(())
 }
 
-fn public_ip(ip: IpAddr) -> bool {
+pub(crate) fn public_ip(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => {
             let [a, b, c, _] = ip.octets();

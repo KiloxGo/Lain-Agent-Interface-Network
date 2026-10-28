@@ -1,5 +1,40 @@
 # L.A.I.N. Development Log
 
+## 2026-10-28 — Current private visual conversation
+
+Continued from pushed 1d33927 after the user selected picture/QQ expression
+support in ordinary conversation. NapCat now preserves image-only/mixed/multiple
+picture, market sticker, QQ-face and quote-marker order. Actual bounded decoded
+JPEG/PNG/GIF/WebP frames (sampled animation included) enter the normal Responses
+request rather than a separate caption/planner call. Model image support and
+received-image preparation are explicit default-off configuration capabilities.
+
+Migration 024 adds private short-lived operational frame BLOBs and media metadata;
+original text, signed transport locators, archives and semantic memory stay
+separate. Receipt/order precedes owned bounded preparation; failures are explicit,
+restart never refetches interrupted media, and withdraw/revoke/expiry invalidate
+stale drafts, sends and visual speech/tool descriptions in future model history.
+Viewed social stickers retain natural closing; unavailable pictures cannot be
+silently discarded. Media versions and actual viewing are separately recorded.
+Actual visual influence cannot silently promote automatic semantic memory.
+
+Final Windows/MSVC: 290 Rust pass, 3 manual ignored; format, strict Clippy and
+locked build pass. Python unit checks: 9 pass, 5 platform skips. Native visual
+process: 9 checks/12 fake requests/8 reads; full chat: 36/83; source memory: 5/16;
+bridge: 6/10 GETs/jobs; devices: 5/3 reports; normal private policy: 4/4. Exact
+installed schema16→24 upgrade/whole-state rollback: 6 checks/3 fake requests,
+including retained selected-private unlimited policy; schema23→24: 5/3. All
+reports agree on final hashes and clean up; no paid call or real QQ test send.
+See ADR 027 and [acceptance/upgrade boundary](docs/VISUAL_CHAT_ACCEPTANCE.md).
+
+The user's real ordinary QQ text message was independently confirmed through
+completed inference and Confirmed send receipt after restarting its existing
+schema16 release in a hidden console outside the Codex tool job. The current
+personal instance remains Ready/Online on that release; this development has not
+migrated it or widened source/memory/contact/Worker permissions. Real picture/
+sticker quality, personal installation and native macOS/Linux remain pending.
+The visual goal and broader W1–W4 exit criteria are not declared complete.
+
 ## 2026-10-28 — W2a explicit device enrollment and inventory
 
 Continued from pushed `67bb620`. Added Kernel-owned Pending/Active/Revoked device

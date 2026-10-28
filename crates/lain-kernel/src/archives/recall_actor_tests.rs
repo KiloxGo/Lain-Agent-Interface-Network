@@ -151,6 +151,7 @@ async fn submit(k: &Arc<Kernel>, a: &Arc<Actor>, b: &Binding) -> ActorTurn {
     k.channel_receive(
         b.id,
         Input {
+            segments: vec![],
             account: b.spec.account.clone(),
             peer: b.spec.peer.clone(),
             external_id: uuid::Uuid::new_v4().to_string(),

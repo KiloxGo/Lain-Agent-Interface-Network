@@ -199,6 +199,7 @@ async fn sharing_prewrite_rechecks_attention_source_correction_input_and_revoke(
                 k.channel_receive(
                     b.id,
                     Input {
+                        segments: vec![],
                         account: "1001".into(),
                         peer: "2002".into(),
                         external_id: "new-input".into(),
@@ -284,6 +285,7 @@ async fn sharing_late_model_after_new_input_records_usage_but_cannot_publish() {
     k.channel_receive(
         b.id,
         Input {
+            segments: vec![],
             account: "1001".into(),
             peer: "2002".into(),
             external_id: "interrupt".into(),
@@ -373,7 +375,7 @@ async fn sharing_schema13_upgrade_preserves_existing_receipts_and_stays_off() {
         .collect()
     };
     let before = rows(&db);
-    db.execute_batch("DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; PRAGMA user_version=13;").unwrap();
+    db.execute_batch("DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; PRAGMA user_version=13;").unwrap();
     drop(db);
     let k = Kernel::open(&path).unwrap();
     k.mark_ready().unwrap();
@@ -489,6 +491,7 @@ async fn sharing_service_automatically_drafts_once_then_waits_for_user_response(
     // A genuine message still gets the ordinary reply path while sharing is throttled.
     service
         .receive(Input {
+            segments: vec![],
             account: "1001".into(),
             peer: "2002".into(),
             external_id: "after-share".into(),
@@ -525,6 +528,7 @@ async fn sharing_receipt_wait_does_not_block_current_chat_actor() {
     );
     service
         .receive(Input {
+            segments: vec![],
             account: "1001".into(),
             peer: "2002".into(),
             external_id: "during-receipt".into(),

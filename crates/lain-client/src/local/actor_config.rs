@@ -31,6 +31,8 @@ struct ActorFile {
     model: String,
     endpoint: String,
     secret_ref: String,
+    #[serde(default, rename = "supports_images")]
+    _supports_images: bool,
     #[serde(default)]
     reasoning_effort: Option<String>,
     #[serde(default = "timeout")]

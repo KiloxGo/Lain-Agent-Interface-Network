@@ -1,5 +1,16 @@
 # Lain Actor — first voice
 
+## Private image input — 2026-10-28
+
+The explicit model capability `supports_images` defaults false. With a compatible
+Responses model and enabled current private image reception, the normal chat
+request carries actual normalized JPEG frames as provider `input_image` parts.
+Private bytes are not serializable Actor messages or API/event history; only
+media IDs, versions, availability and frame metadata are persisted as context.
+The existing inference reservation, no retry, tool/token/time and freshness
+checks still apply. There is no extra caption/planner call or vision allowance.
+See [ADR 027](adr/027-private-visual-conversation.md).
+
 ## D3b aggregate request ceiling — 2026-10-26
 
 Conversation, reading and sharing Actor invocations share an optional persistent

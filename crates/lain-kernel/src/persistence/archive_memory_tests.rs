@@ -122,6 +122,7 @@ fn turn(s: &mut Store, b: &Binding, text: &str) -> (ActorTurn, MemoryEvidence) {
         .channel_receive(
             b.id,
             Input {
+                segments: vec![],
                 account: b.spec.account.clone(),
                 peer: b.spec.peer.clone(),
                 external_id: uuid::Uuid::new_v4().to_string(),
@@ -640,7 +641,7 @@ fn schema21_upgrade_preserves_owner_memory_and_keeps_derived_scope_disabled() {
             |r| r.get(0),
         )
         .unwrap();
-    s.connection.execute_batch("DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; PRAGMA user_version=21;").unwrap();
+    s.connection.execute_batch("DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; PRAGMA user_version=21;").unwrap();
     drop(s);
     let s = Store::open(&dir.path().join("state.db")).unwrap();
     assert_eq!(s.memory(m.id).unwrap(), m);

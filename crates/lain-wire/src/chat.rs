@@ -46,6 +46,12 @@ pub struct PrivateChatContext {
     pub experience_grant_revision: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub share_versions: Vec<crate::sharing::ShareVersion>,
+    /// Pixel/status dependencies accumulated across requests, including supplied history.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub media_versions: Vec<crate::media::MediaVersion>,
+    /// Actual pixel influence; status-only evidence does not imply viewing.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub viewed_media: Vec<crate::media::MediaVersion>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub archive_recall_revision: Option<u64>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

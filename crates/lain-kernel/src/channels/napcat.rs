@@ -23,6 +23,8 @@ pub struct NapCatConfig {
     pub secret_ref: SecretRef,
     /// Initial grant only. A persisted revocation requires explicit API re-enablement.
     pub allow_reply: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub receive_images: bool,
 }
 impl NapCatConfig {
     pub fn load() -> Result<Option<Self>> {
@@ -83,7 +85,7 @@ fn valid_account(value: &str) -> bool {
         .parse::<u64>()
         .is_ok_and(|n| n > 0 && n.to_string() == value)
 }
-fn native_id(value: &Value) -> Option<String> {
+pub(super) fn native_id(value: &Value) -> Option<String> {
     match value {
         Value::Number(n) => n
             .as_i64()
@@ -97,46 +99,9 @@ fn native_id(value: &Value) -> Option<String> {
         _ => None,
     }
 }
-/// Unsupported mixed media is rejected as a whole, never silently interpreted as full text.
+/// Only normalized conversation parts are public; transport locators stay private.
 pub fn parse_private(config: &NapCatConfig, event: &Value) -> Option<Input> {
-    if event.get("post_type")?.as_str()? != "message"
-        || event.get("message_type")?.as_str()? != "private"
-        || event.get("sub_type")?.as_str()? != "friend"
-        || native_id(event.get("self_id")?)? != config.self_id
-        || native_id(event.get("user_id")?)? != config.user_id
-        || event.get("group_id").is_some()
-    {
-        return None;
-    }
-    if event
-        .get("sender")
-        .and_then(|s| s.get("user_id"))
-        .is_some_and(|id| native_id(id).as_deref() != Some(config.user_id.as_str()))
-    {
-        return None;
-    }
-    let segments = event.get("message")?.as_array()?;
-    if segments.is_empty() || segments.len() > 64 {
-        return None;
-    }
-    let mut text = String::new();
-    for segment in segments {
-        if segment.get("type")?.as_str()? != "text" {
-            return None;
-        }
-        text.push_str(segment.get("data")?.get("text")?.as_str()?);
-        if text.len() > MAX_TEXT {
-            return None;
-        }
-    }
-    let input = Input {
-        account: config.self_id.clone(),
-        peer: config.user_id.clone(),
-        external_id: native_id(event.get("message_id")?)?,
-        text,
-    };
-    input.validate().ok()?;
-    Some(input)
+    super::napcat_media::parse_event(config, event).map(|p| p.input)
 }
 struct SendCommand {
     delivery: Outgoing,
@@ -237,13 +202,14 @@ async fn connection_loop(
     };
     let mut backoff = 1;
     let mut last_failure = None;
+    let permits = Arc::new(tokio::sync::Semaphore::new(8));
     loop {
         if *shutdown.borrow() {
             break;
         }
         let result = tokio::select! {
             _ = shutdown.changed() => break,
-            result = session(&config, &service, &mut receiver, &connected, &token) => result,
+            result = session(&config, &service, &mut receiver, &connected, &token,permits.clone()) => result,
         };
         let was_online = *connected.borrow();
         connected.send_replace(false);
@@ -268,10 +234,25 @@ async fn connection_loop(
 }
 async fn session(
     config: &NapCatConfig,
+    service: &Arc<ChannelService>,
+    receiver: &mut mpsc::Receiver<SendCommand>,
+    connected: &watch::Sender<bool>,
+    token: &SecretValue,
+    permits: Arc<tokio::sync::Semaphore>,
+) -> Result<()> {
+    let mut prep =
+        super::napcat_prepare::Preparation::new(service.clone(), config.receive_images, permits);
+    let result = session_inner(config, service, receiver, connected, token, &mut prep).await;
+    prep.stop().await;
+    result
+}
+async fn session_inner(
+    config: &NapCatConfig,
     service: &ChannelService,
     receiver: &mut mpsc::Receiver<SendCommand>,
     connected: &watch::Sender<bool>,
     token: &SecretValue,
+    prep: &mut super::napcat_prepare::Preparation,
 ) -> Result<()> {
     config
         .validate()
@@ -292,8 +273,16 @@ async fn session(
     auth.set_sensitive(true);
     request.headers_mut().insert("Authorization", auth);
     let ws_config = WebSocketConfig::default()
-        .max_message_size(Some(64 * 1024))
-        .max_frame_size(Some(64 * 1024));
+        .max_message_size(Some(if config.receive_images {
+            12 * 1024 * 1024
+        } else {
+            64 * 1024
+        }))
+        .max_frame_size(Some(if config.receive_images {
+            12 * 1024 * 1024
+        } else {
+            64 * 1024
+        }));
     let (mut socket, _) = tokio::time::timeout(
         Duration::from_secs(10),
         connect_async_with_config(request, Some(ws_config), false),
@@ -349,7 +338,7 @@ async fn session(
                     );
                     break;
                 }
-                if let Some(input) = parse_private(config, &value) {
+                if let Some(input) = super::napcat_media::parse_event(config, &value) {
                     ensure!(buffered.len() < 16, ConnectionFailure::ProtocolError);
                     buffered.push(input);
                 }
@@ -364,7 +353,7 @@ async fn session(
     connected.send_replace(true);
     service.connection(ConnectionPhase::Online, None);
     for input in buffered {
-        if service.receive(input).await.is_err() {
+        if prep.receive(input).await.is_err() {
             tracing::warn!(channel = %service.id(), "channel input rejected; not acknowledged as accepted");
         }
     }
@@ -372,12 +361,23 @@ async fn session(
     let mut next_send_at = tokio::time::Instant::now();
     let mut last_frame = tokio::time::Instant::now();
     let mut ping = tokio::time::interval(Duration::from_secs(20));
+    let mut reads = std::collections::BTreeMap::new();
     loop {
         let deadline = pending
             .as_ref()
             .map(|p| p.2)
             .unwrap_or_else(|| last_frame + Duration::from_secs(60));
         tokio::select! {
+            done=prep.jobs.join_next(), if !prep.jobs.is_empty()=>{if let Some(Ok((id,result)))=done {prep.completed(id,result).await;}},
+            Some(read)=prep.reads.recv()=>{
+                reads.retain(|_,v:&mut oneshot::Sender<_>|!v.is_closed());
+                if read.result.is_closed() {continue;}
+                if reads.len()>=8 {let _=read.result.send(Err(lain_wire::media::MediaFailure::Capacity));continue;}
+                let echo=format!("media-{}",uuid::Uuid::new_v4());
+                let frame=json!({"action":"get_image","params":{"file":read.file.as_str()},"echo":echo});
+                reads.insert(echo,read.result);
+                bounded_write(socket.send(Message::Text(frame.to_string().into()))).await?;
+            },
             _ = tokio::time::sleep_until(deadline) => { if let Some((_, result, _)) = pending.take() { let _ = result.send(SendOutcome::Unknown); } anyhow::bail!("channel response timeout"); },
             _ = ping.tick() => { bounded_write(socket.send(Message::Ping(Vec::new().into()))).await?; },
             command = async { tokio::time::sleep_until(next_send_at).await; receiver.recv().await }, if pending.is_none() => {
@@ -399,6 +399,10 @@ async fn session(
                 match frame {
                     Message::Text(text) => {
                         let value: Value = serde_json::from_str(&text).map_err(|_| ConnectionFailure::ProtocolError)?;
+                        if let Some(echo)=value.get("echo").and_then(Value::as_str)
+                            && let Some(result)=reads.remove(echo) {
+                            let _=result.send(super::napcat_prepare::read_result(&value));continue;
+                        }
                         if let Some((echo, _, _)) = &pending
                             && value.get("echo").and_then(Value::as_str) == Some(echo.as_str()) {
                                 let (_, result, _) = pending.take().unwrap();
@@ -408,8 +412,17 @@ async fn session(
                                 else { SendOutcome::Unknown };
                                 let _ = result.send(outcome); continue;
                         }
-                        if let Some(input) = parse_private(config, &value)
-                            && service.receive(input).await.is_err() {
+                        if value.get("post_type").and_then(Value::as_str)==Some("notice")
+                            && value.get("notice_type").and_then(Value::as_str)==Some("friend_recall")
+                            && value.get("self_id").and_then(native_id).as_deref()==Some(config.self_id.as_str())
+                            && value.get("user_id").and_then(native_id).as_deref()==Some(config.user_id.as_str())
+                            && value.get("group_id").is_none()
+                            && let Some(external)=value.get("message_id").and_then(native_id) {
+                            let id=service.id();
+                            let _=crate::kernel::blocking(&service.kernel,move|k|k.channel_media_withdraw(id,&external)).await;
+                        }
+                        if let Some(input) = super::napcat_media::parse_event(config, &value)
+                            && prep.receive(input).await.is_err() {
                             tracing::warn!(channel = %service.id(), "channel input rejected; inspect grant, size or backlog");
                         }
                     },

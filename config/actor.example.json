@@ -3,6 +3,7 @@
   "model": "mimo-v2.6-flash",
   "endpoint": "https://api.xiaomimimo.com/v1",
   "secret_ref": "secret://env/actor",
+  "supports_images": false,
   "timeout_seconds": 45,
   "max_output_tokens": 2048,
   "max_turn_tokens": 16384

@@ -1,6 +1,10 @@
 //! Durable, bounded conversation ingress/egress; observation bridges are separate.
 pub mod domain;
+mod media_download;
+pub(crate) mod media_image;
 pub mod napcat;
+mod napcat_media;
+mod napcat_prepare;
 #[cfg(test)]
 mod tests;
 use crate::{

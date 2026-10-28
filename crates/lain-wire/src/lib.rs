@@ -5,6 +5,7 @@ pub mod archives;
 pub mod chat;
 pub mod devices;
 pub mod inference;
+pub mod media;
 pub mod memory;
 pub mod notices;
 pub mod reading;
@@ -62,6 +63,7 @@ id!(CandidateId);
 id!(SummaryId);
 id!(ChannelId);
 id!(IncomingId);
+id!(MediaId);
 id!(BatchId);
 id!(DeliveryId);
 id!(ReadingId);
@@ -286,6 +288,10 @@ impl ActorSnapshot {
                 || c.source_versions.len() > 4
                 || c.experience_versions.len() > 3
                 || c.share_versions.len() > 3
+                || c.media_versions.len() > 256
+                || c.media_versions.iter().any(|v| v.revision == 0)
+                || c.viewed_media.len() > 256
+                || c.viewed_media.iter().any(|v| !c.media_versions.contains(v))
                 || c.share_versions.iter().any(|s| {
                     s.fingerprint.len() != 64
                         || !s.fingerprint.bytes().all(|b| b.is_ascii_hexdigit())
@@ -441,6 +447,8 @@ mod tests {
         assert!(turn.validate().is_ok());
         let channel = ChannelId::new();
         turn.private_chat = Some(chat::PrivateChatContext {
+            media_versions: vec![],
+            viewed_media: vec![],
             channel_id: channel,
             batch_id: BatchId(turn.request_id.0),
             grant_revision: 1,

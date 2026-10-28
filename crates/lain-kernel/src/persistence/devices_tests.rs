@@ -394,7 +394,7 @@ fn schema22_upgrade_is_byte_preserving_and_creates_no_device_or_report() {
         )
         .unwrap();
     s.connection
-        .execute_batch("DROP TABLE device_reports; DROP TABLE devices; PRAGMA user_version=22;")
+        .execute_batch("DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; PRAGMA user_version=22;")
         .unwrap();
     drop(s);
     let s = Store::open(&dir.path().join("state.db")).unwrap();

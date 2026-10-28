@@ -18,6 +18,8 @@ mod diagnostics;
 mod private_memory;
 #[path = "source_tests.rs"]
 mod source;
+#[path = "visual_tests.rs"]
+mod visual;
 fn spec() -> BindingSpec {
     BindingSpec {
         name: "fixture".into(),
@@ -28,6 +30,7 @@ fn spec() -> BindingSpec {
 }
 fn input(id: &str, text: &str) -> Input {
     Input {
+        segments: vec![],
         account: "1001".into(),
         peer: "2002".into(),
         external_id: id.into(),
@@ -40,6 +43,9 @@ struct Model {
     gate: Semaphore,
 }
 impl ActorModel for Model {
+    fn supports_images(&self) -> bool {
+        true
+    }
     fn respond(
         &self,
         request: Request,
@@ -132,6 +138,7 @@ fn durable_binding_dedup_grants_and_restart_never_resurrect_sends() {
             .channel_receive(
                 binding.id,
                 Input {
+                    segments: vec![],
                     peer: "9999".into(),
                     ..input("2", "wrong")
                 }
@@ -344,6 +351,7 @@ async fn uncertain_transport_is_attempted_once_and_sensitive_input_is_not_saved(
 
 fn qq_config(endpoint: String) -> napcat::NapCatConfig {
     napcat::NapCatConfig {
+        receive_images: false,
         name: "qq-fixture".into(),
         endpoint,
         self_id: "1001".into(),
@@ -382,7 +390,7 @@ fn napcat_filter_is_fail_closed_and_literal_text_cannot_become_actions() {
         ("group_id", json!(1)),
         (
             "message",
-            json!([{ "type":"image","data":{"file":"secret"}}]),
+            json!([{ "type":"video","data":{"file":"secret"}}]),
         ),
     ] {
         let mut invalid = event(2, "test");

@@ -1,5 +1,19 @@
 # Runtime Model
 
+## Private media preparation — 2026-10-28
+
+Ingress commits input/order and pending media atomically before external reads.
+Owned jobs share eight preparation permits across reconnects; socket reads,
+get_image responses and text-send echoes are multiplexed. Preparation has a
+20-second durable deadline, no read retry, and wakes the existing channel/Actor
+consumers. Interrupted preparation is not restarted after process recovery.
+Ready frames retain the original ten-minute reply expiry; channel deadlines
+prune them without model polling. Reply revoke/withdraw remove frames and bump
+versions. Each request, continuation, result, commit and send checks dependencies;
+future model history withholds stale visual speech and tool descriptions.
+The ordinary inference reservation and turn bounds remain in force. See
+[ADR 027](adr/027-private-visual-conversation.md).
+
 ## W2a explicit device proof/report runtime — 2026-10-28
 
 Administrator enrollment, device proof, reporting and revocation serialize through

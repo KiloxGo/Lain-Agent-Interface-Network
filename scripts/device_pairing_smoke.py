@@ -113,14 +113,14 @@ def main():
         smoke.passed("native_revoke_prevents_reclaim_report_and_worker_or_model_effects")
         smoke.stop()
         with closing(sqlite3.connect(smoke.local / "state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0] == 23, "wrong device schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0] == 24, "wrong device schema")
             dump = "\n".join(db.iterdump())
             smoke.fixture.check_secrets(dump)
             require(device_key not in dump and db.execute("SELECT count(*) FROM device_reports").fetchone()[0] == 3, "key stored or receipt missing")
         log = (smoke.local / "daemon.log").read_text(encoding="utf-8")
         smoke.fixture.check_secrets(log)
         require(device_key not in log, "device key logged")
-        report = {"checks": smoke.checks, "schema": 23, "device_reports": 3, "model_requests": 0, "paid_calls": 0,
+        report = {"checks": smoke.checks, "schema": 24, "device_reports": 3, "model_requests": 0, "paid_calls": 0,
                   "real_qq_sends": 0, "real_device_installed": False, "agent_has_owner_key": False}
     finally:
         if smoke:

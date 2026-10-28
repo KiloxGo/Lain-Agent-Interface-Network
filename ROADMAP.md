@@ -1,5 +1,16 @@
 # Roadmap
 
+## Selected visual conversation increment — 2026-10-28
+
+The user selected current QQ pictures/expressions as ordinary conversation input.
+This increment is implemented with schema024 and deterministic native Windows
+acceptance: actual Responses pixels, ordered text/media, bounded animation,
+explicit unavailability and expiring/revocable visual context. See
+[ADR 027](docs/adr/027-private-visual-conversation.md) and
+[acceptance](docs/VISUAL_CHAT_ACCEPTANCE.md). Personal installation and actual
+provider/QQ visual quality remain pending; the visual goal is not complete yet.
+This does not mark W1–W4 or the broader combined-stage exit criteria complete.
+
 **Status:** QQ-first product delivery proposal plus historical implementation record
 
 **Last reviewed:** 2026-10-28

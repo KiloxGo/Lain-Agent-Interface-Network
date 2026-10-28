@@ -1,5 +1,15 @@
 # Architecture
 
+## Current private visual input — 2026-10-28
+
+The existing channel ingress owns ordered normalized text/visual/expression parts.
+NapCat locators and get_image responses are transient adapter data. The Kernel
+owns short-lived normalized frame BLOBs and typed media state/version metadata;
+Actor receives bounded private pixel objects, and only the Responses adapter
+constructs provider image parts. No caption service or second conversational
+planner is introduced. The independent QQ knowledge service remains separate.
+See [ADR 027](adr/027-private-visual-conversation.md).
+
 ## W2a enrolled device boundary — 2026-10-28
 
 The Kernel owns a distinct device registry and reported-inventory ledger. Explicit

@@ -160,6 +160,7 @@ async fn channel_chat_and_revocation_leave_running_worker_and_terminal_chat_inde
     let task = tokio::spawn(service.clone().run(channel));
     service
         .receive(Input {
+            segments: vec![],
             account: "a".into(),
             peer: "b".into(),
             external_id: "1".into(),

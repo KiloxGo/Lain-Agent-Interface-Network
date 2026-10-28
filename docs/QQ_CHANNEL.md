@@ -1,11 +1,42 @@
 # QQ private conversation channel
 
+## Current private pictures and expressions — 2026-10-28
+
+The conversation adapter now normalizes pictures, picture/market stickers, QQ
+faces and mixed text in original order. This supersedes the Q1 text-only ingress
+restriction below. Enable `receive_images: true` in the selected private NapCat
+configuration and `supports_images: true` only for a selected Responses model
+that actually accepts image input. Both default false; neither setting enables
+memory, historical collection, proactive contact or Worker permissions.
+
+Actual normalized JPEG frames enter the ordinary chat request through the
+Responses adapter; the independent knowledge service's vision/caption queue is
+separate. QQ faces use attributed ID/name metadata without a vision call.
+Unavailable pictures remain explicit input; flash pictures are not opened.
+Quoted message IDs are markers only; quoted bodies/history are not fetched.
+Output remains literal text. Voice/video/forwarded messages and groups remain
+outside this channel. Configure array message reporting; CQ strings stay text.
+
+Source bytes are bounded to 8 MiB, current/recent picture context to eight images
+and at most three sampled frames per image. Animated GIF/WebP/APNG are sampled
+within 64 decoded frames; partial sampling is explicit. Pictures are operational
+data with the original ten-minute reply lifetime, never automatic semantic
+memory. Revoking reply permission or withdrawing a picture removes its frames;
+expiry/withdrawal also withhold derived speech and tool descriptions from future
+model history. Image-influenced automatic memory writes are refused; forgetting
+an existing exact memory retains its separate quoted-text/grant checks.
+
+See [ADR 027](adr/027-private-visual-conversation.md) and
+[acceptance/upgrade status](VISUAL_CHAT_ACCEPTANCE.md). Development schema is 024;
+the historical Q1/C1 schema numbers below describe those releases, not an
+automatic personal upgrade. Real model/QQ visual acceptance is still pending.
+
 ## W1a declared group archives — 2026-10-26
 
 The separate [archive foundation](ARCHIVE_ACCEPTANCE.md) can store explicit
 owner-imported normalized group slices under a default-off source scope. It is
 not a group observer/participant transport. The Q1 private adapter below remains
-private-text only; no live group collection or source authenticity is claimed.
+private only; no live group collection or source authenticity is claimed.
 
 ## D3a proactive receipt recall — 2026-10-26
 
@@ -33,10 +64,9 @@ it does not grant permission to perform live tests.
 ## Boundaries
 
 One configured NapCat **Lain account**, one explicitly bound user, friend-private
-plain text only. No user-account observer, groups, temporary group chats, media
-downloads, quoted/forwarded messages, Telegram, proactive contact or Bridge.
-Mixed-media inputs are ignored in full rather than pretending extracted text is
-the complete message. Configure array message reporting; CQ strings are not parsed.
+conversation only. Current media scope is defined above. No user-account observer,
+groups, temporary group chats, forwarded messages, Telegram or Bridge is implied.
+Unsupported segment types still reject the whole message.
 Output is a single explicit text segment, so model-generated CQ-like text cannot
 become a platform action.
 

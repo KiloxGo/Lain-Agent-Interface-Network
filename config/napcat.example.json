@@ -4,5 +4,6 @@
   "self_id": "100000001",
   "user_id": "100000002",
   "secret_ref": "secret://env/napcat",
-  "allow_reply": false
+  "allow_reply": false,
+  "receive_images": false
 }

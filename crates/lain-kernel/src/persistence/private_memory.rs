@@ -398,6 +398,14 @@ impl Store {
             _ => return Err(ControlError::InvalidInput.into()),
         };
         evidence(&tx, &c, &g, e)?;
+        ensure!(
+            operation == MemoryOperation::Forget
+                || turn
+                    .private_chat
+                    .as_ref()
+                    .is_none_or(|c| c.viewed_media.is_empty()),
+            "visual-influenced memory requires separately attributed evidence; use a fresh text-only request"
+        );
         if previous.is_some() {
             for prior in turn.actions.iter().filter(|a| {
                 a.id != action_id
@@ -622,6 +630,7 @@ mod tests {
             .channel_receive(
                 b.id,
                 Input {
+                    segments: vec![],
                     account: "1001".into(),
                     peer: "2002".into(),
                     external_id: uuid::Uuid::new_v4().to_string(),
@@ -1124,7 +1133,7 @@ mod tests {
             )
             .unwrap();
         assert!(legacy.owner_confirmed_at_ms.is_some());
-        s.connection.execute_batch("DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; DROP TABLE channel_memory_inspections; DROP TABLE channel_memory_suppressions; DROP TABLE channel_memory_effects; DROP TABLE channel_memory_grants; PRAGMA user_version=8;").unwrap();
+        s.connection.execute_batch("DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; DROP TABLE channel_memory_inspections; DROP TABLE channel_memory_suppressions; DROP TABLE channel_memory_effects; DROP TABLE channel_memory_grants; PRAGMA user_version=8;").unwrap();
         drop(s);
         let s = Store::open(&path).unwrap();
         assert_eq!(s.memory(legacy.id).unwrap(), legacy);

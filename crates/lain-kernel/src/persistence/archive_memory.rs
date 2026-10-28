@@ -223,6 +223,7 @@ impl Store {
         );
         ensure!(
             chat.source_versions.is_empty()
+                && chat.viewed_media.is_empty()
                 && chat.experience_grant_revision.is_none()
                 && !chat.share_versions.iter().any(|s| s.experience.is_some()),
             ControlError::Unavailable
