@@ -29,7 +29,9 @@ an existing exact memory retains its separate quoted-text/grant checks.
 See [ADR 027](adr/027-private-visual-conversation.md) and
 [acceptance/upgrade status](VISUAL_CHAT_ACCEPTANCE.md). Development schema is 024;
 the historical Q1/C1 schema numbers below describe those releases, not an
-automatic personal upgrade. Real model/QQ visual acceptance is still pending.
+automatic personal upgrade. The separately authorized schema24 personal release
+now has real model/QQ acceptance for ordinary pictures and static picture stickers;
+broader visual quality and live animated/market variations remain unverified.
 
 ## W1a declared group archives — 2026-10-26
 

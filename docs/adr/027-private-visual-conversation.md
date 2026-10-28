@@ -1,8 +1,9 @@
 # ADR 027: Current private pictures and QQ expressions as conversation input
 
 Date: 2026-10-28. Status: implemented; deterministic Windows acceptance passed;
-the separately authorized personal installation is Online; real provider/QQ
-visual acceptance remains pending.
+the separately authorized personal installation is Online, and selected ordinary
+picture/sticker real-provider/QQ acceptance passed. Broader quality and platform
+limits remain in VISUAL_CHAT_ACCEPTANCE.md.
 
 ## Problem and scope
 

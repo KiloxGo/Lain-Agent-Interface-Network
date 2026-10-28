@@ -1,5 +1,25 @@
 # L.A.I.N. Development Log
 
+## 2026-10-28 — Actual QQ picture/sticker conversation accepted
+
+The owner sent three actual image-only picture stickers and an ordinary photograph
+to the upgraded personal instance. All four prepared pixels, reached Ready rev2,
+entered real Actor viewed_media context, completed one deepseek-flash request each
+and received Confirmed QQ replies. Real follow-up messages also used recent image
+context. Two selected samples were compared with delivered responses: visible
+photo details and sticker action agreed. No autonomous paid replay or forged
+owner input was used. The existing private decision and permission boundaries
+remain unchanged.
+
+The first four media later expired at their original ten-minute deadline and had
+no remaining frame BLOB rows. Temporary private QA image copies were deleted;
+only a protected metadata receipt is retained outside Git. No private picture,
+message body or credential is added to the repository. The selected ordinary
+QQ picture/sticker goal is accepted on native Windows; this is not a claim of
+universal OCR accuracy, humanlike chat, live animation/market variation acceptance,
+macOS/Linux acceptance or completion of the broader W1–W4 stages. See
+[visual acceptance](docs/VISUAL_CHAT_ACCEPTANCE.md).
+
 ## 2026-10-28 — Authorized personal visual upgrade
 
 After explicit owner approval, normally stopped the owned hidden console with

@@ -2,8 +2,38 @@
 
 2026-10-28, native Windows/MSVC. Scope: [ADR 027](adr/027-private-visual-conversation.md).
 Implementation is present. The user separately authorized the personal upgrade,
-which is now installed and Online; actual provider/QQ visual acceptance remains
-pending. The deterministic evidence alone did not authorize the migration.
+which is now installed and Online. Ordinary picture/sticker input has also passed
+the selected real provider/QQ path below. The deterministic evidence alone did
+not authorize the migration.
+
+## Actual private visual acceptance — 2026-10-28
+
+Actual owner-generated QQ messages supplied three image-only picture stickers and
+one image-only ordinary photograph on the authorized binding. Each prepared real
+pixels successfully, reached Ready revision2, appeared in its actual Actor
+viewed_media dependencies, completed one deepseek-flash request with nonzero
+reported usage and produced a Confirmed QQ reply. Subsequent real owner follow-up
+turns also used current/recent pixel dependencies and received confirmed replies.
+These were ordinary owner inputs under the existing private policy, not injected
+fixtures or an autonomous paid replay campaign.
+
+Two selected normalized samples were visually compared against the corresponding
+delivered replies. The photograph's visible features and the sticker's visible
+action matched; this corroborates actual visual understanding on this path rather
+than only a caption import or a successful HTTP status. This is a bounded sample,
+not a universal recognition/OCR accuracy or humanlike-conversation benchmark.
+
+The first four operational media records later became Expired at their original
+ten-minute deadline, with zero frame BLOB rows left for each. The temporary private
+QA copies were deleted immediately after inspection. A protected metadata-only
+receipt outside Git records media/turn/delivery IDs, revisions, frame hashes and
+reported usage; neither images, message bodies nor credentials enter this document
+or the Git acceptance record. New memory/history/Worker authority was not added.
+
+The requested ordinary QQ picture/sticker capability is accepted on this native
+Windows installation. Live animated/market-sticker variations, native macOS/Linux
+and broader W1–W4 or long-term conversational-quality acceptance remain separate;
+bounded animation and market protocol behavior have deterministic fixture evidence.
 
 ## Authorized personal installation — 2026-10-28
 
@@ -27,9 +57,8 @@ existing selected-private unlimited decision were retained.
 Actual Kernel Ready, QQ Online, schema24 integrity, matching conversation/binding,
 available existing SecretRef, disabled memory/history grants and empty device
 registry were verified. The new hidden launcher is outside the Codex tool job;
-this does not install reboot autostart. No real-model probe or forged QQ input
-was sent. At this record's update, no actual picture had arrived on the new path,
-so the visual goal is still open for real image/reply evidence.
+this does not install reboot autostart. No autonomous real-model probe or forged
+QQ input was sent. Subsequent actual owner pictures/replies are accepted above.
 
 Supplemental synthetic APNG (including a non-animation poster), animated WebP and
 70-frame GIF tests now verify actual sampled colors, frame times and the explicit
@@ -133,8 +162,9 @@ laind.exe 93aee6e18d9bbbac925257b001183b48ab3c05fcd993e7f592f8e94da8de98f2
 ```
 
 Reports and immutable review package stay outside Git under the local
-target/visual-chat acceptance directory. Native macOS/Linux, actual CDN/NapCat
-image compatibility and real conversational visual quality remain unaccepted.
+target/visual-chat acceptance directory. Native macOS/Linux and broad visual
+quality remain unaccepted; the selected actual CDN/NapCat/Responses/QQ picture and
+sticker path now has the bounded live evidence above.
 No personal installation or automatic real-model replay is implied by passing
 these gates. `channel show <id>`/the authenticated channel snapshot expose the
 latest 128 media states, typed failures and sample metadata without pixel bodies.

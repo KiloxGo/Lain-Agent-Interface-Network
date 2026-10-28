@@ -8,8 +8,10 @@ acceptance: actual Responses pixels, ordered text/media, bounded animation,
 explicit unavailability and expiring/revocable visual context. See
 [ADR 027](docs/adr/027-private-visual-conversation.md) and
 [acceptance](docs/VISUAL_CHAT_ACCEPTANCE.md). The separately authorized personal
-installation is now Online with visual input enabled. Actual provider/QQ visual
-quality remains pending; the visual goal is not complete yet.
+installation is now Online with visual input enabled. Actual owner pictures and
+stickers passed model processing, confirmed replies and sampled visual-content
+checks; the selected visual goal is accepted. Broad quality/animation variants
+and other native platforms remain separate acceptance work.
 This does not mark W1–W4 or the broader combined-stage exit criteria complete.
 
 **Status:** QQ-first product delivery proposal plus historical implementation record
