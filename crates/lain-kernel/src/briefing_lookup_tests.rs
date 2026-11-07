@@ -453,6 +453,63 @@ async fn briefing_final_answer_requires_actual_evidence_selection_and_preserves_
 }
 
 #[tokio::test]
+async fn crossing_the_turn_cap_after_a_read_still_answers_from_that_read_without_more_cost() {
+    let (_dir, k, c, manifest, record) = fixture();
+    let id = manifest.request.request_id;
+    let (extractor, _) = model(&k, &record, 1, false, false);
+    extractor.start_briefing_run(c, id).await.unwrap();
+    until(|| k.briefing_run_status(c, id).unwrap().run.phase.terminal()).await;
+    let selection =
+        json!({"briefing_answer":{"items":[{"briefing_id":id,"item_number":1}]}}).to_string();
+    let another_read = vec![(
+        "over-budget-read".to_owned(),
+        "briefing_read".to_owned(),
+        json!({"briefing_id":id,"after":0,"limit":4,"query":null}).to_string(),
+    )];
+    for (final_text, final_calls) in [
+        (Some(selection), vec![]),
+        (Some("超限后写的未核对草稿。".to_owned()), vec![]),
+        (None, another_read),
+    ] {
+        let responses = Arc::new(BriefingProjectionModel {
+            requests: Mutex::new(vec![]),
+            briefing: id,
+            final_text,
+            final_calls,
+        });
+        let mut actor = Actor::with_model(
+            k.clone(),
+            None,
+            "fixture-presentation-token-0123456789".parse().unwrap(),
+            responses.clone(),
+        );
+        // Each fixture response reports 7 tokens: the second request crosses 10.
+        Arc::get_mut(&mut actor).unwrap().max_tokens = 10;
+        let turn = actor
+            .submit(c, uuid::Uuid::new_v4(), "昨天有什么重要消息？".into())
+            .await
+            .unwrap();
+        until(|| !k.actor_turn(turn.id).unwrap().state.active()).await;
+        let turn = k.actor_turn(turn.id).unwrap();
+        assert_eq!(turn.state, TurnState::Completed);
+        assert_eq!(turn.usage_tokens, 14, "actual usage stays recorded");
+        assert_eq!(
+            responses.requests.lock().unwrap().len(),
+            2,
+            "no new request"
+        );
+        assert_eq!(turn.actions.len(), 1, "no further tool ran");
+        let body = turn
+            .messages
+            .iter()
+            .filter(|m| m.role == MessageRole::Assistant)
+            .map(|m| m.content.as_str())
+            .collect::<String>();
+        assert!(body.contains("明晚七点在图书馆讨论") && !body.contains("未核对草稿"));
+    }
+}
+
+#[tokio::test]
 async fn report_does_not_supply_speaker_identity_but_original_retains_source_local_label() {
     let (_dir, k, c, manifest, record) = fixture();
     let id = manifest.request.request_id;

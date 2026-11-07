@@ -9,6 +9,12 @@ Kernel now renders what the turn actually read, with no extra model request.
 Malformed JSON and fenced attempts stay rejected, and a direct original request
 without an inspected original still fails rather than substituting an excerpt.
 
+A third run failed differently: the model's fourth request returned a valid final
+selection, but crossing the turn cap discarded that already-paid-for answer. The
+cap value is unchanged and still stops further requests and tools. Crossing it
+during a source or memory read now answers from those reads with Kernel text;
+ordinary replies are still withheld.
+
 ## 2026-11-07 — Plainer default briefing and original views
 
 Repeated per-quote labels are gone from the default and original views: the page

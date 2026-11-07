@@ -833,7 +833,9 @@ explicit model/endpoint/SecretRef, optional reasoning, timeout/output/token boun
 `max_turn_tokens` counts cumulative returned usage across all model requests in
 one Actor turn, including repeated input context around tool calls. Crossing it
 retains actual usage and completed receipts, withholds the over-budget reply and
-stops continuation. This is a separate limit from the durable request admission
+stops continuation. Source and memory reads are the one exception to withholding:
+their checked view is Kernel text built from reads that already happened, so it
+still answers, with no further request or tool. This is a separate limit from the durable request admission
 budget: increasing the turn cap does not refill or extend that budget. Known
 token exhaustion is Failed unless a tool execution itself is still uncertain;
 other interrupted inference/execution remains Unknown and is never auto-replayed.

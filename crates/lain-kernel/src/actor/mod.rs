@@ -55,7 +55,7 @@ pub struct Actor {
     persona: String,
     diagnostics: Value,
     redactor: Redactor,
-    max_tokens: u64,
+    pub(crate) max_tokens: u64,
     active: Mutex<BTreeMap<ActorTurnId, (Uuid, watch::Sender<bool>)>>,
     events: broadcast::Sender<Observation>,
     previews: preview::Registry,
@@ -1049,6 +1049,10 @@ impl Actor {
             // the raw plan, and ordinary turns must not count it again below.
             let ordinary_preaccounted =
                 (source_answer || memory_answer) && !private && !reading && !sharing && !briefing;
+            // These tokens are already spent. The cap stops further requests and
+            // tools, but a checked view of existing reads is Kernel text and adds
+            // no cost, so it still answers. Other replies are withheld below.
+            let mut checked_over_budget = false;
             if ordinary_preaccounted {
                 let timing = sink.timing();
                 let recorded = self
@@ -1062,10 +1066,7 @@ impl Actor {
                         false,
                     )
                     .await?;
-                ensure!(
-                    recorded.usage_tokens <= self.max_tokens,
-                    TokenBudgetExceeded
-                );
+                checked_over_budget = recorded.usage_tokens > self.max_tokens;
             }
             if reading || sharing || briefing {
                 let tokens = reply.usage_tokens;
@@ -1191,9 +1192,19 @@ impl Actor {
                 reply.text = selection;
                 reply.calls.clear();
             }
+            if checked_over_budget && !reply.calls.is_empty() {
+                // No further tool may run; answer from what was already read.
+                reply.calls.clear();
+                reply.text.clear();
+            }
             let text = self.redactor.text(&reply.text);
             let text = if source_answer && reply.calls.is_empty() {
-                let rendered = presentation::render(&turn, &text)?;
+                let rendered = presentation::render(&turn, &text);
+                ensure!(
+                    !checked_over_budget || rendered.is_ok(),
+                    TokenBudgetExceeded
+                );
+                let rendered = rendered?;
                 self.check_memory_input(&rendered)?;
                 ensure!(
                     self.redactor.text(&rendered) == rendered,
@@ -1201,7 +1212,12 @@ impl Actor {
                 );
                 rendered
             } else if memory_answer && reply.calls.is_empty() {
-                let rendered = recall_presentation::render(&turn, &text)?;
+                let rendered = recall_presentation::render(&turn, &text);
+                ensure!(
+                    !checked_over_budget || rendered.is_ok(),
+                    TokenBudgetExceeded
+                );
+                let rendered = rendered?;
                 self.check_memory_input(&rendered)?;
                 ensure!(
                     self.redactor.text(&rendered) == rendered,
@@ -1261,7 +1277,10 @@ impl Actor {
                         }
                         // Returned usage is a fact even when the reply exceeds
                         // the cap. Commit it without publishing the reply body.
-                        if turn.usage_tokens <= cap && !text.is_empty() && (!private || done) {
+                        if (turn.usage_tokens <= cap || checked_over_budget)
+                            && !text.is_empty()
+                            && (!private || done)
+                        {
                             turn.message(MessageRole::Assistant, text)?;
                             turn.messages.last_mut().unwrap().id = message_id;
                         }
@@ -1283,7 +1302,10 @@ impl Actor {
             {
                 return self.source_changed(id, None).await;
             }
-            ensure!(saved_body?.usage_tokens <= cap, TokenBudgetExceeded);
+            ensure!(
+                saved_body?.usage_tokens <= cap || checked_over_budget,
+                TokenBudgetExceeded
+            );
             let commit_ms = preview::elapsed(commit_started);
             let total_ms = preview::elapsed(queued);
             let finished = self
