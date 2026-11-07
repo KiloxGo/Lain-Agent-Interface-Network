@@ -1,5 +1,17 @@
 # L.A.I.N. Development Log
 
+## 2026-11-07 — Plainer default briefing and original views
+
+Repeated per-quote labels are gone from the default and original views: the page
+footer states the shared limits once (authorized archive, not a full chat record,
+not independently verified). Differences that change how a quote should be read
+stay on the item: fragment excerpts, receipt-time fallback, derived text, reported
+corrections, conflicts and omitted paragraphs. An item fully shown as its original
+is no longer listed again. Detailed expansion is unchanged, and the review notice
+is now Chinese. `lain chat`'s English review prompts are left as they are because
+that whole surface is English. Checked with native fixtures only; real-provider
+wording review is pending.
+
 ## 2026-11-07 — Comparison output selects citations instead of copying UUIDs
 
 The parser already accepted `citation_index`, but `RELATION_COMPARE` still told the

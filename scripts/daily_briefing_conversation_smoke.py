@@ -185,7 +185,7 @@ def main():
                 require(('这是归档来源的活动通知' in text)==detailed,'generated notes leaked into default or disappeared from expansion')
                 require('briefing_answer' not in text and 'UNACCEPTED_PROVIDER_DRAFT' not in text,'private selection escaped')
                 if args.source_context and not detailed:
-                    require('同条来源上下文' in text and '仅限前50人，每人一本。' in text,'default view lost source conditions')
+                    require('仅限前50人，每人一本。' in text,'default view lost source conditions')
                     values=fixture_outputs(smoke.fixture.requests[-1]['input'])
                     citations=[citation for value in values for item in value.get('items',[]) for citation in item['citations']]
                     require(any(c.get('source_context',{}).get('status')=='available'
@@ -236,7 +236,7 @@ def main():
             def assert_original_first(turn):
                 text='\n'.join(m['content'] for m in turn['messages'] if m['role']=='assistant')
                 require(turn['state']=='completed' and text.startswith('**对应原文：条目 2**'),'original did not lead mixed reply')
-                require(text.count('通知1：明晚七点在图书馆讨论。')==1 and '完整原文已列在上方' in text,'same canonical citation repeated or original missing')
+                require(text.count('通知1：明晚七点在图书馆讨论。')==1,'same canonical citation repeated or original missing')
             def assert_continuation(turn):
                 # Ordinary network restores intentionally hide private source
                 # actions. Audit this isolated fixture's exact persisted turn;

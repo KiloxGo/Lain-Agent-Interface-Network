@@ -1369,7 +1369,7 @@ impl Actor {
                 let saved=self.update(id,move |turn| {
                 ensure!(!turn.actions.iter().any(|a| a.call_id==recorded.call_id),ControlError::Conflict);
                 turn.actions.push(recorded);
-                if mutating { turn.state=TurnState::PendingConfirmation; turn.message(MessageRole::Assistant,"Owner confirmation required. Review the exact typed action before approving; it has not executed.".into())?; }
+                if mutating { turn.state=TurnState::PendingConfirmation; turn.message(MessageRole::Assistant,"需要你确认：请看清这个操作的具体内容，确认后才会执行，现在还没有执行。".into())?; }
                 Ok(())
             }).await;
                 if private

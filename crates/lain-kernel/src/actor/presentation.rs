@@ -461,17 +461,63 @@ fn origin(value: &Value) -> &'static str {
         _ => "归档来源内容",
     }
 }
-fn cite(out: &mut String, value: &Value, text: &str, compact: bool) {
+/// Default and original views: the page footer carries the shared "not verified"
+/// statement, so only differences that change how to read this quote stay here.
+fn cite_brief(out: &mut String, value: &Value, text: &str, excerpt: bool) {
+    let derived = match value["text_origin"].as_str() {
+        Some("knowledge_projection") => Some("归档知识投影，可能包含派生描述"),
+        Some("owner_correction") => Some("档案用户更正文本"),
+        _ => None,
+    };
+    match (excerpt, derived) {
+        (true, Some(note)) => out.push_str(&format!("节选（{note}）：\n")),
+        (true, None) => out.push_str("节选：\n"),
+        (false, Some(note)) => out.push_str(&format!("{note}：\n")),
+        (false, None) => {}
+    }
+    quote(out, text);
+    // A blank line stops Markdown from continuing the quote into Kernel labels.
+    out.push('\n');
+    out.push_str(value["source_label"].as_str().unwrap_or("已授权来源"));
+    let clock = value["source_local_time"].as_str();
+    if value["time_basis"] != "source_reported_occurrence" {
+        out.push_str(&format!(
+            "\n接收时间：{}；不是原发送时间，相对日期未换算。\n",
+            clock.unwrap_or("未知")
+        ));
+        return;
+    }
+    let Some(clock) = clock else {
+        out.push_str("\n原发送时间不可表示，相对日期未换算。\n");
+        return;
+    };
+    let Some(date) = source_date(clock) else {
+        out.push_str(&format!(" · {clock}\n"));
+        return;
+    };
+    let minute = clock
+        .split_whitespace()
+        .nth(1)
+        .and_then(|time| time.get(..5))
+        .unwrap_or_default();
+    out.push_str(&format!(" · {date}（{}）{minute}", weekday(date)));
+    // Same line: Markdown renders a single newline as a space.
+    let dates = relative_dates(text, date);
+    if !dates.is_empty() {
+        out.push_str(&format!(" · {}", dates.join("；")));
+    }
+    out.push('\n');
+}
+
+fn cite(out: &mut String, value: &Value, text: &str) {
     out.push_str(&format!(
-        "{}（{}，未独立核实）：\n",
-        if compact { "节选" } else { "引用" },
+        "引用（{}，未独立核实）：\n",
         origin(&value["text_origin"])
     ));
     quote(out, text);
     out.push_str(&format!(
-        "来源：{}{}",
-        value["source_label"].as_str().unwrap_or("已授权来源"),
-        if compact { " · " } else { "\n" }
+        "来源：{}\n",
+        value["source_label"].as_str().unwrap_or("已授权来源")
     ));
     let clock = value["source_local_time"].as_str();
     if value["time_basis"] == "source_reported_occurrence" {
@@ -485,15 +531,7 @@ fn cite(out: &mut String, value: &Value, text: &str, compact: bool) {
             if let Some(date) = date {
                 let dates = relative_dates(text, date);
                 if !dates.is_empty() {
-                    out.push_str(&format!(
-                        "{}：{}。\n",
-                        if compact {
-                            "按消息日期参照"
-                        } else {
-                            "按该消息日期的词义参照"
-                        },
-                        dates.join("；")
-                    ));
+                    out.push_str(&format!("按该消息日期的词义参照：{}。\n", dates.join("；")));
                 }
             }
         } else {
@@ -558,22 +596,26 @@ fn unread_continuation<'a>(
 
 fn page_scope(out: &mut String, page: &Value, show_page_more: bool) {
     let run = &page["status"]["run"];
+    let day = page["day_from_local"].as_str().unwrap_or("日期未能表示");
+    let mut parts = day.split_whitespace();
+    let day = match (parts.next(), parts.next_back()) {
+        (Some(date), Some(zone)) if zone.starts_with("UTC") => format!("{date}（{zone}）"),
+        _ => day.to_string(),
+    };
     out.push_str(&format!(
-        "来源简报：{}；读取时已处理 {}/{} 条已选消息。\n",
-        page["day_from_local"].as_str().unwrap_or("日期未能表示"),
-        run["processed_records"],
-        run["selected_records"]
+        "来源简报：{day}；已整理 {}/{} 条消息。这里只列本次挑选的条目。\n",
+        run["processed_records"], run["selected_records"]
     ));
-    out.push_str("展示范围：本次选择的条目，不是全部整理结果。\n");
     if let Some(query) = page["query"].as_str() {
-        out.push_str("关键词范围：\n");
+        out.push_str("关键词：\n");
         quote(out, query);
+        out.push('\n');
     }
     if show_page_more && page["has_more"] == true {
         out.push_str("该读取页还有后续条目，可以继续查看。\n");
     }
     if run["important_items_omitted"] == true {
-        out.push_str("本次整理报告了条目遗漏，不是完整简报。\n");
+        out.push_str("整理时有条目被略去，这不是完整简报。\n");
     }
     if run["scope_partial"] == true {
         out.push_str("本次所选来源存在覆盖缺口。\n");
@@ -630,7 +672,7 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
         Rejection::OriginalRequired
     );
     let count = plan.items.len() + plan.originals.len();
-    let has_items = !plan.items.is_empty();
+    let mut rendered_items = false;
     let has_originals = !plan.originals.is_empty();
     ensure!(
         count <= 8 && (count > 0) != plan.empty.is_some(),
@@ -666,15 +708,7 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
         let mut citation = value.clone();
         citation["text_origin"] = value["record"]["text_origin"].clone();
         out.push_str(&format!("**对应原文：条目 {}**\n", original.item_number));
-        out.push_str("来源内发言者标签（档案所记，未核实身份或权限）：\n");
-        quote(
-            &mut out,
-            value["record"]["speaker"]
-                .as_str()
-                .filter(|s| !s.is_empty())
-                .unwrap_or("未提供"),
-        );
-        cite(
+        cite_brief(
             &mut out,
             &citation,
             value["record"]["text"]
@@ -682,6 +716,13 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
                 .ok_or(Rejection::Reference)?,
             false,
         );
+        if let Some(speaker) = value["record"]["speaker"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+        {
+            out.push_str("\n发言者标记（未核实身份或权限）：\n");
+            quote(&mut out, speaker);
+        }
         out.push('\n');
         shown_originals.push((
             original.briefing_id,
@@ -711,6 +752,22 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
                     .map(|row| (v, row))
             })
             .ok_or(Rejection::Reference)?;
+        // The original above already says everything a plain item would repeat.
+        let annotated = row["is_reported_correction"] == true
+            || row["relation"] == "conflict"
+            || row["relation_parent_number"].is_u64();
+        if !plan.detailed
+            && !annotated
+            && row["citations"].as_array().is_some_and(|citations| {
+                !citations.is_empty()
+                    && (0..citations.len()).all(|index| {
+                        shown_originals.contains(&(item.briefing_id, item.item_number, index))
+                    })
+            })
+        {
+            continue;
+        }
+        rendered_items = true;
         let frame = if plan.detailed {
             json!([
                 item.briefing_id,
@@ -747,14 +804,17 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
         } else {
             out.push_str(&format!("**条目 {}**\n", item.item_number));
         }
+        let parent = row["relation_parent_number"].as_u64();
         if row["is_reported_correction"] == true {
-            out.push_str("整理标注：来源报告的更正，不证明作者身份或更正权限。\n");
-        }
-        if row["relation"] == "conflict" {
-            out.push_str("整理标注：所读来源存在冲突，保留各自说法。\n");
-        }
-        if let Some(parent) = row["relation_parent_number"].as_u64() {
-            out.push_str(&format!("关联条目 {parent}；保留各自出处。\n"));
+            let target = parent.map(|p| format!("对条目 {p} 的")).unwrap_or_default();
+            out.push_str(&format!(
+                "来源称这是{target}更正；未核实发布者是否有权更正。\n"
+            ));
+        } else if row["relation"] == "conflict" {
+            let other = parent.map(|p| format!("与条目 {p} ")).unwrap_or_default();
+            out.push_str(&format!("{other}说法冲突，两边都保留。\n"));
+        } else if let Some(parent) = parent {
+            out.push_str(&format!("关联条目 {parent}。\n"));
         }
         let citations = row["citations"].as_array().ok_or(Rejection::Reference)?;
         ensure!(!citations.is_empty(), Rejection::Reference);
@@ -802,22 +862,18 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
                     .iter()
                     .find(|(id, value, _)| *id == item.briefing_id && value == &quote_key)
                 {
-                    out.push_str(&format!("同一条消息的这段引文见条目 {first}。\n"));
+                    out.push_str(&format!("原话同条目 {first}。\n"));
                     continue;
                 }
                 quoted.push((item.briefing_id, quote_key, item.item_number));
             }
-            if context_text.is_some() {
-                out.push_str("同条来源上下文（不代表已回查完整原文）：\n");
-            }
-            cite(
-                &mut out,
-                c,
-                context_text.unwrap_or(c["quote_excerpt"].as_str().ok_or(Rejection::Reference)?),
-                !plan.detailed,
-            );
+            let shown =
+                context_text.unwrap_or(c["quote_excerpt"].as_str().ok_or(Rejection::Reference)?);
             if plan.detailed {
+                cite(&mut out, c, shown);
                 out.push_str("这是引文节选；完整原文可以继续追问。\n");
+            } else {
+                cite_brief(&mut out, c, shown, context_text.is_none());
             }
         }
         if incomplete_context {
@@ -844,16 +900,18 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
         let unread = unread_continuation(turn, &empty.briefing_id, page);
         page_scope(&mut out, page, plan.detailed && unread);
         page_has_more |= unread;
-        out.push_str("本次读取页没有可展示的条目；这不证明来源中从未出现过相关消息，可以换关键词或继续查看。\n");
+        out.push_str(
+            "这一页没有符合的条目，但这不代表来源里没有相关消息；可以换个关键词或接着看。\n",
+        );
     }
-    if !has_items {
+    if !rendered_items {
         if !plan.detailed && page_has_more {
             out.push_str("所读页还有后续条目，可以继续查看。\n");
         }
         if has_originals {
-            out.push_str("以上为本次已读取的档案文本，仅覆盖已授权保留内容，不代表完整上游历史。来源身份与事项现状未独立核实；日期按各消息作词义参照，转述或嵌套引用需再核对。");
+            out.push_str("以上来自已授权的存档，不是完整聊天记录；发言者身份和事项现状都未独立核实，相对日期按消息发送日换算，转述的日期需再核对。");
         } else {
-            out.push_str("仅覆盖本次所读的已授权保留内容，不代表完整上游历史；空页不能证明其他来源或历史中没有相关消息。");
+            out.push_str("只查了已授权的存档，不是完整聊天记录。");
         }
     } else if plan.detailed {
         out.push_str("仅覆盖本次所读的已授权保留内容，不代表完整上游历史。整理参考可能只基于部分资料，不能据此判断其他原文不存在。相对日期按本条消息日期作词义参照；转述或嵌套引用的日期需再核对，活动现状未独立确认。");
@@ -861,7 +919,7 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
         if page_has_more {
             out.push_str("所读页还有后续条目，可以继续查看。\n");
         }
-        out.push_str("仅覆盖本次所读的已授权保留内容，不代表完整上游历史。标为“节选”的引文不是完整原文，事项现状未独立核实；日期按各消息作词义参照，转述或嵌套引用需再核对。可说“展开条目 N”看整理参考，或“条目 N 原文”继续回查。");
+        out.push_str("以上来自已授权的存档，不是完整聊天记录；内容和事项现状都未独立核实，相对日期按消息发送日换算，转述的日期需再核对。说“条目 N 原文”看完整消息，说“展开条目 N”看整理说明。");
     }
     ensure!(out.len() <= 12 * 1024, Rejection::Bounds);
     Ok(out)
@@ -999,7 +1057,11 @@ mod tests {
         turn.actions[0].result.as_mut().unwrap()["query"] = "未知的消息".into();
         let empty = json!({"briefing_answer":{"empty":{"briefing_id":id,"query":"未知的消息"}}})
             .to_string();
-        assert!(render(&turn, &empty).unwrap().contains("空页不能证明"));
+        assert!(
+            render(&turn, &empty)
+                .unwrap()
+                .contains("不代表来源里没有相关消息")
+        );
         assert!(!catalog(&turn)["empty"].as_array().unwrap().is_empty());
     }
 
@@ -1027,7 +1089,7 @@ mod tests {
             1,
             "same-record same-context body is rendered once"
         );
-        assert!(body.contains("不代表已回查完整原文") && body.contains("条目 2"));
+        assert!(body.contains("原话同条目 1") && body.contains("条目 2"));
         assert_eq!(catalog(&turn)["originals"], json!([]));
         turn.actions[0].result.as_mut().unwrap()["items"][1]["citations"][0]["revision"] = 2.into();
         assert_eq!(
@@ -1107,7 +1169,7 @@ mod tests {
             "条目 1",
             "条目 2",
             "条目 3",
-            "同一条消息",
+            "原话同条目",
             "选定来源",
             "2026-11-07（周六）",
             "展开",
@@ -1159,7 +1221,7 @@ mod tests {
         turn.actions[1].result.as_mut().unwrap()["items"][0]["citations"] = json!([changed]);
         let body = render(&turn, &plan.to_string()).unwrap();
         assert_eq!(body.matches(&"z".repeat(128)).count(), 2);
-        assert!(!body.contains("同一条消息"));
+        assert!(!body.contains("原话同条目"));
     }
 
     #[test]
@@ -1187,7 +1249,10 @@ mod tests {
         let body = render(&turn, &plan.to_string()).unwrap();
         assert!(body.starts_with("**对应原文：条目 1**"));
         assert_eq!(body.matches(text).count(), 1);
-        assert!(body.contains("完整原文已列在上方"));
+        assert!(
+            !body.contains("来源简报：") && !body.contains("条目 1**\n该引用"),
+            "an item fully shown as its original is not listed again"
+        );
         let other = "另一个出处仍须保留。";
         let mut citation =
             turn.actions[0].result.as_ref().unwrap()["items"][0]["citations"][0].clone();
@@ -1419,12 +1484,46 @@ mod tests {
     }
 
     #[test]
+    fn default_view_states_shared_caveats_once_and_keeps_reading_differences() {
+        let mut out = String::new();
+        cite_brief(
+            &mut out,
+            &json!({"text_origin":"owner_import","source_label":"QQ群 1","time_basis":"source_reported_occurrence","source_local_time":"2026-11-06 10:03:00 UTC+08:00"}),
+            "明晚七点讨论",
+            false,
+        );
+        assert_eq!(
+            out,
+            "> 明晚七点讨论\n\nQQ群 1 · 2026-11-06（周五）10:03 · 明晚→2026-11-07（周六）\n"
+        );
+        let mut excerpt = String::new();
+        cite_brief(
+            &mut excerpt,
+            &json!({"text_origin":"owner_import","source_label":"QQ群 1","time_basis":"source_reported_occurrence","source_local_time":"2026-11-06 10:03:00 UTC+08:00"}),
+            "明晚七点讨论",
+            true,
+        );
+        assert!(excerpt.starts_with("节选：\n> 明晚七点讨论\n\n"));
+
+        let (turn, id) = fixture();
+        let plan = json!({"briefing_answer":{"items":[
+            {"briefing_id":id,"item_number":1},{"briefing_id":id,"item_number":2}]}});
+        let body = render(&turn, &plan.to_string()).unwrap();
+        assert_eq!(
+            body.matches("未独立核实").count(),
+            1,
+            "two items, one shared statement: {body}"
+        );
+        assert!(body.contains("不是完整聊天记录") && body.contains("这里只列本次挑选的条目"));
+    }
+
+    #[test]
     fn receipt_fallback_never_becomes_sender_weekday_or_relative_date() {
         let mut out = String::new();
-        cite(
+        cite_brief(
             &mut out,
             &json!({"text_origin":"knowledge_projection","source_label":"选定来源","time_basis":"receipt_fallback_not_original_time","source_local_time":"2026-11-06 10:03:00 UTC+08:00"}),
-            "明晚讨论",
+            "明晚七点讨论",
             true,
         );
         assert!(
@@ -1490,7 +1589,7 @@ mod tests {
             !body.contains("以上节选不是完整原文"),
             "an actual original must not be labelled as a report excerpt"
         );
-        assert!(body.contains("本次已读取的档案文本"));
+        assert!(body.contains("来自已授权的存档"));
         assert_eq!(
             catalog(&turn)["originals"],
             json!([{"briefing_id":id,"item_number":2,"citation_index":0}])
