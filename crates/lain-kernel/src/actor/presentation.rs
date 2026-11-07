@@ -784,6 +784,11 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
             usize::from(original.citation_index),
         ));
     }
+    let selected: Vec<(lain_wire::RequestId, u64)> = plan
+        .items
+        .iter()
+        .map(|item| (item.briefing_id, u64::from(item.item_number)))
+        .collect();
     for item in plan.items {
         let identity = format!("{}:{}", item.briefing_id, item.item_number);
         ensure!(!seen.contains(&identity), Rejection::Reference);
@@ -869,6 +874,25 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
             out.push_str(&format!("{other}说法冲突，两边都保留。\n"));
         } else if let Some(parent) = parent {
             out.push_str(&format!("关联条目 {parent}。\n"));
+        }
+        // The model chooses what to list, so it can drop a correction. Never let
+        // an older statement look current without saying a related one exists.
+        let unlisted: Vec<String> = row["related_statement_numbers"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_u64)
+            .filter(|n| {
+                *n != u64::from(item.item_number) && !selected.contains(&(item.briefing_id, *n))
+            })
+            .map(|n| n.to_string())
+            .collect();
+        if !unlisted.is_empty() {
+            let more = if unlisted.len() > 8 { " 等" } else { "" };
+            out.push_str(&format!(
+                "关联条目 {}{more} 未列出，可能是更正或重复，可以说“条目 N 原文”查看。\n",
+                unlisted[..unlisted.len().min(8)].join("、")
+            ));
         }
         let citations = row["citations"].as_array().ok_or(Rejection::Reference)?;
         ensure!(!citations.is_empty(), Rejection::Reference);
@@ -1535,6 +1559,19 @@ mod tests {
         );
         assert!(source_date("not a source clock").is_none());
         assert!(source_date("2026-02-30 00:00:00 UTC").is_none());
+    }
+
+    #[test]
+    fn an_unlisted_related_statement_is_named_so_old_details_do_not_look_current() {
+        let (mut turn, id) = fixture();
+        turn.actions[0].result.as_mut().unwrap()["items"][0]["related_statement_numbers"] =
+            json!([1, 2]);
+        let only_old = json!({"briefing_answer":{"items":[{"briefing_id":id,"item_number":1}]}});
+        let body = render(&turn, &only_old.to_string()).unwrap();
+        assert!(body.contains("关联条目 2 未列出"), "{body}");
+        let both = json!({"briefing_answer":{"items":[
+            {"briefing_id":id,"item_number":1},{"briefing_id":id,"item_number":2}]}});
+        assert!(!render(&turn, &both.to_string()).unwrap().contains("未列出"));
     }
 
     #[test]

@@ -15,6 +15,10 @@ cap value is unchanged and still stops further requests and tools. Crossing it
 during a source or memory read now answers from those reads with Kernel text;
 ordinary replies are still withheld.
 
+The fourth run passed, but its readback showed the model listing an old location
+without the correction beside it. The Kernel now names any related statement left
+out of a reply, so older details cannot silently look current.
+
 ## 2026-11-07 — Plainer default briefing and original views
 
 Repeated per-quote labels are gone from the default and original views: the page
