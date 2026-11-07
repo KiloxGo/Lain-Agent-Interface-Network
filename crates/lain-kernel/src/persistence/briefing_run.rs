@@ -167,12 +167,18 @@ impl Store {
         let status = self.briefing_run_status(c, id)?;
         let mut run = status.run;
         if !run.phase.terminal() {
+            // Every item already exists while reconciling, so a failed comparison costs
+            // only the grouping of related notices, not the report.
+            let items_complete = run.phase == BriefingRunPhase::Reconciling
+                && reason == BriefingRunStop::ModelFailed;
             run.phase = if !status.source_current {
                 BriefingRunPhase::SourceUnavailable
-            } else if matches!(
-                reason,
-                BriefingRunStop::Deadline | BriefingRunStop::BatchLimit
-            ) {
+            } else if items_complete
+                || matches!(
+                    reason,
+                    BriefingRunStop::Deadline | BriefingRunStop::BatchLimit
+                )
+            {
                 BriefingRunPhase::Partial
             } else {
                 BriefingRunPhase::Unknown

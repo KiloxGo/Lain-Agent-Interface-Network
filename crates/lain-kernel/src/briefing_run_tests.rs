@@ -223,6 +223,25 @@ async fn one_rejected_batch_is_skipped_and_reported_without_a_retry() {
 }
 
 #[tokio::test]
+async fn a_failed_comparison_keeps_every_item_and_only_loses_the_grouping() {
+    let (dir, k, c, m) = many();
+    let id = m.request.request_id;
+    k.begin_briefing_run(c, id).unwrap();
+    rusqlite::Connection::open(dir.path().join("state.sqlite"))
+        .unwrap()
+        .execute(
+            "UPDATE briefing_runs SET snapshot=json_set(snapshot,'$.phase','reconciling') WHERE briefing_id=?1",
+            [id.to_string()],
+        )
+        .unwrap();
+    k.stop_briefing_run(c, id, BriefingRunStop::ModelFailed)
+        .unwrap();
+    let run = k.briefing_run_status(c, id).unwrap().run;
+    assert_eq!(run.phase, BriefingRunPhase::Partial);
+    assert_eq!(run.stop, Some(BriefingRunStop::ModelFailed));
+}
+
+#[tokio::test]
 async fn too_many_rejected_batches_stop_the_run() {
     let (_dir, k, c, m) = many();
     let id = m.request.request_id;
