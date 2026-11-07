@@ -1,10 +1,29 @@
 # Daily briefing delivery and acceptance
 
-## 2026-11-07 — Comparison citation selection, local only
+## 2026-11-07 — Full daily loop passes with a real provider
 
-Comparison instructions now request `item_number` + zero-based `citation_index`.
-Deterministic and native fixture checks only; no real-provider result yet, so the
-failure recorded below remains the latest actual-provider evidence.
+Same 8 synthetic messages and 18 steps as the earlier failed campaigns: briefing,
+late refresh, original, reviewed save, recall, restart, correction, forget and
+reconnect, in a native Windows terminal with the current cloud model profile.
+
+| Run | Candidate | Result |
+| --- | --- | --- |
+| 1 | `e14cf9b` + layout fix | Failed at step 18: prose instead of a final selection on an empty read |
+| 2 | `562663f` | Failed at step 16: the same prose behavior on a saved record |
+| 3 | `ba9fd98` | Failed at step 8: valid final selection discarded by crossing the 32768 turn cap |
+| 4 | `8e2c56c` | Passed: 47 requests, 367338 tokens, 206s |
+| 5–7 | `79fa8b8` | 3/3 passed: 48–53 requests, 367857–414340 tokens, 239–332s, highest turn 31798 |
+
+All answers from runs 4–7 were checked for each run's state, and samples were read
+closely. Run 4 showed an old location listed without its correction, which led to
+the unlisted-statement notice; run 7 showed that notice repeating, now limited to
+once per statement.
+
+Limits: synthetic messages on Windows only, so this does not cover real QQ sources
+or Linux. Four passes in a row is not a reliability figure. Replies are still
+mostly quoted lists rather than natural sentences, and the empty-memory answer to
+"did you forget it?" is accurate but stiff. Foreground turns reach about 97% of the
+turn cap, so crossing it stays a normal case for reads.
 
 ## 2026-11-07 — Selected-memory local validation; actual full lifecycle still fails
 

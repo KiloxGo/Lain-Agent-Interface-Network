@@ -2,12 +2,12 @@
 
 ## 2026-11-07 — Small demo sequence
 
-Next, in order: (1) real-provider run of the daily loop (messages → briefing →
-original → save → restart recall → correct/forget); (2) plainer default replies;
-(3) Linux validation, backup/rollback and deployment of the current version;
-(4) acceptance on already-authorized real sources. Comparison citation selection
-is implemented and awaits (1). Public release follows the demo: it still needs a
-license and a decision on author emails in Git history.
+Done: real-provider run of the daily loop on synthetic messages, and plainer
+default replies (see docs/DAILY_BRIEFING_ACCEPTANCE.md). Next, in order: (1) Linux
+validation, backup/rollback and deployment of the current version; (2) acceptance
+on already-authorized real sources; (3) more natural answers than quoted lists.
+Public release follows the demo: it still needs a license and a decision on author
+emails in Git history.
 
 ## 2026-11-07 — Checked memory view; actual reconciliation reference failure retained
 

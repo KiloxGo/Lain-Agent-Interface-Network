@@ -789,6 +789,7 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
         .iter()
         .map(|item| (item.briefing_id, u64::from(item.item_number)))
         .collect();
+    let mut named_unlisted = Vec::new();
     for item in plan.items {
         let identity = format!("{}:{}", item.briefing_id, item.item_number);
         ensure!(!seen.contains(&identity), Rejection::Reference);
@@ -883,7 +884,14 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
             .flatten()
             .filter_map(Value::as_u64)
             .filter(|n| {
-                *n != u64::from(item.item_number) && !selected.contains(&(item.briefing_id, *n))
+                let key = (item.briefing_id, *n);
+                let new = *n != u64::from(item.item_number)
+                    && !selected.contains(&key)
+                    && !named_unlisted.contains(&key);
+                if new {
+                    named_unlisted.push(key);
+                }
+                new
             })
             .map(|n| n.to_string())
             .collect();
@@ -1572,6 +1580,12 @@ mod tests {
         let both = json!({"briefing_answer":{"items":[
             {"briefing_id":id,"item_number":1},{"briefing_id":id,"item_number":2}]}});
         assert!(!render(&turn, &both.to_string()).unwrap().contains("未列出"));
+        turn.actions[0].result.as_mut().unwrap()["items"][2]["related_statement_numbers"] =
+            json!([2, 3]);
+        let two_rows = json!({"briefing_answer":{"items":[
+            {"briefing_id":id,"item_number":1},{"briefing_id":id,"item_number":3}]}});
+        let body = render(&turn, &two_rows.to_string()).unwrap();
+        assert_eq!(body.matches("关联条目 2 未列出").count(), 1, "{body}");
     }
 
     #[test]
