@@ -6,9 +6,11 @@ Lain has its own QQ account, and the user keeps theirs. Lain's account is the on
 logged in through NapCat; the binding's `account` is Lain and its `peer` is the user.
 The user's account is never logged in through NapCat for this channel.
 
-Which account observes selected groups for daily briefings is still to be decided.
-A source's identity is `qq:<observer_account>:group:<group>`, so the observer must be
-a member of that group. No group source is enabled today.
+Lain's account also observes selected groups for daily briefings, so only groups it
+has joined can be read. A source's identity is `qq:<observer_account>:group:<group>`.
+One user-selected group is collected, with image understanding off. The observer
+can receive but not send, so Lain does not speak in that group. See
+[CLOUD_OPERATIONS](CLOUD_OPERATIONS.md) for how it runs.
 
 ## Current cloud private entry — 2026-11-05
 

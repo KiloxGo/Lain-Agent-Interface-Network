@@ -27,6 +27,17 @@ trial to no expiry (revision 2). Saved memories are unchanged, the earlier decis
 stays in grant history, and `lain channel memory-revoke` ends it at any time. Release
 checks that pinned the old trial deadline must now expect a null expiry.
 
+The user then confirmed collecting one selected group. The observer connects to the
+same NapCat as the private channel, so one account serves both. The group is
+enabled in the knowledge service with 30-day retention and image understanding off;
+new messages only, no history backfill. To stop: `docker stop` the observer, and
+disable the source in the knowledge service to clear what it holds. Kernel sources
+are still 0: briefings cannot read this group until the sync limit below is solved.
+
+Briefings need a source synced within the last 30 seconds, which means a read about
+every 20 seconds, while `archive_reads` stops at 10000 in total. Continuous use
+would exhaust that in about 2.3 days, so sync stays off until this is redesigned.
+
 ## 2026-11-07 — Current medium profile on the same b9a program
 
 Separate configuration operatione1edae96 is public-accepted on the original40
@@ -549,6 +560,7 @@ records/backups. Its real recall/correction/forget checks have separate evidence
 | `/srv/lain/napcat` | Root-only optional QQ deployment/configuration and exact cutover records | One pinned official image; no global Docker pruning; operator copies/credentials stay private |
 | `/var/lib/lain-napcat` | Separate private QQ login/config/plugin bind state | Not the Kernel database; media/session disk retention and backup are separate from Kernel archives |
 | `lain-napcat` container | Non-root QQ processes, loopback-only host ports | 1536 MiB memory/swap, 1.5 CPUs, 512 processes, core dumps disabled and `none` logging; see [transport runbook](../deploy/napcat/README.md) |
+| `lain-knowledge-observer` container | Receive-only group observer, UID 10001, using the knowledge service image | Read-only root, no capabilities, 512 MiB, 0.5 CPU, `none` logging. Config and credentials in `/etc/lain-knowledge/observer` (root:10001, 0750/0440), outbox in `/var/lib/lain-knowledge-observer`. Neither path is in Lain's backup archive |
 | `lain-napcat-cache.service` / `.timer` | Optional hourly, count-only temporary picture cleanup | Exact `/var/lib/lain-napcat/qq/NapCat/temp` top level; 24h age / soft512MiB / minimum1h / max256 deletions; no native QQ database/session/media traversal |
 | `/var/lib/lain` | Private state owned by the `lain` runtime user | Sole authoritative cloud database; no PC database import |
 | `/srv/lain/backups` | Private consistent database/config archives | At most seven published archives and 1 GiB; fail if one new valid archive cannot fit |
