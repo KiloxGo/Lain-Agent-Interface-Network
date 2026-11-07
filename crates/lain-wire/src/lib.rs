@@ -136,6 +136,8 @@ pub enum ToolCall {
     BriefingRemember(briefing::RememberBriefing),
     #[serde(rename = "briefing.yesterday")]
     BriefingYesterday {},
+    #[serde(rename = "briefing.range")]
+    BriefingRange(briefing::BriefingRange),
     #[serde(rename = "briefing.read")]
     BriefingRead(briefing::BriefingRead),
     #[serde(rename = "briefing.inspect")]

@@ -498,7 +498,7 @@ impl Store {
             .position(|a| {
                 a.id == action
                     && a.state == ActionState::Executing
-                    && matches!(a.tool, Tool::BriefingYesterday(_))
+                    && matches!(a.tool, Tool::BriefingYesterday(_) | Tool::BriefingRange(_))
             })
             .ok_or(ControlError::Conflict)?;
         let g = self.briefing_grant(t.conversation_id)?;
@@ -526,10 +526,25 @@ impl Store {
             );
             return Ok(briefing_id);
         }
+        let day = match &t.actions[index].tool {
+            Tool::BriefingRange(q) => {
+                let offset = scope.utc_offset_minutes;
+                let from_ms = crate::reading::local_ms(&q.from_local, offset)
+                    .ok_or(ControlError::InvalidInput)?;
+                let to_ms = match &q.to_local {
+                    Some(to) => crate::reading::local_ms(to, offset)
+                        .ok_or(ControlError::InvalidInput)?
+                        .min(now),
+                    None => now,
+                };
+                BriefingDay::Range { from_ms, to_ms }
+            }
+            _ => BriefingDay::Yesterday,
+        };
         let request = StartBriefing {
             request_id: RequestId(action.0),
             grant_revision: g.revision,
-            day: BriefingDay::Yesterday,
+            day,
         };
         let exact = self.connection.query_row(
             "SELECT EXISTS(SELECT 1 FROM briefing_manifests WHERE id=?1)",
@@ -546,7 +561,7 @@ impl Store {
             )
         } else {
             let fresh = self.prepare_briefing_snapshot(t.conversation_id, &request, now)?;
-            let (from, _, _) = crate::reading::day_bounds(now, scope.utc_offset_minutes);
+            let from = fresh.day_from_ms;
             let row=self.connection.query_row("SELECT snapshot FROM briefing_manifests WHERE conversation_id=?1 AND json_extract(snapshot,'$.request.grant_revision')=?2 AND json_extract(snapshot,'$.day_from_ms')=?3 ORDER BY rowid DESC LIMIT 1",(t.conversation_id.to_string(),i64::try_from(g.revision)?,i64::try_from(from)?),|r|r.get::<_,String>(0)).optional()?;
             let cached = row.map(decode::<BriefingManifest>).transpose()?;
             if let Some(m) = cached.filter(|m| {
@@ -743,7 +758,7 @@ impl Store {
                 "refresh_required":true,
                 "historical_snapshot_available":true,
                 "context_role":"briefing_refresh_notice_not_source_content",
-                "notice":"The currently authorized yesterday selection or coverage has changed since this snapshot. For a fresh query that permits processing, call briefing_yesterday once and use its actual run status; this notice contains no report items and does not mean there is no news. Explicit snapshot IDs remain historical reads. No new work was started by this read."
+                "notice":"The currently authorized selection or coverage has changed since this snapshot. For a fresh query that permits processing, call briefing_yesterday or briefing_range once and use its actual run status; this notice contains no report items and does not mean there is no news. Explicit snapshot IDs remain historical reads. No new work was started by this read."
             })
         } else {
             match &a.tool {

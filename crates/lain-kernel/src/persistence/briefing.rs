@@ -82,7 +82,10 @@ pub(super) fn same_inputs(left: &BriefingManifest, right: &BriefingManifest) -> 
     left.conversation_id == right.conversation_id
         && left.request.grant_revision == right.request.grant_revision
         && left.day_from_ms == right.day_from_ms
-        && left.day_to_ms == right.day_to_ms
+        // "Until now" moves every minute; the selected records decide whether it matters.
+        && (left.day_to_ms == right.day_to_ms
+            || (matches!(left.request.day, BriefingDay::Range { .. })
+                && matches!(right.request.day, BriefingDay::Range { .. })))
         && left.utc_offset_minutes == right.utc_offset_minutes
         && left.permitted_from_ms == right.permitted_from_ms
         && left.scope_clipped == right.scope_clipped
@@ -315,9 +318,19 @@ impl Store {
         now: u64,
     ) -> Result<BriefingManifest> {
         let scope = self.briefing_active(conversation, q.grant_revision, now)?;
-        let (from, to, _) = crate::reading::day_bounds(now, scope.utc_offset_minutes);
-        let day_from_ms = u64::try_from(from)?;
-        let day_to_ms = u64::try_from(to)?;
+        let (day_from_ms, day_to_ms) = match q.day {
+            BriefingDay::Yesterday => {
+                let (from, to, _) = crate::reading::day_bounds(now, scope.utc_offset_minutes);
+                (u64::try_from(from)?, u64::try_from(to)?)
+            }
+            BriefingDay::Range { from_ms, to_ms } => {
+                ensure!(
+                    from_ms < to_ms && to_ms <= now && to_ms - from_ms <= 31 * 86_400_000,
+                    ControlError::InvalidInput
+                );
+                (from_ms, to_ms)
+            }
+        };
         let permitted_from_ms = day_from_ms.max(scope.from_ms).min(day_to_ms);
         let ids = scope
             .sources

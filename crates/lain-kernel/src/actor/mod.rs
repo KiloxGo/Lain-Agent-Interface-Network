@@ -1512,7 +1512,7 @@ impl Actor {
                             Ok(receipt)
                         })
                     }
-                    tools::Tool::BriefingYesterday(_) => {
+                    tools::Tool::BriefingYesterday(_) | tools::Tool::BriefingRange(_) => {
                         let action_id = action.id;
                         let conversation = initial.conversation_id;
                         match blocking(&self.kernel, move |k| {

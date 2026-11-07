@@ -145,6 +145,84 @@ fn start() -> StartBriefing {
 }
 
 #[test]
+fn a_requested_span_selects_only_that_time_and_reuses_unchanged_inputs() {
+    let (_dir, mut s, c, source) = fixture();
+    let (from, to) = bounds();
+    let hour = 3_600_000;
+    input(&mut s, source, 2, Some(from + hour), "上午");
+    input(&mut s, source, 3, Some(from + 3 * hour), "下午");
+    input(&mut s, source, 1, Some(to), "今天");
+    enable(&mut s, c, source, 100);
+    let span = |from_ms, to_ms| StartBriefing {
+        request_id: RequestId::new(),
+        grant_revision: 1,
+        day: BriefingDay::Range { from_ms, to_ms },
+    };
+    let afternoon = s
+        .briefing_start(c, span(from + 2 * hour, from + 4 * hour), NOW)
+        .unwrap();
+    assert_eq!(afternoon.records.len(), 3);
+    assert_eq!(
+        (afternoon.day_from_ms, afternoon.day_to_ms),
+        (from + 2 * hour, from + 4 * hour)
+    );
+    let later = s
+        .prepare_briefing_snapshot(c, &span(from + 2 * hour, from + 5 * hour), NOW)
+        .unwrap();
+    assert!(
+        crate::persistence::briefing::same_inputs(&afternoon, &later),
+        "a later end that selects nothing new is the same input"
+    );
+    let wider = s
+        .prepare_briefing_snapshot(c, &span(from, from + 4 * hour), NOW)
+        .unwrap();
+    assert_eq!(wider.records.len(), 5);
+    assert!(!crate::persistence::briefing::same_inputs(
+        &afternoon, &wider
+    ));
+    let mut yesterday = afternoon.clone();
+    yesterday.request.day = BriefingDay::Yesterday;
+    yesterday.day_to_ms = later.day_to_ms + 1;
+    assert!(!crate::persistence::briefing::same_inputs(
+        &yesterday, &later
+    ));
+    for (bad_from, bad_to) in [
+        (from + hour, from + hour),
+        (from + 2 * hour, from + hour),
+        (NOW - 1000, NOW + 1000),
+        (NOW - 32 * 86_400_000, NOW),
+    ] {
+        assert!(s.briefing_start(c, span(bad_from, bad_to), NOW).is_err());
+    }
+}
+#[test]
+fn stored_yesterday_requests_keep_their_format() {
+    assert_eq!(
+        serde_json::to_value(BriefingDay::Yesterday).unwrap(),
+        serde_json::json!("yesterday")
+    );
+    assert_eq!(
+        serde_json::from_value::<BriefingDay>(serde_json::json!("yesterday")).unwrap(),
+        BriefingDay::Yesterday
+    );
+}
+#[test]
+fn local_times_are_strict_and_use_the_configured_offset() {
+    let at = crate::reading::local_ms("2026-11-07 13:30", 480).unwrap();
+    assert_eq!(at, 1_794_029_400_000);
+    assert_eq!(crate::reading::local_ms("2026-11-07 05:30", 0), Some(at));
+    for bad in [
+        "2026-11-07",
+        "2026-11-07 25:00",
+        "2026-13-07 10:00",
+        "今天下午",
+        "2026-11-07 13:30:00",
+        "",
+    ] {
+        assert!(crate::reading::local_ms(bad, 480).is_none(), "{bad}");
+    }
+}
+#[test]
 fn day_manifest_pages_all_selected_records_without_recall_three_record_limit() {
     let (_dir, mut s, c, source) = fixture();
     let (from, to) = bounds();

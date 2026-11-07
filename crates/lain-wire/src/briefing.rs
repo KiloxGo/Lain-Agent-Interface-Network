@@ -39,6 +39,18 @@ pub struct BriefingGrantReceipt {
 #[serde(rename_all = "snake_case")]
 pub enum BriefingDay {
     Yesterday,
+    /// A half-open span the user asked about, already resolved to UTC.
+    Range {
+        from_ms: u64,
+        to_ms: u64,
+    },
+}
+/// Local wall-clock times in the grant's configured offset; `to_local` null means now.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BriefingRange {
+    pub from_local: String,
+    pub to_local: Option<String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

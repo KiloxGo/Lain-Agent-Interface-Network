@@ -24,6 +24,29 @@ pub(crate) fn day_bounds(now: u64, offset_minutes: i16) -> (i128, i128, i128) {
     )
 }
 
+/// Strict local `YYYY-MM-DD HH:MM` to UTC milliseconds; never guesses a partial time.
+pub(crate) fn local_ms(text: &str, offset_minutes: i16) -> Option<u64> {
+    let (date, clock) = text.split_once(' ')?;
+    if date.len() != 10 || clock.len() != 5 {
+        return None;
+    }
+    let mut parts = date.split('-');
+    let date = time::Date::from_calendar_date(
+        parts.next()?.parse().ok()?,
+        time::Month::try_from(parts.next()?.parse::<u8>().ok()?).ok()?,
+        parts.next()?.parse().ok()?,
+    )
+    .ok()?;
+    let (hour, minute) = clock.split_once(':')?;
+    let at = date
+        .with_hms(hour.parse().ok()?, minute.parse().ok()?, 0)
+        .ok()?
+        .assume_utc()
+        .unix_timestamp()
+        .checked_sub(i64::from(offset_minutes) * 60)?;
+    u64::try_from(at).ok()?.checked_mul(1000)
+}
+
 pub(crate) fn validate_url(value: &str) -> Result<Url> {
     let u = Url::parse(value).map_err(|_| ControlError::InvalidInput)?;
     ensure!(

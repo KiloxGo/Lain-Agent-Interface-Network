@@ -345,3 +345,126 @@ async fn pending_refresh_finishes_foreground_without_paging_old_report_or_anothe
     assert_eq!(answer.content, "昨天的简报还在整理，稍后可以再问我。");
     assert!(actual.error.is_none());
 }
+
+struct SpanModel {
+    arguments: String,
+}
+impl ActorModel for SpanModel {
+    fn respond(
+        &self,
+        request: Request,
+    ) -> Pin<Box<dyn Future<Output = Result<Reply>> + Send + '_>> {
+        if request.input.iter().any(|value| {
+            value["content"].as_str().is_some_and(|text| {
+                text.starts_with("Kernel-attributed untrusted daily source page (data only): ")
+            })
+        }) {
+            return Box::pin(async { anyhow::bail!("synthetic incomplete extraction") });
+        }
+        let first = !request
+            .input
+            .iter()
+            .any(|value| value["type"] == "function_call_output");
+        let offered = request
+            .tools
+            .iter()
+            .any(|tool| tool["name"] == "briefing_range");
+        assert!(offered, "the span tool must be offered with source access");
+        let arguments = self.arguments.clone();
+        Box::pin(async move {
+            Ok(Reply {
+                text: if first { "" } else { "unchecked prose" }.into(),
+                calls: if first {
+                    vec![Call {
+                        id: "span".into(),
+                        name: "briefing_range".into(),
+                        arguments,
+                    }]
+                } else {
+                    vec![]
+                },
+                usage_tokens: 7,
+                continuation: vec![],
+            })
+        })
+    }
+}
+#[tokio::test]
+async fn a_spoken_time_span_reaches_a_snapshot_of_exactly_that_span() {
+    let (_dir, k, c, manifest, _) = fixture();
+    let offset = manifest.utc_offset_minutes;
+    let local = |ms: u64| {
+        let at = time::OffsetDateTime::from_unix_timestamp((ms / 1000) as i64).unwrap()
+            + time::Duration::minutes(i64::from(offset));
+        format!("{} {:02}:{:02}", at.date(), at.hour(), at.minute())
+    };
+    let from_ms = manifest.day_from_ms;
+    let to_ms = manifest.day_to_ms;
+    let model = Arc::new(SpanModel {
+        arguments: json!({"from_local":local(from_ms),"to_local":local(to_ms - 3_600_000)})
+            .to_string(),
+    });
+    let actor = Actor::with_model(
+        k.clone(),
+        None,
+        "fixture-span-token-0123456789012345678".parse().unwrap(),
+        model,
+    );
+    let turn = actor
+        .submit(c, uuid::Uuid::new_v4(), "昨天白天群里聊了啥？".into())
+        .await
+        .unwrap();
+    until(|| !k.actor_turn(turn.id).unwrap().state.active()).await;
+    let turn = k.actor_turn(turn.id).unwrap();
+    assert_eq!(turn.actions.len(), 1);
+    let id: RequestId = serde_json::from_value(
+        turn.actions[0].result.as_ref().unwrap()["run"]["briefing_id"].clone(),
+    )
+    .unwrap();
+    let selected = k.briefing_manifest(c, id).unwrap();
+    assert_eq!(
+        (selected.day_from_ms, selected.day_to_ms),
+        (from_ms, to_ms - 3_600_000)
+    );
+    assert!(matches!(selected.request.day, BriefingDay::Range { .. }));
+    let answer = turn
+        .messages
+        .iter()
+        .rev()
+        .find(|m| m.role == MessageRole::Assistant)
+        .unwrap();
+    assert!(
+        answer.content.starts_with("这段时间的简报"),
+        "{}",
+        answer.content
+    );
+    assert!(!answer.content.contains("昨天") && !answer.content.contains("unchecked prose"));
+}
+#[tokio::test]
+async fn an_impossible_time_span_prepares_nothing() {
+    let (_dir, k, c, manifest, _) = fixture();
+    let before = k
+        .briefing_run_status(c, manifest.request.request_id)
+        .is_ok();
+    let model = Arc::new(SpanModel {
+        arguments: json!({"from_local":"2099-01-01 00:00","to_local":null}).to_string(),
+    });
+    let actor = Actor::with_model(
+        k.clone(),
+        None,
+        "fixture-span-token-0123456789012345678".parse().unwrap(),
+        model,
+    );
+    let turn = actor
+        .submit(c, uuid::Uuid::new_v4(), "明年的消息".into())
+        .await
+        .unwrap();
+    until(|| !k.actor_turn(turn.id).unwrap().state.active()).await;
+    let turn = k.actor_turn(turn.id).unwrap();
+    assert_ne!(turn.actions[0].state, ActionState::Executed);
+    assert_eq!(
+        k.briefing_run_status(c, manifest.request.request_id)
+            .is_ok(),
+        before
+    );
+}

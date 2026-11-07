@@ -377,6 +377,7 @@ pub(super) fn eligible(turn: &ActorTurn) -> bool {
                 && matches!(
                     a.tool,
                     tools::Tool::BriefingYesterday(_)
+                        | tools::Tool::BriefingRange(_)
                         | tools::Tool::BriefingRead(_)
                         | tools::Tool::BriefingInspect(_)
                 )
@@ -637,14 +638,44 @@ fn unread_continuation<'a>(
     false
 }
 
+/// A whole local day reads as its date; any other span shows its actual times.
+fn span_label(from: &str, to: Option<&str>) -> String {
+    let parts = |text: &'_ str| -> Option<(String, String, String)> {
+        let mut pieces = text.split_whitespace();
+        Some((
+            pieces.next()?.to_string(),
+            pieces.next()?.get(..5)?.to_string(),
+            pieces.next()?.to_string(),
+        ))
+    };
+    let Some((from_date, from_time, zone)) = parts(from) else {
+        return from.to_string();
+    };
+    let whole_day = |to_date: &str, to_time: &str| {
+        from_time == "00:00"
+            && to_time == "00:00"
+            && source_date(&from_date)
+                .and_then(|d| d.next_day())
+                .is_some_and(|next| next.to_string() == to_date)
+    };
+    match to.and_then(parts) {
+        Some((to_date, to_time, _)) if !whole_day(&to_date, &to_time) => {
+            if to_date == from_date {
+                format!("{from_date} {from_time}–{to_time}（{zone}）")
+            } else {
+                format!("{from_date} {from_time} – {to_date} {to_time}（{zone}）")
+            }
+        }
+        _ => format!("{from_date}（{zone}）"),
+    }
+}
+
 fn page_scope(out: &mut String, page: &Value, show_page_more: bool) {
     let run = &page["status"]["run"];
-    let day = page["day_from_local"].as_str().unwrap_or("日期未能表示");
-    let mut parts = day.split_whitespace();
-    let day = match (parts.next(), parts.next_back()) {
-        (Some(date), Some(zone)) if zone.starts_with("UTC") => format!("{date}（{zone}）"),
-        _ => day.to_string(),
-    };
+    let day = span_label(
+        page["day_from_local"].as_str().unwrap_or("日期未能表示"),
+        page["day_to_local_exclusive"].as_str(),
+    );
     out.push_str(&format!(
         "来源简报：{day}；已整理 {}/{} 条消息。这里只列本次挑选的条目。\n",
         run["processed_records"], run["selected_records"]
@@ -1567,6 +1598,36 @@ mod tests {
         );
         assert!(source_date("not a source clock").is_none());
         assert!(source_date("2026-02-30 00:00:00 UTC").is_none());
+    }
+
+    #[test]
+    fn the_header_shows_a_whole_day_as_a_date_and_any_other_span_as_its_times() {
+        let local = |at: &str| format!("{at}:00 UTC+08:00");
+        for (from, to, expected) in [
+            (
+                "2026-11-06 00:00",
+                "2026-11-07 00:00",
+                "2026-11-06（UTC+08:00）",
+            ),
+            (
+                "2026-11-07 13:00",
+                "2026-11-07 15:30",
+                "2026-11-07 13:00–15:30（UTC+08:00）",
+            ),
+            (
+                "2026-11-06 22:00",
+                "2026-11-07 02:00",
+                "2026-11-06 22:00 – 2026-11-07 02:00（UTC+08:00）",
+            ),
+            (
+                "2026-11-05 00:00",
+                "2026-11-07 00:00",
+                "2026-11-05 00:00 – 2026-11-07 00:00（UTC+08:00）",
+            ),
+        ] {
+            assert_eq!(span_label(&local(from), Some(&local(to))), expected);
+        }
+        assert_eq!(span_label("not a clock", None), "not a clock");
     }
 
     #[test]
