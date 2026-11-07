@@ -10,8 +10,9 @@ gain the tool, so the client must be updated with this Kernel.
 
 A real-provider run with 300 synthetic messages stopped at 28 of them: one batch failed
 validation, which ended the run, and four records a batch could never exceed 256. Batch
-size now grows with the selection, and a rejected batch is skipped and reported rather
-than ending the run. It is not retried, and more than eight rejections still stop.
+size now grows with the selection, and a batch with no usable result, whether rejected
+or a failed request, is skipped and reported rather than ending the run. It is not
+retried, and more than eight such batches still stop.
 
 ## 2026-11-07 — Knowledge sync that can run for a busy group
 

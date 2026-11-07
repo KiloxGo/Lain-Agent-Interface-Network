@@ -61,12 +61,16 @@ pub(super) fn preparation_reply(tool: &tools::Tool, value: &Value) -> Option<Str
         Some(BriefingRunStop::Interrupted) => "整理已中断，没有自动重新运行。",
         _ => "这次未能完成，没有自动重新运行。",
     };
-    let coverage = if status.run.processed_records == 0 {
+    let usable = status
+        .run
+        .processed_records
+        .saturating_sub(status.run.skipped_records);
+    let coverage = if usable == 0 {
         "这次还没有生成可用的简报。".into()
     } else {
         format!(
-            "已处理 {} / {} 条已选消息；可以查看已完成的部分，不能当作完整简报。",
-            status.run.processed_records, status.run.selected_records
+            "已处理 {usable} / {} 条已选消息；可以查看已完成的部分，不能当作完整简报。",
+            status.run.selected_records
         )
     };
     Some(format!("{what}{reason}{coverage}"))

@@ -209,7 +209,7 @@ pub struct BriefingRun {
     pub next_index: Option<u16>,
     pub important_items_omitted: bool,
     pub scope_partial: bool,
-    /// Records in batches whose model output failed validation; counted in processed.
+    /// Records in batches that produced no usable result; counted in processed.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub skipped_records: u16,
     #[serde(default, skip_serializing_if = "is_zero")]
