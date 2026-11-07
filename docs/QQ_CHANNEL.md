@@ -1,5 +1,15 @@
 # QQ private conversation channel
 
+## Two accounts — product decision, 2026-11-07
+
+Lain has its own QQ account, and the user keeps theirs. Lain's account is the one
+logged in through NapCat; the binding's `account` is Lain and its `peer` is the user.
+The user's account is never logged in through NapCat for this channel.
+
+Which account observes selected groups for daily briefings is still to be decided.
+A source's identity is `qq:<observer_account>:group:<group>`, so the observer must be
+a member of that group. No group source is enabled today.
+
 ## Current cloud private entry — 2026-11-05
 
 The explicitly selected server-hosted NapCat now authenticates the intended Lain

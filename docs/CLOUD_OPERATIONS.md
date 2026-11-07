@@ -22,6 +22,11 @@ check are retained; 7 archives, 8012188 bytes. Maintenance made no model call, Q
 send or new grant, so real QQ use of this version is not yet verified. Sources stay
 at 0. Future maintenance must fence this binary as the previous runtime.
 
+At the user's request the private QQ memory grant then moved from the seven-day
+trial to no expiry (revision 2). Saved memories are unchanged, the earlier decision
+stays in grant history, and `lain channel memory-revoke` ends it at any time. Release
+checks that pinned the old trial deadline must now expect a null expiry.
+
 ## 2026-11-07 — Current medium profile on the same b9a program
 
 Separate configuration operatione1edae96 is public-accepted on the original40
