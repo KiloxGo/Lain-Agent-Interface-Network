@@ -240,7 +240,7 @@ fn query_label(out: &mut String, read: &Read<'_>) {
             out.push_str("，未加文字筛选。\n");
         }
         out.push_str(&format!(
-            "该页返回 {} 条；结论仅限这次筛选与分页，不代表旧版本或其他范围。\n",
+            "该页返回 {} 条，不含旧版本和其他范围。\n",
             read.records.len()
         ));
     } else {
@@ -258,9 +258,22 @@ pub(super) fn render(turn: &ActorTurn, text: &str) -> Result<String> {
     let reads = reads(turn).ok_or(Rejection::Reference)?;
     let references = references(&reads);
     ensure!(text.len() <= 16384, Rejection::Bounds);
-    let payload = presentation::selection_payload(text).map_err(|_| Rejection::Format)?;
-    let selection: Envelope = serde_json::from_str(payload).map_err(|_| Rejection::Format)?;
-    let plan = selection.memory_answer;
+    let plan = match presentation::selection_payload(text) {
+        Ok(payload) => {
+            serde_json::from_str::<Envelope>(payload)
+                .map_err(|_| Rejection::Format)?
+                .memory_answer
+        }
+        // With nothing read there is no saved body to misquote, and failing the
+        // turn would leave "did you forget it?" unanswered. Unchecked prose is
+        // dropped; the actual empty reads answer, without another model call.
+        Err(_) if reads.iter().all(|read| read.records.is_empty()) => Selection {
+            records: vec![],
+            empty: references.iter().map(|r| r.0.clone()).collect(),
+            details: false,
+        },
+        Err(_) => return Err(Rejection::Format.into()),
+    };
     let count = plan.records.len() + plan.empty.len();
     ensure!(
         (1..=8).contains(&count) && plan.empty.len() <= 4,
@@ -290,8 +303,8 @@ pub(super) fn render(turn: &ActorTurn, text: &str) -> Result<String> {
         }
         presentation::quote(&mut out, &record.draft.content);
         out.push('\n');
-        out.push_str("可见范围仍为当前对话，沿用原有效期；关闭窗口不会自动忘记或延期。\n");
         if plan.details {
+            out.push_str("可见范围仍为当前对话，沿用原有效期；关闭窗口不会自动忘记或延期。\n");
             if let Some(utc) = tools::selection_utc(deadline(record)) {
                 out.push_str(&format!("记忆到期时间：{utc}（不是事项发生时间）。\n"));
             }
@@ -327,9 +340,11 @@ pub(super) fn render(turn: &ActorTurn, text: &str) -> Result<String> {
         let read = &reads[chosen.1];
         ensure!(queries.insert(read.action.id), Rejection::Reference);
         query_label(&mut out, read);
-        out.push_str("这次查询的这一页没有命中；不能据此认定从未保存过或其他范围也没有。\n\n");
+        out.push_str("这次查询的这一页没有命中；已忘记的记忆也不会再出现在这里。不能据此认定从未保存过或其他范围也没有，原始消息和操作记录按各自规则保留。\n\n");
     }
-    out.push_str("以上依据本轮实际读到的记忆；引述保存内容不确认其中推断，也不代表你承诺参加。相对日期保留原说法，不用存储或接收时间代替事件日期。");
+    if !seen.is_empty() {
+        out.push_str("引述内容不确认其中的推断，也不代表你承诺参加；相对日期保留原说法。");
+    }
     ensure!(out.len() <= BYTES, Rejection::Bounds);
     Ok(out)
 }
@@ -352,7 +367,8 @@ mod tests {
     #[test]
     fn query_and_visibility_labels_are_not_lazily_quoted_as_saved_user_words() {
         use pulldown_cmark::{Event, Parser, Tag, TagEnd};
-        let (turn, choice) = fixture();
+        let (turn, mut choice) = fixture();
+        choice["memory_answer"]["details"] = json!(true);
         let body = render(&turn, &choice.to_string()).unwrap();
         let mut quoted = false;
         let mut labels = 0;
@@ -499,6 +515,27 @@ mod tests {
         let (nonempty, _) = fixture();
         let not_empty = json!({"memory_answer":{"records":[],"empty":["e1"]}});
         assert!(render(&nonempty, &not_empty.to_string()).is_err());
+    }
+
+    #[test]
+    fn prose_over_only_empty_reads_gets_the_checked_view_but_saved_records_stay_strict() {
+        let draft = "最新回执显示已经删除，那条记录彻底没有了。";
+        let (mut turn, _) = fixture();
+        turn.actions[0].result.as_mut().unwrap()["page"]["records"] = json!([]);
+        let body = render(&turn, draft).unwrap();
+        assert!(body.contains("该页返回 0 条") && body.contains("已忘记的记忆也不会再出现"));
+        assert!(
+            !body.contains(draft) && !body.contains("彻底"),
+            "the unchecked draft is not published"
+        );
+        assert!(!body.contains("引述保存内容"), "nothing was quoted");
+
+        let (saved, _) = fixture();
+        let error = render(&saved, draft).unwrap_err();
+        assert!(matches!(
+            error.downcast_ref::<Rejection>(),
+            Some(Rejection::Format)
+        ));
     }
 
     #[test]

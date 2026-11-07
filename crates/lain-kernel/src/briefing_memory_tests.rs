@@ -188,20 +188,29 @@ async fn selected_memory_recall_cannot_publish_unbound_query_or_capture_time_cla
                 "empty-page streaming must exercise new presentation hold, not an old body dependency"
             );
         }
-        assert_eq!(
-            t.state,
-            TurnState::Failed,
-            "selected-memory evidence must not be completed as unchecked final prose"
-        );
+        if mode == "empty" {
+            // Nothing was read to misquote: the checked empty view replaces the draft.
+            assert_eq!(t.state, TurnState::Completed);
+            assert!(t.error.is_none());
+            assert!(t.messages.iter().any(|m| m.role == MessageRole::Assistant
+                && m.content.contains("该页返回 0 条")
+                && m.content.contains("已忘记的记忆也不会再出现")));
+        } else {
+            assert_eq!(
+                t.state,
+                TurnState::Failed,
+                "selected-memory evidence must not be completed as unchecked final prose"
+            );
+            assert!(
+                t.error
+                    .as_deref()
+                    .unwrap()
+                    .contains("memory_answer_rejected")
+            );
+        }
         assert_eq!(t.model_requests, 2);
-        assert_eq!(t.usage_tokens, 14, "rejection still retains returned usage");
+        assert_eq!(t.usage_tokens, 14, "returned usage is retained");
         assert_eq!(t.actions.len(), 1, "no hidden read or replay");
-        assert!(
-            t.error
-                .as_deref()
-                .unwrap()
-                .contains("memory_answer_rejected")
-        );
         assert!(
             !t.messages.iter().any(|m| m.role == MessageRole::Assistant
                 && m.content.contains("没有别的重复或旧版本记录"))
@@ -387,7 +396,7 @@ async fn selected_memory_evidence_view_keeps_exact_reviewed_body_query_and_corre
             body.contains(&quoted),
             "full exact saved words stay quoted, not rewritten"
         );
-        assert!(body.contains("字面筛选") && body.contains("旧版本或其他范围"));
+        assert!(body.contains("字面筛选") && body.contains("旧版本和其他范围"));
         assert!(body.contains("记忆到期时间") && !body.contains("UNACCEPTED_MEMORY_DRAFT"));
         assert!(!body.contains("memory_answer") && !body.contains(&saved.id.to_string()));
         assert_eq!(body.contains("你确认的更正原话"), corrected);

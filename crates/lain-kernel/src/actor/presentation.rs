@@ -414,6 +414,19 @@ fn mentions(text: &str, word: &str) -> bool {
     })
 }
 fn relative_dates(text: &str, date: Date) -> Vec<String> {
+    dated_words(text, date, None)
+}
+/// `today` adds the reader's own frame, so an old "明晚" can read "周六，今天".
+fn dated_words(text: &str, date: Date, today: Option<Date>) -> Vec<String> {
+    let label = |target: Date| {
+        let now = today.and_then(|today| match target - today {
+            gap if gap == Days::days(0) => Some("，今天"),
+            gap if gap == Days::days(1) => Some("，明天"),
+            gap if gap == Days::days(-1) => Some("，昨天"),
+            _ => None,
+        });
+        format!("{target}（{}{}）", weekday(target), now.unwrap_or_default())
+    };
     let mut result = Vec::new();
     for (word, days) in [
         ("今天", 0),
@@ -428,7 +441,7 @@ fn relative_dates(text: &str, date: Date) -> Vec<String> {
         if mentions(text, word)
             && let Some(target) = date.checked_add(Days::days(days))
         {
-            result.push(format!("{word}→{target}（{}）", weekday(target)));
+            result.push(format!("{word}→{}", label(target)));
         }
     }
     for (n, day) in ["一", "二", "三", "四", "五", "六", "日", "天"]
@@ -439,7 +452,7 @@ fn relative_dates(text: &str, date: Date) -> Vec<String> {
         if mentions(text, &word) {
             let days = 7 - i64::from(date.weekday().number_days_from_monday()) + (n.min(6) as i64);
             if let Some(target) = date.checked_add(Days::days(days)) {
-                result.push(format!("{word}→{target}（{}）", weekday(target)));
+                result.push(format!("{word}→{}", label(target)));
             }
         }
     }
@@ -463,7 +476,7 @@ fn origin(value: &Value) -> &'static str {
 }
 /// Default and original views: the page footer carries the shared "not verified"
 /// statement, so only differences that change how to read this quote stay here.
-fn cite_brief(out: &mut String, value: &Value, text: &str, excerpt: bool) {
+fn cite_brief(out: &mut String, value: &Value, text: &str, excerpt: bool, today: Option<Date>) {
     let derived = match value["text_origin"].as_str() {
         Some("knowledge_projection") => Some("归档知识投影，可能包含派生描述"),
         Some("owner_correction") => Some("档案用户更正文本"),
@@ -502,7 +515,7 @@ fn cite_brief(out: &mut String, value: &Value, text: &str, excerpt: bool) {
         .unwrap_or_default();
     out.push_str(&format!(" · {date}（{}）{minute}", weekday(date)));
     // Same line: Markdown renders a single newline as a space.
-    let dates = relative_dates(text, date);
+    let dates = dated_words(text, date, today);
     if !dates.is_empty() {
         out.push_str(&format!(" · {}", dates.join("；")));
     }
@@ -620,6 +633,7 @@ fn page_scope(out: &mut String, page: &Value, show_page_more: bool) {
     if run["scope_partial"] == true {
         out.push_str("本次所选来源存在覆盖缺口。\n");
     }
+    out.push('\n');
 }
 
 pub(super) fn selection_payload(text: &str) -> Result<&str> {
@@ -674,6 +688,12 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
     let count = plan.items.len() + plan.originals.len();
     let mut rendered_items = false;
     let has_originals = !plan.originals.is_empty();
+    let today = turn
+        .actions
+        .iter()
+        .rev()
+        .filter_map(|a| a.result.as_ref()?["calendar"]["reply_today"].as_str())
+        .find_map(source_date);
     ensure!(
         count <= 8 && (count > 0) != plan.empty.is_some(),
         Rejection::Bounds
@@ -715,6 +735,7 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
                 .as_str()
                 .ok_or(Rejection::Reference)?,
             false,
+            today,
         );
         if let Some(speaker) = value["record"]["speaker"]
             .as_str()
@@ -873,7 +894,7 @@ fn render_evidence(turn: &ActorTurn, text: &str, enforce_request: bool) -> Resul
                 cite(&mut out, c, shown);
                 out.push_str("这是引文节选；完整原文可以继续追问。\n");
             } else {
-                cite_brief(&mut out, c, shown, context_text.is_none());
+                cite_brief(&mut out, c, shown, context_text.is_none(), today);
             }
         }
         if incomplete_context {
@@ -1491,6 +1512,7 @@ mod tests {
             &json!({"text_origin":"owner_import","source_label":"QQ群 1","time_basis":"source_reported_occurrence","source_local_time":"2026-11-06 10:03:00 UTC+08:00"}),
             "明晚七点讨论",
             false,
+            None,
         );
         assert_eq!(
             out,
@@ -1502,8 +1524,23 @@ mod tests {
             &json!({"text_origin":"owner_import","source_label":"QQ群 1","time_basis":"source_reported_occurrence","source_local_time":"2026-11-06 10:03:00 UTC+08:00"}),
             "明晚七点讨论",
             true,
+            None,
         );
         assert!(excerpt.starts_with("节选：\n> 明晚七点讨论\n\n"));
+
+        let friday = source_date("2026-11-06").unwrap();
+        let on = |today: &str| {
+            dated_words("今晚八点和明晚七点和下周一", friday, source_date(today)).join("；")
+        };
+        assert_eq!(
+            on("2026-11-07"),
+            "今晚→2026-11-06（周五，昨天）；明晚→2026-11-07（周六，今天）；下周一→2026-11-09（周一）"
+        );
+        assert_eq!(
+            on("2026-11-06"),
+            "今晚→2026-11-06（周五，今天）；明晚→2026-11-07（周六，明天）；下周一→2026-11-09（周一）"
+        );
+        assert!(!relative_dates("明晚", friday)[0].contains("，"));
 
         let (turn, id) = fixture();
         let plan = json!({"briefing_answer":{"items":[
@@ -1525,6 +1562,7 @@ mod tests {
             &json!({"text_origin":"knowledge_projection","source_label":"选定来源","time_basis":"receipt_fallback_not_original_time","source_local_time":"2026-11-06 10:03:00 UTC+08:00"}),
             "明晚七点讨论",
             true,
+            None,
         );
         assert!(
             out.contains("接收时间")
