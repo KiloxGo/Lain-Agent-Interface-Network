@@ -1,5 +1,27 @@
 # Cloud operations and upgrade boundary
 
+## 2026-11-07 — Daily loop release on the original database
+
+Source `4ce5612b3708` (Git `227bc89`) is public-accepted as a same-schema40,
+program-only update over `b9a217fa171a`; operation `a672d63b`, binary
+`f761d6ccb212`. The database inode, instance identity, four private configurations,
+reader and backup units are unchanged. `Cargo.lock` and the Kernel manifest change
+to add the already vendored `pulldown-cmark`; package versions do not change.
+
+Native Linux (Rust 1.89): 452 Kernel library, 11 foundation and 5 profile tests,
+all-target Clippy with the existing `nonminimal_bool` exception, and a release build
+pass. 30 maintenance guards, 3 copy mutations and 8 isolated fault cases pass. The
+guard first refused the release because one test assumed `Cargo.lock` never changes.
+That check now covers root `Cargo.toml`, which did not change; the lock's bytes stay
+bound through the plan's source identity.
+
+Windows checks over public HTTPS pass: authentication, protocol refusal, policy and
+loaded profile, SSE, QQ online, and the installed client's restore and exit. The
+pre-upgrade backup and a post-upgrade six-member backup with an independent restore
+check are retained; 7 archives, 8012188 bytes. Maintenance made no model call, QQ
+send or new grant, so real QQ use of this version is not yet verified. Sources stay
+at 0. Future maintenance must fence this binary as the previous runtime.
+
 ## 2026-11-07 — Current medium profile on the same b9a program
 
 Separate configuration operatione1edae96 is public-accepted on the original40

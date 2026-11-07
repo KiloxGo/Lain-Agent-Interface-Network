@@ -2,10 +2,11 @@
 
 ## 2026-11-07 — Small demo sequence
 
-Done: real-provider run of the daily loop on synthetic messages, and plainer
-default replies (see docs/DAILY_BRIEFING_ACCEPTANCE.md). Next, in order: (1) Linux
-validation, backup/rollback and deployment of the current version; (2) acceptance
-on already-authorized real sources; (3) more natural answers than quoted lists.
+Done: real-provider run of the daily loop on synthetic messages, plainer default
+replies (see docs/DAILY_BRIEFING_ACCEPTANCE.md), and Linux validation, backup and
+deployment of that version to the cloud (see docs/CLOUD_OPERATIONS.md). Next, in
+order: (1) acceptance on already-authorized real sources; (2) more natural answers
+than quoted lists.
 Public release follows the demo: it still needs a license and a decision on author
 emails in Git history.
 
