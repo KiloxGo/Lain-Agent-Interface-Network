@@ -114,6 +114,16 @@ pub(super) fn page(
     now: u64,
     redactor: &Redactor,
 ) -> Result<BriefingPage> {
+    page_of(db, m, from_index, now, redactor, 8)
+}
+pub(super) fn page_of(
+    db: &Connection,
+    m: &BriefingManifest,
+    from_index: u16,
+    now: u64,
+    redactor: &Redactor,
+    limit: usize,
+) -> Result<BriefingPage> {
     current(db, m, now)?;
     ensure!(
         usize::from(from_index) <= m.records.len(),
@@ -121,7 +131,7 @@ pub(super) fn page(
     );
     let mut records = vec![];
     let mut bytes = 0;
-    for v in m.records.iter().skip(usize::from(from_index)).take(8) {
+    for v in m.records.iter().skip(usize::from(from_index)).take(limit) {
         let r = archives::record(db, v.record_id)?;
         crate::archives::safe(&r, redactor)?;
         let size = r.text.as_ref().ok_or(ControlError::Conflict)?.len();

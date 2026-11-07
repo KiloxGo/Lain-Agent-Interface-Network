@@ -19,6 +19,8 @@ struct RunModel {
     /// Reproduces the observed provider slip: asked to copy a source UUID, it
     /// gets one character wrong. Only an offered citation selector avoids it.
     miscopies_record_ids: bool,
+    /// Extraction pages at these indices answer with output that fails validation.
+    rejected_from: Vec<u64>,
 }
 impl RunModel {
     fn new(permits: usize, dense: bool) -> Self {
@@ -33,6 +35,7 @@ impl RunModel {
             single_pair: false,
             compare_gate: None,
             miscopies_record_ids: false,
+            rejected_from: vec![],
         }
     }
 }
@@ -99,8 +102,19 @@ impl ActorModel for RunModel {
         )
         .unwrap();
         self.requests.lock().unwrap().push(r);
+        let rejected = data["page"]["from_index"]
+            .as_u64()
+            .is_some_and(|index| self.rejected_from.contains(&index));
         Box::pin(async move {
             self.gate.acquire().await.unwrap().forget();
+            if rejected {
+                return Ok(Reply {
+                    text: "not the required JSON".into(),
+                    usage_tokens: 7,
+                    calls: vec![],
+                    continuation: vec![],
+                });
+            }
             let record = &data["page"]["records"][0];
             let mut output = json!({"important_items_omitted":false,"items":[{"title":"图书馆讨论","summary":"有人通知讨论，未确认用户参加。","category":"schedule","time_text":"明晚七点","uncertainty":"未独立核实","citations":[{"record_id":record["id"],"quote":"明晚七点在图书馆讨论。"}]}]});
             if let Some(raw) = record["text"].as_str()
@@ -166,6 +180,66 @@ fn run_model_detail(k: &Arc<Kernel>, permits: usize, dense: bool) -> (Arc<Actor>
         ),
         m,
     )
+}
+
+#[tokio::test]
+async fn one_rejected_batch_is_skipped_and_reported_without_a_retry() {
+    let (_dir, k, c, m) = many();
+    let id = m.request.request_id;
+    let mut model = RunModel::new(5, false);
+    model.rejected_from = vec![4];
+    let model = Arc::new(model);
+    let actor = Actor::with_model(
+        k.clone(),
+        None,
+        "fixture-briefing-run-token-0123456789".parse().unwrap(),
+        model.clone(),
+    );
+    actor.start_briefing_run(c, id).await.unwrap();
+    until(|| k.briefing_run_status(c, id).unwrap().run.phase.terminal()).await;
+    let run = k.briefing_run_status(c, id).unwrap().run;
+    assert_eq!(run.phase, BriefingRunPhase::Completed);
+    assert_eq!((run.skipped_records, run.skipped_batches), (4, 1));
+    assert_eq!(
+        run.processed_records, run.selected_records,
+        "the rest still ran"
+    );
+    let extraction = model
+        .requests
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|r| {
+            r.input.last().unwrap()["content"]
+                .as_str()
+                .is_some_and(|t| t.contains("from_index\":4,"))
+        })
+        .count();
+    assert_eq!(extraction, 1, "a rejected batch is not retried");
+    let report = k
+        .briefing_report(c, id, 0, 4, Redactor::new(vec![]))
+        .unwrap();
+    assert_eq!(report["status"]["run"]["skipped_records"], 4);
+}
+
+#[tokio::test]
+async fn too_many_rejected_batches_stop_the_run() {
+    let (_dir, k, c, m) = many();
+    let id = m.request.request_id;
+    let mut model = RunModel::new(9, false);
+    model.rejected_from = (0..64).map(|n| n * 4).collect();
+    let actor = Actor::with_model(
+        k.clone(),
+        None,
+        "fixture-briefing-run-token-0123456789".parse().unwrap(),
+        Arc::new(model),
+    );
+    actor.start_briefing_run(c, id).await.unwrap();
+    until(|| k.briefing_run_status(c, id).unwrap().run.phase.terminal()).await;
+    let run = k.briefing_run_status(c, id).unwrap().run;
+    assert_eq!(run.phase, BriefingRunPhase::Unknown);
+    assert_eq!(run.stop, Some(BriefingRunStop::ModelFailed));
+    assert_eq!(run.completed_batches, 0);
 }
 
 #[tokio::test]

@@ -1,5 +1,18 @@
 # L.A.I.N. Development Log
 
+## 2026-11-07 — Briefings for any time span, at group volume
+
+The user wants a chosen span of messages summarized on request, not every message
+handled as it arrives. A new `briefing_range` tool lets the model turn words like "this
+afternoon" into local times, and the Kernel validates them and selects only that
+authorized span. The rest of the pipeline already worked on bounds. Client wire types
+gain the tool, so the client must be updated with this Kernel.
+
+A real-provider run with 300 synthetic messages stopped at 28 of them: one batch failed
+validation, which ended the run, and four records a batch could never exceed 256. Batch
+size now grows with the selection, and a rejected batch is skipped and reported rather
+than ending the run. It is not retried, and more than eight rejections still stop.
+
 ## 2026-11-07 — Knowledge sync that can run for a busy group
 
 Real collection of one group produced 84 messages in ten minutes, which the old sync

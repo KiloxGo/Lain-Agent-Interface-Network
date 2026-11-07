@@ -196,6 +196,21 @@ fn a_requested_span_selects_only_that_time_and_reuses_unchanged_inputs() {
     }
 }
 #[test]
+fn larger_selections_use_larger_batches_that_fit_the_batch_limit() {
+    use crate::persistence::briefing_model::batch_size;
+    for (total, size) in [
+        (1, 4),
+        (17, 4),
+        (256, 4),
+        (257, 6),
+        (300, 7),
+        (3000, 63),
+        (8192, 64),
+    ] {
+        assert_eq!(batch_size(total), size, "{total}");
+    }
+}
+#[test]
 fn stored_yesterday_requests_keep_their_format() {
     assert_eq!(
         serde_json::to_value(BriefingDay::Yesterday).unwrap(),

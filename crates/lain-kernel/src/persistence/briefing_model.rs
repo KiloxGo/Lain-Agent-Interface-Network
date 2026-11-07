@@ -41,23 +41,23 @@ fn run_admission(db: &Connection, a: BriefingActivity) -> Result<()> {
     }
     Ok(())
 }
+/// Four records a batch fills the 64-batch limit at 256 records, each batch able to
+/// report four items. Beyond that, batches grow so that a span still fits the limit,
+/// leaving room for pages that the byte bound cuts short.
+pub(super) fn batch_size(total: usize) -> usize {
+    if total <= 256 {
+        4
+    } else {
+        total.div_ceil(48).min(64)
+    }
+}
 fn selected_page(
     db: &Connection,
     m: &BriefingManifest,
     index: u16,
     r: &Redactor,
 ) -> Result<BriefingPage> {
-    let mut p = briefing::page(db, m, index, now_ms()?, r)?;
-    p.records.truncate(4);
-    p.text_bytes = u32::try_from(
-        p.records
-            .iter()
-            .map(|r| r.text.as_ref().map_or(0, String::len))
-            .sum::<usize>(),
-    )?;
-    let end = usize::from(index) + p.records.len();
-    p.next_index = (end < usize::from(p.total_selected)).then_some(u16::try_from(end)?);
-    Ok(p)
+    briefing::page_of(db, m, index, now_ms()?, r, batch_size(m.records.len()))
 }
 fn page(
     db: &Connection,
@@ -280,7 +280,27 @@ impl Store {
         )?;
         ensure!(count < 64, ControlError::Conflict);
         if a.from_index > 0 {
-            ensure!(self.connection.query_row("SELECT EXISTS(SELECT 1 FROM briefing_batches WHERE briefing_id=?1 AND next_index=?2 AND result_snapshot IS NOT NULL)",(a.briefing_id.to_string(),a.from_index),|r|r.get::<_,bool>(0))?,ControlError::Conflict);
+            // The run records a rejected batch as skipped, so it may point past one.
+            let run_next = self
+                .connection
+                .query_row(
+                    "SELECT snapshot FROM briefing_runs WHERE briefing_id=?1",
+                    [a.briefing_id.to_string()],
+                    |r| r.get::<_, String>(0),
+                )
+                .optional()?
+                .map(decode::<BriefingRun>)
+                .transpose()?
+                .and_then(|run| run.next_index);
+            ensure!(
+                run_next == Some(a.from_index)
+                    || self.connection.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM briefing_batches WHERE briefing_id=?1 AND next_index=?2 AND result_snapshot IS NOT NULL)",
+                        (a.briefing_id.to_string(), a.from_index),
+                        |r| r.get::<_, bool>(0)
+                    )?,
+                ControlError::Conflict
+            );
         }
         let busy:bool=self.connection.query_row("SELECT EXISTS(SELECT 1 FROM briefing_batches b JOIN lain_actor_turns t ON t.id=b.actor_turn_id WHERE b.briefing_id=?1 AND json_extract(t.snapshot,'$.state') IN ('running','pending_confirmation'))",[a.briefing_id.to_string()],|r|r.get(0))?;
         ensure!(!busy, ControlError::Conflict);

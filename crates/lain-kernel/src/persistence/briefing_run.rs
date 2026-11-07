@@ -78,6 +78,8 @@ impl Store {
             next_index: if empty { None } else { Some(0) },
             important_items_omitted: false,
             scope_partial: m.scope_clipped || m.record_limit_reached || m.unavailable_records > 0,
+            skipped_records: 0,
+            skipped_batches: 0,
         };
         self.connection.execute(
             "INSERT INTO briefing_runs VALUES (?1,?2)",
@@ -126,6 +128,22 @@ impl Store {
                 ActorTurnState::Running | ActorTurnState::PendingConfirmation => {
                     return self.briefing_run_status(c, id);
                 }
+                _ if self.batch_output_rejected(&batch)? && run.skipped_batches < 8 => {
+                    // One unusable answer should not cost the rest of the span. Nothing
+                    // from it is published and it is not retried; the reply reports the gap.
+                    let next = batch.next_index.unwrap_or(run.selected_records);
+                    run.skipped_records += next - index;
+                    run.skipped_batches += 1;
+                    run.processed_records = next;
+                    run.next_index = batch.next_index;
+                    if run.next_index.is_some() {
+                    } else if run.completed_batches > 0 {
+                        run.phase = BriefingRunPhase::Reconciling;
+                    } else {
+                        run.phase = BriefingRunPhase::Unknown;
+                        run.stop = Some(BriefingRunStop::ModelFailed);
+                    }
+                }
                 _ => {
                     run.phase = BriefingRunPhase::Unknown;
                     run.stop = Some(BriefingRunStop::ModelFailed);
@@ -137,6 +155,13 @@ impl Store {
         }
         self.save_briefing_run(&run)?;
         self.briefing_run_status(c, id)
+    }
+    fn batch_output_rejected(&self, batch: &BriefingBatch) -> Result<bool> {
+        let turn = self.actor_turn(batch.actor_turn_id.to_string().parse()?)?;
+        Ok(batch.source_current
+            && turn
+                .error
+                .is_some_and(|error| error.contains("briefing_rejected:")))
     }
     pub fn stop_briefing_run(
         &mut self,

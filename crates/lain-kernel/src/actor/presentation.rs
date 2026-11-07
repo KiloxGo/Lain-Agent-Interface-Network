@@ -676,10 +676,20 @@ fn page_scope(out: &mut String, page: &Value, show_page_more: bool) {
         page["day_from_local"].as_str().unwrap_or("日期未能表示"),
         page["day_to_local_exclusive"].as_str(),
     );
+    let skipped = run["skipped_records"].as_u64().unwrap_or(0);
     out.push_str(&format!(
         "来源简报：{day}；已整理 {}/{} 条消息。这里只列本次挑选的条目。\n",
-        run["processed_records"], run["selected_records"]
+        run["processed_records"]
+            .as_u64()
+            .unwrap_or(0)
+            .saturating_sub(skipped),
+        run["selected_records"]
     ));
+    if skipped > 0 {
+        out.push_str(&format!(
+            "有 {skipped} 条这次没能整理，可能漏掉其中的内容。\n"
+        ));
+    }
     if let Some(query) = page["query"].as_str() {
         out.push_str("关键词：\n");
         quote(out, query);
