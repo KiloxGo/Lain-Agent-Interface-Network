@@ -188,26 +188,15 @@ async fn selected_memory_recall_cannot_publish_unbound_query_or_capture_time_cla
                 "empty-page streaming must exercise new presentation hold, not an old body dependency"
             );
         }
-        if mode == "empty" {
-            // Nothing was read to misquote: the checked empty view replaces the draft.
-            assert_eq!(t.state, TurnState::Completed);
-            assert!(t.error.is_none());
-            assert!(t.messages.iter().any(|m| m.role == MessageRole::Assistant
-                && m.content.contains("该页返回 0 条")
-                && m.content.contains("已忘记的记忆也不会再出现")));
-        } else {
-            assert_eq!(
-                t.state,
-                TurnState::Failed,
-                "selected-memory evidence must not be completed as unchecked final prose"
-            );
-            assert!(
-                t.error
-                    .as_deref()
-                    .unwrap()
-                    .contains("memory_answer_rejected")
-            );
-        }
+        // The unchecked draft is replaced by what this turn actually read.
+        assert_eq!(t.state, TurnState::Completed);
+        assert!(t.error.is_none());
+        assert!(t.messages.iter().any(|m| m.role == MessageRole::Assistant
+            && m.content.contains(if mode == "empty" {
+                "该页返回 0 条"
+            } else {
+                "该页返回 1 条"
+            })));
         assert_eq!(t.model_requests, 2);
         assert_eq!(t.usage_tokens, 14, "returned usage is retained");
         assert_eq!(t.actions.len(), 1, "no hidden read or replay");

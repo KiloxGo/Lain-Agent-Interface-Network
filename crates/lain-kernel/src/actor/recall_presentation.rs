@@ -258,21 +258,39 @@ pub(super) fn render(turn: &ActorTurn, text: &str) -> Result<String> {
     let reads = reads(turn).ok_or(Rejection::Reference)?;
     let references = references(&reads);
     ensure!(text.len() <= 16384, Rejection::Bounds);
-    let plan = match presentation::selection_payload(text) {
-        Ok(payload) => {
-            serde_json::from_str::<Envelope>(payload)
-                .map_err(|_| Rejection::Format)?
-                .memory_answer
+    let mut omitted = 0;
+    let plan = if presentation::is_prose(text) {
+        // Models sometimes skip the final function and just write. That draft is
+        // never published; what this turn actually read answers instead, in full,
+        // with no new request.
+        let mut ids = BTreeSet::new();
+        let mut records: Vec<String> = references
+            .iter()
+            .filter(|r| r.2.is_some_and(|j| ids.insert(reads[r.1].records[j].id)))
+            .map(|r| r.0.clone())
+            .collect();
+        omitted = records.len().saturating_sub(8);
+        records.truncate(8);
+        let empty = if records.is_empty() {
+            references
+                .iter()
+                .filter(|r| r.2.is_none())
+                .map(|r| r.0.clone())
+                .take(4)
+                .collect()
+        } else {
+            vec![]
+        };
+        Selection {
+            records,
+            empty,
+            details: true,
         }
-        // With nothing read there is no saved body to misquote, and failing the
-        // turn would leave "did you forget it?" unanswered. Unchecked prose is
-        // dropped; the actual empty reads answer, without another model call.
-        Err(_) if reads.iter().all(|read| read.records.is_empty()) => Selection {
-            records: vec![],
-            empty: references.iter().map(|r| r.0.clone()).collect(),
-            details: false,
-        },
-        Err(_) => return Err(Rejection::Format.into()),
+    } else {
+        let payload = presentation::selection_payload(text).map_err(|_| Rejection::Format)?;
+        serde_json::from_str::<Envelope>(payload)
+            .map_err(|_| Rejection::Format)?
+            .memory_answer
     };
     let count = plan.records.len() + plan.empty.len();
     ensure!(
@@ -341,6 +359,9 @@ pub(super) fn render(turn: &ActorTurn, text: &str) -> Result<String> {
         ensure!(queries.insert(read.action.id), Rejection::Reference);
         query_label(&mut out, read);
         out.push_str("这次查询的这一页没有命中；已忘记的记忆也不会再出现在这里。不能据此认定从未保存过或其他范围也没有，原始消息和操作记录按各自规则保留。\n\n");
+    }
+    if omitted > 0 {
+        out.push_str(&format!("这一页还有 {omitted} 条没有列出。\n\n"));
     }
     if !seen.is_empty() {
         out.push_str("引述内容不确认其中的推断，也不代表你承诺参加；相对日期保留原说法。");
@@ -492,7 +513,8 @@ mod tests {
         let mut foreign = turn.clone();
         foreign.conversation_id = ConversationId::new();
         assert!(!eligible(&foreign) && render(&foreign, &choice.to_string()).is_err());
-        assert!(render(&turn, "没有旧版本；今天就是11月7日。").is_err());
+        let prose = render(&turn, "没有旧版本；今天就是11月7日。").unwrap();
+        assert!(!prose.contains("没有旧版本") && !prose.contains("11月7日"));
     }
 
     #[test]
@@ -518,24 +540,29 @@ mod tests {
     }
 
     #[test]
-    fn prose_over_only_empty_reads_gets_the_checked_view_but_saved_records_stay_strict() {
+    fn prose_is_replaced_by_what_was_actually_read_and_never_published() {
         let draft = "最新回执显示已经删除，那条记录彻底没有了。";
         let (mut turn, _) = fixture();
+        let saved = render(&turn, draft).unwrap();
+        assert!(saved.contains("今天16:00") && saved.contains("该页返回 1 条"));
+        assert!(
+            saved.contains("记忆到期时间"),
+            "no selection, so full facts"
+        );
+        assert!(!saved.contains(draft) && !saved.contains("彻底"));
+
         turn.actions[0].result.as_mut().unwrap()["page"]["records"] = json!([]);
         let body = render(&turn, draft).unwrap();
         assert!(body.contains("该页返回 0 条") && body.contains("已忘记的记忆也不会再出现"));
-        assert!(
-            !body.contains(draft) && !body.contains("彻底"),
-            "the unchecked draft is not published"
-        );
-        assert!(!body.contains("引述保存内容"), "nothing was quoted");
+        assert!(!body.contains(draft) && !body.contains("彻底"));
+        assert!(!body.contains("引述内容"), "nothing was quoted");
 
-        let (saved, _) = fixture();
-        let error = render(&saved, draft).unwrap_err();
-        assert!(matches!(
-            error.downcast_ref::<Rejection>(),
-            Some(Rejection::Format)
-        ));
+        for attempt in ["{not json", "```json\n{}\n```"] {
+            assert!(
+                render(&turn, attempt).is_err(),
+                "a malformed selection attempt stays strict: {attempt}"
+            );
+        }
     }
 
     #[test]

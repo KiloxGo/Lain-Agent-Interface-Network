@@ -402,7 +402,7 @@ async fn briefing_final_answer_requires_actual_evidence_selection_and_preserves_
     extractor.start_briefing_run(c, id).await.unwrap();
     until(|| k.briefing_run_status(c, id).unwrap().run.phase.terminal()).await;
     for (text, accepted) in [
-        ("发送当天是周日，这些是群的转发通知。".to_owned(), false),
+        ("发送当天是周日，这些是群的转发通知。".to_owned(), true),
         (json!({"briefing_answer":{"items":[{"briefing_id":id,"item_number":999}]}}).to_string(), false),
         (json!({"briefing_answer":{"items":[{"briefing_id":RequestId::new(),"item_number":1}]}}).to_string(), false),
         (json!({"briefing_answer":{"items":[{"briefing_id":id,"item_number":1},{"briefing_id":id,"item_number":1}]}}).to_string(), false),

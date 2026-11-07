@@ -1,5 +1,14 @@
 # L.A.I.N. Development Log
 
+## 2026-11-07 — Prose instead of a final selection no longer fails the turn
+
+Two real runs of the same 18-step scenario failed at different steps because the
+model answered in prose instead of calling the final selection function, once on
+an empty read and once on a saved record. The prose is still never published. The
+Kernel now renders what the turn actually read, with no extra model request.
+Malformed JSON and fenced attempts stay rejected, and a direct original request
+without an inspected original still fails rather than substituting an excerpt.
+
 ## 2026-11-07 — Plainer default briefing and original views
 
 Repeated per-quote labels are gone from the default and original views: the page

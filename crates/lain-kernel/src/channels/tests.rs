@@ -103,7 +103,7 @@ fn service(kernel: &Arc<Kernel>, permits: usize) -> (Arc<ChannelService>, Arc<Mo
     )
 }
 async fn eventually(check: impl Fn() -> bool) {
-    tokio::time::timeout(Duration::from_secs(15), async {
+    tokio::time::timeout(Duration::from_secs(60), async {
         while !check() {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }

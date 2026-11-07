@@ -208,6 +208,44 @@ pub(super) fn policy(turn: &ActorTurn) -> String {
     if !eligible(turn) {
         return String::new();
     }
+    let (items, originals, empty) = choices(turn);
+    let requested_view = if original_requested(turn) {
+        "\nKernel requested source view: original. This current direct request needs an actual briefing_inspect result; report excerpts alone cannot finish it. If originals is empty, use the existing inspect tool after locating the exact item/citation. A checked empty read may instead report that limited lookup; it never proves historical absence. No new source, permission, automatic read or retry is implied."
+    } else {
+        ""
+    };
+    format!(
+        "{POLICY}{requested_view}\nPrefer the supplied briefing_answer final-output function with these selection fields as its arguments, as the sole final call. It is formatting, not an executable Kernel action. Alternatively the text JSON envelope remains accepted.\nKernel available final evidence selections: {}",
+        json!({"items":items,"originals":originals,"empty":empty})
+    )
+}
+
+/// Plain prose instead of a selection attempt. Malformed JSON or fenced output
+/// may be a wrong reference, so those keep their strict rejection.
+pub(super) fn is_prose(text: &str) -> bool {
+    !text.trim_start().starts_with('{') && !text.contains("```")
+}
+
+// Models sometimes skip the final function and just write. That draft is never
+// published; what this turn actually read answers instead, with no new request.
+fn prose_selection(turn: &ActorTurn) -> Result<String> {
+    let (items, originals, empty) = choices(turn);
+    let selection = if !originals.is_empty() {
+        json!({"originals":originals.into_iter().take(8).collect::<Vec<_>>()})
+    } else if !items.is_empty() {
+        json!({"items":items.into_iter().take(8).collect::<Vec<_>>()})
+    } else if let Some(empty) = empty.into_iter().next() {
+        json!({"empty":empty})
+    } else if original_requested(turn) {
+        return Err(Rejection::OriginalRequired.into());
+    } else {
+        return Err(Rejection::Format.into());
+    };
+    Ok(json!({"briefing_answer":selection}).to_string())
+}
+
+type Choices = (Vec<Value>, Vec<Value>, Vec<Value>);
+fn choices(turn: &ActorTurn) -> Choices {
     let mut items = Vec::new();
     let mut originals = Vec::new();
     let mut empty = Vec::new();
@@ -262,18 +300,10 @@ pub(super) fn policy(turn: &ActorTurn) -> String {
             _ => {}
         }
     }
-    let requested_view = if original_requested(turn) {
-        if originals.is_empty() {
-            items.clear();
-        }
-        "\nKernel requested source view: original. This current direct request needs an actual briefing_inspect result; report excerpts alone cannot finish it. If originals is empty, use the existing inspect tool after locating the exact item/citation. A checked empty read may instead report that limited lookup; it never proves historical absence. No new source, permission, automatic read or retry is implied."
-    } else {
-        ""
-    };
-    format!(
-        "{POLICY}{requested_view}\nPrefer the supplied briefing_answer final-output function with these selection fields as its arguments, as the sole final call. It is formatting, not an executable Kernel action. Alternatively the text JSON envelope remains accepted.\nKernel available final evidence selections: {}",
-        json!({"items":items,"originals":originals,"empty":empty})
-    )
+    if original_requested(turn) && originals.is_empty() {
+        items.clear();
+    }
+    (items, originals, empty)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -668,6 +698,9 @@ pub(super) fn selection_payload(text: &str) -> Result<&str> {
 }
 
 pub(super) fn render(turn: &ActorTurn, text: &str) -> Result<String> {
+    if is_prose(text) && eligible(turn) {
+        return render_evidence(turn, &prose_selection(turn)?, true);
+    }
     render_evidence(turn, text, true)
 }
 
