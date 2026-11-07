@@ -5,10 +5,10 @@
 Done: real-provider run of the daily loop on synthetic messages, plainer default
 replies (see docs/DAILY_BRIEFING_ACCEPTANCE.md), and Linux validation, backup and
 deployment of that version to the cloud (see docs/CLOUD_OPERATIONS.md), and
-collection of one selected QQ group. Next, in order: (1) make Kernel sync sustainable
-for daily use, since the 30-second freshness lease and the 10000-read cap allow only
-about 2.3 days; (2) acceptance on that real source; (3) more natural answers than
-quoted lists.
+collection of one selected QQ group. Sustainable sync (ADR 042) is implemented
+locally. Next, in order: (1) test briefings at real group volume on synthetic data;
+(2) deploy, then accept on the real source; (3) more natural answers than quoted
+lists.
 Public release follows the demo: it still needs a license and a decision on author
 emails in Git history.
 

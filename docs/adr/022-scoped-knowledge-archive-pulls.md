@@ -39,6 +39,7 @@ the Kernel's existing private memory source suppressions. No matching by text or
 guessing cross-account event equivalence. Capability context can include a
 content-free last-read/freshness pointer; withheld content is not past absence.
 
+(Scheduled reads now use a longer lease; see [ADR 042](042-sustainable-knowledge-sync.md).)
 Only a pull caught up to the selected source grants a **30-second freshness lease**;
 backlog/offline/expired leases withhold copied bodies from archive/Actor/delivery
 projections. This is a bounded snapshot, not an instantaneous remote revocation

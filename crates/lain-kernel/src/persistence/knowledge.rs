@@ -207,9 +207,11 @@ impl Store {
                 }
                 continue;
             }
+            // The limit is what this grant authorized. Expiry never refunds it, but
+            // history from an earlier grant is not this grant's to spend.
             let count: i64 = tx.query_row(
-                "SELECT count(*) FROM knowledge_records WHERE source_id=?1",
-                [j.source_id.to_string()],
+                "SELECT count(*) FROM knowledge_records k JOIN archive_records a ON a.id=k.archive_record_id WHERE k.source_id=?1 AND a.grant_revision=?2",
+                (j.source_id.to_string(), i64::try_from(g.revision)?),
                 |r| r.get(0),
             )?;
             ensure!(count < i64::from(scope.max_records), ControlError::Conflict);
@@ -269,7 +271,10 @@ impl Store {
         j.adapter_version = Some("qq-knowledge/scoped-v1".into());
         j.waiting_for_source = page.has_more || !allowed;
         j.next = Some(id);
-        j.coverage="bounded_source_projection_30_second_freshness_lease_no_collection_or_participation_claim".into();
+        j.coverage =
+            "bounded_source_projection_freshness_lease_no_collection_or_participation_claim".into();
+        let lease_ms = super::knowledge_sync::freshness_lease_ms(&tx, &j)?;
+        let held_until_ms = old.as_ref().map_or(0, |s| s.fresh_until_ms);
         let s = KnowledgeArchiveState {
             coverage: page.coverage,
             source_id: j.source_id,
@@ -284,7 +289,13 @@ impl Store {
             last_read: id,
             observed_at_ms: now,
             fresh_until_ms: if allowed && !page.has_more {
-                now.saturating_add(30000).min(scope.expires_at_ms)
+                now.saturating_add(lease_ms)
+                    .max(held_until_ms)
+                    .min(scope.expires_at_ms)
+            } else if allowed && j.sync_revision.is_some() {
+                // The next scheduled read comes soon. Unread changes extend nothing,
+                // but they should not interrupt a briefing already in progress.
+                held_until_ms
             } else {
                 0
             },

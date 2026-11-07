@@ -34,9 +34,8 @@ new messages only, no history backfill. To stop: `docker stop` the observer, and
 disable the source in the knowledge service to clear what it holds. Kernel sources
 are still 0: briefings cannot read this group until the sync limit below is solved.
 
-Briefings need a source synced within the last 30 seconds, which means a read about
-every 20 seconds, while `archive_reads` stops at 10000 in total. Continuous use
-would exhaust that in about 2.3 days, so sync stays off until this is redesigned.
+Sync stays off in production until the sustainable sync rules in
+[ADR 042](adr/042-sustainable-knowledge-sync.md) are deployed.
 
 ## 2026-11-07 — Current medium profile on the same b9a program
 

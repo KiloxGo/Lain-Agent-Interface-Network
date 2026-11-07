@@ -1,5 +1,8 @@
 # ADR 023: Finite selected-source knowledge synchronization
 
+Lease, backlog and record-limit rules are amended by
+[ADR 042](042-sustainable-knowledge-sync.md).
+
 Date: 2026-10-27 (Asia/Shanghai). Status: implemented; validation recorded in
 [acceptance](../KNOWLEDGE_SYNC_ACCEPTANCE.md). Extends the explicit bridge in
 ADR 022 without changing the independent service, observer or model authority.

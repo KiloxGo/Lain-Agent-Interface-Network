@@ -50,7 +50,7 @@ pub(crate) fn validate_scope(scope: Option<&ArchiveScope>, now: u64) -> Result<(
                 && s.expires_at_ms <= now.saturating_add(MONTH)
                 && s.expires_at_ms <= i64::MAX as u64
                 && (1..=MONTH).contains(&s.retention_ms)
-                && (1..=10000).contains(&s.max_records),
+                && (1..=200_000).contains(&s.max_records),
             ControlError::InvalidInput
         );
     }

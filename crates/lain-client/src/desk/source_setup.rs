@@ -48,7 +48,7 @@ impl Kind {
                 "到期时间 YYYY-MM-DD HH:MM[:SS]",
                 "时区，例如 +08:00",
                 "文本保留分钟 1–44640",
-                "本次授权最多导入记录 1–10000",
+                "本次授权最多导入记录 1–200000",
             ],
             Self::Sync(_) => &[
                 "到期时间 YYYY-MM-DD HH:MM[:SS]",
@@ -117,7 +117,7 @@ fn draft(e: &Editor, now: u64, revoke: bool) -> Result<Change> {
                 let minutes: u64 = e.fields[2].text.parse().context("保留分钟需为数字")?;
                 let max_records: u32 = e.fields[3].text.parse().context("记录上限需为数字")?;
                 ensure!(
-                    (1..=44640).contains(&minutes) && (1..=10000).contains(&max_records),
+                    (1..=44640).contains(&minutes) && (1..=200_000).contains(&max_records),
                     "保留分钟或记录上限超出范围"
                 );
                 Some(ArchiveScope {

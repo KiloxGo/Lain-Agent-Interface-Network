@@ -48,6 +48,19 @@ pub(super) fn read_allowed(db: &Connection, j: &ArchiveReadJob, now: u64) -> Res
             s.expires_at_ms > now && s.archive_revision == j.request.expected_revision
         }))
 }
+/// How long a caught-up read keeps copied bodies available. A scheduled read is
+/// good until its successor is due; the cap bounds how late an upstream
+/// withdrawal can arrive, even for a long interval. See ADR 041.
+pub(super) fn freshness_lease_ms(db: &Connection, j: &ArchiveReadJob) -> Result<u64> {
+    if j.sync_revision.is_none() {
+        return Ok(30_000);
+    }
+    let interval = grant(db, j.source_id)?
+        .scope
+        .ok_or(ControlError::Conflict)?
+        .interval_ms;
+    Ok(interval.saturating_add(60_000).min(3_600_000))
+}
 impl Store {
     pub fn knowledge_sync_grants(&self, id: ArchiveSourceId) -> Result<Vec<KnowledgeSyncGrant>> {
         self.archive_source(id)?;
@@ -193,10 +206,13 @@ impl Store {
                 {
                     g.stopped = Some(KnowledgeSyncStop::SourceUnavailable);
                 } else {
-                    g.next_at_ms = j
-                        .finished_at_ms
-                        .unwrap_or(now)
-                        .saturating_add(s.interval_ms);
+                    // A backlog costs one read per page; an idle source waits.
+                    let wait = if j.waiting_for_source {
+                        s.interval_ms.min(5000)
+                    } else {
+                        s.interval_ms
+                    };
+                    g.next_at_ms = j.finished_at_ms.unwrap_or(now).saturating_add(wait);
                 }
                 save(&tx, &g)?;
                 if g.stopped.is_some() {
@@ -240,6 +256,7 @@ impl Store {
                 after: previous.map(|v| v.last_read),
                 limit: s.limit,
             };
+            let held = knowledge::state(&tx, g.source_id)?.map(|v| v.fresh_until_ms);
             let (mut j, fresh) = knowledge::admit(
                 &tx,
                 g.source_id,
@@ -249,6 +266,15 @@ impl Store {
             ensure!(fresh, ControlError::Conflict);
             j.sync_revision = Some(g.revision);
             archive_reads::save(&tx, &j)?;
+            // Admission clears the lease for an unscheduled read. A routine scheduled
+            // read must not open a gap that fails a briefing in progress; the lease
+            // still ends on its own if this read fails and stops the schedule.
+            if let Some(held) = held {
+                tx.execute(
+                    "UPDATE knowledge_sources SET snapshot=json_set(snapshot,'$.fresh_until_ms',?2) WHERE source_id=?1",
+                    (g.source_id.to_string(), i64::try_from(held)?),
+                )?;
+            }
             g.used_requests += 1;
             g.last_read = Some(j.request.request_id);
             g.pending = true;
@@ -268,6 +294,278 @@ impl Store {
 mod tests {
     use super::*;
     use crate::domain::now_ms;
+    const DAY: u64 = 86_400_000;
+
+    fn daily_setup(max_records: u32) -> (tempfile::TempDir, Store, ArchiveSourceId, String) {
+        let (dir, mut db, id, reader) = setup();
+        let now = now_ms().unwrap();
+        db.archive_set_grant(
+            id,
+            SetArchiveGrant {
+                expected_revision: 1,
+                scope: Some(ArchiveScope {
+                    expires_at_ms: now + DAY,
+                    retention_ms: DAY,
+                    max_records,
+                }),
+            },
+            now,
+        )
+        .unwrap();
+        (dir, db, id, reader)
+    }
+    fn daily_scope(now: u64, interval_ms: u64) -> SetKnowledgeSync {
+        SetKnowledgeSync {
+            expected_reader_revision: None,
+            expected_revision: 0,
+            scope: Some(KnowledgeSyncScope {
+                archive_revision: 2,
+                expires_at_ms: now + DAY / 2,
+                max_requests: 100,
+                interval_ms,
+                limit: 32,
+            }),
+        }
+    }
+    fn finish_messages(db: &mut Store, j: &ArchiveReadJob, ids: &[u64], has_more: bool) {
+        db.archive_read_claim(j.request.request_id).unwrap();
+        finish_page(db, j, ids, has_more).unwrap();
+    }
+    fn finish_page(
+        db: &mut Store,
+        j: &ArchiveReadJob,
+        ids: &[u64],
+        has_more: bool,
+    ) -> Result<ArchiveReadJob> {
+        let now = now_ms().unwrap();
+        let through = ids.last().copied().unwrap_or(0) + u64::from(has_more);
+        let items: Vec<_> = ids.iter().map(|id| serde_json::json!({"sequence":id,"message":{"id":id,"source_id":"qq:1001:private:2002","external_id":format!("native-{id}"),"sender":"2002","occurred_at_ms":now-3000,"received_at_ms":now-2000,"expires_at_ms":now+DAY,"state":"active","revision":1,"text":"群消息","images":[]}})).collect();
+        let page=serde_json::from_value(serde_json::json!({"schema_version":1,"store_id":"c22d2694-7541-453f-b3de-ed7d50d2930c","source":{"id":"qq:1001:private:2002","account":"1001","kind":"private","peer":"2002","revision":1,"enabled":true},"from_after":0,"through":through,"next_after":ids.last().copied().unwrap_or(0),"has_more":has_more,"items":items})).unwrap();
+        db.knowledge_finish(j.request.request_id, page)
+    }
+
+    #[test]
+    fn a_synced_source_stays_readable_between_scheduled_reads_up_to_a_bound() {
+        for (interval_ms, lease_ms) in [(900_000, 960_000), (7_200_000, 3_600_000), (5000, 65_000)]
+        {
+            let (_dir, mut db, id, reader) = daily_setup(100);
+            let now = now_ms().unwrap();
+            db.knowledge_sync_set(id, daily_scope(now, interval_ms), Some(reader.clone()), now)
+                .unwrap();
+            let read = db
+                .knowledge_sync_plan(Some(reader), now)
+                .unwrap()
+                .0
+                .unwrap();
+            finish_messages(&mut db, &read, &[], false);
+            let finished = db
+                .archive_read_job(read.request.request_id)
+                .unwrap()
+                .finished_at_ms
+                .unwrap();
+            assert_eq!(
+                db.knowledge_state(id).unwrap().unwrap().fresh_until_ms,
+                finished + lease_ms,
+                "interval {interval_ms}"
+            );
+        }
+        let (_dir, mut db, id, reader) = daily_setup(100);
+        let manual = db
+            .knowledge_admit(
+                id,
+                ReadArchive {
+                    request_id: RequestId::new(),
+                    expected_revision: 2,
+                    after: None,
+                    limit: 16,
+                },
+                reader,
+            )
+            .unwrap()
+            .0;
+        finish_messages(&mut db, &manual, &[], false);
+        let finished = db
+            .archive_read_job(manual.request.request_id)
+            .unwrap()
+            .finished_at_ms
+            .unwrap();
+        assert_eq!(
+            db.knowledge_state(id).unwrap().unwrap().fresh_until_ms,
+            finished + 30_000,
+            "an unscheduled read has no later read to rely on"
+        );
+    }
+
+    #[test]
+    fn a_backlog_is_read_soon_and_keeps_but_never_extends_its_lease() {
+        let (_dir, mut db, id, reader) = daily_setup(100);
+        let now = now_ms().unwrap();
+        db.knowledge_sync_set(id, daily_scope(now, 900_000), Some(reader.clone()), now)
+            .unwrap();
+        let first = db
+            .knowledge_sync_plan(Some(reader.clone()), now)
+            .unwrap()
+            .0
+            .unwrap();
+        finish_messages(&mut db, &first, &[1], true);
+        assert_eq!(
+            db.knowledge_state(id).unwrap().unwrap().fresh_until_ms,
+            0,
+            "a source never caught up has no lease"
+        );
+        let (none, soon) = db.knowledge_sync_plan(Some(reader.clone()), now).unwrap();
+        assert!(none.is_none());
+        let soon = soon.unwrap();
+        assert!(soon <= now_ms().unwrap() + 5000, "backlog waits at most 5s");
+        let second = db
+            .knowledge_sync_plan(Some(reader.clone()), soon)
+            .unwrap()
+            .0
+            .unwrap();
+        finish_messages(&mut db, &second, &[2], false);
+        let lease = db.knowledge_state(id).unwrap().unwrap().fresh_until_ms;
+        assert!(lease > now + 900_000, "caught up");
+        let (none, later) = db.knowledge_sync_plan(Some(reader.clone()), soon).unwrap();
+        assert!(none.is_none());
+        let later = later.unwrap();
+        assert!(later > soon + 800_000, "an idle source waits its interval");
+        let third = db
+            .knowledge_sync_plan(Some(reader), later)
+            .unwrap()
+            .0
+            .unwrap();
+        finish_messages(&mut db, &third, &[3], true);
+        assert_eq!(
+            db.knowledge_state(id).unwrap().unwrap().fresh_until_ms,
+            lease,
+            "a running briefing is not interrupted, and unread changes extend nothing"
+        );
+    }
+
+    #[test]
+    fn the_record_limit_is_per_grant_and_not_refunded_by_expiry() {
+        let (_dir, mut db, id, reader) = daily_setup(2);
+        let now = now_ms().unwrap();
+        db.knowledge_sync_set(id, daily_scope(now, 5000), Some(reader.clone()), now)
+            .unwrap();
+        let read = db
+            .knowledge_sync_plan(Some(reader.clone()), now)
+            .unwrap()
+            .0
+            .unwrap();
+        finish_messages(&mut db, &read, &[1, 2], false);
+        let at = now + 10_000;
+        let full = db
+            .knowledge_sync_plan(Some(reader.clone()), at)
+            .unwrap()
+            .0
+            .unwrap();
+        db.archive_read_claim(full.request.request_id).unwrap();
+        assert!(
+            finish_page(&mut db, &full, &[3], false).is_err(),
+            "two records are still retained"
+        );
+        db.connection
+            .execute("UPDATE archive_records SET retain_until_ms=1", [])
+            .unwrap();
+        assert!(
+            finish_page(&mut db, &full, &[3], false).is_err(),
+            "expiry does not refund what this grant authorized"
+        );
+        db.archive_read_fail(
+            full.request.request_id,
+            ArchiveReadState::Failed,
+            ArchiveReadFailure::InvalidContent,
+            None,
+        )
+        .unwrap();
+        db.archive_set_grant(
+            id,
+            SetArchiveGrant {
+                expected_revision: 2,
+                scope: Some(ArchiveScope {
+                    expires_at_ms: now + DAY,
+                    retention_ms: DAY,
+                    max_records: 2,
+                }),
+            },
+            now,
+        )
+        .unwrap();
+        let mut renewed = daily_scope(now, 5000);
+        renewed.expected_revision = 1;
+        renewed.scope.as_mut().unwrap().archive_revision = 3;
+        db.knowledge_sync_set(id, renewed, Some(reader.clone()), now)
+            .unwrap();
+        let next = db
+            .knowledge_sync_plan(Some(reader), now)
+            .unwrap()
+            .0
+            .unwrap();
+        db.archive_read_claim(next.request.request_id).unwrap();
+        assert!(
+            finish_page(&mut db, &next, &[4, 5], false).is_ok(),
+            "a new grant is a new authorization, not limited by old history"
+        );
+    }
+
+    #[test]
+    fn a_scheduled_read_opens_no_gap_but_an_unscheduled_read_still_clears_the_lease() {
+        let (_dir, mut db, id, reader) = daily_setup(100);
+        let now = now_ms().unwrap();
+        db.knowledge_sync_set(id, daily_scope(now, 5000), Some(reader.clone()), now)
+            .unwrap();
+        let first = db
+            .knowledge_sync_plan(Some(reader.clone()), now)
+            .unwrap()
+            .0
+            .unwrap();
+        finish_messages(&mut db, &first, &[], false);
+        let lease = db.knowledge_state(id).unwrap().unwrap().fresh_until_ms;
+        assert!(lease > now);
+        let second = db
+            .knowledge_sync_plan(Some(reader.clone()), now + 10_000)
+            .unwrap()
+            .0
+            .unwrap();
+        assert_eq!(
+            db.knowledge_state(id).unwrap().unwrap().fresh_until_ms,
+            lease,
+            "the source stays readable while the routine read is in flight"
+        );
+        db.archive_read_claim(second.request.request_id).unwrap();
+        db.archive_read_fail(
+            second.request.request_id,
+            ArchiveReadState::Failed,
+            ArchiveReadFailure::Unavailable,
+            None,
+        )
+        .unwrap();
+        db.knowledge_sync_plan(Some(reader.clone()), now + 10_000)
+            .unwrap();
+        assert_eq!(
+            db.knowledge_sync_grant(id).unwrap().stopped,
+            Some(KnowledgeSyncStop::ReadFailed)
+        );
+        assert_eq!(
+            db.knowledge_state(id).unwrap().unwrap().fresh_until_ms,
+            lease,
+            "a failed read neither extends nor cuts short what was already granted"
+        );
+        db.knowledge_admit(
+            id,
+            ReadArchive {
+                request_id: RequestId::new(),
+                expected_revision: 2,
+                after: Some(second.request.after.unwrap()),
+                limit: 16,
+            },
+            reader,
+        )
+        .unwrap();
+        assert_eq!(db.knowledge_state(id).unwrap().unwrap().fresh_until_ms, 0);
+    }
+
     #[test]
     fn knowledge_sync_reviewed_reader_fence_rejects_changed_configuration_but_allows_stop() {
         let (_dir, mut db, id, reader) = setup();

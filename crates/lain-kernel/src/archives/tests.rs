@@ -154,7 +154,7 @@ fn archive_validation_is_finite_visible_and_sensitive_safe() {
     r.text = "Bearer fixture-opaque-value".into();
     assert!(safe(&batch(vec![r]), &redactor).is_err());
     assert!(validate_scope(Some(&scope(100, 0)), 100).is_err());
-    assert!(validate_scope(Some(&scope(100, 10001)), 100).is_err());
+    assert!(validate_scope(Some(&scope(100, 200_001)), 100).is_err());
 }
 
 #[test]

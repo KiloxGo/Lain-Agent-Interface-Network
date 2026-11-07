@@ -1,5 +1,14 @@
 # L.A.I.N. Development Log
 
+## 2026-11-07 — Knowledge sync that can run for a busy group
+
+Real collection of one group produced 84 messages in ten minutes, which the old sync
+rules could not serve for more than about 2.3 days. ADR 042 ties the scheduled lease
+to the interval, stops routine reads from clearing it, reads backlogs quickly, and
+counts the record limit per grant with a higher maximum. An existing test showed that
+expiry deliberately never refunds the limit, so that rule stays and the first attempt
+to count only retained records was dropped.
+
 ## 2026-11-07 — Prose instead of a final selection no longer fails the turn
 
 Two real runs of the same 18-step scenario failed at different steps because the
