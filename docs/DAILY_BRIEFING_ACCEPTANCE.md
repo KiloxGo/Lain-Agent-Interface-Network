@@ -13,16 +13,23 @@ reconnect, in a native Windows terminal with the current cloud model profile.
 | 3 | `ba9fd98` | Failed at step 8: valid final selection discarded by crossing the 32768 turn cap |
 | 4 | `8e2c56c` | Passed: 47 requests, 367338 tokens, 206s |
 | 5–7 | `79fa8b8` | 3/3 passed: 48–53 requests, 367857–414340 tokens, 239–332s, highest turn 31798 |
+| 8 | `ff5f58d` | Stopped at step 16 by the test driver, not the product; see below |
+| 9–10 | `ff5f58d` | 2/2 passed: 49 requests, 383683–384570 tokens, 218–222s, highest turn 32477 |
 
-All answers from runs 4–7 were checked for each run's state, and samples were read
-closely. Run 4 showed an old location listed without its correction, which led to
-the unlisted-statement notice; run 7 showed that notice repeating, now limited to
-once per statement.
+Every run's turn states were checked, and samples were read closely. Run 4 showed
+an old location listed without its correction, which led to the unlisted-statement
+notice; run 7 showed that notice repeating, now limited to once per statement.
+
+Run 8's reply was correct: its stated expiry matched the stored record. The model
+had used the bodyless management read, whose wording is its own, while the driver
+required the Kernel view's literal format. The external driver now requires that
+format only for the Kernel view and the exact to-the-second expiry otherwise. Run 8
+did not reach its last two steps and is not counted as a pass.
 
 Limits: synthetic messages on Windows only, so this does not cover real QQ sources
-or Linux. Four passes in a row is not a reliability figure. Replies are still
+or Linux. Ten runs of one scenario is not a reliability figure. Replies are still
 mostly quoted lists rather than natural sentences, and the empty-memory answer to
-"did you forget it?" is accurate but stiff. Foreground turns reach about 97% of the
+"did you forget it?" is accurate but stiff. Foreground turns reach about 99% of the
 turn cap, so crossing it stays a normal case for reads.
 
 ## 2026-11-07 — Selected-memory local validation; actual full lifecycle still fails
