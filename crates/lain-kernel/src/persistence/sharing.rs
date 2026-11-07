@@ -509,6 +509,7 @@ impl Store {
         let mut t = ActorTurn {
             id: ActorTurnId::new(),
             reading_activity: None,
+            briefing_activity: None,
             sharing_activity: Some(id),
             conversation_id: ConversationId::new(),
             request_id: id.0,
@@ -568,6 +569,17 @@ impl Store {
         Ok(
             json!({"role":"untrusted_source_linked_experience","candidate_id":c.id,"expires_at_ms":c.expires_at_ms,"experience":super::experiences::project(&e),"independent_verification":false}),
         )
+    }
+    pub(super) fn share_actor_source_current(&self, t: &ActorTurn) -> Result<()> {
+        let c = candidate(
+            &self.connection,
+            t.sharing_activity.ok_or(ControlError::InvalidInput)?,
+        )?;
+        ensure!(
+            c.actor_turn_id == Some(t.id) && current(&self.connection, &c, now_ms()?)?,
+            ControlError::Conflict
+        );
+        Ok(())
     }
     pub fn share_fail_start(&mut self, id: ShareId) -> Result<()> {
         let mut c = candidate(&self.connection, id)?;

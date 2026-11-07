@@ -248,6 +248,12 @@ impl Kernel {
     pub(crate) fn archive_source(&self, id: ArchiveSourceId) -> Result<ArchiveSourceView> {
         self.lock()?.store.archive_source(id)
     }
+    pub(crate) fn archive_source_status(&self, id: ArchiveSourceId) -> Result<ArchiveSourceStatus> {
+        self.lock()?.store.archive_source_status(id, now_ms()?)
+    }
+    pub(crate) fn archive_status(&self) -> Result<Vec<ArchiveSourceStatus>> {
+        self.lock()?.store.archive_status(now_ms()?)
+    }
     pub(crate) fn archive_set_grant(
         &self,
         id: ArchiveSourceId,

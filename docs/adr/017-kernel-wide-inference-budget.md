@@ -1,6 +1,8 @@
 # ADR 017: Persistent Kernel-wide Lain inference ceiling
 
 Date: 2026-10-26 (Asia/Shanghai). Status: accepted for D3b implementation.
+Explicit global unlimited management is added by [ADR036](036-explicit-unlimited-inference.md)
+on 2026-11-05; the finite-only re-enable wording below is historical for that mode.
 This is a cost/admission restriction, not permission to call a provider, collect
 data, write memory, contact a person, run a Worker or install a personal release.
 
@@ -51,10 +53,18 @@ of the same reservation is rejected. Phases:
 - Prepared: counted, not yet entered the adapter.
 - Attempting: the adapter may have started a request; not proof a server received it.
 - Returned: an adapter reply returned; normalized token usage is recorded before
-  later source/reconsideration/body checks can reject the response.
+  later source/reconsideration/body checks can reject the response. As of the
+  2026-11-07 local candidate, this also includes a terminal unsuccessful Responses
+  `response.incomplete` with a valid representable integer `usage.total_tokens`.
+  Returned is accounting evidence, never proof of an accepted answer or action.
 - NotAttempted: terminal/restart recovery ended a still-prepared request.
 - Unknown: an attempted invocation ended without a recorded reply, including
   failure, cancellation, timeout or restart. No automatic retry exists.
+
+The enclosing Actor can remain Unknown with a Returned inference row: known
+terminal usage is charged once while incomplete text/tool calls remain rejected.
+Missing/malformed/out-of-range terminal usage does not create an artificial zero
+return. Earlier Unknown rows are not reconstructed from later unrelated calls.
 
 All reservations consume the ceiling, including NotAttempted/Unknown. Failed,
 cancelled and uncertain calls are never refunded. New turns, conversations,

@@ -1,8 +1,70 @@
 use super::*;
 use lain_wire::{ArchiveRecordId, ArchiveSourceId, RequestId, archives::*};
 
+#[cfg(test)]
+mod reader_tests {
+    use super::*;
+    use axum::{
+        body::{Body, to_bytes},
+        http::Request,
+    };
+    use tower::ServiceExt;
+    #[tokio::test]
+    async fn reader_status_is_owner_only_bounded_configuration_metadata_without_secrets() {
+        let dir = tempfile::tempdir().unwrap();
+        let k = Arc::new(Kernel::open(&dir.path().join("state.sqlite")).unwrap());
+        k.mark_ready().unwrap();
+        const TOKEN: &str = "fixture-reader-status-owner-credential-123456";
+        let app = router(k, TOKEN.parse().unwrap());
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/archives/knowledge-reader")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 401);
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/archives/knowledge-reader")
+                    .header("authorization", format!("Bearer {TOKEN}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        assert_eq!(response.headers()["cache-control"], "no-store");
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 4096).await.unwrap()).unwrap();
+        assert_eq!(body.as_object().unwrap().len(), 3);
+        assert!(body["configured"].is_boolean() && body["credentials_available"].is_boolean());
+        assert!(
+            body["revision"].is_null()
+                || body["revision"]
+                    .as_str()
+                    .is_some_and(|r| r.len() == 64 && r.bytes().all(|b| b.is_ascii_hexdigit()))
+        );
+        for forbidden in [
+            "endpoint",
+            "secret_ref",
+            "token",
+            "key",
+            "messages",
+            "source_id",
+        ] {
+            assert!(body.get(forbidden).is_none());
+        }
+    }
+}
+
 pub(super) fn routes() -> Router<ApiState> {
     Router::new()
+        .route("/v1/archives/knowledge-reader", get(knowledge_reader))
         .route(
             "/v1/archives/memory/{id}",
             get(archive_memory_grant).post(archive_memory_set),
@@ -12,6 +74,8 @@ pub(super) fn routes() -> Router<ApiState> {
             get(archive_memory_grants),
         )
         .route("/v1/archives/sources", get(list).post(register))
+        .route("/v1/archives/status", get(statuses))
+        .route("/v1/archives/sources/{id}/status", get(status))
         .route(
             "/v1/archives/recall/{id}",
             get(recall_grant).post(recall_set),
@@ -42,6 +106,30 @@ pub(super) fn routes() -> Router<ApiState> {
         .route("/v1/archives/records/{id}/edits", get(edits))
         .route("/v1/archives/records/{id}/forget", post(forget))
         .route("/v1/archives/records/{id}/correct", post(correct))
+}
+async fn knowledge_reader(
+    State(s): State<ApiState>,
+) -> Result<Json<KnowledgeReaderStatus>, ApiError> {
+    safe(&s, crate::knowledge::Config::status())
+}
+async fn statuses(State(s): State<ApiState>) -> Result<Json<Vec<ArchiveSourceStatus>>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.archive_status())
+            .await
+            .map_err(control_error)?,
+    )
+}
+async fn status(
+    State(s): State<ApiState>,
+    Path(id): Path<ArchiveSourceId>,
+) -> Result<Json<ArchiveSourceStatus>, ApiError> {
+    safe(
+        &s,
+        blocking(&s.kernel, move |k| k.archive_source_status(id))
+            .await
+            .map_err(control_error)?,
+    )
 }
 async fn archive_memory_grant(
     State(s): State<ApiState>,

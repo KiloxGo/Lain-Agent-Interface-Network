@@ -559,6 +559,7 @@ impl Store {
         let mut t = ActorTurn {
             id: ActorTurnId::new(),
             reading_activity: None,
+            briefing_activity: None,
             sharing_activity: None,
             conversation_id: c,
             request_id: id.0,
@@ -612,6 +613,19 @@ impl Store {
         Ok(
             json!({"role":"untrusted_source_data","reading_id":id,"grant_revision":g.revision,"source_url":a.request.url,"acquired_at_ms":a.finished_at_ms,"source_bytes":text.len(),"model_input_bytes":excerpt.len(),"truncated":excerpt.len()<text.len(),"text":excerpt,"verification":"not_independently_verified"}),
         )
+    }
+    pub(super) fn reading_actor_source_current(&self, t: &ActorTurn) -> Result<()> {
+        let id = t.reading_activity.ok_or(ControlError::InvalidInput)?;
+        let (_, _, text) = source(&self.connection, id, now_ms()?)?;
+        let expected: String = self.connection.query_row(
+            "SELECT source_fingerprint FROM reading_jobs WHERE activity_id=?1 AND actor_turn_id=?2 AND cancel_requested_at_ms IS NULL",
+            (id.to_string(), t.id.to_string()), |r| r.get(0),
+        )?;
+        ensure!(
+            fingerprint(prefix(&text, 8192)) == expected,
+            ControlError::Conflict
+        );
+        Ok(())
     }
     pub fn experiences(
         &mut self,

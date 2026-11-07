@@ -669,6 +669,7 @@ mod tests {
         let batch = store.channel_next_batch(binding.id, now).unwrap().unwrap();
         let mut turn = ActorTurn {
             reading_activity: None,
+            briefing_activity: None,
             sharing_activity: None,
             id: crate::actor::domain::ActorTurnId::new(),
             conversation_id: binding.conversation_id,

@@ -9,6 +9,7 @@ name = "lain"
 path = "src/main.rs"
 
 [dependencies]
+lain-local = { path = "../lain-local" }
 lain-wire = { path = "../lain-wire" }
 regex = "1"
 anyhow = "1"
@@ -20,10 +21,15 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time", "signal"] }
 futures-util = "0.3"
-uuid = { version = "1", features = ["serde", "v4"] }
+uuid = { version = "1", features = ["serde", "v4", "v5"] }
 getrandom = "0.4"
 zeroize = "1"
 unicode-width = "0.2"
+unicode-segmentation = "1.13"
+pulldown-cmark = { version = "0.13.6", default-features = false }
+arboard = { version = "3.7", default-features = false }
+syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }
+time = { version = "0.3", features = ["local-offset"] }
 
 [dev-dependencies]
 axum = "0.8"
@@ -32,3 +38,9 @@ tempfile = "3"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_SystemInformation"] }
+
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_StationsAndDesktops", "Win32_Security", "Win32_Graphics_Gdi"] }

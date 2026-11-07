@@ -394,7 +394,7 @@ fn schema22_upgrade_is_byte_preserving_and_creates_no_device_or_report() {
         )
         .unwrap();
     s.connection
-        .execute_batch("DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; PRAGMA user_version=22;")
+        .execute_batch("DROP TABLE actor_memory_contexts; DROP TABLE memory_context_requests; DROP TABLE conversation_memory_contexts; DROP TABLE project_requests; DROP TABLE project_workspaces; DROP TABLE projects; DROP TABLE device_work_continuations; DROP TABLE device_work_links; DROP TABLE device_approval_decisions; DROP TABLE device_executions; DROP TABLE device_command_changes; DROP TABLE device_command_events; DROP TABLE device_commands; DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE briefing_relations; DROP TABLE conversation_memory_effects; DROP TABLE briefing_memory_suppressions; DROP TABLE briefing_disclosures; DROP TABLE briefing_runs; DROP TABLE briefing_batches; DROP TABLE briefing_manifests; DROP TABLE briefing_grants; PRAGMA user_version=22;")
         .unwrap();
     drop(s);
     let s = Store::open(&dir.path().join("state.db")).unwrap();

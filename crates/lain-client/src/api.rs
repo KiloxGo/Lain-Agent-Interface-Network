@@ -90,7 +90,22 @@ pub struct Client {
     http: reqwest::Client,
     base: Url,
 }
+pub struct BootstrapLease {
+    pub snapshot: lain_wire::client_sync::BootstrapSnapshot,
+    pub deadline: tokio::time::Instant,
+}
+#[derive(Debug)]
+pub struct HttpFailure(pub u16);
+impl std::fmt::Display for HttpFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Kernel returned HTTP {}", self.0)
+    }
+}
+impl std::error::Error for HttpFailure {}
 impl Client {
+    pub fn endpoint(&self) -> &str {
+        self.base.as_str()
+    }
     pub fn new(url: &str, token: &str) -> Result<Self> {
         Self::configured(url, token, false)
     }
@@ -166,11 +181,9 @@ impl Client {
             .await
             .map_err(|e| e.without_url())
             .context("cannot reach Kernel")?;
-        ensure!(
-            response.status().is_success(),
-            "Kernel returned HTTP {}",
-            response.status().as_u16()
-        );
+        if !response.status().is_success() {
+            return Err(HttpFailure(response.status().as_u16()).into());
+        }
         Ok(response)
     }
     pub async fn request<T: DeserializeOwned>(
@@ -179,12 +192,22 @@ impl Client {
         path: &str,
         body: Option<Value>,
     ) -> Result<T> {
+        self.request_bounded(method, path, body, 32 * 1024 * 1024)
+            .await
+    }
+    async fn request_bounded<T: DeserializeOwned>(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        limit: usize,
+    ) -> Result<T> {
         let mut response = self.response(method, path, body, false).await?;
         let mut bytes = Vec::new();
         while let Some(chunk) = response.chunk().await.map_err(|e| e.without_url())? {
             ensure!(
-                bytes.len() + chunk.len() <= 32 * 1024 * 1024,
-                "API response exceeds 32 MiB"
+                bytes.len() + chunk.len() <= limit,
+                "API response exceeds its byte limit"
             );
             bytes.extend_from_slice(&chunk);
         }
@@ -192,6 +215,91 @@ impl Client {
     }
     pub async fn get<T: DeserializeOwned>(&self, path: &str) -> Result<T> {
         self.request(Method::GET, path, None).await
+    }
+    pub async fn bootstrap(
+        &self,
+        conversation_id: Option<lain_wire::ConversationId>,
+    ) -> Result<lain_wire::client_sync::BootstrapSnapshot> {
+        Ok(self.bootstrap_lease(conversation_id).await?.snapshot)
+    }
+    pub async fn bootstrap_lease(
+        &self,
+        conversation_id: Option<lain_wire::ConversationId>,
+    ) -> Result<BootstrapLease> {
+        let started = tokio::time::Instant::now();
+        let snapshot:lain_wire::client_sync::BootstrapSnapshot=self.request_bounded(Method::POST,"v1/client-sync/bootstrap",Some(json!({"protocol":lain_wire::client_sync::PROTOCOL,"conversation_id":conversation_id})),lain_wire::client_sync::MAX_BYTES).await?;
+        snapshot.validate().map_err(anyhow::Error::msg)?;
+        ensure!(
+            snapshot.conversation_id == conversation_id,
+            "bootstrap selection changed"
+        );
+        ensure!(
+            snapshot
+                .resources
+                .capabilities
+                .iter()
+                .any(|c| c == "client_sync/1")
+                && snapshot
+                    .resources
+                    .capabilities
+                    .iter()
+                    .any(|c| c == "source_guarded_publication/1"),
+            "Kernel lacks required synchronization capabilities"
+        );
+        ensure!(
+            started.elapsed()
+                < Duration::from_millis(snapshot.valid_until_ms - snapshot.issued_at_ms),
+            "bootstrap expired in transit"
+        );
+        let deadline =
+            started + Duration::from_millis(snapshot.valid_until_ms - snapshot.issued_at_ms);
+        Ok(BootstrapLease { snapshot, deadline })
+    }
+    pub async fn sync_wait(
+        &self,
+        snapshot: &lain_wire::client_sync::BootstrapSnapshot,
+    ) -> Result<lain_wire::client_sync::Invalidation> {
+        use lain_wire::client_sync::*;
+        let c = snapshot.cursor;
+        let path = format!(
+            "v1/client-sync/events?instance_id={}&boot_id={}&after={}&lease_until_ms={}",
+            c.instance_id, c.boot_id, c.revision, snapshot.valid_until_ms
+        );
+        let response = self.response(Method::GET, &path, None, true).await?;
+        let mut stream = response.bytes_stream();
+        let mut decoder = SseDecoder::default();
+        let mut received = 0usize;
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|e| e.without_url())?;
+            received = received.saturating_add(chunk.len());
+            ensure!(
+                received <= 16 * 1024,
+                "synchronization stream exceeds its byte budget"
+            );
+            for (name, data) in decoder.push(&chunk)? {
+                if name != "invalidate" {
+                    continue;
+                }
+                let event: Invalidation = serde_json::from_str(&data)
+                    .map_err(|_| anyhow::anyhow!("invalid synchronization event"))?;
+                ensure!(
+                    !event.cursor.instance_id.is_nil()
+                        && !event.cursor.boot_id.is_nil()
+                        && event.cursor.revision <= i64::MAX as u64,
+                    "invalid synchronization cursor"
+                );
+                if event.reason != InvalidationReason::Resnapshot {
+                    ensure!(
+                        event.cursor.instance_id == c.instance_id
+                            && event.cursor.boot_id == c.boot_id
+                            && event.cursor.revision >= c.revision,
+                        "synchronization event identity regressed"
+                    );
+                }
+                return Ok(event);
+            }
+        }
+        bail!("synchronization stream disconnected")
     }
     pub async fn post<T: DeserializeOwned>(&self, path: &str, body: Option<Value>) -> Result<T> {
         self.request(Method::POST, path, body).await
@@ -332,6 +440,34 @@ impl SseDecoder {
 }
 
 impl Client {
+    pub async fn device_work_observe(
+        &self,
+        conversation: lain_wire::ConversationId,
+        tx: &mpsc::Sender<lain_wire::device_work::DeviceWorkPage>,
+    ) -> Result<()> {
+        let response = self
+            .response(
+                Method::GET,
+                &format!("v1/conversations/{conversation}/device-work/events"),
+                None,
+                true,
+            )
+            .await?;
+        let mut stream = response.bytes_stream();
+        let mut decoder = SseDecoder::default();
+        while let Some(chunk) = stream.next().await {
+            for (name, data) in decoder.push(&chunk.map_err(|e| e.without_url())?)? {
+                if name != "device_work_snapshot" {
+                    continue;
+                }
+                let page: lain_wire::device_work::DeviceWorkPage =
+                    serde_json::from_str(&data).context("invalid remote work snapshot")?;
+                page.validate(conversation).map_err(anyhow::Error::msg)?;
+                tx.send(page).await.context("remote work observer closed")?;
+            }
+        }
+        bail!("remote work stream disconnected; reconnect reads current facts only")
+    }
     pub async fn notice_observe(
         &self,
         conversation: lain_wire::ConversationId,

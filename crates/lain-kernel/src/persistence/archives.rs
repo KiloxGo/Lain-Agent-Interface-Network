@@ -223,6 +223,57 @@ impl Store {
     pub fn archive_source(&self, id: ArchiveSourceId) -> Result<ArchiveSourceView> {
         view(&self.connection, id)
     }
+    pub fn archive_source_status(
+        &self,
+        id: ArchiveSourceId,
+        now: u64,
+    ) -> Result<ArchiveSourceStatus> {
+        let view = view(&self.connection, id)?;
+        let import_state = match &view.grant.scope {
+            None => ArchiveImportState::Disabled,
+            Some(scope) if scope.expires_at_ms <= now => ArchiveImportState::Expired,
+            Some(_) => ArchiveImportState::Enabled,
+        };
+        let (received, occurred, retained): (Option<i64>, Option<i64>, i64) = self.connection.query_row(
+            "SELECT max(json_extract(snapshot,'$.received_at_ms')),max(json_extract(snapshot,'$.occurred_at_ms')),COALESCE(sum(json_extract(snapshot,'$.text') IS NOT NULL AND retain_until_ms>?3),0) FROM archive_records WHERE source_id=?1 AND grant_revision=?2",
+            (id.to_string(), sql(view.grant.revision)?, sql(now)?),
+            |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)),
+        )?;
+        let latest_read = self.connection.query_row(
+            "SELECT snapshot FROM archive_reads WHERE source_id=?1 AND json_extract(snapshot,'$.request.expected_revision')=?2 ORDER BY json_extract(snapshot,'$.created_at_ms') DESC,rowid DESC LIMIT 1",
+            (id.to_string(),sql(view.grant.revision)?),|r|r.get::<_,String>(0),
+        ).optional()?.map(decode).transpose()?;
+        let upstream_snapshot = self.knowledge_state(id)?;
+        let upstream_snapshot_fresh = import_state == ArchiveImportState::Enabled
+            && upstream_snapshot.as_ref().is_some_and(|s| {
+                s.local_grant_revision == view.grant.revision
+                    && s.remote_source_enabled
+                    && s.fresh_until_ms > now
+            });
+        Ok(ArchiveSourceStatus {
+            synchronization: self.knowledge_sync_grant(id)?,
+            view,
+            observed_at_ms: now,
+            import_state,
+            latest_received_at_ms: received.map(u64::try_from).transpose()?,
+            latest_reported_occurrence_at_ms: occurred.map(u64::try_from).transpose()?,
+            retained_body_count: if import_state == ArchiveImportState::Enabled {
+                retained.try_into()?
+            } else {
+                0
+            },
+            receiving_now: None,
+            latest_read,
+            upstream_snapshot,
+            upstream_snapshot_fresh,
+        })
+    }
+    pub fn archive_status(&self, now: u64) -> Result<Vec<ArchiveSourceStatus>> {
+        self.archive_sources()?
+            .into_iter()
+            .map(|s| self.archive_source_status(s.source.id, now))
+            .collect()
+    }
     pub fn archive_grants(&self, id: ArchiveSourceId) -> Result<Vec<ArchiveGrant>> {
         source(&self.connection, id)?;
         let mut q=self.connection.prepare("SELECT snapshot FROM archive_grants WHERE source_id=?1 ORDER BY revision DESC LIMIT 100")?;
@@ -279,13 +330,14 @@ impl Store {
         Ok(g)
     }
     pub fn archive_prune(&mut self, now: u64) -> Result<()> {
-        self.connection.execute("DELETE FROM lain_memories WHERE json_extract(snapshot,'$.provenance.source.kind')='archive_selection' AND json_extract(snapshot,'$.provenance.source.evidence.expires_at_ms')<=?1",[sql(now)?])?;
+        self.connection.execute("DELETE FROM lain_memories WHERE json_extract(snapshot,'$.provenance.source.kind') IN ('archive_selection','briefing_selection','conversation_correction') AND json_extract(snapshot,'$.provenance.source.evidence.expires_at_ms')<=?1",[sql(now)?])?;
+        self.connection.execute("UPDATE lain_memory_candidates SET snapshot=json_set(snapshot,'$.draft.content','[expired source memory]') WHERE json_extract(snapshot,'$.provenance.source.kind') IN ('briefing_selection','conversation_correction') AND json_extract(snapshot,'$.provenance.source.evidence.expires_at_ms')<=?1 AND json_extract(snapshot,'$.draft.content') NOT IN ('[deleted]','[expired source memory]')",[sql(now)?])?;
         self.connection.execute("UPDATE archive_records SET snapshot=json_set(snapshot,'$.text',NULL,'$.availability','expired','$.revision',json_extract(snapshot,'$.revision')+1) WHERE retain_until_ms<=?1 AND json_extract(snapshot,'$.text') IS NOT NULL",[sql(now)?])?;
         Ok(())
     }
     pub fn archive_deadline(&mut self, now: u64) -> Result<Option<u64>> {
         self.archive_prune(now)?;
-        let t:Option<i64>=self.connection.query_row("SELECT min(deadline) FROM (SELECT retain_until_ms AS deadline FROM archive_records WHERE json_extract(snapshot,'$.text') IS NOT NULL UNION ALL SELECT json_extract(snapshot,'$.provenance.source.evidence.expires_at_ms') FROM lain_memories WHERE json_extract(snapshot,'$.provenance.source.kind')='archive_selection')",[],|r|r.get(0))?;
+        let t:Option<i64>=self.connection.query_row("SELECT min(deadline) FROM (SELECT retain_until_ms AS deadline FROM archive_records WHERE json_extract(snapshot,'$.text') IS NOT NULL UNION ALL SELECT json_extract(snapshot,'$.provenance.source.evidence.expires_at_ms') FROM lain_memories WHERE json_extract(snapshot,'$.provenance.source.kind') IN ('archive_selection','briefing_selection','conversation_correction') UNION ALL SELECT json_extract(snapshot,'$.provenance.source.evidence.expires_at_ms') FROM lain_memory_candidates WHERE json_extract(snapshot,'$.provenance.source.kind') IN ('briefing_selection','conversation_correction') AND json_extract(snapshot,'$.draft.content') NOT IN ('[deleted]','[expired source memory]'))",[],|r|r.get(0))?;
         t.map(|t| Ok(t.try_into()?)).transpose()
     }
     pub fn archive_import(

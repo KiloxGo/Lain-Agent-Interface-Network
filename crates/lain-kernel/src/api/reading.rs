@@ -124,9 +124,9 @@ async fn start(
 async fn process(
     State(s): State<ApiState>,
     Path(id): Path<ReadingId>,
-) -> Result<Json<crate::actor::domain::ActorTurn>, ApiError> {
-    s.actor
-        .process_reading(id)
+) -> Result<Json<lain_wire::ActorSnapshot>, ApiError> {
+    let turn = s.actor.process_reading(id).await.map_err(control_error)?;
+    blocking(&s.kernel, move |k| k.actor_view(turn.id))
         .await
         .map(Json)
         .map_err(control_error)

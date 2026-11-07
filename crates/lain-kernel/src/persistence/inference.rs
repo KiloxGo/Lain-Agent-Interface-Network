@@ -16,6 +16,7 @@ fn decision(db: &Connection) -> Result<InferenceDecision> {
         revision: 0,
         enabled: false,
         limit: None,
+        unlimited: false,
         unlimited_private_channel: None,
         changed_at_ms: 0,
     }))
@@ -39,6 +40,9 @@ fn admission(g: &InferenceDecision, used: u64, now: u64) -> InferenceAdmission {
     }
     if !g.enabled {
         return InferenceAdmission::Stopped;
+    }
+    if g.unlimited {
+        return InferenceAdmission::Available;
     }
     if g.unlimited_private_channel.is_some() && g.limit.is_none() {
         return InferenceAdmission::PrivateConversationOnly;
@@ -131,7 +135,9 @@ pub(super) fn sync_actor(tx: &Transaction<'_>, t: &ActorTurn, create: bool) -> R
             ) || private_daily_allowed(tx, &g, t)?,
             ControlError::InferenceDenied
         );
-        let reason = if t.reading_activity.is_some() {
+        let reason = if t.briefing_activity.is_some() {
+            InferenceReason::Briefing
+        } else if t.reading_activity.is_some() {
             InferenceReason::Reading
         } else if t.sharing_activity.is_some() {
             InferenceReason::Sharing
@@ -227,16 +233,19 @@ impl Store {
         let old = decision(&self.connection)?;
         ensure!(q.expected_revision == old.revision, ControlError::Conflict);
         ensure!(
-            q.limit.is_none() || q.unlimited_private_channel.is_none(),
+            usize::from(q.limit.is_some())
+                + usize::from(q.unlimited_private_channel.is_some())
+                + usize::from(q.unlimited)
+                <= 1,
             ControlError::InvalidInput
         );
         if let Some(channel) = q.unlimited_private_channel {
             self.channel_binding(channel)?;
         }
-        if q.limit.is_some() || q.unlimited_private_channel.is_some() {
+        if q.limit.is_some() || q.unlimited_private_channel.is_some() || q.unlimited {
             ensure!(pending(&self.connection)? == 0, ControlError::Conflict);
         }
-        let enabled = q.limit.is_some() || q.unlimited_private_channel.is_some();
+        let enabled = q.limit.is_some() || q.unlimited_private_channel.is_some() || q.unlimited;
         let limit = if enabled { q.limit } else { old.limit };
         let unlimited_private_channel = if enabled {
             q.unlimited_private_channel
@@ -251,6 +260,7 @@ impl Store {
                 .ok_or(ControlError::Conflict)?,
             enabled,
             limit,
+            unlimited: if enabled { q.unlimited } else { old.unlimited },
             unlimited_private_channel,
             changed_at_ms: now,
         };
@@ -283,6 +293,7 @@ impl Store {
         Ok(g)
     }
     pub fn begin_inference(&mut self, id: ActorTurnId, n: u32) -> Result<()> {
+        self.check_actor_memory(id)?;
         let t = self.actor_turn(id)?;
         ensure!(
             super::archive_recall::selected_current(&self.connection, &t)?,
@@ -302,7 +313,12 @@ impl Store {
             g.revision == r.decision_revision,
             ControlError::InferenceDenied
         );
-        if g.revision > 0 && !private_daily_allowed(&self.connection, &g, &t)? {
+        if g.unlimited {
+            ensure!(
+                g.enabled && r.budget_id.is_none(),
+                ControlError::InferenceDenied
+            );
+        } else if g.revision > 0 && !private_daily_allowed(&self.connection, &g, &t)? {
             let s = g
                 .limit
                 .as_ref()

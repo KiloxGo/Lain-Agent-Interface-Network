@@ -559,6 +559,21 @@ class Store:
                 "items": items,
                 "has_more": len(rows) > limit,
                 "next_after": items[-1]["sequence"] if items else after,
+                # Connection reports are bounded receipt metadata, not a
+                # heartbeat, complete history, or proof of which grant epoch
+                # an older observer report belonged to.
+                "coverage": {
+                    "observed_at_ms": now(),
+                    "bounded_history": True,
+                    "source_epochs_untracked": True,
+                    "events": [
+                        {"sequence": r["id"], "kind": r["reason"], "recorded_at_ms": r["observed_at_ms"]}
+                        for r in db.execute(
+                            "SELECT id,reason,observed_at_ms FROM coverage WHERE source_id=? ORDER BY id DESC LIMIT 20",
+                            (source,),
+                        )
+                    ],
+                } if selected else None,
             }
 
     def image(self, iid):

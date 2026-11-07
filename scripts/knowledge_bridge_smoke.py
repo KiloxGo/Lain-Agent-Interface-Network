@@ -245,7 +245,7 @@ def main():
         smoke.fixture.healthy()
         smoke.stop()
         with closing(sqlite3.connect(smoke.local/"state.db")) as db:
-            require(db.execute("PRAGMA user_version").fetchone()[0]==24,"wrong schema")
+            require(db.execute("PRAGMA user_version").fetchone()[0]==26,"wrong schema")
             reads=db.execute("SELECT count(*) FROM archive_reads").fetchone()[0]
             require(all(db.execute("SELECT count(*) FROM "+table).fetchone()[0]==0 for table in ("lain_actor_turns","inference_requests","lain_memories")),"pull created Actor inference or semantic memory")
         result=dict(mode="hosted_read_only" if args.cloud_client else "synthetic", checks=smoke.checks, read_jobs=reads,

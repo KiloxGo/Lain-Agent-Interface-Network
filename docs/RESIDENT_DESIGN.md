@@ -1,5 +1,43 @@
 # 云端常驻与设备协作设计
 
+## 云端连续性增量 — 2026-11-05
+
+稳定设备／项目作用域、统一启动与运行时失效同步已实现，并经原生 Windows/Linux 验证。
+真实 HTTPS 的结构化 Worker 12 项及作用域记忆 7 项验收通过；维护版本已保留原数据库、
+身份和凭据发布。PC 执行端保存操作事实，云端仍是人格和记忆权威。正式云端未配置真实
+聊天模型或 QQ，本阶段验收使用合成资料与假模型；日常真实相处仍需独立配置和体验验收。
+当前完整证据边界见 [云端连续性](CLOUD_CONTINUITY.md)，早期各增量保留原日期和范围。
+
+## W4b 对话与设备工作关联 — 2026-11-03
+
+云端现将明确派发的设备任务与真实对话关联，记录与入队、Actor 初步回执原子提交。
+终端和普通对话读取带来源的当前设备事实；不复制本地身份、不伪造云端 Worker，也不为
+每次进度唤醒模型。远程权限保持独立的明确决定与设备侧执行检查；五项 Windows 原生
+隔离流程通过，仍不代表真实跨设备 TLS 或付费验收。见[共同工作](DEVICE_WORK.md)。
+
+## W3b implementation increment — 2026-11-02
+
+原生设备服务复用 Supervisor 执行明确登记工作区里的 Codex 任务，独立于聊天客户端。
+本机只有 Worker 操作记录；云端身份、记忆与频道不复制。启动、提交和权限回应之前
+先保存独立记录，重启只核对原会话；取消、断网和权限失效保持真实的不确定性。
+这一步不安装真实设备服务或迁移个人数据库。见[实现与操作](DEVICE_HOST.md)。
+
+## W3a implementation increment — 2026-11-02
+
+设备观察现在可绑定执行、会话和轮次，并上报有界结果与待确认权限；云端只保存用户
+对具体权限范围的明确决定，设备只能读取自己的回执。决定已记录与本机已执行是两种
+事实，撤销、取消、过期或重连不能把旧决定变成新授权。原生执行端仍属 W3b，
+当前不启动另一套人格或 Worker。见 [DEVICE_EXECUTION.md](DEVICE_EXECUTION.md)。
+
+## W2b implementation increment — 2026-11-02
+
+Persistent command intents, device event receipts, cancellation requests and
+bounded cursor resynchronization now continue W2a. Kernel restart/connection loss
+never requeues accepted work. Device-reported execution and actual native Worker
+ownership remain distinct: W3 execution, cloud TLS and W4 interaction are still
+separate. No personal database migration or device installation is implied.
+See [contract/operation](DEVICE_COMMANDS.md).
+
 ## W2a 实现增量 — 2026-10-28
 
 已选择独立设备身份与上报这一小步：管理员接纳明确登记，设备以专属密钥和登记摘要

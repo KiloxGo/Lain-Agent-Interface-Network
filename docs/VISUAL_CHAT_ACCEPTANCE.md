@@ -6,6 +6,57 @@ which is now installed and Online. Ordinary picture/sticker input has also passe
 the selected real provider/QQ path below. The deterministic evidence alone did
 not authorize the migration.
 
+## Cloud restoration — 2026-11-05
+
+The server-hosted private binding now explicitly selects image reception and
+reuses its already image-capable model. The existing database inode/identity,
+reply binding, seven-day private-memory grant, model configuration and finite
+inference-budget decision were preserved across the idle configuration restart.
+The operator submitted no model requests. Configuration is included in the
+existing finite backup/restore check.
+
+Native Windows process rehearsal passes nine visual checks with 12 fake model
+requests and eight fixture media reads, without paid calls. The stale smoke-test
+schema assertion was updated from the old 26 to the current 32. A retained native
+Linux test binary separately passes 24 visual/media tests; these are existing
+compiled-test evidence, not a new source build. Actual user images then exposed
+a missing production case: their allowed official HTTPS QQ CDN URL resolved to
+16 public A plus nine public AAAA answers. The old 16-answer count gate returned
+UnsafeLocation before decoding; no pixels reached the model, although the chat
+turn and QQ delivery completed. This is a failed image acceptance, not success.
+
+A new native Windows regression first fails with that 25-answer shape. The fix
+accepts up to 64 answers, validates every retained address with the existing
+public-IP policy and pins the complete list into the HTTP client. Empty/over-limit
+responses and a private address after the original 16-answer boundary still fail;
+CDN host selection, no redirect/proxy/retry, 8 MiB source and download deadlines
+stay unchanged. The same source passes 50 channel tests on native Windows and
+Linux. Windows strict Kernel-library Clippy passes. Linux's installed Clippy
+flags pre-existing nonminimal_bool expressions in unchanged modules; its scoped
+check explicitly allows only that lint while retaining other denied warnings.
+A separate extracted-code mutation removing the public-IP guard fails the new
+regression. The one-file schema32 maintenance binary is now deployed, with the
+same database inode/identity, model and channel configuration, budget decision,
+reply binding and memory grant. Native Windows-to-cloud HTTPS certificate/auth,
+readiness and initial SSE delivery pass after replacement.
+
+Two new actual user image inputs reached Ready after deployment, producing one
+and three normalized pixel samples respectively. Persisted viewed_media versions
+link both to Completed model turns and Confirmed QQ sends; a real multistep turn
+also completed within the existing 32768-token ceiling. The user confirms that
+Lain now understands the pictures and replies. Only metadata was inspected and
+retained for this check; no image/locator/credential bodies enter Git, and old
+failed inputs were never replayed. The selected cloud picture restoration is
+verified. This small sample does not establish broad visual/OCR/animation quality.
+
+The new hourly NapCat temporary-picture maintenance is independent of pixel
+preparation. Eight synthetic non-root Linux safety tests and an actual installed
+root service run pass; the first real inventory removed nothing. It touches only
+aged, singly-linked image files in the known temporary directory. Native QQ
+media/session directories are not covered. See [transport operations](../deploy/napcat/README.md).
+Continuous multi-day observation does not block further development and does not
+extend the independently authorized seven-day memory scope.
+
 ## Actual private visual acceptance — 2026-10-28
 
 Actual owner-generated QQ messages supplied three image-only picture stickers and
@@ -38,7 +89,7 @@ bounded animation and market protocol behavior have deterministic fixture eviden
 ## Authorized personal installation — 2026-10-28
 
 The owner explicitly approved schema16→24 and current picture/sticker input only
-for the existing bot<bot-qq> ↔ owner<user-qq> private binding. No autonomous
+for the existing bot<bot-qq> ↔ owner<owner-qq> private binding. No autonomous
 real-provider replay or new memory/history/contact/Worker scope was authorized.
 The owned hidden console stopped gracefully with no active Worker, inference or
 queued delivery. All 43 files were backed up with native DACL copying and exact
@@ -173,7 +224,7 @@ latest 128 media states, typed failures and sample metadata without pixel bodies
 
 Before the separately authorized installation above, F:\Lain-Q1-Acceptance ran
 schema16 on private-daily-5ca1951. Its normal private conversation scope remains
-bot<bot-qq> ↔ owner<user-qq>. The steps below describe the reviewed operation
+bot<bot-qq> ↔ owner<owner-qq>. The steps below describe the reviewed operation
 and retained rollback boundary; they are not an additional pending approval.
 
 Before installation, review the immutable staged release and fresh diagnostics/

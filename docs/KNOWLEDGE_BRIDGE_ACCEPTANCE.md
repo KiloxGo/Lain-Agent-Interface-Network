@@ -120,3 +120,38 @@ cross-account lineage, source-linked durable summaries/memory, actual new QQ
 image coverage, real-model/multi-day naturalness and W2–W4 devices/execution remain
 open. Native macOS/Linux Rust Kernel execution remains unverified here; the actual
 server Python tests and Windows-to-server GET do not substitute for it.
+## Observed reply references — deployed, 2026-11-06
+
+The independent service already exports normalized `segments` with reply IDs.
+The Kernel knowledge adapter now retains those IDs in its existing attributed
+archive projection instead of dropping them. At most128 normalized segments are
+accepted; reply IDs must be nonempty, control-free and at most80 UTF-8 bytes.
+At most4 ordered observed markers retain `{native_reference_id, segment_index}`
+and explicit `resolved_target:null`, with an omitted-reference count. These are
+raw reply-segment observations, not actual target message identities. The old
+unreleased `targets/native_message_id` shape is no longer emitted for references;
+the current message's own native identity is unchanged. `lookup_scope=current_source_only`
+restricts potential lookup; `target_resolution=not_attempted` reports what the
+adapter actually did. Neither claims that the target exists or belongs to that
+source. Referenced message bodies are not loaded, verified, inferred or granted
+by the reference. `target_chronology=unknown_without_verified_target_clock` also
+keeps a reply marker/ID/import order from asserting that an unresolved target
+was earlier or later; no target clock has been loaded. The HTTP import regression
+checks this field together with the existing ID, scope, update, withdrawal and
+no-target-read assertions. Model wording requires separate actual readback.
+This refines the unreleased58dd/615622metadata shape; no deployed
+reply-reference format needs migration.
+Other segment bodies are discarded; original text/image projections retain
+their existing limits and the complete projection must still fit8192bytes.
+
+Missing/null segments remain compatible. Messages without replies retain their
+old fingerprint/projection. A changed reply ID or position changes the existing
+normalized message fingerprint, so ordinary versioning invalidates old derived
+results without extending retention. Withdrawal still clears the whole body,
+including reply metadata; a tombstone carrying segment data is rejected.
+No schema, wire/domain entity, new source authority, extra HTTP lookup or separate
+knowledge-service deployment is introduced. The Kernel increment is deployed in
+source94922bbab226. Native checks, actual-service/model/nativeTUI readback and
+guarded public/backup acceptance retain separate scopes in DAILY_BRIEFING_ACCEPTANCE.
+Real-source consent remains pending; one synthetic case is not general model
+compliance. No source is enabled by the program update.

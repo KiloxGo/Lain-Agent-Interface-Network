@@ -25,7 +25,7 @@ pub struct ArchiveSource {
     pub key: ArchiveSourceKey,
     pub created_at_ms: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArchiveScope {
     pub expires_at_ms: u64,
@@ -39,7 +39,7 @@ pub struct ArchiveGrant {
     pub scope: Option<ArchiveScope>,
     pub changed_at_ms: u64,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SetArchiveGrant {
     pub expected_revision: u64,
@@ -117,6 +117,31 @@ pub struct ArchiveSourceView {
     pub committed_through: u64,
     /// An imported slice does not prove complete coverage, observation or participation.
     pub coverage: String,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArchiveImportState {
+    Disabled,
+    Enabled,
+    Expired,
+}
+/// Owner-facing metadata; authorization, imports and collection liveness are separate.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchiveSourceStatus {
+    pub view: ArchiveSourceView,
+    pub observed_at_ms: u64,
+    pub import_state: ArchiveImportState,
+    /// Current grant epoch only. Duplicate replay never advances this timestamp.
+    pub latest_received_at_ms: Option<u64>,
+    pub latest_reported_occurrence_at_ms: Option<u64>,
+    /// Retained storage, not proof of disclosure authority or complete history.
+    pub retained_body_count: u64,
+    /// None until an actual collector-presence contract supplies evidence.
+    pub receiving_now: Option<bool>,
+    pub latest_read: Option<ArchiveReadJob>,
+    pub upstream_snapshot: Option<KnowledgeArchiveState>,
+    pub upstream_snapshot_fresh: bool,
+    pub synchronization: KnowledgeSyncGrant,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArchiveImportReceipt {
@@ -249,10 +274,99 @@ pub struct KnowledgeArchiveState {
     pub last_read: crate::RequestId,
     pub observed_at_ms: u64,
     pub fresh_until_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub coverage: Option<ArchiveCoverage>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArchiveCoverageKind {
+    ConnectedNoBackfill,
+    DisconnectedGap,
+    MediaUnavailable,
+    OutboxDeliveryFailed,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchiveCoverageEvent {
+    pub sequence: u64,
+    pub kind: ArchiveCoverageKind,
+    /// When the upstream service received the report, not the actual gap onset.
+    pub recorded_at_ms: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArchiveCoverage {
+    pub observed_at_ms: u64,
+    pub bounded_history: bool,
+    pub source_epochs_untracked: bool,
+    pub events: Vec<ArchiveCoverageEvent>,
+}
+impl ArchiveCoverage {
+    pub fn valid(&self) -> bool {
+        self.observed_at_ms <= i64::MAX as u64
+            && self.bounded_history
+            && self.source_epochs_untracked
+            && self.events.len() <= 20
+            && self.events.iter().all(|e| {
+                e.sequence > 0
+                    && e.sequence <= i64::MAX as u64
+                    && e.recorded_at_ms <= self.observed_at_ms
+            })
+            && self
+                .events
+                .windows(2)
+                .all(|w| w[0].sequence > w[1].sequence)
+    }
+}
+
+#[cfg(test)]
+mod coverage_tests {
+    use super::*;
+    fn sample() -> ArchiveCoverage {
+        ArchiveCoverage {
+            observed_at_ms: 2000,
+            bounded_history: true,
+            source_epochs_untracked: true,
+            events: vec![
+                ArchiveCoverageEvent {
+                    sequence: 4,
+                    kind: ArchiveCoverageKind::DisconnectedGap,
+                    recorded_at_ms: 1800,
+                },
+                ArchiveCoverageEvent {
+                    sequence: 1,
+                    kind: ArchiveCoverageKind::ConnectedNoBackfill,
+                    recorded_at_ms: 1000,
+                },
+            ],
+        }
+    }
+    #[test]
+    fn coverage_is_bounded_historical_metadata_without_future_reports() {
+        let c = sample();
+        assert!(c.valid());
+        let mut future = c.clone();
+        future.events[0].recorded_at_ms = future.observed_at_ms + 1;
+        assert!(!future.valid());
+        let mut unordered = c.clone();
+        unordered.events.reverse();
+        assert!(!unordered.valid());
+        let mut duplicate = c.clone();
+        duplicate.events[1].sequence = duplicate.events[0].sequence;
+        assert!(!duplicate.valid());
+        let mut oversized = c.clone();
+        oversized.events = vec![c.events[0].clone(); 21];
+        assert!(!oversized.valid());
+        let mut claims_complete = c;
+        claims_complete.bounded_history = false;
+        assert!(!claims_complete.valid());
+        assert!(serde_json::from_str::<ArchiveCoverage>(r#"{"observed_at_ms":2000,"bounded_history":true,"source_epochs_untracked":true,"events":[{"sequence":1,"kind":"online","recorded_at_ms":1000}]}"#).is_err());
+    }
 }
 
 /// Independent, default-off authority for scheduled GETs of one source.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KnowledgeSyncScope {
     pub archive_revision: u64,
@@ -261,11 +375,21 @@ pub struct KnowledgeSyncScope {
     pub interval_ms: u64,
     pub limit: u16,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SetKnowledgeSync {
     pub expected_revision: u64,
+    /// Optional launch-time configuration fence, independent of source authority.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_reader_revision: Option<String>,
     pub scope: Option<KnowledgeSyncScope>,
+}
+/// Local configuration/credential availability, never proof of a live connection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KnowledgeReaderStatus {
+    pub configured: bool,
+    pub credentials_available: bool,
+    pub revision: Option<String>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -292,7 +416,7 @@ pub struct KnowledgeSyncGrant {
 }
 
 /// Disclosure to one private conversation is independent of archive import/read.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ArchiveRecallSource {
     pub source_id: ArchiveSourceId,

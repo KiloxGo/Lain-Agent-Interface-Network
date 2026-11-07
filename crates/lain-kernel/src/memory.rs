@@ -8,6 +8,21 @@ use anyhow::{Result, ensure};
 pub use lain_wire::memory::*;
 pub use lain_wire::{CandidateId, MemoryId, SummaryId};
 use serde::{Deserialize, Serialize};
+#[derive(Debug, thiserror::Error)]
+#[error("complete related briefing group exceeds one semantic memory draft")]
+pub(crate) struct BriefingGroupTooLarge;
+#[derive(Debug, thiserror::Error)]
+#[error("related briefing group is not yet reconciled")]
+pub(crate) struct BriefingGroupNotReady;
+
+/// Read-only interpretation of an already disclosed correction, not persisted
+/// memory or the original platform's sender/event timestamp.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct MemoryStatementCapture {
+    pub memory_id: MemoryId,
+    pub message_id: lain_wire::MessageId,
+    pub captured_at_ms: u64,
+}
 
 pub(crate) fn validate(draft: &MemoryDraft, provenance: &MemoryProvenance) -> Result<()> {
     provenance
@@ -28,7 +43,12 @@ pub(crate) fn validate_draft(draft: &MemoryDraft) -> Result<()> {
     );
     ensure!(
         draft.kind != MemoryKind::ProjectKnowledge
-            || matches!(draft.scope, MemoryScope::Workspace { .. }),
+            || matches!(
+                draft.scope,
+                MemoryScope::Workspace { .. }
+                    | MemoryScope::Project { .. }
+                    | MemoryScope::DeviceWorkspace { .. }
+            ),
         ControlError::InvalidInput
     );
     ensure!(
@@ -70,6 +90,17 @@ pub(crate) fn canonical_scope(scope: MemoryScope) -> Result<MemoryScope> {
         );
         Ok(MemoryScope::Workspace { path })
     } else {
+        let valid = match &scope {
+            MemoryScope::Conversation { conversation_id } => !conversation_id.0.is_nil(),
+            MemoryScope::Project { project_id } => !project_id.0.is_nil(),
+            MemoryScope::Device { device_id } => !device_id.0.is_nil(),
+            MemoryScope::DeviceWorkspace {
+                device_id,
+                workspace_id,
+            } => !device_id.0.is_nil() && !workspace_id.0.is_nil(),
+            _ => true,
+        };
+        ensure!(valid, ControlError::InvalidInput);
         Ok(scope)
     }
 }

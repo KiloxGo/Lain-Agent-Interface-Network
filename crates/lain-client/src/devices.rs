@@ -9,9 +9,25 @@ use std::{
     path::{Path, PathBuf},
 };
 use zeroize::{Zeroize, Zeroizing};
+mod commands;
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Explicitly allow one native Codex host; never starts it or logs in.
+    HostConfigure {
+        #[arg(long)]
+        directory: PathBuf,
+        #[arg(long)]
+        codex_path: PathBuf,
+        #[arg(long)]
+        workspace_write: bool,
+        #[arg(long, default_value_t = 30)]
+        offline_grace_seconds: u32,
+    },
+    Command {
+        #[command(subcommand)]
+        command: commands::Commands,
+    },
     /// Generate a private device credential and a separate registration document.
     Init {
         #[arg(long)]
@@ -24,6 +40,9 @@ pub enum Commands {
         workspace: PathBuf,
         #[arg(long)]
         expires_at_ms: u64,
+        /// Declare intended Codex work; installation/login/readiness are checked separately.
+        #[arg(long)]
+        codex_work: bool,
     },
     /// Authenticate this device without the Kernel administrator credential.
     Claim {
@@ -60,9 +79,16 @@ pub enum Commands {
 }
 impl Commands {
     pub fn local(&self) -> bool {
+        if let Self::Command { command } = self {
+            return command.local();
+        }
         matches!(
             self,
-            Self::Init { .. } | Self::Claim { .. } | Self::Status { .. } | Self::Report { .. }
+            Self::Init { .. }
+                | Self::Claim { .. }
+                | Self::Status { .. }
+                | Self::Report { .. }
+                | Self::HostConfigure { .. }
         )
     }
 }
@@ -122,6 +148,7 @@ fn initialize(
     label: &str,
     workspace: &Path,
     expires_at_ms: u64,
+    codex_work: bool,
 ) -> Result<Value> {
     ensure!(
         directory.is_absolute() && !directory.exists(),
@@ -167,7 +194,11 @@ fn initialize(
                 .context("workspace must be UTF-8")?
                 .to_owned(),
         }],
-        capabilities: vec![],
+        capabilities: if codex_work {
+            vec![DeviceCapability::CodexManagedWork]
+        } else {
+            vec![]
+        },
         expires_at_ms,
     };
     ensure!(
@@ -184,18 +215,60 @@ fn initialize(
         &serde_json::to_vec_pretty(&r)?,
     )?;
     Ok(
-        json!({"device_id":r.id,"registration":directory.join("registration.json"),"credential_file":directory.join("device-credential.json"),"credential_fingerprint":r.credential_fingerprint,"status":"prepared_not_paired","capabilities":"none_claimed_without_native_probe"}),
+        json!({"device_id":r.id,"registration":directory.join("registration.json"),"credential_file":directory.join("device-credential.json"),"credential_fingerprint":r.credential_fingerprint,"status":"prepared_not_paired","capabilities":if codex_work {"explicit_declaration_not_readiness"} else {"none_claimed_without_native_probe"},"declared_capabilities":r.capabilities,"readiness":"not_probed","service_started":false}),
     )
 }
 pub async fn local_run(command: &Commands, machine: bool) -> Result<()> {
+    if let Commands::Command { command } = command {
+        return commands::local_run(command, machine).await;
+    }
     let result = match command {
+        Commands::HostConfigure {
+            directory,
+            codex_path,
+            workspace_write,
+            offline_grace_seconds,
+        } => {
+            let (credential, _) = load(directory)?;
+            ensure!(
+                codex_path.is_absolute() && codex_path.is_file(),
+                "select an absolute native Codex executable"
+            );
+            let policy = lain_wire::device_execution::DeviceHostPolicy {
+                version: 1,
+                codex_path: codex_path
+                    .canonicalize()?
+                    .to_str()
+                    .context("native executable must be UTF-8")?
+                    .into(),
+                workspace_write: *workspace_write,
+                offline_grace_seconds: *offline_grace_seconds,
+            };
+            ensure!(policy.valid(), "offline grace must be 0..60 seconds");
+            let bytes = serde_json::to_string(&policy)?;
+            local::actor_config::non_secret(&bytes, &Default::default())?;
+            ensure!(
+                !bytes.contains(&credential.token),
+                "credential cannot enter native policy"
+            );
+            local::create_private(&directory.join("host-policy.json"), bytes.as_bytes())?;
+            json!({"status":"configured_not_started","profile":"codex/local","policy_file":directory.join("host-policy.json"),"workspace_write":workspace_write,"offline_grace_seconds":offline_grace_seconds})
+        }
         Commands::Init {
             directory,
             endpoint,
             label,
             workspace,
             expires_at_ms,
-        } => initialize(directory, endpoint, label, workspace, *expires_at_ms)?,
+            codex_work,
+        } => initialize(
+            directory,
+            endpoint,
+            label,
+            workspace,
+            *expires_at_ms,
+            *codex_work,
+        )?,
         Commands::Claim { directory }
         | Commands::Status { directory }
         | Commands::Report { directory, .. } => {
@@ -251,6 +324,9 @@ pub async fn local_run(command: &Commands, machine: bool) -> Result<()> {
     emit(&result, machine)
 }
 pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()> {
+    if let Commands::Command { command } = command {
+        return commands::run(client, command, machine).await;
+    }
     let result = match command {
         Commands::List => client.get::<Value>("v1/devices").await?,
         Commands::Show { id } => client.get::<Value>(&format!("v1/devices/{id}")).await?,
@@ -290,6 +366,7 @@ mod tests {
             "fixture-native",
             &workspace,
             expiry,
+            false,
         )
         .unwrap();
         let (credential, r) = load(&dir).unwrap();
@@ -308,7 +385,8 @@ mod tests {
                 "http://127.0.0.1:8787",
                 "fixture-native",
                 &workspace,
-                expiry
+                expiry,
+                false
             )
             .is_err()
         );
@@ -329,7 +407,17 @@ mod tests {
         std::fs::create_dir(&workspace).unwrap();
         let expiry = now().unwrap() + 600000;
         let dir = root.path().join("insecure");
-        assert!(initialize(&dir, "http://192.0.2.1:8787", "fixture", &workspace, expiry).is_err());
+        assert!(
+            initialize(
+                &dir,
+                "http://192.0.2.1:8787",
+                "fixture",
+                &workspace,
+                expiry,
+                false
+            )
+            .is_err()
+        );
         assert!(!dir.exists());
         let repo = root.path().join("repo");
         std::fs::create_dir(&repo).unwrap();
@@ -341,11 +429,33 @@ mod tests {
                 "http://127.0.0.1:8787",
                 "fixture",
                 &workspace,
-                expiry
+                expiry,
+                false
             )
             .is_err()
         );
         assert!(!rejected.join("device-credential.json").exists());
+    }
+    #[test]
+    fn codex_work_declaration_is_explicit_and_does_not_claim_readiness() {
+        let root = tempfile::tempdir().unwrap();
+        let workspace = root.path().join("workspace");
+        std::fs::create_dir(&workspace).unwrap();
+        let dir = root.path().join("device");
+        let result = initialize(
+            &dir,
+            "http://127.0.0.1:8787",
+            "work-pc",
+            &workspace,
+            now().unwrap() + 600000,
+            true,
+        )
+        .unwrap();
+        let (_, r) = load(&dir).unwrap();
+        assert_eq!(r.capabilities, vec![DeviceCapability::CodexManagedWork]);
+        assert_eq!(result["status"], "prepared_not_paired");
+        assert!(!dir.join("host-policy.json").exists());
+        assert!(!dir.join("execution").exists());
     }
     #[test]
     fn device_client_transport_does_not_allow_cleartext_remote_or_embedded_credentials() {

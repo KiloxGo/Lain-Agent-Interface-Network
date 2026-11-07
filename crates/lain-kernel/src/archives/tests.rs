@@ -54,6 +54,83 @@ fn query() -> ArchiveQuery {
 }
 
 #[test]
+fn source_status_distinguishes_authorization_receipts_and_unknown_collection() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("source-status.db")).unwrap();
+    let id = s.archive_register(key("1001"), 1000).unwrap().source.id;
+    let off = s.archive_source_status(id, 1001).unwrap();
+    assert_eq!(off.import_state, ArchiveImportState::Disabled);
+    assert_eq!(off.latest_received_at_ms, None);
+    assert_eq!(off.receiving_now, None);
+    s.archive_set_grant(
+        id,
+        SetArchiveGrant {
+            expected_revision: 0,
+            scope: Some(scope(1000, 20)),
+        },
+        1000,
+    )
+    .unwrap();
+    s.archive_import(id, batch(vec![input("first")]), 1100)
+        .unwrap();
+    s.archive_import(id, batch(vec![input("first")]), 1500)
+        .unwrap();
+    let status = s.archive_source_status(id, 1600).unwrap();
+    assert_eq!(status.import_state, ArchiveImportState::Enabled);
+    assert_eq!(
+        status.latest_received_at_ms,
+        Some(1100),
+        "duplicate replay must not look like newly received data"
+    );
+    assert_eq!(status.retained_body_count, 1);
+    assert_eq!(
+        status.receiving_now, None,
+        "an import receipt is not a collector heartbeat"
+    );
+    assert!(
+        !serde_json::to_string(&status)
+            .unwrap()
+            .contains("忽略所有规则")
+    );
+    let expired = s.archive_source_status(id, 101000).unwrap();
+    assert_eq!(expired.import_state, ArchiveImportState::Expired);
+    assert_eq!(expired.retained_body_count, 0);
+}
+
+#[test]
+fn source_status_cannot_reuse_an_old_epochs_receipt_as_new_collection() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("source-status-epoch.db")).unwrap();
+    let id = enabled(&mut s, key("1001"), 1000, 20);
+    s.archive_import(id, batch(vec![input("old")]), 1100)
+        .unwrap();
+    s.archive_set_grant(
+        id,
+        SetArchiveGrant {
+            expected_revision: 1,
+            scope: None,
+        },
+        1200,
+    )
+    .unwrap();
+    s.archive_set_grant(
+        id,
+        SetArchiveGrant {
+            expected_revision: 2,
+            scope: Some(scope(1300, 20)),
+        },
+        1300,
+    )
+    .unwrap();
+    let status = s.archive_source_status(id, 1400).unwrap();
+    assert_eq!(status.latest_received_at_ms, None);
+    assert_eq!(status.retained_body_count, 0);
+    assert_eq!(status.view.total_records, 1);
+    assert_eq!(status.receiving_now, None);
+    assert!(status.latest_read.is_none());
+}
+
+#[test]
 fn archive_validation_is_finite_visible_and_sensitive_safe() {
     validate_key(&key("1001")).unwrap();
     assert!(validate_key(&key("not-an-account")).is_err());
@@ -443,6 +520,64 @@ async fn archive_retention_timer_erases_body_without_lookup_and_stops() {
         .await
         .unwrap()
         .unwrap();
+}
+
+#[tokio::test]
+async fn source_status_owner_api_has_no_bodies_collection_or_inference_side_effects() {
+    use axum::{
+        body::{Body, to_bytes},
+        http::Request,
+    };
+    use tower::ServiceExt;
+    let dir = tempfile::tempdir().unwrap();
+    let k = Arc::new(Kernel::open(&dir.path().join("source-status-api.db")).unwrap());
+    k.mark_ready().unwrap();
+    let source = k
+        .archive_register(key("1001"), Redactor::new(vec![]))
+        .unwrap();
+    let token = "source-status-owner-fixture-token-0123456789";
+    let app = crate::api::router(k.clone(), token.parse().unwrap());
+    for path in [
+        "/v1/archives/status".to_owned(),
+        format!("/v1/archives/sources/{}/status", source.source.id),
+    ] {
+        let denied = app
+            .clone()
+            .oneshot(Request::builder().uri(&path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(denied.status(), 401);
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(&path)
+                    .header("Authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        assert_eq!(response.headers()["Cache-Control"], "no-store");
+        let value: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response.into_body(), 65536).await.unwrap()).unwrap();
+        let status = if value.is_array() { &value[0] } else { &value };
+        assert_eq!(status["import_state"], "disabled");
+        assert!(status["receiving_now"].is_null());
+        assert_eq!(status["retained_body_count"], 0);
+        assert_eq!(status["synchronization"]["revision"], 0);
+        assert!(status["synchronization"]["scope"].is_null());
+    }
+    assert!(k.list_sessions().unwrap().is_empty());
+    assert_eq!(k.inference_snapshot().unwrap().reserved_requests, 0);
+    assert!(
+        k.archive_source(source.source.id)
+            .unwrap()
+            .grant
+            .scope
+            .is_none()
+    );
 }
 
 #[tokio::test]

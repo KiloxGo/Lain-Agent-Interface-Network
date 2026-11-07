@@ -1,5 +1,184 @@
 # Configuration and Runtime Profiles
 
+## Current cloud reasoning profile — 2026-11-07
+
+The existing Actor profile now uses `reasoning_effort=medium`. This is a separate
+protected configuration operation after the b9a program release, not a source or
+permission change. Actual pre-change backup versus installed JSON comparison
+proves this is the only semantic field changed from low. Output8192/turn32768,
+model, credential reference, timeout, vision and aggregate authorization remain.
+The same executable restarts on the original schema40 database/inode/identity.
+
+Five pure conversion tests first fail against the old output-limit-only operator,
+then pass. Native Linux16 profile/file/plan guards, three copy mutations and eight
+actual isolated service fault cases pass. Independent static review's missing
+public-manifest dependency is repaired before production; exact source/plan
+identity is checked. Actual public diagnostics verify the loaded new profile
+fingerprint, HTTPS/SSE/installed ConPTY pass, and the six-member post-backup is
+independently restored. Other configurations, reader, trial and Codex host remain.
+
+One current-profile copy/native Windows/actual-provider/synthetic-source run
+completes16 foreground turns,45requests/364893reported tokens, maximum single
+turn29754<32768: briefing, original, reviewed memory, correction, forget/reconnect.
+This is isolated data, not a production-data or realQQ pass. Manual readback still
+finds an unsupported same-day intake claim and verbosity, so general prose and
+the full goal remain unaccepted. Personal source consent is still pending.
+See DAILY_BRIEFING_ACCEPTANCE and external lain-medium-profile-2026-11-07.
+
+Later maintenance must explicitly use the newly accepted private configuration
+baseline, not silently rewrite or reuse the old low-profile hash baseline. The
+configuration operation itself invokes no model or QQ send; its paid validation
+is recorded separately above.
+
+The current ActorConfig validator accepts max_output_tokens only in128..=8192.
+32768 is the separate cumulative per-turn limit, not permission to put16384 into
+the current output setting. A subsequent local receipt-clock comparison reaches
+response.incomplete/max_output_tokens with8192reasoning tokens and no visible
+extraction output. Safe classification/Unknown/no replay work, but its known
+terminal11059usage is absent from the normalized ledger; only the foreground6566
+is recorded there. Raw provider terminal total17625 is preserved separately.
+Account for that gap before a new budget/profile decision; no larger output
+setting, activity override or retry has been implemented or deployed by this
+observation. See external lain-receipt-clock-2026-11-07/acceptance.md.
+
+The subsequent 2026-11-07 local failed-usage candidate retains valid integer
+terminal usage on response.incomplete, without accepting partial output or
+retrying. Its accounting row can be Returned while the Actor/batch remains
+Unknown. Missing or invalid usage stays unknown; historical failed requests are
+not backfilled. This changes no profile/budget and is not yet deployed. See
+LAIN_ACTOR and external lain-failed-usage-2026-11-07.
+
+## Bounded returned-format regeneration — local, 2026-11-06
+
+No new profile setting or larger ceiling is introduced. A known completed textual
+invocation-format failure may use one remaining ordinary Actor request for format
+regeneration; both requests and reported tokens count against existing limits.
+This is not an HTTP retry or retry of an uncertain operation. No background run,
+effectful/uncertain action or ordinary provider failure qualifies. The adapter
+does not make a hidden extra request. See LAIN_ACTOR.md for exact eligibility and
+failure behavior; unlimited aggregate inference changes none of these boundaries.
+
+## Read-only knowledge connection installed — 2026-11-06
+
+The existing HTTPS service/read-role credential and store identity have metadata-
+only readiness evidence. The installed Kernel reader configuration uses endpoint,
+store_id and `secret://env/knowledge-bridge`; its value is referenced through
+private `LAIN_SECRET_KNOWLEDGE_BRIDGE`, never a model prompt or client setting.
+`LAIN_KNOWLEDGE_CONFIG` now selects the protected JSON, also explicitly selected
+by the existing backup unit. This grants no source import/synchronization or
+conversation reading.
+
+The same-program maintenance keeps the original schema39 database inode/identity,
+Actor/NapCat configurations and trial expiry. A stopped pre-change five-member
+backup and online post-change six-member backup have independent restore checks.
+The latter includes `knowledge.json` and verifies all four configuration members.
+Actual Windows HTTPS and installed native-client reads prove the new boot and
+configured/credential-available reader fingerprint; a separate HTTPS status read
+proves the read-role key and upstream store identity without message-body GETs.
+Sources remain empty. Configuration readiness is not source permission or proof
+of receipt. Native Linux nine protected-file/recovery tests and nine isolated
+systemd/SQLite/HTTP maintenance cases precede the installation. Backup timer
+resumption is observed, not inferred from a request response.
+
+## Cloud briefing output profile — 2026-11-06
+
+The existing private cloud profile now uses `max_output_tokens=8192` and retains
+`max_turn_tokens=32768`. Only the former semantic field changed from1024; the
+provider, credentials, model, timeout, vision settings and aggregate quota remain.
+This profile change restarts the existing program on the original schema39
+database, without a source grant or trial extension. Actual public diagnostics
+verify the loaded profile fingerprint, not merely the file on disk. Seven native
+Linux profile guards and six isolated maintenance/fault cases precede the change;
+both pre-change and post-change backups have independent restore checks.
+
+The first subsequent live empty-source question does **not** pass: the Actor
+executes three memory reads and then ends Unknown. An isolated actual-provider
+trace reproduces three `memory_list` calls followed by a two-call work lookup
+batch, which exceeds the remaining one-tool allowance. This is distinct from an
+output-token failure; do not keep raising limits or replay the interrupted turn.
+The separate Actor availability/allowance repair is now deployed and its dedicated
+cloud query completes in one request without actions; this does not change the
+profile again. The later connection-only reader installation above still imports
+no real source.
+
+## Local daily-briefing model profile — 2026-11-06
+
+Synthetic actual-model acceptance of reviewed memory correction initially used
+`max_output_tokens=4096`, `max_turn_tokens=32768`. A later independent run stopped
+at extraction with a provider `response.incomplete/max_output_tokens` receipt:
+3,981 reasoning tokens consumed most of the 4,096 output budget before a complete
+report could be returned. This was not a correction mutation failure or permission
+to replay the Unknown extraction. The next isolated run explicitly selects
+`max_output_tokens=8192` with the same 32,768 cumulative per-turn bound.
+Production/private configuration is unchanged. Select and validate an adequate
+bounded output profile before production briefing acceptance; unlimited aggregate
+inference does not remove these limits or authorize automatic retry.
+
+
+## Explicit PC work declaration — 2026-11-05
+
+`lain device init ... --codex-work` explicitly declares CodexManagedWork on the
+new immutable device manifest. Default initialization still declares no backend.
+This flag does not probe provider access, create host policy, start a process or
+approve a Worker action. The native host independently checks the executable,
+protected local policy and current cloud authority before execution. It avoids
+hand-editing a credential-bound registration simply to select it in Work.
+
+Current managed executable allowlist is recorded in AGENT_BACKENDS.md; diagnostic
+JSON exposes the full `supported_versions` list rather than implying all releases
+with a similar version are supported. Global Codex configuration is unchanged.
+
+## W4 original scope and native security — 2026-11-03
+
+Same-session continuation inherits original device workspace/profile/sandbox;
+it cannot select broader scope. Explicit terminal cancellation preserves the
+reviewed command revision. Neither changes global Worker or terminal settings.
+Windows owner-only protection now uses direct handle-based Win32 APIs in
+`lain-local`, without PowerShell; existing private paths are never repaired
+implicitly. See [native host](DEVICE_HOST.md) and [work contract](DEVICE_WORK.md).
+
+## W4b local appearance and conversation dispatch — 2026-11-03
+
+`desk --portrait <file>` overrides explicit `LAIN_PORTRAIT_FILE`. This bounded UTF-8
+presentation asset stays local, outside identity/model context; there is no implicit
+discovery, download, global terminal font mutation or bundled third-party art.
+Remote dispatch retains actual device/workspace IDs, a finite deadline and the
+device-local codex/local profile; no provider key or server-resolved PC path enters
+the request. [Terminal resources](TERMINAL_DESIGN.md) and [dispatch](DEVICE_WORK.md).
+
+`lain-device-agent --check --directory <protected-device-dir>` reads the same
+protected manifest/policy/credential as explicit startup, invokes only the selected
+native version probe and own-device cloud GET, and writes no operational state.
+Its readiness/availability distinction and structured start arguments are documented
+in [native diagnostics](DEVICE_HOST.md#read-only-native-prerequisite-check). It does
+not discover or edit global terminal/Worker configuration or start a service.
+
+## W3b explicit protected host policy — 2026-11-02
+
+`lain device host-configure --directory <dir> --codex-path <native-path>` exclusively
+creates protected host-policy.json, with version1, canonical executable,
+workspace_write=false and offline_grace_seconds=30 (allowed 0..60). Optional
+--workspace-write is explicit local authority, never a Worker approval. Only
+codex/local is selected. The separately invoked lain-device-agent owns execution;
+configuration/pairing starts no process and imports no cloud administrator key.
+No global Worker config is edited. See [DEVICE_HOST.md](DEVICE_HOST.md).
+
+## W3a explicit decision input — 2026-11-02
+
+`device command decide --file` uses an explicit immutable RequestId, fingerprint
+and choice for the currently displayed approval. It changes no backend profile,
+global configuration, standing grant or credential. Device `fetch-decisions`
+loads only the protected W2a credential; receipt availability never enables a
+host or automatic approval. See [DEVICE_EXECUTION.md](DEVICE_EXECUTION.md).
+
+## W2b selected-device work intent — 2026-11-02
+
+Queued device work references an admitted WorkspaceId and a device-local
+profile_id, with explicit sandbox/deadline. It carries no provider configuration,
+SecretRef value or server-resolved device path. No new global environment key or
+Worker configuration mutation is introduced. Device event journals use the
+protected W2a device directory. See [DEVICE_COMMANDS.md](DEVICE_COMMANDS.md).
+
 ## W2a separate device enrollment — 2026-10-28
 
 The device CLI keeps a dedicated owner-only `device-credential.json` outside Git;
@@ -59,7 +238,7 @@ Register an exact CodexSession key using installation `codex/local`, provider
 session ID and matching canonical local workspace, then separately enable a finite
 archive grant. The authenticated `archive read` command supplies one-operation
 read authority; the grant alone never starts a collector. Native read support is
-0.160.1, exposed separately from the unchanged 0.160.0 managed-control gate.
+0.160.1, exposed separately from the managed-control allowlist in AGENT_BACKENDS.md.
 No new collection environment flag or implicit global archive scan is added.
 See [ADR 020](adr/020-explicit-visible-worker-archive-reads.md).
 
@@ -313,8 +492,8 @@ A workspace may constrain profiles.
 Example:
 
 ~~~toml
-[workspaces.Klog]
-path = "/home/user/codebase/Klog"
+[workspaces.example]
+path = "/home/you/codebase/example"
 allowed_profiles = ["codex/official", "claude/official"]
 default_profile = "codex/official"
 ~~~
@@ -651,6 +830,13 @@ manual daemon deployment can still use the existing environment-only workflow.
 
 `LAIN_ACTOR_CONFIG` selects non-secret JSON containing openai-responses driver,
 explicit model/endpoint/SecretRef, optional reasoning, timeout/output/token bounds.
+`max_turn_tokens` counts cumulative returned usage across all model requests in
+one Actor turn, including repeated input context around tool calls. Crossing it
+retains actual usage and completed receipts, withholds the over-budget reply and
+stops continuation. This is a separate limit from the durable request admission
+budget: increasing the turn cap does not refill or extend that budget. Known
+token exhaustion is Failed unless a tool execution itself is still uncertain;
+other interrupted inference/execution remains Unknown and is never auto-replayed.
 `LAIN_PERSONA_PATH` optionally overrides the compiled versioned persona at startup.
 Actor model configuration is not a Codex RuntimeProfile, and Codex login never
 implicitly supplies direct model credentials. Namespaced LAIN_SECRET values stay

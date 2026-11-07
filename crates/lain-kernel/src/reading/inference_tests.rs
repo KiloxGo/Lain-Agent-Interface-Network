@@ -50,6 +50,7 @@ fn limit(max: u32) -> InferenceLimit {
 }
 fn enable(k: &Kernel, s: InferenceLimit) -> InferenceDecision {
     k.set_inference_budget(SetInferenceBudget {
+        unlimited: false,
         unlimited_private_channel: None,
         expected_revision: k.inference_snapshot().unwrap().decision.revision,
         limit: Some(s),
@@ -58,11 +59,133 @@ fn enable(k: &Kernel, s: InferenceLimit) -> InferenceDecision {
 }
 fn stop(k: &Kernel) -> InferenceDecision {
     k.set_inference_budget(SetInferenceBudget {
+        unlimited: false,
         unlimited_private_channel: None,
         expected_revision: k.inference_snapshot().unwrap().decision.revision,
         limit: None,
     })
     .unwrap()
+}
+
+#[tokio::test]
+async fn global_unlimited_is_explicit_durable_stoppable_and_keeps_finite_history() {
+    let (dir, k, b) = fixture(10);
+    let old = limit(1);
+    enable(&k, old.clone());
+    let (actor, model) = counted(&k, 10);
+    let conversation = k.create_conversation().unwrap();
+    let first = actor
+        .submit(
+            conversation.id,
+            uuid::Uuid::new_v4(),
+            "finite request".into(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(settled(&k, first.id).await.state, TurnState::Completed);
+    assert_eq!(
+        k.inference_snapshot().unwrap().admission,
+        InferenceAdmission::Exhausted
+    );
+    let request: SetInferenceBudget =
+        serde_json::from_value(json!({"expected_revision":1,"limit":null,"unlimited":true}))
+            .expect("explicit global unlimited mode must be supported");
+    let decision = k.set_inference_budget(request).unwrap();
+    let unlimited = serde_json::to_value(&decision).unwrap();
+    assert_eq!(unlimited["unlimited"], true);
+    for extra in [
+        json!({"limit":old}),
+        json!({"unlimited_private_channel":b.id}),
+    ] {
+        let mut q = json!({"expected_revision":2,"limit":null,"unlimited":true});
+        for (key, value) in extra.as_object().unwrap() {
+            q[key] = value.clone();
+        }
+        assert!(
+            k.set_inference_budget(serde_json::from_value(q).unwrap())
+                .is_err(),
+            "modes cannot be combined"
+        );
+    }
+    for _ in 0..3 {
+        let t = actor
+            .submit(
+                conversation.id,
+                uuid::Uuid::new_v4(),
+                "unlimited fixture request".into(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(settled(&k, t.id).await.state, TurnState::Completed);
+    }
+    let s = k.inference_snapshot().unwrap();
+    assert_eq!(s.admission, InferenceAdmission::Available);
+    assert_eq!(s.remaining_requests, None);
+    let old_total = k
+        .inference_budgets()
+        .unwrap()
+        .into_iter()
+        .find(|v| v.limit.id == old.id)
+        .unwrap();
+    assert_eq!(
+        old_total.reserved_requests, 1,
+        "switching mode must not erase prior usage"
+    );
+    assert_eq!(model.requests.lock().unwrap().len(), 4);
+    // The durable Completed transition precedes the final snapshot publication
+    // and owning Actor task release. Reopen only after that task has exited.
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while Arc::strong_count(&actor) > 1 {
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    drop(actor);
+    drop(model);
+    drop(k);
+    let k = Arc::new(Kernel::open(&dir.path().join("state.db")).unwrap());
+    k.mark_ready().unwrap();
+    assert_eq!(
+        k.inference_snapshot().unwrap().admission,
+        InferenceAdmission::Available
+    );
+    let c = k.create_conversation().unwrap();
+    let (t, _) = k
+        .actor_submit(c.id, uuid::Uuid::new_v4(), "prepared fixture".into())
+        .unwrap();
+    k.actor_update(t.id, |t| {
+        t.model_requests += 1;
+        Ok(())
+    })
+    .unwrap();
+    assert!(
+        k.set_inference_budget(
+            serde_json::from_value(json!({"expected_revision":2,"limit":null,"unlimited":true}))
+                .unwrap()
+        )
+        .is_err(),
+        "pending attempts fence mode changes"
+    );
+    stop(&k);
+    assert_eq!(
+        k.inference_snapshot().unwrap().admission,
+        InferenceAdmission::Stopped
+    );
+    assert!(
+        k.begin_inference(t.id, 1).is_err(),
+        "stop also blocks a prepared unlimited reservation"
+    );
+    k.actor_update(t.id, |t| {
+        t.state = TurnState::Unknown;
+        Ok(())
+    })
+    .unwrap();
+    enable(&k, old);
+    assert_eq!(
+        k.inference_snapshot().unwrap().admission,
+        InferenceAdmission::Exhausted
+    );
 }
 
 #[tokio::test]
@@ -78,6 +201,7 @@ async fn private_daily_is_persistent_scoped_and_preserves_spent_finite_budgets()
         .unwrap();
     assert_eq!(settled(&k, t.id).await.state, TurnState::Completed);
     k.set_inference_budget(SetInferenceBudget {
+        unlimited: false,
         expected_revision: 1,
         limit: None,
         unlimited_private_channel: Some(b.id),
@@ -144,6 +268,7 @@ async fn private_daily_is_persistent_scoped_and_preserves_spent_finite_budgets()
     );
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited: false,
             expected_revision: 3,
             limit: Some(old.clone()),
             unlimited_private_channel: Some(b.id)
@@ -161,6 +286,7 @@ async fn private_daily_is_persistent_scoped_and_preserves_spent_finite_budgets()
 async fn private_daily_stop_between_reservation_and_entry_blocks_the_attempt() {
     let (_dir, k, b) = fixture(10);
     k.set_inference_budget(SetInferenceBudget {
+        unlimited: false,
         expected_revision: 0,
         limit: None,
         unlimited_private_channel: Some(b.id),
@@ -168,6 +294,7 @@ async fn private_daily_stop_between_reservation_and_entry_blocks_the_attempt() {
     .unwrap();
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited: false,
             expected_revision: 1,
             limit: None,
             unlimited_private_channel: Some(lain_wire::ChannelId::new())
@@ -390,6 +517,7 @@ async fn inference_stop_during_call_records_return_and_denies_new_scope_until_qu
     stop(&k);
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited: false,
             unlimited_private_channel: None,
             expected_revision: 2,
             limit: Some(limit(1))
@@ -568,6 +696,7 @@ async fn inference_ids_limits_cas_and_legacy_inflight_are_explicit() {
     until(|| m.requests.lock().unwrap().len() == 1).await;
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited: false,
             unlimited_private_channel: None,
             expected_revision: 0,
             limit: Some(limit(1))
@@ -591,6 +720,7 @@ async fn inference_ids_limits_cas_and_legacy_inflight_are_explicit() {
     changed.max_requests = 2;
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited: false,
             unlimited_private_channel: None,
             expected_revision: 2,
             limit: Some(changed)
@@ -599,6 +729,7 @@ async fn inference_ids_limits_cas_and_legacy_inflight_are_explicit() {
     );
     assert!(
         k.set_inference_budget(SetInferenceBudget {
+            unlimited: false,
             unlimited_private_channel: None,
             expected_revision: 0,
             limit: Some(budget.clone())

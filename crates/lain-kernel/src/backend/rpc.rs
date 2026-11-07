@@ -10,7 +10,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
@@ -23,6 +23,19 @@ use super::process::{self, ProcessTree};
 const RPC_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_FRAME: u64 = 8 * 1024 * 1024;
 type Pending = Arc<Mutex<BTreeMap<u64, oneshot::Sender<Result<Value>>>>>;
+
+// Command text is committed through item/completed's aggregatedOutput. These
+// notifications only produced cosmetic character counts, never persisted text.
+// Drain their bytes before the loss-intolerant queue: a fast shell can emit
+// thousands of chunks while the Supervisor is committing one lifecycle event.
+fn command_output_progress(value: &Value) -> bool {
+    value.get("id").is_none()
+        && value["method"] == "item/commandExecution/outputDelta"
+        && value["params"]["threadId"].is_string()
+        && value["params"]["turnId"].is_string()
+        && value["params"]["itemId"].is_string()
+        && value["params"]["delta"].is_string()
+}
 
 #[derive(Debug, thiserror::Error)]
 #[error("worker rejected {method} (code {code})")]
@@ -37,6 +50,7 @@ pub(super) struct Rpc {
     next_id: AtomicU64,
     stop: watch::Sender<bool>,
     closed: watch::Receiver<bool>,
+    stream_failure: Arc<Mutex<Option<&'static str>>>,
     pub messages: mpsc::Receiver<Value>,
 }
 
@@ -101,21 +115,29 @@ impl Rpc {
         let (closed_tx, closed) = watch::channel(false);
         let read_pending = pending.clone();
         let read_stop = stop.clone();
+        let stream_failure = Arc::new(Mutex::new(None));
+        let read_failure = stream_failure.clone();
         let reader = tokio::spawn(async move {
             let mut reader = BufReader::new(stdout);
-            loop {
+            let reason = loop {
                 let mut frame = Vec::new();
                 // Bound each JSON frame. Cancel-safe reading is not required in this dedicated task.
                 let read = (&mut reader)
                     .take(MAX_FRAME + 1)
                     .read_until(b'\n', &mut frame)
                     .await;
-                if !matches!(read, Ok(n) if n > 0 && n as u64 <= MAX_FRAME) {
-                    break;
-                }
-                let Ok(value) = serde_json::from_slice::<Value>(&frame) else {
-                    break;
+                match read {
+                    Err(_) => break "read failed",
+                    Ok(0) => break "end of stream",
+                    Ok(n) if n as u64 > MAX_FRAME => break "frame limit exceeded",
+                    Ok(_) => {}
                 };
+                let Ok(value) = serde_json::from_slice::<Value>(&frame) else {
+                    break "invalid JSON frame";
+                };
+                if command_output_progress(&value) {
+                    continue;
+                }
                 if value.get("method").is_none() {
                     if let Some(id) = value.get("id").and_then(Value::as_u64) {
                         let sender = read_pending.lock().expect("RPC pending lock").remove(&id);
@@ -123,12 +145,16 @@ impl Rpc {
                             let _ = sender.send(Ok(value));
                         }
                     }
-                } else if messages.try_send(value).is_err() {
+                } else if let Err(error) = messages.try_send(value) {
                     // Never wait for storage while reading protocol. Overflow loses certainty:
                     // stop this owned runtime; recovery must reconcile rather than skip lifecycle events.
-                    break;
+                    break match error {
+                        mpsc::error::TrySendError::Full(_) => "notification queue full",
+                        mpsc::error::TrySendError::Closed(_) => "notification consumer closed",
+                    };
                 }
-            }
+            };
+            *read_failure.lock().expect("RPC failure lock") = Some(reason);
             let _ = read_stop.send(true);
         });
         let stderr_reader = tokio::spawn(async move {
@@ -160,6 +186,7 @@ impl Rpc {
             next_id: AtomicU64::new(1),
             stop,
             closed,
+            stream_failure,
             messages: receiver,
         })
     }
@@ -227,11 +254,19 @@ impl Rpc {
             .await
     }
     pub async fn next(&mut self) -> Result<Value> {
-        tokio::select! {
+        let value = tokio::select! {
             biased;
-            _ = self.closed.wait_for(|closed| *closed) => bail!("worker disconnected"),
-            value = self.messages.recv() => value.context("worker protocol stream closed"),
-        }
+            _ = self.closed.wait_for(|closed| *closed) => None,
+            value = self.messages.recv() => value,
+        };
+        value.ok_or_else(|| self.stream_error())
+    }
+    fn stream_error(&self) -> anyhow::Error {
+        let reason = self.stream_failure.lock().expect("RPC failure lock");
+        anyhow::anyhow!(
+            "worker protocol stream closed: {}",
+            reason.unwrap_or("process exited")
+        )
     }
     pub async fn shutdown(&mut self) -> Result<()> {
         self.stdin.lock().await.take();
@@ -250,5 +285,34 @@ impl Rpc {
 impl Drop for Rpc {
     fn drop(&mut self) {
         let _ = self.stop.send(true);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn only_well_formed_command_progress_notifications_are_discardable() {
+        let progress = json!({"method":"item/commandExecution/outputDelta","params":{"threadId":"t","turnId":"u","itemId":"i","delta":"private intermediate text"}});
+        assert!(command_output_progress(&progress));
+        let mut request = progress.clone();
+        request["id"] = json!(42);
+        assert!(!command_output_progress(&request));
+        request["id"] = Value::Null;
+        assert!(!command_output_progress(&request));
+        for method in [
+            "item/completed",
+            "turn/completed",
+            "item/commandExecution/requestApproval",
+            "error",
+            "item/agentMessage/delta",
+        ] {
+            let mut event = progress.clone();
+            event["method"] = json!(method);
+            assert!(!command_output_progress(&event));
+        }
+        let mut malformed = progress;
+        malformed["params"]["delta"] = Value::Null;
+        assert!(!command_output_progress(&malformed));
     }
 }

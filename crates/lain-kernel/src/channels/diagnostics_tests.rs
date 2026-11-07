@@ -277,7 +277,7 @@ async fn online_requires_identity_and_connection_loss_is_observable() {
     server.await.unwrap();
 }
 
-#[tokio::test(start_paused = true)]
+#[tokio::test]
 async fn identity_timeout_is_distinct_and_does_not_mark_online() {
     let dir = tempfile::tempdir().unwrap();
     let k = kernel(&dir.path().join("state.db"));
@@ -303,6 +303,9 @@ async fn identity_timeout_is_distinct_and_does_not_mark_online() {
         k.channel_snapshot(s.id()).unwrap().connection.phase,
         ConnectionPhase::Authenticating
     );
+    // Real socket handshakes must settle before enabling Tokio's automatic
+    // virtual-time advance; otherwise Windows can reset the peer mid-handshake.
+    tokio::time::pause();
     tokio::time::advance(Duration::from_secs(11)).await;
     eventually(|| {
         k.channel_snapshot(s.id()).unwrap().connection.failure

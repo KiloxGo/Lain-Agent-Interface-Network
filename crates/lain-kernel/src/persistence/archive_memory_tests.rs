@@ -136,6 +136,7 @@ fn turn(s: &mut Store, b: &Binding, text: &str) -> (ActorTurn, MemoryEvidence) {
         .unwrap();
     let mut t = ActorTurn {
         reading_activity: None,
+        briefing_activity: None,
         sharing_activity: None,
         id: ActorTurnId::new(),
         conversation_id: b.conversation_id,
@@ -402,6 +403,16 @@ fn prepared_selection_cannot_adopt_replacement_grant_or_missing_disclosure() {
         let (_dir, mut s, b, _, record) = setup(10);
         let (mut t, _) = turn(&mut s, &b, "保存测试认识");
         inspect(&mut s, &mut t, record);
+        // Prepare while authorized, then invalidate before the actual effect.
+        // New lineage also rejects adding an action after the scope changed.
+        let id = action(
+            &mut s,
+            &mut t,
+            Tool::ArchiveRemember(RememberArchive {
+                content: "不应落库的认识".into(),
+                kind: MemoryKind::Preference,
+            }),
+        );
         if replace_policy {
             let g = s.archive_memory_grant(b.id).unwrap();
             s.archive_memory_set(
@@ -422,14 +433,6 @@ fn prepared_selection_cannot_adopt_replacement_grant_or_missing_disclosure() {
                 )
                 .unwrap();
         }
-        let id = action(
-            &mut s,
-            &mut t,
-            Tool::ArchiveRemember(RememberArchive {
-                content: "不应落库的认识".into(),
-                kind: MemoryKind::Preference,
-            }),
-        );
         assert!(s.private_memory_effect(t.id, id).is_err());
         assert_eq!(s.archive_memory_grant(b.id).unwrap().used_writes, 0);
         assert_eq!(
@@ -501,6 +504,7 @@ fn stale_upstream_lease_withholds_without_changing_memory_revision_or_renewing_r
     let m = remember(&mut s, &b, record);
     let now = now_ms().unwrap();
     let state = KnowledgeArchiveState {
+        coverage: None,
         source_id: source,
         local_grant_revision: 1,
         reader_revision: "a".repeat(64),
@@ -641,7 +645,7 @@ fn schema21_upgrade_preserves_owner_memory_and_keeps_derived_scope_disabled() {
             |r| r.get(0),
         )
         .unwrap();
-    s.connection.execute_batch("DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; PRAGMA user_version=21;").unwrap();
+    s.connection.execute_batch("DROP TABLE actor_memory_contexts; DROP TABLE memory_context_requests; DROP TABLE conversation_memory_contexts; DROP TABLE project_requests; DROP TABLE project_workspaces; DROP TABLE projects; DROP TABLE device_work_continuations; DROP TABLE device_work_links; DROP TABLE device_approval_decisions; DROP TABLE device_executions; DROP TABLE device_command_changes; DROP TABLE device_command_events; DROP TABLE device_commands; DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE briefing_relations; DROP TABLE conversation_memory_effects; DROP TABLE briefing_memory_suppressions; DROP TABLE briefing_disclosures; DROP TABLE briefing_runs; DROP TABLE briefing_batches; DROP TABLE briefing_manifests; DROP TABLE briefing_grants; PRAGMA user_version=21;").unwrap();
     drop(s);
     let s = Store::open(&dir.path().join("state.db")).unwrap();
     assert_eq!(s.memory(m.id).unwrap(), m);

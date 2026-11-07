@@ -1,5 +1,541 @@
 # Lain Actor — first voice
 
+## Checked selected-memory final view — local candidate, 2026-11-07
+
+Current-conversation active briefing selections and explicit User corrections may
+use a private receipt-bound final representation after successful ordinary
+read-only body lookups. This extends the source presenter's separation of model
+selection from Kernel evidence rendering, without adding an executable Tool or
+generic coding-agent loop. Exact stored words, query scope and typed provenance
+are rendered; speculative final prose is withheld. The model can still request
+more existing tools before finishing. Ordinary chat, other memory kinds/scopes,
+mixed work, background activity and review/write semantics remain unchanged.
+See MEMORY.md for bounds, currentness and clock limitations. This statement does
+not imply native/actual-provider/platform or deployment acceptance.
+
+## Compact capability declaration — local candidate, 2026-11-07
+
+One advertised memory_search query supports literal filtering and null-text
+listing; the duplicate memory_list declaration is removed while its typed alias,
+execution checks and persisted actions remain compatible. Bare global/internal
+scope variants share only their exact kind enum; selected IDs remain separate.
+Briefing tool descriptions retain tool-specific parameters/gates and refer to
+the ordinary source policy already supplied whenever these tools are offered.
+No source fact, result field, Worker capability, provider continuation, budget,
+approval or runtime policy gate is removed. This is request-metadata reduction,
+not a new context format or Worker compactor. Final52Actor/55briefing filters
+overlap; native fixture and one complete47-request actual-provider synthetic-source
+workflow pass, with a refused malformed read and later valid recovery. Prose,
+language/search UX and deployment remain qualified. See MEMORY and DAILY_BRIEFING.
+
+## Source-only final evidence selection — locally validated candidate, 2026-11-07
+
+After actually reading briefing evidence, source-only ordinary turns finish with
+a private handle-selection envelope rather than freely rewriting source facts.
+The Kernel validates current-turn receipts and renders quotations, provenance,
+source weekdays and bounded conditional date references. It adds no model call,
+read authority, schema or effect; unknown handles/free prose fail closed with
+returned usage retained. Generated titles stay labelled, excerpt limits remain,
+and source-free/mixed-effect chat is unchanged. Existing publication guards and
+held previews still govern output. This responds to the actual Friday→Sunday/
+import→forwarded errors. A per-request receipt-derived selection catalog separates
+report excerpts from actually inspected originals without new source reads. Native
+Windows targeted checks and isolated briefing/memory workflows pass. One actual
+three-question synthetic-source run completes12requests with two valid selections;
+prior format/unread-original failures remain recorded. English generated summaries
+and verbosity remain experience defects; actual original/memory tail, Linux/live
+sources/deployment are not established for this candidate. See DAILY_BRIEFING_ACCEPTANCE.
+
+## Report speaker attribution — local candidate, 2026-11-07
+
+Briefing reports explicitly mark sender identity as not provided and point to
+the existing original lookup's record.speaker plus source.id. Message IDs and
+source-reported correction links are not author identity. Original speaker labels
+are imported, source-local data, not verified persons or correction authority.
+This static metadata stays within the report byte bound and private model view;
+actual equal metadata in repeated reads uses existing lossless request sharing.
+No new source read, grant, schema or profile. Natural-language compliance and
+deployment remain unaccepted; this follows an actual unsupported-sender assertion.
+The subsequent same-three-question run completes13actual requests with the new
+metadata present. Same-sender speech does not recur, but sourceFriday becomes
+Sunday and imported notices become forwarded notices in the final answer.
+Manual prose acceptance therefore still fails; the local contract is not a
+general model-correctness guarantee. See DAILY_BRIEFING_ACCEPTANCE.
+
+## Readable archive receipt clock — local candidate, 2026-11-07
+
+Extraction/report/original projections include archive_received_local_time from
+the existing record's received_at_ms and manifest fixed offset. It means Kernel
+archive intake, not source publication, resend or model processing; it may differ
+from the source day. Raw clocks/text/identity/relative-date eligibility remain.
+The existing checked formatter returns null for an unrepresentable receipt without
+overwriting a valid source time. Source/publication/byte gates are unchanged.
+When a single maximum row cannot fit with minimum nonempty quotation prefixes,
+only redundant readable receipt labels may be omitted from its citations, with
+an explicit receipt_clock notice. Raw receipt milliseconds/full facts/relations
+and original handles remain; original inspection still provides the label. This
+does not raise the12KiB cap or silently truncate an accepted item.
+This addresses an observed model-input asymmetry, not yet a prose or deployment
+acceptance claim. See DAILY_BRIEFING and current-profile manual review.
+
+## Safe extraction-rejection reasons — deployed, 2026-11-07
+
+Local briefing extraction validation adds a closed typed error context for document
+size, JSON/schema, item count/fields, citation record/quote and time-text checks.
+The original InvalidInput remains downcastable; no parser error/value is retained.
+Only that typed context on an extraction activity produces its static diagnostic
+in Actor.error. Provider/tool/token errors keep their own treatment, state remains
+Unknown, no rejected batch items are published and no retry/replay is introduced.
+The existing batch actor_turn_id resolves this diagnostic, including after restart;
+run stop enum and public wire/schema are unchanged. Diagnostic text is not model
+speech or source truth. Old uncaptured failures do not acquire an inferred cause.
+Sourceb9a217fa171a is deployed through same40 maintenance with native Linux,
+public/client and backup checks. Actual-model evidence remains separately scoped
+to native Windows/synthetic messages. The program cutover preserved low; a later
+separate protected configuration operation adopts medium, with a16turn actual
+current-profile-copy lifecycle pass. Same-day intake wording/verbosity still
+fail manual review; source consent/full-goal acceptance remain pending. See
+CONFIGURATION.md and DAILY_BRIEFING_ACCEPTANCE.md for scope.
+
+## Intake versus republication — deployed, 2026-11-07
+
+Extraction input, report reads and original inspections share interpretation-only
+intake_semantics. Source and archive-receipt clocks do not establish a publication
+history by themselves; ambiguous wording must not become an inferred resend or
+intake mechanism. An explicit source resend claim stays attributed/unverified.
+Raw text, source identity and original clocks remain unchanged; no new fetch,
+authority or history inference is introduced. Relation comparison is unchanged.
+The new field is eligible for existing same-snapshot/exact-result field sharing,
+not generic value deduplication. Full receipts and different/unknown fields remain.
+Deterministic, actual-model and deployment acceptance keep their separate scopes.
+
+## Repeated briefing metadata — deployed, 2026-11-07
+
+Historical source turn states/read pointers retain individual identities; their
+shared interpretation is attached once to the nearest relevant history group.
+The ordinary history byte bounds include that explanation. No old source body or
+generated answer is reintroduced.
+
+Before a model request, only function outputs matching this turn's executed
+BriefingRead action/result projection exactly are eligible for field sharing.
+Equal whitelisted metadata fields in the same briefing may use a backward
+same_field_value_as_call reference to an earlier full value in this request.
+Changed clocks/status, other briefings, failed/unmatched outputs and other tools
+do not qualify. Item facts, quotations, query/page/count distinctions and unknown
+fields remain literal. A data-layout note explains references; use the projection
+only when the final serialized request input is actually smaller.
+
+The source-checked admission and full persisted results remain authoritative; the
+working protocol input is cloned, not rewritten. There is no cross-request cache,
+new disclosure or Worker compaction. Reconstruction tests and actual Actor-input
+tests are separate from real-model and deployment acceptance.
+
+Foreground guidance now uses the checked latest read first for a prepared-report
+follow-up, preparing again only for refresh_required or a missing report. A whole-
+day question already requests the authorized cursor pages; do not ask redundant
+permission to continue them. Existing finite bounds still require honest partial
+coverage. Initial preparation and original/history semantics are unchanged.
+
+After this guidance-only addendum, strict checks/build and static review pass.
+One actual native Windows medium-profile synthetic-source scenario completes the
+full original/memory/restart/correction/forget chain. Earlier low-profile date and
+medium first-page failures remain; no cloudlow, realQQ or universal-prose claim.
+Subsequent319-file source4b8d15fa0954 is deployed through verified native Linux
+same40maintenance, original storage/config retained. This is program deployment
+evidence, not another actual-provider run or a switch to medium. See CLOUD_OPERATIONS.
+
+## Pending daily processing — local repair, 2026-11-06
+
+A successful `briefing_yesterday` receipt with current sources and a Running or
+Reconciling run completes the ordinary foreground turn with a short factual
+progress reply. The full action result is persisted before completion under the
+ordinary source/memory/current-input checks; private chat records Reply and clears
+wait state. The coordinator remains independent. No further provider request or
+later tool in the same response batch is executed by that foreground turn.
+
+This enforces the existing no-poll conversational contract rather than depending
+on prompt compliance. It does not raise budgets, replay work, grant new access or
+invalidate explicit historical reads. Terminal, unavailable or malformed results
+retain their ordinary handling. See DAILY_BRIEFING for the observed token failure,
+exact user reply and local-versus-cloud status.
+
+The same-input native actual-model comparison confirms the progress branch, but
+later repeated source-clock searches still exceed the unchanged per-turn token
+limit. No full lifecycle or general inference reliability acceptance is claimed.
+
+## Unknown source dates and unresolved reply targets — deployed, 2026-11-06
+
+The shared source-interpretation guidance applies to extraction, full-evidence
+comparison and independently authorized foreground briefing reads. A source clock
+can anchor an actually stated date/relative-day phrase; it does not give a bare
+hour an event day. If the source says only18:00, leave the day unspecified rather
+than adding a source-day/today default, including in generated uncertainty text.
+An old model assumption in that field is not new source evidence.
+
+Reply lookup scope is a permission restriction, not a factual assertion about
+the target. The adapter says `lookup_scope=current_source_only` and
+`target_resolution=not_attempted`; observed IDs do not establish target existence,
+source membership or a semantic correction. Matching target identity/body must
+actually be present in current authorized evidence before making that link.
+This adds no lookup, authority, date parser or stored fact rewrite. It is trusted
+guidance and clearer metadata, not a deterministic guarantee of generated prose.
+The prior actual-model failures and targeted new evidence remain separately
+recorded in DAILY_BRIEFING_ACCEPTANCE. Source94922bbab226is now public-accepted
+without new source permission; real-source and general prose acceptance remain.
+
+## Recall the correction before discussing clocks — deployed, 2026-11-06
+
+For an ordinary question about remembered corrected content, the trusted Actor
+instructions lead with that current statement and its conditions, briefly.
+Preserve the speaker's relative words unless conversion is requested; do not
+invent a date anomaly merely because an hour might have passed. Genuine material
+content uncertainty remains. Capture/storage/expiry details belong in questions
+where they are relevant, with their actual basis and timezone limitations.
+This is conversational guidance, not a date parser, content rewrite, authorization
+change or deterministic guarantee about generated prose.
+
+## Checked correction capture metadata — deployed, 2026-11-06
+
+Checked memory list/search/inspect and exact correction-message clock lookup now
+share one Kernel lock. Optional selected-memory metadata can carry the matching
+persisted User message's captured UTC clock and explicit Kernel-capture basis.
+It cannot expose additional audit text, revive old source bodies, cross scope or
+replace record content. Missing/ambiguous/foreign/non-User matches supply no
+clock. Ordinary memory and metadata-only management inspection stay separate.
+
+Capture is not the original platform sender time or an event date, and supplies
+no user timezone. The Actor must not use storage/review/expiry as a substitute or
+silently resolve sender-relative words from channel capture delay. The same16KiB
+optional fallback retains full original evidence when annotation cannot fit.
+This projection has no schema or grant change. Sourcef65a3f48d94b is now
+public-accepted on the original40 database; native/public/client/backup evidence
+is in DAILY_BRIEFING_ACCEPTANCE. Actual synthetic-source replies show correct
+capture/expiry and independent User attribution, but verbosity and omission of
+the requested concrete storage timestamp remain. Real-source acceptance is pending.
+
+## Attribute checked selections to their own speaker — deployed, 2026-11-06
+
+Optional selected-memory metadata derives content origin only from typed checked
+provenance: unverified source selection versus verbatim user correction. It asks
+the Actor to attribute replacement words/conditions to the user rather than the
+source notice, and never treat review as verification or participation. Relative
+dates stay with their own statement; recorded/expiry clocks do not anchor an
+event. Missing checked statement-time metadata remains a real limitation, not a
+reason to guess. Original record bodies, source gates,16KiB bound and optional
+whole-result fallback are unchanged. This projection is deployed through same40 maintenance; it is not proof that
+every generated answer will obey it. See DAILY_BRIEFING_ACCEPTANCE for native
+Linux/public/client/backup evidence and remaining real-source/prose limitations.
+
+## Selected-memory deadline projection — deployed, 2026-11-06
+
+Memory list/search/inspect may add human-readable UTC deadlines from checked
+BriefingSelection/ConversationCorrection provenance. Conversation scope controls
+visibility; it is not a terminal-window lifetime, midnight cutoff or extension.
+The stored milliseconds remain exact and the record is not rewritten. Each
+origin's source/authorization gates still apply: an independently attributed User
+correction does not inherit its predecessor's source-body dependency. Empty and
+other-origin reads receive no new selected-memory semantics. Optional annotation
+must fit the existing16KiB tool-result limit; otherwise preserve the original
+whole result. Unknown dates remain null. No schema/config/approval change.
+
+## Compact briefing tool context — deployed, 2026-11-06
+
+Snapshotd76923f31fc1 is public-accepted on the original schema40 database with
+configuration/identity retained. Native Linux/maintenance/public/client/backup
+evidence is in DAILY_BRIEFING_ACCEPTANCE. Real-source and general factual-quality
+acceptance remain separate.
+
+After the normal complete result has passed source/currentness/secret/disclosure
+checks, only the model-bound BriefingRead output uses a compact projection. The
+API report and persisted Action.result remain complete. Item numbers, all factual
+text, uncertainty, relations/members, matching citation indices, cursors/counts,
+status, coverage/omissions and calendar remain unchanged. Citations retain source
+labels, formatted clocks/time basis, text origin and checked excerpt/flag; their
+actual array position is explicit citation_index for the existing original read.
+
+Only item UUIDs and citation record/source UUIDs, revisions and duplicate epoch
+clocks are omitted from this view. Exact identity remains available through the
+unchanged owner report/audit or BriefingInspect using actual briefing_id,
+item_number and citation_index. Identical uncertainty_scope strings move to one
+report-level field; distinct values remain on their own rows. Unknown evidence
+fields remain. Refresh/error/empty matches and all other tools, including full
+original inspection, keep their existing output. This is not source collection,
+new memory, Worker compaction or a summary of facts. No new limit/schema/policy.
+
+Briefing tool descriptions remove duplicated wording while preserving the same
+parameters, strict schema, runtime checks and complete Actor policy. Savings must
+be measured per fixture/request; they do not guarantee every model query fits.
+
+## Returned invocation-format repair — deployed, 2026-11-06
+
+The Responses adapter rejects a completed reply whose ordinary text starts with
+the observed provider invocation envelope. It never parses that text into calls.
+Only a normalized body-free format error and returned token count leave the
+adapter. Ambiguous leading preview prefixes are buffered before disclosure,
+including split UTF-8 deltas and legacy item-done previews; ordinary quoted code
+examples remain text. This targets the observed whole-response envelope, not a
+general parser for arbitrary embedded markup.
+
+The ordinary Actor may request one format regeneration inside its existing four
+requests/four tools/token/time limits. The rejected returned request is charged
+and its timing is retained; a fixed operational Tool notice records preparation.
+No extra HTTP request is hidden in the adapter. Eligibility requires remaining
+request/tool availability and only completed, explicitly allowlisted read
+receipts (or no actions). Mutating, uncertain, executing, wait/finish or briefing-
+preparation actions do not qualify; neither do background extraction/reading/
+sharing. `!mutating()` alone is insufficient because preparation can start work.
+
+The next normal admission rechecks scopes, sources and budgets. Existing receipts
+and call/result pairing remain; no rejected text invocation or previous effect
+is replayed, and native tools still need actual structured calls and normal
+policy/review. A second malformed format stops with an accurate repair-exhausted
+notice. Timeout, connection/HTTP failure, disconnection, incomplete output,
+exhausted limits and restart recovery are not automatically retried. No schema,
+authorization, model ceiling or Worker behavior changes. Deterministic boundary,
+actual-provider and deployment evidence must remain separate.
+
+## Topic-to-original location — deployed, 2026-11-06
+
+BriefingRead.query optionally locates one literal short phrase across the current
+manifest's bounded processed items and checked quotations before ordinary paging.
+It preserves original numbers and matching citation indices for BriefingInspect;
+no match is not proof that an original is absent. Null/missing retains ordinary
+reads. Shared source/refresh/disclosure gates remain, and matching does not run a
+model or write memory. Schema040 protects old persisted-action readers. Native
+synthetic-source actual-model lookup/restart and normal live deployment pass;
+this does not establish real-source or general prose reliability. See ADR041.
+
+## Extraction source clocks — deployed repair, 2026-11-06
+
+The existing current/fingerprint-checked extraction page is projected for the
+model with per-record formatted source_local_time, explicit time_basis and
+original_relative_date_available, plus formatted local day bounds. The shared
+fixed-offset formatter applies the offset once. Receipt fallback is labelled as
+such and cannot anchor sender-relative dates; original timestamps/text remain.
+No typed page, wire/schema, stored fingerprint or source/publication gate changes.
+Previously completed summaries are not recomputed or rewritten by this change.
+
+Actual-model synthetic evidence exposes epoch arithmetic errors, and a recording
+Actor regression first proves the missing fields before repair. Final native
+Windows briefing61/Actor25/strict checks/build pass, with static review finding no
+evidenced defect. Final actual-provider synthetic refresh/original/reviewed-memory/
+correct/forget/reconnect passes with39calls; source-clock fields are checked in
+outgoing requests. Linux checks and same39 deployment/public/backup acceptance
+also pass. This is not real QQ or general wording-quality acceptance. Ordinary
+in-progress guidance now asks for a
+short human reply without narrating polling rules, retaining the existing finite
+wait and no automatic follow-up policy. Free prose can still misstate a source
+time or historical batch limitation; malformed arguments can exhaust a read turn
+before original inspection, requiring a new explicit request. External evidence:
+lain-refresh-model-2026-11-06/ and lain-clock-release-2026-11-06/.
+
+## Unavailable briefing access and finite request context — deployed, 2026-11-06
+
+Ordinary conversational requests now explicitly state when the existing checked
+daily-briefing scope is unavailable. This is not evidence of no news, no upstream
+data, or no independently granted channel history. It does not disclose a denied
+source identity or add tools. The Actor should explain the limitation rather than
+scan unrelated semantic-memory/Work scopes as a replacement for source messages;
+explicit memory recall and separately offered source tools retain their scopes.
+
+Each ordinary request also receives its actual remaining four-tool/four-request
+allowance. When no tool or subsequent model-request allowance remains, tool
+definitions are omitted for the final evidence-based answer. Actual call admission
+still enforces the existing whole-batch limit and policy; a provider ignoring the
+hint cannot gain more calls. A rejected oversized batch retains Unknown and a
+fixed actionable tool-quota notice, without executing any part of that new batch
+or replaying prior effects. Reading/sharing/briefing-extraction prompts are unchanged.
+
+The triggering actual cloud no-source question fails, and an isolated actual-
+provider trace reproduces three memory reads followed by two work reads exceeding
+one remaining slot. Request-recording regressions first fail for the new context
+and then pass. Actor25/briefing46 pass. The final Windows/native actual-provider
+sample completes in one request without tools; readback finds a short honest
+unavailability explanation without internal terminology. The same repair is now
+deployed on the original cloud39 instance: Linux briefing46/Actor25, maintenance
+and actual public/native-client checks pass. A dedicated live cloud query completes
+in one request/no actions; the native terminal restores that actual answer. This
+is not real QQ acceptance or general model compliance.
+
+## Finite daily-briefing extraction — local schema034, 2026-11-05
+
+`briefing_activity` is mutually exclusive with reading/sharing/private-chat
+origins and cannot carry tools or memory/source-channel contexts. One manifest
+page binds one actual Actor turn with one globally accounted request. It receives
+only current source records and their time basis; generated items retain exact
+quotes, revisions and model origin. Failed validation rolls back the Assistant
+body and result with the terminal transition. Held preview never bypasses this
+gate; source withdrawal also withholds normal Actor snapshots. Returned usage is
+retained when sources change and Unknown attempts are not replayed. This is
+internal extraction only; normal daily-briefing chat and selected memory remain
+the next delivery. See [current scope](DAILY_BRIEFING.md).
+
+## Historical context projection — 2026-11-05
+
+### Unresolved reply chronology — deployed refinement, 2026-11-06
+
+The private knowledge projection separately names raw observed reply markers and
+an explicit null resolved target, rather than projecting them as actual targets.
+It labels unresolved target chronology as unknown without a matching target clock.
+A reply marker/native ID/import order
+does not establish target existence, ownership or before/after timing. Shared
+source interpretation tells extraction, full-evidence comparison and authorized
+foreground reads to preserve this distinction, and to omit technical bytes/native
+IDs from ordinary source answers unless asked. It neither reads a target nor
+changes source, memory or Worker authority. Real-model compliance is a separate
+observed result, not established by a metadata assertion or wording instruction.
+
+### Briefing follow-up navigation — deployed repair, 2026-11-06
+
+Source-based answers and tool bodies remain omitted from later model history.
+For earlier executed BriefingRead/BriefingInspect actions, that history now keeps
+only bounded navigation pointers: actual snapshot identity and returned item
+numbers, or the exact inspected item/citation pair. No labels, titles, queries,
+quotes or previous answer text are restored. Pointers are not current evidence,
+delivery proof or authority; normal checked tools must re-read the report or
+original before answering. Multiple possible items still require current report
+lookup or clarification. Existing history limits, source invalidation and current
+tool admission remain. No schema, stored action, source grant or frontend change.
+
+An actual isolated provider run exposed a follow-up refusing the original merely
+because the previous source answer had been omitted. The regression records the
+next real Actor model request and checks exact read/inspect pointers, absent old
+bodies and unavailable source tools after revocation. Actual-model readback and
+deployment are separate acceptance steps. Source94922bbab226is now deployed;
+synthetic actual-model original-read evidence is not universal prose acceptance.
+
+The daily-briefing goal first removes repeated old tool payloads from ordinary
+conversation context. Current user/assistant input remains exact after existing
+secret redaction. Recent complete user statements are retained; historical
+assistant messages use explicitly labelled UTF-8-safe excerpts. Historical tool
+arguments/results retain only selected identities, states, counts and exact
+private-memory effect metadata. They do not replay old task bodies, source quotes
+or Worker outputs and are explicitly not current authority/completion evidence.
+
+A 12 KiB history soft budget leaves room for fresh tool evidence; the nearest
+complete turn may exceed it if the original 48 KiB hard bound still permits it.
+Only earlier turns of the same conversation are eligible. Existing source,
+private-delivery and semantic-memory history guards run before projection and
+are unchanged. Persistence retains full original messages/actions; exact dispatch
+review still reads those originals. This is not Worker compaction, semantic
+memory extraction or a tokenizer/billing guarantee. Current in-turn call/output
+pairs, model/tool count limits and source invalidation remain unchanged.
+
+## Explicit global unlimited aggregate quota — 2026-11-05
+
+The owner management API accepts `unlimited:true` as an explicit alternative to a
+finite limit or one-private-binding daily mode. `lain inference unlimited
+--revision N` selects it. It has no total request count or expiry; per-turn and
+per-activity bounds, source grants, permissions, model configuration, one-attempt
+reservation accounting and the Stop operation remain. No Actor tool can enable it.
+Legacy JSON defaults false, old spent totals remain and restart preserves the
+decision. See [ADR036](adr/036-explicit-unlimited-inference.md).
+
+## Bounded multi-call compatibility and operational errors — 2026-11-05
+
+`parallel_tool_calls:false` remains a request preference, not an upstream guarantee.
+The [DeepSeek Responses compatibility guide](https://api-docs.deepseek.com/guides/responses_api/)
+verified on 2026-11-05 states that this parameter is ignored. A complete response
+may therefore contain multiple function calls. The adapter accepts at most four
+with distinct call IDs. Before execution, Actor checks the entire batch against
+the turn's remaining four-tool allowance; it executes accepted calls serially
+through the existing typed policy and produces a separate matching result for
+each. This adds no planner, Worker intelligence, parallel side effects or retry.
+
+The first review-required action becomes Proposed/PendingConfirmation and stops
+the batch; later calls do not run. Private input/source checks remain at Kernel
+boundaries, and correction/forgetting discards the remaining stale batch before
+rebuilding context. Four executed reads may be followed by a final prose request,
+within the existing four-model-request, token and time ceilings. Reading/sharing
+modes still forbid all tool calls. Oversized batches fail before partially using
+remaining slots, and duplicate IDs cannot alias receipts.
+
+### Current request reply clock — local candidate, 2026-11-07
+
+The later local reply-clock candidate obtains one current request clock from
+Kernel briefing_actor_scope under the existing active grant and fixed offset.
+The Actor takes that content-free clock out of the scope description and places
+it once in current instructions, refreshed for every model round. It carries the
+observed epoch/local time/today/tomorrow; old report/original calendars remain
+immutable read-time evidence. Own unquoted relative wording uses the current
+request frame, sender quotations use their occurrence frame. This does not claim
+delivery-time freshness if a call crosses midnight. Internal briefing/reading/
+sharing activities and unavailable scopes do not gain this frame or authority.
+No schema, profile, budget or source-scope change. A prior bad reply already had
+correct calendar dates; this is not proof of its sole cause or prose acceptance.
+The same first-three-question actual synthetic run subsequently completes12
+requests with7ordinary clocks and the unchanged8192/32768 medium profile. Prior
+message-count/source-day errors do not recur in this run, but one unsupported
+shared-sender assertion remains; no general reliability/deployment claim follows.
+
+### Briefing source identity — local candidate, 2026-11-07
+
+The later local source-identity repair retains each citation's existing Lain
+ArchiveRecordId (`record_id`) in the private report projection. Multiple generated
+items can describe different facts from the same archived message; equal words,
+labels or clocks cannot substitute for that identity, and item counts cannot be
+presented as independent-message counts. IDs are comparison evidence, not
+chronology, native-platform targets or authority; ordinary replies should not
+recite them. The original lookup still uses briefing_id/item_number/citation_index.
+Other audit-only fields remain omitted and full persisted/API receipts unchanged.
+This reverses only the overly lossy identity removal, not source/privacy gates.
+No schema, profile, grant or replay change; prose improvement still needs evidence.
+
+### Briefing activity context — local candidate, 2026-11-07
+
+The subsequent local activity-context candidate uses a compact evidence-only
+base policy for persisted briefing activities (extraction, index and comparison).
+It omits ordinary conversational persona/style and unrelated Work/memory tool
+instructions. All stage-specific JSON, source/clock/citation rules and complete
+checked input remain; reading/sharing and ordinary conversation keep their old
+base. The compact policy explicitly retains untrusted-data, no-tool/effect,
+credential, uncertainty and evidence boundaries. Kernel capability and publication
+checks still enforce these rules independently of instructions. No profile,
+reasoning/output limit, authority or schema change is made. This reduces redundant
+context; it is not proof that the observed8192reasoning/no-text failure is solved.
+
+### Preparation terminal feedback — local candidate, 2026-11-07
+
+The later local preparation-feedback candidate handles a successfully executed
+BriefingYesterday receipt with a typed stopped run directly. Failed/interrupted
+runs receive a short factual notice, preserving zero versus partial processed
+coverage and no automatic retry. Source-unavailable notices omit counts. Only
+this preparation tool takes the shortcut; completed/partial report reads stay in
+the normal flow, and malformed/failed tool results cannot manufacture a status.
+The original receipt and background Unknown remain; the foreground can complete
+with truthful failure feedback without another model or later tools in its batch.
+Existing private-input/memory/source publication checks still apply.
+
+The bounded readiness wait subscribes to the existing Kernel sync watch before
+reading status, rather than relying on Actor snapshots. Coordinator-only final
+commits therefore wake it without waiting for the unchanged eight-second deadline.
+No new polling, retry, task, schema or profile is introduced. See DAILY_BRIEFING.
+
+### Unsuccessful terminal usage — local candidate, 2026-11-07
+
+The Responses adapter retains a representable nonnegative integer
+`usage.total_tokens` on a terminal `response.incomplete`, using numeric-only error
+context. The original allowlisted OutputLimit/Incomplete cause still ends the
+Actor as Unknown; partial bodies/calls are never accepted, and this path cannot
+enter invocation-format regeneration. Missing, malformed or out-of-ledger-range
+usage stays unreported, without guessing from output limits or token components.
+
+Before returning that error the Actor records the known usage through the normal
+unique inference reservation and adds it to turn usage/timing without publishing
+source content. The ledger's Returned means terminal accounting information was
+received, not that an answer succeeded. It remains counted even over the turn
+limit or after source revocation. Restart and duplicate submission never replay
+the failed request. Earlier failed calls without captured usage are not backfilled.
+No configuration, permission, schema, retry or deployment change is implied.
+
+Provider connection/timeout, HTTP rejection, interrupted/incomplete stream,
+output-length truncation and protocol validation failures expose allowlisted
+Chinese explanations. Provider response bodies, raw URLs and credentials never
+enter these errors. Unknown outcomes stay conservative, every inference
+reservation remains counted, prior receipts stay authoritative and uncertain
+operations are never replayed. Historical generic errors lack enough evidence to
+identify their original provider cause retroactively.
+
 ## Private image input — 2026-10-28
 
 The explicit model capability `supports_images` defaults false. With a compatible
@@ -525,8 +1061,9 @@ below; World remains deferred.
 
 ## Phase 7.1 memory tools
 
-The closed registry also exposes `memory.search`, `memory.list`, `memory.inspect`
-and `memory.propose` (Responses names use underscores). Reads require an explicit
+The model is offered `memory.search`, `memory.inspect` and `memory.propose`
+(Responses names use underscores); null-text search lists. The closed typed
+registry retains `memory.list` for compatibility with old operations. Reads require an explicit
 scope and return only Active memory, at most ten records and a bounded encoded
 page with provenance/cursor. No memory is inserted into every system prompt.
 `memory.inspect` checks both ID and scope. A workspace must be an existing

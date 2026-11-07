@@ -3,8 +3,8 @@ use anyhow::{Result, ensure};
 use crossterm::{
     cursor::Show,
     event::{
-        DisableBracketedPaste, EnableBracketedPaste, Event as TerminalEvent, EventStream, KeyCode,
-        KeyEvent, KeyEventKind, KeyModifiers,
+        DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+        Event as TerminalEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
     },
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
@@ -127,27 +127,42 @@ pub fn event_text(event: &Event) -> String {
 }
 
 static TERMINAL_ACTIVE: AtomicBool = AtomicBool::new(false);
-struct TerminalGuard;
+static MOUSE_ACTIVE: AtomicBool = AtomicBool::new(false);
+pub(crate) struct TerminalGuard;
 fn restore_commands(writer: &mut impl io::Write) -> io::Result<()> {
     execute!(writer, DisableBracketedPaste, LeaveAlternateScreen, Show)
 }
 fn restore() {
     if TERMINAL_ACTIVE.swap(false, Ordering::SeqCst) {
+        // Win32 DisableMouseCapture restores the modes captured after raw mode
+        // was enabled. Restore mouse first, then the original cooked input mode.
+        if MOUSE_ACTIVE.swap(false, Ordering::SeqCst) {
+            let _ = execute!(io::stdout(), DisableMouseCapture);
+        }
         let _ = disable_raw_mode();
         let _ = restore_commands(&mut io::stdout());
     }
 }
 impl TerminalGuard {
-    fn enter() -> Result<Self> {
+    pub(crate) fn enter_mouse() -> Result<Self> {
+        let guard = Self::enter()?;
+        execute!(io::stdout(), EnableMouseCapture)?;
+        MOUSE_ACTIVE.store(true, Ordering::SeqCst);
+        Ok(guard)
+    }
+    pub(crate) fn enter() -> Result<Self> {
         ensure!(
             io::stdin().is_terminal() && io::stdout().is_terminal(),
             "TUI requires a terminal; use work list/show/history --json for pipes"
         );
-        let old_hook = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |info| {
-            restore();
-            old_hook(info);
-        }));
+        static HOOK: std::sync::Once = std::sync::Once::new();
+        HOOK.call_once(|| {
+            let old_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(move |info| {
+                restore();
+                old_hook(info);
+            }));
+        });
         TERMINAL_ACTIVE.store(true, Ordering::SeqCst);
         let guard = Self;
         enable_raw_mode()?;
@@ -452,6 +467,8 @@ pub async fn run(client: Client, selected: Option<Uuid>) -> Result<()> {
     }
     let _guard = TerminalGuard::enter()?;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
+    // Re-entering Windows' alternate buffer can retain the previous surface.
+    terminal.clear()?;
     let mut keys = EventStream::new();
     let (updates_tx, mut updates) = mpsc::channel(64);
     let (completed_tx, mut completed) = mpsc::channel(64);
@@ -542,7 +559,7 @@ pub async fn run(client: Client, selected: Option<Uuid>) -> Result<()> {
     Ok(()) // JoinSet cancels observation/HTTP tasks; guard restores even on errors/panics.
 }
 
-fn wrapped(text: &str, width: usize) -> Vec<String> {
+pub(crate) fn wrapped(text: &str, width: usize) -> Vec<String> {
     let width = width.max(1);
     let mut result = Vec::new();
     for raw in text.lines() {

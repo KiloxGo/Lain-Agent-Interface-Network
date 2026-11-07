@@ -1,5 +1,44 @@
 # Codex worker adapter
 
+## Command-output burst recovery — 2026-11-05
+
+The first selected real Windows work turn emitted its opening message and began a
+read command, then lost its protocol connection before a final summary. Native
+logs show a burst of command outputDelta notifications. A real-subprocess fixture
+with 12,000 such notifications reproduces failure of the old 512-entry transport
+queue. The original uncertain command is retained; this fix does not resend it,
+invent completion or authorize replay of a backend mutation.
+
+The reader now absorbs only well-formed, request-ID-free
+`item/commandExecution/outputDelta` notifications before the lifecycle queue.
+These previously supplied cosmetic live character counts; completed command text
+still arrives through `item/completed.aggregatedOutput`, under existing bounds
+and redaction. No raw command fragments are logged or persisted. Assistant
+messages, approvals, command completion, turn completion and errors keep their
+existing route. Request-like or malformed messages are not filtered. Frame limits
+and fail-closed overflow handling for other events remain unchanged.
+
+Transport closure diagnostics now retain a fixed reason (read/EOF/frame limit/
+invalid JSON/queue full/consumer closed/process exit), without original frame,
+stderr or provider error text. Seven native Windows Worker integration tests pass,
+including exact final command/assistant output, same-session later approval and
+the existing genuine overflow/bad-frame/cancellation/recovery cases. One classifier
+test and 17 native device-service scenarios also pass, including cloud reporting
+of the final summary after the burst. Strict Kernel all-target Clippy and workspace
+build pass. The checked Windows host is side-installed behind the stable
+`Start-Codex-Host.cmd` entry; existing processes require an explicit normal restart.
+Real-provider success after installing the fix remains separately unverified.
+
+## Current managed allowlist — 2026-11-05
+
+Exact managed-control versions: 0.160.0 and the native Windows installation
+0.166.0-alpha.5.1. The latter has consumed-schema field/enum checks and actual
+isolated Rust adapter profile-injection/original-empty-session probes, without
+inference or personal login. Adjacent versions remain rejected. See
+[current verification boundary](../AGENT_BACKENDS.md#explicit-installed-codex-alpha-contract--2026-11-05).
+Archive-reader compatibility below remains independent; this does not claim
+0.166 archive support or real-provider work acceptance.
+
 ## Visible archive reader: native 0.160.1 — verified 2026-10-27
 
 The installed CLI now reports 0.160.1. Managed Worker control below remains
@@ -73,7 +112,7 @@ implemented in Lain.
 
 Discovery prefers an explicit native `LAIN_CODEX_PATH`, otherwise PATH (including
 the Windows npm package's native executable). The probe requires exactly
-`codex-cli 0.160.0`. A different/missing version produces `available: false` and
+one of the exact versions in the current managed allowlist above. A different/missing version produces `available: false` and
 no advertised capabilities; read APIs remain usable. The reported capabilities
 are the verified adapter contract, not server-side method discovery. A version
 match does not prove authentication, quota or successful initialization.
@@ -81,7 +120,8 @@ match does not prove authentication, quota or successful initialization.
 Initialize/start/resume operations have 30-second write/response bounds. Requests
 have numeric client IDs; server request IDs can be strings or integers and stay
 private. A dedicated reader validates JSONL frames up to 8 MiB and routes responses
-independently of storage. Its notification queue holds 512 entries; overflow,
+independently of storage. Well-formed command output progress is absorbed as
+described above; remaining notifications use a 512-entry queue. Its overflow,
 malformed framing or process exit ends this runtime rather than discarding
 important evidence. Stderr is drained without retention or logging. Raw protocol
 and provider error messages are never logged; rejections retain method and code.
@@ -109,7 +149,8 @@ SIGKILL. Native Windows shutdown has been exercised; native Linux remains unveri
 | `turn/start` response, inProgress | Bind opaque native turn ID to persisted Lain TurnId; Running |
 | `turn/started` | Correlated TurnStarted; duplicate state observations are ignored |
 | `turn/completed`, completed/interrupted/failed | Turn Completed/Cancelled/Failed; reusable WorkSession Idle |
-| Agent text / command output delta | Live OutputProgress character counts |
+| Agent text delta | Live OutputProgress character counts |
+| Well-formed command output delta notification | Absorbed before the lifecycle queue; final text comes from completed command |
 | Completed agent message | Bounded sanitized AssistantMessageCompleted |
 | Started/completed command | CommandStarted/CommandCompleted, safe output and optional exit code |
 | Completed successful file change | FileChanged paths; failed/declined changes are not presented as success |

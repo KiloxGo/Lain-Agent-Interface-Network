@@ -50,8 +50,9 @@ closed; no schema-17 or personal-database cloud migration was performed.
   host key are protected outside Git; the login password was not saved. Existing
   Caddy/Docker sites were inspected before adding a separate route. No other
   project's process/database was stopped or migrated.
-- The API is actually hosted at `https://hub.example.com/lain-knowledge` behind the
-  existing verified public TLS certificate. Container binds only 127.0.0.1:8788,
+- The API was verified on the private deployment's public `/lain-knowledge` route
+  behind the existing TLS certificate; its actual address is retained outside Git.
+  Container binds only 127.0.0.1:8788,
   uses UID 10001, a read-only filesystem and persistent owner-only data directory.
   Public unauthenticated status returned 401; read key returned 200 and cannot
   POST ingestion (403). TLS verification was enabled, with no redirect bypass.
@@ -73,7 +74,7 @@ from admin/ingest/model credentials. No key values are printed here.
 The actual Windows scheduled task is **Running** and its own protected outbox
 health is `online_observed_only` after the real NapCat account handshake. The
 cloud received its connection-coverage receipt and the upload queue drained.
-Only account <bot-qq> / private peer <user-qq> is enabled; group allowlist is
+Only account <bot-qq> / private peer <owner-qq> is enabled; group allowlist is
 empty. The package's AppData virtualization initially made scheduled-task paths
 unresolvable; installation now resolves the physical path before registering the
 hidden current-user task. Registration alone was not treated as a running service.

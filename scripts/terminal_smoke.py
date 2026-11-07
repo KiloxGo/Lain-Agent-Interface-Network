@@ -25,7 +25,7 @@ def run():
     assert os.name == "nt", "this optional smoke uses Windows ConPTY"
     from winpty import PtyProcess
     # Run the ignored guard test inside a real terminal, including unwind/error.
-    guard = PtyProcess.spawn([shutil.which("rtk"), "proxy", "cargo", "test", "--locked", "-p", "lain-client", "--bin", "lain", "terminal_guard_restores_on_error_and_panic", "--", "--ignored", "--nocapture"], dimensions=(35, 120))
+    guard = PtyProcess.spawn([shutil.which("cargo"), "test", "--locked", "--offline", "-p", "lain-client", "--bin", "lain", "terminal_guard_restores_on_error_and_panic", "--", "--ignored", "--nocapture"], dimensions=(35, 120))
     guard_output = []
     try:
         def drain_guard():

@@ -59,6 +59,14 @@ For the 2026-10-23 direction, also read:
 - `docs/QQ_CHANNEL.md` and `docs/Q1_IMPLEMENTATION.md` for the selected Q1
   conversation adapter, reliability contracts and offline/live acceptance split.
 
+For device command/receipt work, also read `docs/DEVICE_COMMANDS.md` and ADR 028.
+For execution evidence/permission routing, also read `docs/DEVICE_EXECUTION.md`
+and ADR 029. W3a stores exact owner decisions but starts no host or Worker;
+receipt recovery never authorizes replay of an uncertain backend mutation.
+For native device execution, also read `docs/DEVICE_HOST.md` and ADR 030.
+W3b is an explicit operational Worker service, not another Actor/persona.
+Local policy and durable effect/response fences must remain enforced.
+
 For worker-agent integration work, also read:
 
 - `docs/AGENT_BACKENDS.md`
@@ -88,8 +96,10 @@ The following are repository-level invariants. Do not violate them without an ex
 
 - `laind` / the Lain Kernel is the server-side source of truth.
 - Target: one cloud identity; local devices execute and report, not independent
-  personas merged by periodic file copying. Current laind still supervises local
-  workers; remote device execution and secure pairing are not implemented.
+  personas merged by periodic file copying. laind supervises local workers; the
+  explicit native device service reuses Supervisor without running another Actor.
+  Device proof/native execution are implemented; real cross-device TLS/deployment
+  and paid-provider acceptance remain separate.
 - Web, TUI, and future Telegram/other clients are clients of the Kernel. They are not alternate runtimes.
 - Closing a frontend MUST NOT implicitly terminate worker sessions.
 - A reconnecting client MUST be able to reconstruct relevant state from Kernel APIs and persisted state.

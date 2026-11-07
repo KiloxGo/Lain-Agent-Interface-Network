@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/lain-kernel", "crates/lain-client", "crates/lain-wire"]
+members = ["crates/lain-kernel", "crates/lain-client", "crates/lain-wire", "crates/lain-local"]
 resolver = "3"
 
 [workspace.package]

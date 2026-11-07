@@ -380,7 +380,7 @@ fn migration_and_corrupt_recovery_fail_closed() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        24
+        40
     );
     db.execute(
         "INSERT INTO work_sessions VALUES (?1, ?2)",
@@ -463,17 +463,36 @@ fn failed_history_commit_rolls_back_state_and_does_not_publish() {
 #[test]
 fn phase_one_migration_and_worker_recovery_are_atomic() {
     let dir = TempDir::new().unwrap();
-    let path = dir.path().join("state.sqlite3");
+    let path = dir.path().join("phase-one.sqlite3");
     let original = kernel(&dir);
     let session = create(&original, &dir);
-    original.transition_session(session.id(), Starting).unwrap();
+    let session = original.transition_session(session.id(), Starting).unwrap();
     drop(original);
     let db = rusqlite::Connection::open(&path).unwrap();
-    // Reconstruct the exact schema of an existing Phase 1 database.
-    db.execute_batch(
-        "DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP TABLE channel_memory_inspections; DROP TABLE channel_memory_suppressions; DROP TABLE channel_memory_effects; DROP TABLE channel_memory_grants; DROP TABLE channel_deliveries; DROP TABLE channel_batches; DROP TABLE channel_incoming; DROP TABLE channel_bindings; DROP TABLE lain_memory_fts; DROP TABLE lain_memories; DROP TABLE lain_memory_requests; DROP TABLE lain_memory_candidates; DROP TABLE lain_session_summaries; DROP TABLE lain_conversation_notices; DROP TABLE lain_delegations; DROP TABLE lain_actor_turns; DROP TABLE lain_conversations; DROP TABLE operational_history; DROP TABLE worker_state; DROP TABLE runtime_profiles; DROP TABLE workspace_profile_policies; PRAGMA user_version = 1;",
+    // Build the real Phase 1 schema instead of deleting selected newer tables.
+    db.execute_batch(include_str!("../migrations/001_sessions.sql"))
+        .unwrap();
+    db.execute(
+        "INSERT INTO work_sessions VALUES (?1, ?2)",
+        (
+            session.id().to_string(),
+            serde_json::to_string(&session).unwrap(),
+        ),
     )
     .unwrap();
+    let tables: Vec<String> = db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+        .unwrap()
+        .query_map([], |r| r.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(tables, ["work_sessions"]);
+    assert_eq!(
+        db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
+            .unwrap(),
+        1
+    );
     let migrated = Kernel::open(&path).unwrap();
     assert_eq!(
         migrated.session(session.id()).unwrap().unwrap().state(),
@@ -501,7 +520,7 @@ fn phase_one_migration_and_worker_recovery_are_atomic() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
             .unwrap(),
-        24
+        40
     );
 }
 

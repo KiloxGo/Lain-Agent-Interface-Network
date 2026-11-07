@@ -8,6 +8,10 @@ rust-version.workspace = true
 name = "laind"
 path = "src/main.rs"
 
+[[bin]]
+name = "lain-device-agent"
+path = "src/device_main.rs"
+
 # Protocol fixture only. Release/deployment commands select --bin laind.
 [[bin]]
 name = "lain-test-app-server"
@@ -22,6 +26,7 @@ test = false
 doc = false
 
 [dependencies]
+lain-local = { path = "../lain-local" }
 lain-wire = { path = "../lain-wire" }
 anyhow = "1"
 axum = "0.8"
@@ -34,6 +39,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal
 tokio-stream = { version = "0.1", features = ["sync"] }
 tower-http = { version = "0.6", features = ["fs", "set-header"] }
 regex = "1"
+pulldown-cmark = { version = "0.13.6", default-features = false }
 url = "2"
 zeroize = "1"
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "json", "stream"] }
@@ -44,6 +50,7 @@ futures-util = { version = "0.3", features = ["sink"] }
 base64 = "0.23.1"
 image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png", "gif", "webp"] }
 sha2 = "0.10"
+time = "0.3"
 tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 
 [dev-dependencies]

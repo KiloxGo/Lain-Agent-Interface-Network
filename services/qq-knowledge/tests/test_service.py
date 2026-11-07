@@ -52,6 +52,53 @@ def event(native=1, image=True, text="测试：周五去图书馆"):
 
 
 class ServiceTests(unittest.TestCase):
+    def test_scoped_reply_segments_export_ids_without_target_bodies_and_clear_on_forget(self):
+        self.store.source("1001", "private", "3003")
+        target = event(9001, image=False, text="foreign target body must not follow the reference")
+        target["event"]["user_id"] = 3003
+        self.store.ingest(target)
+        child = event(9002, image=False, text="领取时间改为18点")
+        child["event"]["message"].insert(0, {
+            "type": "reply",
+            "data": {"id": "9001", "text": "untrusted embedded target body"},
+        })
+        code, _, body = self.call("POST", "/v1/ingest/onebot", child, role="ingest")
+        self.assertEqual(code, 200)
+        message_id = json.loads(body)["id"]
+        route = f"/v1/sources/{self.source}/changes"
+        code, _, body = self.call("GET", route, role="read", query="after=0&limit=16")
+        self.assertEqual(code, 200)
+        page = json.loads(body)
+        self.assertEqual(len(page["items"]), 1)
+        message = page["items"][0]["message"]
+        self.assertEqual(message["external_id"], "9002")
+        self.assertEqual(message["segments"][0], {"type": "reply", "reference": "9001"})
+        self.assertNotIn("foreign target body", body.decode())
+        self.assertNotIn("embedded target body", body.decode())
+        self.assertEqual(message["text"], "领取时间改为18点")
+        self.assertEqual(self.call("POST", f"/v1/messages/{message_id}/forget", {})[0], 200)
+        code, _, body = self.call("GET", route, role="read", query=f"after={page['next_after']}&limit=16")
+        self.assertEqual(code, 200)
+        withdrawn = json.loads(body)["items"][0]["message"]
+        self.assertEqual(withdrawn["state"], "forgotten")
+        self.assertIsNone(withdrawn["segments"])
+        self.assertIsNone(withdrawn["text"])
+
+    def test_source_scoped_changes_preserve_bounded_coverage_without_claiming_live_or_complete(self):
+        other = self.store.source("1001", "private", "3003")["id"]
+        for source, reason in [(self.source,"connected_no_backfill"),(other,"disconnected_gap"),(self.source,"disconnected_gap")]:
+            code, _, _ = self.call("POST", "/v1/ingest/coverage", {"source_id":source,"reason":reason}, role="ingest")
+            self.assertEqual(code,200)
+        page = self.store.changes(source=self.source)
+        coverage = page["coverage"]
+        self.assertEqual([x["kind"] for x in coverage["events"]],["disconnected_gap","connected_no_backfill"])
+        self.assertTrue(coverage["bounded_history"])
+        self.assertTrue(coverage["source_epochs_untracked"])
+        self.assertNotIn("receiving_now",coverage)
+        self.assertNotIn(other,json.dumps(coverage))
+        self.assertTrue(all(x["recorded_at_ms"]<=coverage["observed_at_ms"] for x in coverage["events"]))
+        self.assertIsNone(self.store.changes()["coverage"])
+
     def test_scoped_changes_bind_persistent_store_source_and_current_tombstones(self):
         self.store.ingest(event(1, image=False))
         other = self.store.source("1001", "private", "3003")["id"]

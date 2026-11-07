@@ -2,9 +2,12 @@ pub mod actor;
 pub mod api;
 pub mod archives;
 pub mod backend;
+#[cfg(test)]
+mod briefing_model_tests;
 pub mod channels;
 pub mod config;
 pub mod delegation;
+pub mod device_host;
 pub mod domain;
 pub mod events;
 pub mod kernel;

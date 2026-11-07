@@ -41,13 +41,20 @@ pub struct BackendInfo {
     pub status: &'static str,
     pub executable: Option<PathBuf>,
     pub supported_version: &'static str,
+    pub supported_versions: &'static [&'static str],
     pub capabilities: Vec<&'static str>,
+}
+
+/// Version-only native prerequisite check. Does not open a session or provider.
+pub(crate) async fn probe_device_executable(path: PathBuf) -> Result<String> {
+    codex::probe(&codex::discover(Some(path))?).await
 }
 
 enum Command {
     Prompt(
         String,
         Option<crate::delegation::Origin>,
+        Option<TurnId>,
         oneshot::Sender<Result<Turn>>,
     ),
     Cancel(oneshot::Sender<Result<Turn>>),
@@ -86,6 +93,31 @@ impl Supervisor {
         api_token: crate::config::ApiToken,
         idle_timeout: Duration,
     ) -> Arc<Self> {
+        Self::new_with_redactions(kernel, executable, api_token, idle_timeout, vec![]).await
+    }
+    pub(crate) async fn new_device(
+        kernel: Arc<Kernel>,
+        executable: PathBuf,
+        token: crate::config::ApiToken,
+        device_key: String,
+    ) -> Arc<Self> {
+        Self::new_with_redactions(
+            kernel,
+            Some(executable),
+            token,
+            Duration::from_secs(300),
+            vec![device_key],
+        )
+        .await
+    }
+    async fn new_with_redactions(
+        kernel: Arc<Kernel>,
+        executable: Option<PathBuf>,
+        api_token: crate::config::ApiToken,
+        idle_timeout: Duration,
+        mut additional: Vec<String>,
+    ) -> Arc<Self> {
+        additional.extend(api_token.redaction_values());
         let (executable, version, status) = match codex::discover(executable) {
             Err(_) => (None, None, "unavailable"),
             Ok(path) => match codex::probe(&path).await {
@@ -109,6 +141,7 @@ impl Supervisor {
             status,
             executable: executable.clone(),
             supported_version: "0.160.0",
+            supported_versions: codex::SUPPORTED_VERSIONS,
             version,
             capabilities: if available {
                 vec![
@@ -131,7 +164,7 @@ impl Supervisor {
             kernel,
             executable: executable.filter(|_| available),
             info,
-            redactor: Redactor::new(api_token.redaction_values()),
+            redactor: Redactor::new(additional),
             runtimes: Mutex::new(BTreeMap::new()),
             idle_timeout,
         })
@@ -535,7 +568,7 @@ impl Supervisor {
     }
 
     pub async fn prompt(self: &Arc<Self>, id: WorkSessionId, text: String) -> Result<Turn> {
-        self.prompt_with_origin(id, text, None).await
+        self.prompt_with_origin(id, text, None, None).await
     }
     pub(crate) async fn prompt_for_actor(
         self: &Arc<Self>,
@@ -551,6 +584,7 @@ impl Supervisor {
                 actor_turn_id,
                 action_id,
             }),
+            None,
         )
         .await
     }
@@ -559,6 +593,7 @@ impl Supervisor {
         id: WorkSessionId,
         text: String,
         origin: Option<crate::delegation::Origin>,
+        fixed: Option<TurnId>,
     ) -> Result<Turn> {
         ensure!(
             !text.trim().is_empty()
@@ -568,9 +603,44 @@ impl Supervisor {
             ControlError::InvalidInput
         );
         let (reply, result) = oneshot::channel();
-        self.send(id, Command::Prompt(text, origin, reply), true)
+        self.send(id, Command::Prompt(text, origin, fixed, reply), true)
             .await?;
         result.await.context("worker stopped during prompt")?
+    }
+    pub(crate) async fn start_device_session(self: &Arc<Self>, id: WorkSessionId) -> Result<()> {
+        mutate(&self.kernel, id, None, |session, _| {
+            session.transition(WorkSessionState::Starting)?;
+            Ok(vec![])
+        })
+        .await?;
+        self.launch(id, false).await
+    }
+    pub(crate) async fn prompt_device(
+        self: &Arc<Self>,
+        id: WorkSessionId,
+        turn: TurnId,
+        text: String,
+    ) -> Result<Turn> {
+        self.prompt_with_origin(id, text, None, Some(turn)).await
+    }
+    pub(crate) async fn stop_device_session(&self, id: WorkSessionId) -> Result<()> {
+        let runtime = {
+            self.runtimes
+                .lock()
+                .await
+                .get(&id)
+                .map(|r| (r.sender.clone(), r.done.clone()))
+        };
+        if let Some((sender, mut done)) = runtime {
+            let (reply, result) = oneshot::channel();
+            if sender.send(Command::Stop(reply)).await.is_ok() {
+                let _ = result.await;
+            }
+            done.wait_for(|done| *done)
+                .await
+                .context("device runtime cleanup stopped unexpectedly")?;
+        }
+        Ok(())
     }
     pub async fn cancel(self: &Arc<Self>, id: WorkSessionId) -> Result<Turn> {
         let (reply, result) = oneshot::channel();
@@ -716,7 +786,7 @@ async fn run(
         let result = tokio::select! {
             biased;
             command=commands.recv()=>match command {
-                Some(Command::Prompt(text,origin,reply))=>{let result=prompt(&kernel,id,&worker,text,origin).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} idle_deadline=None; Ok(())},
+                Some(Command::Prompt(text,origin,fixed,reply))=>{let result=prompt(&kernel,id,&worker,text,origin,fixed).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} idle_deadline=None; Ok(())},
                 Some(Command::Cancel(reply))=>{let result=cancel(&kernel,id,&worker).await; let fatal=is_fatal(&result); let _=reply.send(result); if fatal {break;} Ok(())},
                 Some(Command::Decide(approval,decision,reply))=>{let result=decide(&kernel,id,&worker,approval,decision).await;let fatal=is_fatal(&result);let _=reply.send(result);if fatal {break;} Ok(())},
                 Some(Command::Stop(reply))=>{planned=true;detach_reply=Some(reply);break;},
@@ -777,8 +847,17 @@ async fn prompt(
     worker: &Codex,
     text: String,
     origin: Option<crate::delegation::Origin>,
+    fixed: Option<TurnId>,
 ) -> Result<Turn> {
-    let turn_id = TurnId::new();
+    if let Some(id_fixed) = fixed
+        && let Some(old) = blocking(kernel, move |k| k.turns(id))
+            .await?
+            .into_iter()
+            .find(|t| t.id == id_fixed)
+    {
+        return Ok(old);
+    }
+    let turn_id = fixed.unwrap_or_default();
     let submitted_text = text.clone();
     blocking(kernel, move |kernel| {
         kernel.mutate_worker_with_origin(

@@ -1,5 +1,298 @@
 # CLI-first local development
 
+## 来源记忆的实际审阅 — 2026-11-06，Windows 安装版已更新
+
+来源事项保存、更正和忘记仍通过现有 F4／动作确认入口。先看实际内容、会话范围与
+有效期，再读关联影响和核对信息，读完整页后 Ctrl-Y 确认；Esc 关闭不执行。
+更正页保留完整用户原话，忘记页不恢复旧正文。处理的是所选1条记录，其他关联事项
+可能停止召回但不会因此一并删除；启用状态不保证来源仍可读。
+`lain chat` 使用同一审阅内容。QQ 的普通“同意”仍不是动作批准，沿用终端/API确认。
+
+Windows现有私有 `Lain-Cloud.cmd` 已选新版；重新打开生效，已有窗口保留旧版。
+来源接入入口和只读读取器已安装，但具体来源仍未获准启用，不能据此体验真实昨日
+消息。当前状态与真实QQ验收缺口见 [简报验收](DAILY_BRIEFING_ACCEPTANCE.md)。
+
+## 来源接入 — 2026-11-06，本地原生隔离验收通过
+
+`/sources` → N 登记账号和群／私聊（F5 切换），E 设置保存许可，S 设置有限同步，G
+设置当前会话阅读。各项分别 Enter 审阅，完整阅读后 Ctrl-Y；E/S 可 F8 审阅停止。
+Tab/Shift-Tab 切换字段，Ctrl-U 清空，F9 显式粘贴。后台元数据变化保留未发送字段，
+重新加载实际版本，旧确认不恢复；Esc/导航取消，不会自动提交。
+`lain archive knowledge-reader` 只查读取端配置与凭据可用性，不证明连接在线。
+来源管理的独立权限、历史导入和未知结果说明见 [SOURCE_SETUP](SOURCE_SETUP.md)。
+这些是开发版能力，未升级的个人云端或安装版不自动获得它们。
+
+
+## 当前会话来源权限 — 2026-11-06，本地原生隔离验收通过
+
+`/sources` → G 编辑本会话的简报来源、时间范围、时区和条数。Space 选择、Tab 切换字段、
+Ctrl-U 清空、F9 粘贴。Enter 审阅完整替换范围，读完后 Ctrl-Y 确认；F8 审阅撤销。
+不会开启收集、记忆或其他会话权限。结果未知时 Ctrl-R 只查确切回执；退出后可用
+`lain archive briefing-receipt <conversation> <request>` 查操作编号，当前配置另查 briefing-grant。
+来源尚未登记或导入授权关闭时不能勾选；配置与边界见 DAILY_BRIEFING。
+
+
+## Local related-notice workflow — 2026-11-06, schema039
+
+In a separately authorized source conversation, ask yesterday's important messages.
+Related notices keep one group number and immutable original member numbers;
+folded duplicates remain available to original-message lookup. Ask which source
+reported the correction, or name an original number to read it. A report can still
+be reconciling or incomplete; completion is not proof of full upstream history.
+
+“把这组课程讨论通知记一下，包括地点更正和重复出处，不代表我参加。”
+can propose a checked group (include_related=true). F4 shows the actual group,
+fixed source-bearing draft, finite expiry and visibility before approval.
+Explicitly selecting one original uses include_related=false. A pending/oversized
+group says it has not been saved and asks for a real original selection or status
+check; it does not silently narrow the request.
+
+Maintained isolated replay adds `--relations --correct` to
+scripts/daily_briefing_memory_smoke.py with native bins and an external artifact
+directory. It uses synthetic sources and simulated QQ, cleaning its services/state.
+This local implementation is not an installed cloud-client upgrade or live-source
+authorization. No frozen Web redesign is included.
+
+
+## Local reviewed correction — 2026-11-06, schema038
+
+In an independently granted daily-briefing conversation, after saving an item,
+ask e.g. “更正刚才的安排：周六下午三点在教学楼见面，尚未确认参加。”
+Lain must inspect the real saved record and propose a change. F4 displays the
+complete user message, actual new text, target/version and unchanged expiry.
+Approval saves that exact quoted replacement as a user correction, superseding
+the old record. It does not certify the source notification. Declining writes
+nothing; changed/expired target reviews cannot execute. Forget can subsequently
+manage the replacement. This is local development, not the installed cloud entry.
+
+
+## Daily source query — 2026-11-05, local development
+
+2026-11-06 local schema037 also accepts an explicit request to forget a saved
+source selection. Lain checks management metadata and proposes the exact
+record/revision/current-user quotation; F4 (or retained chat confirmation) shows
+the checked operation before approval. Source-withdrawn bodies stay hidden.
+After execution the compact historical card says the selection was forgotten;
+reconnect does not repeat deletion. Correction is still unavailable. This is
+local development, not a deployed personal-instance capability.
+
+Local schema036 also offers a reviewed “remember this item” path. Ask to save a
+numbered current briefing item, inspect its fixed source draft with F4 in desk,
+read the complete scope and use the offered explicit decision. The retained
+`lain chat` confirmation displays the same checked draft. Saved selections can
+be recalled through ordinary scoped memory tools; administration can use
+`lain memory list --conversation <conversation-id>`. No other conversation is
+implicitly shared. `/stop` can safely end pending Actor review as well as active
+generation. Natural correction for these selections remains unfinished;
+do not infer it from existing private-channel memory tools. Historical compact
+save receipts survive source-body withdrawal without restoring their content.
+
+With an explicitly configured briefing grant for the actual conversation, ordinary
+Chat can ask for yesterday's important notices and follow up on a numbered
+original. Background processing is finite; if still running, ask again later.
+`archive briefing-run`, `briefing-run-status` and `briefing-report` expose the
+same Kernel progress. Source identities, processed coverage and missing data are
+distinct from complete upstream history. No installed-client/cloud upgrade,
+collection, memory write or QQ grant is implied by this entry. See the exact
+[grant/API/command contract](DAILY_BRIEFING.md).
+
+## Devices terminal navigation — 2026-11-05
+
+In `lain desk`, Tab → Devices lists named execution computers. Enter opens
+computer details; Up/Down selects a project, N opens the existing reviewed Work
+form with that destination. C rereads cloud information, I shows startup help,
+F7 shows diagnostics and T opens the advanced device-wide task inventory. Esc
+returns to computer details/list; wheel and PgUp/PgDn scroll details. Registration
+and past reports never establish current host presence, provider login or local
+write permission. See [terminal design](TERMINAL_DESIGN.md).
+
+## Unlimited aggregate inference quota — 2026-11-05
+
+`lain inference unlimited --revision N` explicitly removes the cumulative Lain
+request-count/expiry ceiling after reading the current revision with
+`lain inference show`. It keeps per-turn and activity limits, source/permission
+checks and request accounting. `lain inference stop --revision N` still stops
+future inference. Prior finite budgets remain inspectable; there is no reset or
+new default. See [ADR036](adr/036-explicit-unlimited-inference.md).
+
+## Direct Work entry — 2026-11-05
+
+Chat/Work scrolling honors explicit movement across blank lines and code headings.
+Drag selection uses the last presented frame and stable text positions; background
+layout changes preserve the source position rather than resetting to message start.
+
+Work lists task summaries, creation/latest-receipt times and the registered device
+directory instead of only internal IDs. Enter shows ordered per-turn instructions
+and Codex receipts; follow-ups retain earlier results. F5 reads an older history
+page, Shift-F5 a newer page, without retargeting task controls. At most 64 rounds
+are loaded and each page is bounded by both round count and display capacity;
+missing history is explicit. Each result retains the existing 2048-byte receipt
+limit and truncation label; this is not the full native terminal transcript.
+
+Chat task updates are compact cards. Click 查看结果, or F7 then Enter, to inspect
+the same device task. F7 in the task switches Markdown result/diagnostics; F2 copies
+the returned source text, Markdown or code. Bounded results remain explicitly
+marked as excerpts. Tool details are collapsed, and startup/reconnect does not
+append old completed device work to the latest conversation. These are read-only
+presentation/navigation actions; F4/F6/F8 retain their original reviewed controls.
+
+In `lain desk`, Work → N selects a declared Codex computer/workspace and opens a
+separate exact task draft. F5 selects sandbox, F7 selects finite expiry, Enter
+previews and Ctrl-Y submits after full reading. F9 explicitly pastes local clipboard
+text without submitting; use it for multiline input on Windows, whose ordinary
+terminal key-event paste can lose LF. Chat remains independent while work runs.
+Devices is setup/diagnostics; no tab starts a local runtime implicitly.
+
+New `device init --codex-work` explicitly declares intended Codex execution;
+without it initialization still declares no capability. This does not start a
+host or establish provider login/readiness. Pair/claim, `host-configure` and
+`lain-device-agent --check` remain separate. The exact native allowlist includes
+0.160.0 and the tested 0.166.0-alpha.5.1. See [Work scope](WORK_DESK.md) and
+[native host operations](DEVICE_HOST.md). Source tests do not replace the installed
+daily launcher or cloud binary. A subsequent selected installation now updates
+both: public receipt-route/auth/readiness/SSE checks and real installed Work → N
+navigation pass without task submission. The PC is paired with a seven-day finite
+registration and read-only policy; its host is prepared but not started. Start
+instructions and remaining real-provider gates are in [Work installation](WORK_DESK.md#selected-installation-follow-up--2026-11-05).
+
+## Cloud chat entry — 2026-11-05
+
+The selected Windows installation now has a separate cloud entry:
+
+```powershell
+& "$env:LOCALAPPDATA\Lain-Cloud\Lain-Cloud.cmd"
+```
+
+It runs the verified native client and selected local portrait against the
+authenticated HTTPS Kernel, restoring the checked cloud conversation. It does
+not start a local Kernel, import the existing local database, alter global PATH
+or replace the local `lain up` workflow. Endpoint/owner credential are kept in
+separate current-user-only files outside Git. The wrapper's execution-policy
+override is process-scoped; no machine policy changes are made.
+
+Cloud Actor configuration uses the explicitly authorized existing DeepSeek
+SecretRef. One short real conversation completed using one model request; a
+finite initial ceiling covers at most 100 requests over seven days, without
+automatic refill. A model request is not necessarily a complete conversation
+turn. Inspect with `inference show` through that configured cloud connection.
+This does not enable QQ, background reading/contact, device pairing or Codex
+execution. Those retain their separate configuration and authorization.
+
+## Versioned terminal startup — 2026-11-05
+
+`lain`/`lain desk` now require the Kernel's client-sync protocol1 (schema032).
+They negotiate resources before creating/restoring a conversation and use a
+bounded checked bootstrap for startup and Chat refresh. They do not silently
+fall back to raw history. Refresh reconstructs rendering, preserves drafts and
+uncertain requests, and rejects older snapshots or a different Kernel identity.
+Same-revision withholding removes prior speech; newer live observations fence
+late history responses. Runtime invalidation, read-only reconnect and local lease
+expiry retire old content and review panels while preserving drafts and exact
+uncertain operation IDs. Authentication/protocol failure stops automatic retry;
+Ctrl-R explicitly reconnects. The optional private 16 KiB metadata cache resumes
+the last conversation only after authenticated checked reads; no chat/memory body
+is cached. Cold startup requires a reachable Kernel. See [CLIENT_SYNC](CLIENT_SYNC.md).
+
+## Chat configuration in the unified terminal — 2026-11-04
+
+Opening `lain`/`lain desk` reads Kernel history and bounded read-only diagnostics.
+An unconfigured model, missing credential or invalid chat configuration is shown
+as chat unavailable, while Work/Devices remain usable. Enter preserves the draft
+without submission in those known states. After deliberate Kernel configuration,
+Ctrl-R reads the new status; Enter is still required to send. A configuration
+check starts no service and performs no inference. Existing explicit local
+`setup`/`up` and remote client configuration remain the operating entry points.
+
+## W4 permission facts and explicit task cancellation — 2026-11-03
+
+Device details show cloud permission recording, exact reported device receipt and
+reported Worker confirmation independently. F8 opens the current task cancellation
+scope; read all pages, then Ctrl-K explicitly requests a stop. Esc closes without
+effect. Ctrl-R inspects uncertain outcomes; `/cancel-retry` retains the original
+revision and never silently adopts changed scope. A cancellation request, queue
+cancellation and reported native termination are distinct facts.
+See [operating/reproduction guide](W4_RUNBOOK.md) and [whole-stage gates](W4_ACCEPTANCE.md).
+
+## W4c same remote Worker session — 2026-11-03
+
+In a known idle completed/failed device task, F6 opens a separate remote Worker
+draft. Enter previews full target/text; Ctrl-Y sends only after full reading.
+Esc/Tab retain Lain's separate draft; Ctrl-R rereads the target before submission
+or reads a pending receipt afterward. `/followup-retry` explicitly retries only
+the original RequestId/body. Chat `/continue <device-uuid> <parent-command-uuid>`
+is another entry. Work shows one current head per actual remote session family.
+
+Owner CLI: `lain device command continue <device> <parent> --conversation <id>
+--file <exact-followup.json>`; `continuation <device> <parent> --conversation <id>`
+reads its recorded child. The original workspace/profile/sandbox are inherited;
+unknown/busy/already-continued parents cannot silently become a new session.
+Native host restart resumes the original provider thread. Contract, request fields,
+tests and limitations: [same-session follow-up](DEVICE_WORK.md#same-session-follow-up).
+
+## W4b conversation-bound remote work — 2026-11-03
+
+Actor dispatch review now includes exact original records, actual outbound text,
+Changed/Unchanged and a full replacement diff, not just tool arguments. Changed
+does not imply an enabled prompt compiler. Native read-only diagnostics are
+`lain-device-agent --check --directory <protected-device-directory>`; readiness
+means prerequisites and cloud authority, never a running-service/paid-provider
+claim. See [diagnostic contract](DEVICE_HOST.md#read-only-native-prerequisite-check).
+
+`lain desk --portrait <local-29x18-utf8-file>` loads explicitly selected character
+art; `LAIN_PORTRAIT_FILE` also applies to bare `lain`. No asset download or npm.
+Work now lists local Workers and this conversation's linked device tasks using
+separate inspection routes. In a device task, F4 reviews the actual remote Worker
+permission, showing only offered choices after full scope reading. Ctrl-R reads
+an uncertain decision receipt; `/decision-retry` explicitly retries its exact
+RequestId/choice, never automatically replays a Worker mutation.
+
+`lain device command queue <device> --file <work.json> --conversation <id>` links
+direct owner work; ordinary Lain `device_queue` proposals retain explicit action
+review. Restore with `lain desk --conversation <id>`. No command here installs or
+starts the device service. [Full contract and evidence](DEVICE_WORK.md).
+
+## W4a unified conversational terminal — 2026-11-02
+
+Run `lain` / `lain desk` for the Lain ASCII Chat/Work/Devices shell, or
+`lain desk --conversation <id>` to restore an existing Kernel conversation.
+Tab changes surfaces; Esc returns to chat; Ctrl-Q exits without cancelling work.
+Drafts stay editable while Lain responds and survive navigation. Enter in Work
+opens the existing Worker TUI; Ctrl-Q there returns to Lain. Devices/tasks are
+read-only in this increment. F4 opens exact Lain-action review; Worker permissions
+remain separate. Legacy line chat remains `lain chat`; the dedicated Worker list
+is `lain work dashboard`. Full behavior, recovery and acceptance:
+[TERMINAL_DESIGN.md](TERMINAL_DESIGN.md). No npm or device installation is needed.
+
+## W3b native execution service — 2026-11-02
+
+`lain device host-configure --directory <absolute-device-dir> --codex-path
+<absolute-native-executable>` creates explicit protected policy; it never
+starts/installs the service or overwrites a policy. Run the separate native
+`lain-device-agent --directory <dir>` service explicitly. Existing owner queue,
+decision and cancel commands then reach that service through the cloud ledger.
+Chat/work clients do not own its process lifetime. Foreground service controls,
+limits, recovery and validation: [DEVICE_HOST.md](DEVICE_HOST.md). W4 managed
+background launch/dashboard/chat dispatch remains separate; terminal development
+still requires no npm.
+
+## W3a permission and evidence commands — 2026-11-02
+
+Owner `lain device command decide <device> <command> <approval> --file <decision>`
+records an explicit exact-scope choice; `decisions <device> <command>` reads its
+immutable receipts. Device `fetch-decisions --directory <dir> <command>` uses
+only its separate protected key. Existing `show/inspect/event` retain typed
+execution evidence. These commands start no Worker and do not apply decisions
+to a backend. Full scope/retry rules: [DEVICE_EXECUTION.md](DEVICE_EXECUTION.md).
+
+## W2b command and receipt CLI — 2026-11-02
+
+`lain device command queue/show/cancel/changes` use administrator authentication.
+`device command fetch/inspect/event/receipt --directory <device-dir>` load only
+that device's protected credential. Event posts journal the immutable request and
+matching receipt locally; uncertain posts retain their exact identity. These are
+explicit protocol commands, not a Worker/executor installer. Full JSON examples,
+fixed-window cursors and limits: [DEVICE_COMMANDS.md](DEVICE_COMMANDS.md).
+
 Device identity/inventory uses `lain device init/claim/status/report` on the
 selected device and `device list/show/pair/revoke` on the administrator client.
 Agent commands use only the protected device credential file and do not load the
@@ -116,8 +409,10 @@ See the [five-step guide, API and rollback boundary](READING_ACCEPTANCE.md).
 > **2026-10-23 scope:** this is the current local CLI operating guide, not the
 > next product priority. QQ daily companionship now comes first; see
 > [PRODUCT.md](PRODUCT.md) and [ROADMAP.md](../ROADMAP.md). Cloud pairing, a local
-> background execution agent, Lain ASCII presentation and remote session control
-> are planned, not available commands. Current `lain up` remains foreground.
+> background execution and ASCII presentation were plans in that revision.
+> W2/W3 and W4a now add explicit device commands/services and the unified shell;
+> see the current sections above. Managed service installation and full remote
+> interaction remain separate. Current `lain up` remains foreground.
 
 Windows PowerShell and macOS zsh are equal development targets, sharing the same
 Rust crates, commands and authenticated HTTP/SSE API. Linux remains the eventual
@@ -210,10 +505,11 @@ does not silently repair permissive existing credentials. Restore their correct
 permissions deliberately or restore a trusted backup. Tokens are absent from
 normal output, command arguments, Git, model input, logs and operational history.
 
-Windows ACL handling runs native Windows PowerShell's .NET security APIs with a
-literal data path and a cleared/OS-allowlisted environment; no shell source interpolation or Lain credential in that process.
-ACL inspection checks the current SID and rejects non-owner access. PowerShell
-must be available; unsupported filesystems/ACLs fail explicitly. Elevated sessions
+Windows ACL handling uses native handle-based Win32 security APIs through the
+shared Rust `lain-local` crate. No PowerShell process or shell is required.
+ACL inspection checks the current SID and rejects null/empty/inherited DACLs,
+foreign access, links and mismatched object types. Unsupported filesystems/ACLs
+fail explicitly. Elevated sessions
 whose files are owned by a different SID may need an intentional owner correction.
 Unix uses native filesystem modes and owner/link checks. Tests run only on their
 real OS; neither platform is simulated on the other.
@@ -291,9 +587,9 @@ objects may initially belong to Administrators under an elevated token; setup
 assigns the current user and owner-only protected ACLs before writing credentials.
 The final directory is created exclusively so a concurrent existing directory is
 never silently adopted. Existing paths remain check-only: setup does not take
-ownership or repair their permissions. The ACL helper loads the modules shipped
-with its Windows PowerShell runtime rather than inheriting PowerShell 7/user module
-paths. This does not establish interactive ConPTY
+ownership or repair their permissions. The native implementation opens the selected
+object without following reparse points and checks security on that same handle;
+it starts no helper process that could outlive a crashed service. This does not establish interactive ConPTY
 acceptance; see [Q1_IMPLEMENTATION.md](Q1_IMPLEMENTATION.md) for current evidence.
 
 ```text

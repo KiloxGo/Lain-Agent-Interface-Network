@@ -15,10 +15,16 @@ use crate::{
     worker::WorkerState,
 };
 mod archives;
+mod briefing;
 mod channels;
+mod client_sync;
+mod device_commands;
+mod device_work;
 mod devices;
 mod inference;
+mod memory_context;
 mod private_chat;
+mod projects;
 mod reading;
 pub(crate) mod sharing;
 mod sources;
@@ -40,6 +46,8 @@ struct Inner {
 }
 
 pub struct Kernel {
+    boot_id: uuid::Uuid,
+    sync_events: tokio::sync::watch::Sender<()>,
     pub(crate) knowledge_slot: std::sync::Arc<tokio::sync::Semaphore>,
     // ponytail: one lock orders durable writes; async access uses blocking tasks.
     // Split storage/projections only if measured contention warrants it.
@@ -47,12 +55,43 @@ pub struct Kernel {
     events: broadcast::Sender<Event>,
     shutdown_signal: tokio::sync::watch::Sender<bool>,
     channel_events: broadcast::Sender<()>,
+    device_events: broadcast::Sender<()>,
     reading_events: broadcast::Sender<()>,
     archive_events: broadcast::Sender<()>,
     // Ephemeral transport observations never wait on SQLite or wake the Actor model.
     channel_connections: Mutex<
         BTreeMap<crate::channels::domain::ChannelId, crate::channels::domain::ConnectionStatus>,
     >,
+}
+/// All storage access already uses this lock. Signal only changes that survived
+/// the operation's transaction, after the guarded read/write has finished.
+struct Guard<'a> {
+    inner: MutexGuard<'a, Inner>,
+    revision: u64,
+    signal: &'a tokio::sync::watch::Sender<()>,
+}
+impl std::ops::Deref for Guard<'_> {
+    type Target = Inner;
+    fn deref(&self) -> &Inner {
+        &self.inner
+    }
+}
+impl std::ops::DerefMut for Guard<'_> {
+    fn deref_mut(&mut self) -> &mut Inner {
+        &mut self.inner
+    }
+}
+impl Drop for Guard<'_> {
+    fn drop(&mut self) {
+        if self
+            .inner
+            .store
+            .sync_revision()
+            .map_or(true, |r| r != self.revision)
+        {
+            self.signal.send_replace(());
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -90,12 +129,15 @@ impl Kernel {
         store.recover_reading(crate::domain::now_ms()?)?;
         store.recover_sharing()?;
         store.recover_inference()?;
+        store.recover_briefing_runs()?;
         store.archive_prune(crate::domain::now_ms()?)?;
         store.archive_read_recover()?;
         tracing::info!(state = ?KernelState::Recovering, "recovering sessions");
         let (sessions, workers) = store.recover().context("recover Kernel state")?;
         tracing::info!(sessions = sessions.len(), "session recovery committed");
         Ok(Self {
+            boot_id: uuid::Uuid::new_v4(),
+            sync_events: tokio::sync::watch::channel(()).0,
             inner: Mutex::new(Inner {
                 state: KernelState::Recovering,
                 sessions: sessions.into_iter().map(|s| (s.id, s)).collect(),
@@ -105,6 +147,7 @@ impl Kernel {
             events: broadcast::channel(256).0,
             shutdown_signal: tokio::sync::watch::channel(false).0,
             channel_events: broadcast::channel(64).0,
+            device_events: broadcast::channel(64).0,
             reading_events: broadcast::channel(16).0,
             archive_events: broadcast::channel(16).0,
             knowledge_slot: std::sync::Arc::new(tokio::sync::Semaphore::new(1)),
@@ -112,10 +155,17 @@ impl Kernel {
         })
     }
 
-    fn lock(&self) -> Result<MutexGuard<'_, Inner>> {
-        self.inner
+    fn lock(&self) -> Result<Guard<'_>> {
+        let inner = self
+            .inner
             .lock()
-            .map_err(|_| anyhow!("Kernel state lock poisoned"))
+            .map_err(|_| anyhow!("Kernel state lock poisoned"))?;
+        let revision = inner.store.sync_revision()?;
+        Ok(Guard {
+            inner,
+            revision,
+            signal: &self.sync_events,
+        })
     }
 
     pub fn state(&self) -> Result<KernelState> {
@@ -255,6 +305,33 @@ impl Kernel {
             crate::actor::domain::ActionId,
         )>,
     ) -> Result<WorkSession> {
+        self.create_profiled_session_with_id(workspace, requested, options, receipt, None)
+    }
+    pub(crate) fn prepare_device_session(
+        &self,
+        id: WorkSessionId,
+        workspace: PathBuf,
+        options: crate::domain::SessionOptions,
+    ) -> Result<WorkSession> {
+        self.create_profiled_session_with_id(
+            workspace,
+            Some(crate::profiles::ProfileDefinition::local().id),
+            options,
+            None,
+            Some(id),
+        )
+    }
+    fn create_profiled_session_with_id(
+        &self,
+        workspace: PathBuf,
+        requested: Option<RuntimeProfileId>,
+        options: crate::domain::SessionOptions,
+        receipt: Option<(
+            crate::actor::domain::ActorTurnId,
+            crate::actor::domain::ActionId,
+        )>,
+        requested_id: Option<WorkSessionId>,
+    ) -> Result<WorkSession> {
         crate::profiles::check_sensitive(&options)?;
         let workspace = workspace
             .canonicalize()
@@ -275,6 +352,17 @@ impl Kernel {
                 crate::backend::ControlError::ProfileDenied
             );
         }
+        if let Some(id) = requested_id
+            && let Some(existing) = inner.sessions.get(&id)
+        {
+            ensure!(
+                existing.workspace == workspace
+                    && existing.runtime_profile_id == profile_id
+                    && inner.workers.get(&id).is_some_and(|w| w.options == options),
+                crate::backend::ControlError::Conflict
+            );
+            return Ok(existing.clone());
+        }
         let profile = inner
             .store
             .profiles()?
@@ -290,7 +378,10 @@ impl Kernel {
             crate::profiles::secret_status(resolved.secret_ref.as_ref()) != "missing",
             crate::backend::ControlError::Unavailable
         );
-        let session = WorkSession::new(resolved.backend.clone(), profile_id, workspace)?;
+        let mut session = WorkSession::new(resolved.backend.clone(), profile_id, workspace)?;
+        if let Some(id) = requested_id {
+            session.id = id;
+        }
         let worker = WorkerState {
             options,
             resolved_profile: Some(resolved),
@@ -861,6 +952,7 @@ impl Kernel {
         );
         let mut turn = ActorTurn {
             reading_activity: None,
+            briefing_activity: None,
             sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: conversation,
@@ -890,6 +982,7 @@ impl Kernel {
         let mut inner = self.lock()?;
         let mut turn = inner.store.actor_turn(id)?;
         let reading_activity = turn.reading_activity;
+        let briefing_activity = turn.briefing_activity;
         let sharing_activity = turn.sharing_activity;
         let was_running = turn.state == crate::actor::domain::TurnState::Running;
         let old_actions = turn.actions.len();
@@ -900,7 +993,9 @@ impl Kernel {
             .count();
         change(&mut turn)?;
         ensure!(
-            turn.reading_activity == reading_activity && turn.sharing_activity == sharing_activity,
+            turn.reading_activity == reading_activity
+                && turn.sharing_activity == sharing_activity
+                && turn.briefing_activity == briefing_activity,
             crate::backend::ControlError::InvalidInput
         );
         if turn.private_chat.as_ref().is_some_and(|c| {
@@ -956,6 +1051,17 @@ impl Kernel {
             inner.store.private_chat_check(&turn)?;
         }
         inner.store.save_actor_turn(&mut turn, false)?;
+        if turn.actions.iter().skip(old_actions).any(|a| {
+            matches!(
+                a.tool,
+                crate::actor::tools::Tool::BriefingRemember(_)
+                    | crate::actor::tools::Tool::MemorySelectionChange(_)
+            ) && a.state == crate::actor::domain::ActionState::Proposed
+        }) {
+            // Candidates already contain source text and an earlier expiry than
+            // raw archives. Wake the existing maintainer before owner review.
+            let _ = self.archive_events.send(());
+        }
         if turn.reading_activity.is_some()
             && turn.state == crate::actor::domain::TurnState::Completed
         {
@@ -1061,7 +1167,11 @@ impl Kernel {
             t.state == crate::actor::domain::TurnState::Running
                 && t.actions.iter().any(|a| a.id == action
                     && a.state == crate::actor::domain::ActionState::Executing
-                    && matches!(a.tool, crate::actor::tools::Tool::MemoryPropose(_))),
+                    && matches!(
+                        a.tool,
+                        crate::actor::tools::Tool::MemoryPropose(_)
+                            | crate::actor::tools::Tool::BriefingRemember(_)
+                    )),
             crate::backend::ControlError::Conflict
         );
         inner

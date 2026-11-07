@@ -1,5 +1,182 @@
 # Architecture
 
+## Source-only answer presentation — locally validated candidate, 2026-11-07
+
+After source-only briefing reads, the ordinary Actor's final model output selects
+only actually read evidence handles. A bounded Kernel presenter renders checked
+quotations, source clocks/weekdays and conditional relative-date references from
+the same full action receipts. It does not execute extra reads or Worker logic.
+Invalid selection cannot publish free text; usage remains accounted and previews
+are held. Normal source/memory/publication fences still apply. This private final
+format adds no wire DTO, persisted entity, schema, grant or review bypass. Mixed
+memory/Work actions and ordinary chat remain outside this format. The current-turn
+catalog reuses the final renderer to offer only individually renderable references;
+combined selections still require the final12KiB check. Native isolated briefing
+and reviewed-memory workflows plus one actual three-question synthetic-source run
+pass, not concise naturalness, real QQ sources, Linux or deployment acceptance.
+See DAILY_BRIEFING and its acceptance record.
+
+## Cross-batch source relationships — 2026-11-06, local schema039
+
+The finite daily coordinator now follows extraction with tool-free discovery and
+pair judgment activities using the same Actor/inference ledger. Every input and
+completion checks the actual manifest/grants and fingerprint; output/result and
+Actor completion commit together. Source/current gates cover reports, originals,
+foreground restores and selected memory. Interrupted jobs retain Unknown and are
+not replayed. No Worker intelligence, new provider types or channel coupling is
+introduced. A bounded provenance pointer avoids copying an entire day into each
+semantic record. See ADR040 and DAILY_BRIEFING for limits and acceptance scope.
+
+
+## Reviewed user-correction lifecycle — 2026-11-06, local schema038
+
+The existing Actor review and semantic store own conversation-local corrections.
+A typed current-user quotation creates a MemoryCandidate with independent
+ConversationCorrection attribution, inherited finite expiry and exact predecessor.
+Accepting it, retiring/scrubbing the predecessor, suppressing old inputs and
+recording a content-free effect are one transaction. The correction-creation
+ActorContext also depends on the new record version: future forgetting,
+supersession or expiry withdraws its quoted user body from model/ordinary history
+while immutable raw audit and separate effect receipts remain. This dependency
+does not recurse through the originating Actor and confers no source authority.
+No new Worker intelligence, channel coupling or live collection is introduced.
+
+
+## Conversation daily retrieval — 2026-11-05, local schema035
+
+A finite event-driven coordinator reuses the existing briefing Actor batches and
+stores only run progress. Foreground yesterday/read/original tools use the same
+conversation's independent grant and persist manifest disclosure dependencies
+before returning content. Admission, publication, QQ prewrite and restores check
+current sources; stopped runs cannot admit a prepared request or publish a late
+batch. Restart keeps Unknown rather than relaunching work. Reports carry readable
+source identities and bounded stable-number pages. Generic memory promotion
+remains blocked; selected-memory integration is still required. No production
+upgrade or new live source is implied. [Contract](DAILY_BRIEFING.md).
+
+## Finite daily model processing — 2026-11-05, local schema034
+
+The existing Actor now owns one tool-free, accounted extraction request per
+selected manifest page. Kernel source checks gate admission and reads; validated
+items/citations, Assistant body and completion commit atomically. The same batch
+identity recovers its original turn and never replays Unknown work. This is an
+internal bounded Lain activity, not a Worker planner or another persona. Whole-day
+coordination, ordinary QQ/terminal retrieval and selected-memory integration are
+still in progress. [Scope and evidence](DAILY_BRIEFING.md).
+
+## Daily briefing evidence — 2026-11-05, local implementation
+
+Schema033 adds default-off conversation-scoped source disclosure and durable,
+text-free day manifests over existing archives. Selected record versions and
+source grants are rechecked on every bounded page; preparation starts no model,
+collector or memory write. Finite upstream gap reports are historical metadata,
+not liveness. Model/publication/audit and selected-memory integration remain
+required; no cloud upgrade is claimed. See [ADR037](adr/037-conversation-bound-daily-briefing.md)
+and [current delivery](DAILY_BRIEFING.md).
+
+Client startup now has a bounded owner snapshot and content-free invalidation
+protocol with persistent Kernel identity, a boot generation and transactional
+revision. See [client sync](CLIENT_SYNC.md) and [ADR035](adr/035-client-startup-and-live-invalidation.md).
+The terminal consumer now retires old read generations on invalidation/loss/lease
+expiry and preserves exact effect receipts independently. Its bounded private
+cache contains connection/resource hints only. Windows/Linux native checks and
+the explicit cloud schema32 upgrade/public startup transport pass. Twelve actual
+HTTPS Worker cases and seven scoped-memory/model/terminal cases now pass on the
+maintenance release, including exact permissions and post-fault content. This introduces
+no Actor or Worker intelligence.
+
+## Contextual semantic-memory boundary — 2026-11-04
+
+Schema030 captures owner-selected conversation context and per-turn memory
+dependencies. Generic model tools use that context, independently of owner
+transport authentication. Stable Project/Device/DeviceWorkspace scopes avoid
+cross-host path canonicalization; origin is separate from visibility. History,
+inference admission, proposal review and publication recheck versioned sources.
+See [ADR034](adr/034-contextual-semantic-memory.md). The selected-scope strict tool
+definitions now use exact Kernel-owned IDs. Native Windows/Linux and isolated
+actual HTTPS checks pass; the backed-up schema32 maintenance release is deployed.
+Final operational retention is verified separately; the complete evidence and
+remaining real-use boundaries are recorded in [cloud acceptance](CLOUD_ACCEPTANCE.md).
+
+## Cloud continuity project registry — 2026-11-04
+
+Kernel now owns stable ProjectId metadata and explicitly reviewed device/workspace
+assignments. Schema029 commits metadata and immutable request receipts together;
+paths and provider objects do not define project identity. The owner-only API
+creates no Worker, Actor tool, semantic-memory grant or alternate identity.
+Legacy memory scopes are unchanged. Contextual memory and bootstrap subscription
+remain the following increments of [cloud continuity](CLOUD_CONTINUITY.md).
+
+## W4 permission observations and explicit cancellation — 2026-11-03
+
+Immutable owner decisions stay separate from cumulative typed device receipt/
+application reports. The Kernel checks exact recorded decisions and monotonic
+evidence; only the native Supervisor's matching resolution supplies Applied.
+Both observation and terminal-result paths preserve it. The terminal F8 stop
+request reuses existing scoped revision checks; navigation owns no cancellation
+authority. No new executor, persona, model loop or native-RPC replay path is added.
+Windows private-file operations use the shared handle-based Win32 implementation
+without an orphanable ACL subprocess. [Evidence](DEVICE_EXECUTION.md), [W4 audit](W4_ACCEPTANCE.md).
+
+## W4c same-session continuation — 2026-11-03
+
+Schema028 adds explicit linear continuation links; it preserves unique executions/
+turns while permitting one verified family's original device session to span
+commands. Actor and owner APIs share atomic child/origin/receipt/head admission.
+The native host resumes only its original protected provider binding; the pure
+Rust terminal keeps one family row and separate Worker/Lain drafts. No generic
+Worker intelligence, cloud-local fake session or provider object enters the new
+wire contract. [ADR033](adr/033-same-device-session-continuation.md), [operation](DEVICE_WORK.md).
+
+## W4b conversation-bound device work — 2026-11-03
+
+Schema027 atomically associates an actual originating conversation with its device
+command and any confirmed Actor partial receipt. Remote work is not inserted into
+the cloud-local Supervisor. Fresh bounded projections reuse device notifications
+for independent terminal observation and ordinary on-demand Actor context; no
+model wake or second event log is added. See [contract](DEVICE_WORK.md) and
+[ADR 032](adr/032-conversation-bound-device-work.md). Full W4 remains in progress.
+
+## W4a terminal client boundary — 2026-11-02
+
+The pure Rust conversational shell composes existing Actor rendering, Worker TUI
+and owner device reads. It owns only ephemeral draft/display state and read-stream
+tasks; Kernel owns all conversations and work. One terminal input reader exists at
+a time. Switching/closing never cancels work. The new device command-summary GET
+is an owner-only bounded metadata projection, without an executor or schema change.
+See [ADR 031](adr/031-conversational-terminal.md) and [design](TERMINAL_DESIGN.md).
+
+## W3b explicit native Worker service — 2026-11-02
+
+`lain-device-agent` is a separately started native device service, reusing the
+existing Supervisor/structured Codex adapter and a protected local operational
+Kernel store. It has no Actor, channel, cloud administrator listener or semantic
+identity; the cloud remains authoritative for commands, decisions and continuity.
+The small `lain-local` utility crate shares the existing CLI owner-only native
+file implementation. It owns no runtime policy registry. Deterministic effect
+fences precede launch/submission/response; explicit local policy and fresh cloud
+scope are checked before effects. See [ADR 030](adr/030-native-device-worker-service.md)
+and [operation/validation](DEVICE_HOST.md).
+
+## W3a observation and human-decision boundary — 2026-11-02
+
+The Kernel adds typed device-local execution correlation and an independent owner
+decision ledger. Reports never create cloud-local Worker sessions; decisions
+never imply Worker application. Fingerprints bind exact visible scope, only the
+owner decides, and the device can read only its own receipts. W3b native
+execution remains separate. See [ADR 029](adr/029-device-execution-evidence.md)
+and [contract](DEVICE_EXECUTION.md).
+
+## W2b durable device command boundary — 2026-11-02
+
+The Kernel owns immutable work intents, per-command device event receipts and a
+per-device resynchronization ledger. Explicit administrator queue/cancel routes
+remain separate from device-authenticated inspect/change/report routes. Device
+reports are attributed observations, not local Supervisor WorkSessions or proof
+of native execution. W2b starts no executor. A bounded wait uses notifications and
+fresh storage/authentication; it does not install a poller. See
+[ADR 028](adr/028-durable-device-commands.md) and [operation/evidence](DEVICE_COMMANDS.md).
+
 ## Current private visual input — 2026-10-28
 
 The existing channel ingress owns ordered normalized text/visual/expression parts.

@@ -5,6 +5,7 @@ use lain_wire::{DeviceId, devices::*};
 
 pub(super) fn owner_routes() -> Router<ApiState> {
     Router::new()
+        .merge(super::device_commands::owner_routes())
         .route("/v1/devices", get(list).post(register))
         .route("/v1/devices/{id}", get(inspect))
         .route("/v1/devices/{id}/revoke", post(revoke))
@@ -12,6 +13,7 @@ pub(super) fn owner_routes() -> Router<ApiState> {
 
 pub(super) fn agent_routes(state: ApiState) -> Router {
     Router::new()
+        .merge(super::device_commands::agent_routes())
         .route("/v1/device-agent/{id}", get(own))
         .route("/v1/device-agent/{id}/claim", post(claim))
         .route("/v1/device-agent/{id}/reports", post(report))
@@ -20,7 +22,7 @@ pub(super) fn agent_routes(state: ApiState) -> Router {
         .layer(middleware::from_fn(agent_response))
 }
 
-fn proof(headers: &HeaderMap) -> Result<String, ApiError> {
+pub(super) fn proof(headers: &HeaderMap) -> Result<String, ApiError> {
     let mut values = headers.get_all(header::AUTHORIZATION).iter();
     let value = values
         .next()
@@ -33,7 +35,7 @@ fn proof(headers: &HeaderMap) -> Result<String, ApiError> {
     }
     Ok(value)
 }
-fn agent_error(error: anyhow::Error) -> ApiError {
+pub(super) fn agent_error(error: anyhow::Error) -> ApiError {
     if error.is::<crate::persistence::DeviceAuthenticationDenied>() {
         ApiError(StatusCode::UNAUTHORIZED, "unauthorized")
     } else {

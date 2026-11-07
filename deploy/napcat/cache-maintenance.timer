@@ -1,0 +1,11 @@
+[Unit]
+Description=Hourly Lain NapCat temporary image maintenance
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+Unit=lain-napcat-cache.service
+
+[Install]
+WantedBy=timers.target

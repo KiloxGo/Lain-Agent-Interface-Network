@@ -4,7 +4,6 @@ use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    io::Write,
     net::SocketAddr,
     path::{Path, PathBuf},
     process::Stdio,
@@ -63,163 +62,7 @@ fn platform_directory() -> Result<PathBuf> {
             .join(".config/lain"),
     })
 }
-fn reject_link(path: &Path) -> Result<()> {
-    let metadata = fs::symlink_metadata(path).context("inspect local settings")?;
-    ensure!(
-        !metadata.file_type().is_symlink(),
-        "local settings cannot be symbolic links"
-    );
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        ensure!(
-            metadata.file_attributes() & 0x400 == 0,
-            "local settings cannot be reparse points"
-        );
-    }
-    Ok(())
-}
-#[cfg(unix)]
-pub(crate) fn private(path: &Path, directory: bool, set: bool) -> Result<()> {
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
-    reject_link(path)?;
-    let metadata = fs::metadata(path)?;
-    ensure!(
-        metadata.uid() == unsafe { libc::geteuid() },
-        "local settings must belong to the current owner"
-    );
-    ensure!(
-        metadata.is_dir() == directory,
-        "unexpected local settings file type"
-    );
-    if !directory {
-        ensure!(
-            metadata.is_file() && metadata.nlink() == 1,
-            "credentials must be ordinary, unlinked files"
-        );
-    }
-    let mode = if directory { 0o700 } else { 0o600 };
-    if set {
-        fs::set_permissions(path, fs::Permissions::from_mode(mode))?;
-    }
-    ensure!(
-        fs::metadata(path)?.permissions().mode() & 0o777 == mode,
-        "local settings permissions are not private; restore 0700 directories and 0600 files"
-    );
-    Ok(())
-}
-#[cfg(windows)]
-pub(crate) fn private(path: &Path, directory: bool, set: bool) -> Result<()> {
-    reject_link(path)?;
-    ensure!(
-        fs::metadata(path)?.is_dir() == directory,
-        "unexpected local settings file type"
-    );
-    // `set` is used only immediately after exclusive creation of a new object.
-    // Elevated Windows tokens may create Administrators-owned objects; assign the
-    // current user before checking. Existing objects always use check-only mode.
-    // Windows-only native .NET ACL API. The path is data in an environment variable,
-    // never interpolated into PowerShell source. No credential is sent to this process.
-    let script = r#"
-$ErrorActionPreference = 'Stop'
-# Use the modules shipped with this Windows PowerShell process, not inherited
-# PowerShell 7/user module paths with incompatible framework assemblies.
-$env:PSModulePath = [System.IO.Path]::Combine($PSHOME, 'Modules')
-$p = $env:LAIN_ACL_PATH
-$sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-$item = Get-Item -LiteralPath $p -Force
-if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 -or $item.LinkType -eq 'HardLink') { throw 'linked file rejected' }
-$a = Get-Acl -LiteralPath $p
-if ($env:LAIN_ACL_SET -ne '1' -and $a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { throw 'owner mismatch' }
-if ($env:LAIN_ACL_SET -eq '1') {
-    if ($env:LAIN_ACL_DIR -eq '1') {
-        $a = New-Object System.Security.AccessControl.DirectorySecurity
-        $r = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-    } else {
-        $a = New-Object System.Security.AccessControl.FileSecurity
-        $r = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', 'Allow')
-    }
-    $a.SetOwner($sid)
-    $a.SetAccessRuleProtection($true, $false)
-    $a.AddAccessRule($r)
-    Set-Acl -LiteralPath $p -AclObject $a
-    $a = Get-Acl -LiteralPath $p
-}
-if (-not $a.AreAccessRulesProtected) { throw 'ACL inheritance must be disabled' }
-$rules = @($a.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))
-if ($rules.Count -eq 0) { throw 'empty ACL' }
-foreach ($r in $rules) {
-    if ($r.IdentityReference.Value -ne $sid.Value -or $r.AccessControlType -ne 'Allow') { throw 'non-owner ACL' }
-}
-if ($a.GetOwner([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) { throw 'owner mismatch' }
-"#;
-    let mut command = std::process::Command::new("powershell.exe");
-    command.env_clear();
-    for (key, value) in std::env::vars_os() {
-        if matches!(
-            key.to_string_lossy().to_ascii_uppercase().as_str(),
-            "SYSTEMROOT"
-                | "WINDIR"
-                | "PATH"
-                | "TEMP"
-                | "TMP"
-                | "USERPROFILE"
-                | "LOCALAPPDATA"
-                | "APPDATA"
-                | "COMSPEC"
-        ) {
-            command.env(key, value);
-        }
-    }
-    let status = command
-        .args([
-            "-NoLogo",
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            script,
-        ])
-        .env("LAIN_ACL_PATH", path)
-        .env("LAIN_ACL_SET", if set { "1" } else { "0" })
-        .env("LAIN_ACL_DIR", if directory { "1" } else { "0" })
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .context("Windows PowerShell is required to protect/check local ACLs")?;
-    ensure!(
-        status.success(),
-        "local settings ACL must grant only the current owner; inspect with Get-Acl"
-    );
-    Ok(())
-}
-pub(crate) fn create_private(path: &Path, content: &[u8]) -> Result<()> {
-    let mut options = fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
-    }
-    let mut file = options
-        .open(path)
-        .context("create local file without overwriting")?;
-    // Parent is already private; Windows child inherits its owner-only ACL.
-    private(path, false, true)?;
-    file.write_all(content)?;
-    file.sync_all()?;
-    Ok(())
-}
-pub(crate) fn outside_checkout(path: &Path) -> Result<()> {
-    let canonical = path
-        .canonicalize()
-        .context("resolve local configuration directory")?;
-    ensure!(
-        !canonical.ancestors().any(|p| p.join(".git").exists()),
-        "local credentials must be outside a Git checkout"
-    );
-    Ok(())
-}
+pub(crate) use lain_local::{create_private, outside_checkout, private};
 fn read_settings(path: &Path) -> Result<Settings> {
     outside_checkout(path)?;
     private(path, true, false)?;
@@ -562,10 +405,25 @@ pub async fn doctor(machine: bool, env_file: Option<&Path>) -> Result<()> {
             );
             if let Some(backends) = d["backends"].as_array() {
                 for backend in backends {
+                    let supported = backend["supported_versions"]
+                        .as_array()
+                        .map(|values| {
+                            values
+                                .iter()
+                                .filter_map(serde_json::Value::as_str)
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        })
+                        .unwrap_or_else(|| {
+                            backend["supported_version"]
+                                .as_str()
+                                .unwrap_or("unknown")
+                                .to_owned()
+                        });
                     println!(
                         "Codex:       {} — supported version {}; executable {}",
                         backend["status"].as_str().unwrap_or("unavailable"),
-                        backend["supported_version"].as_str().unwrap_or("unknown"),
+                        supported,
                         crate::tui::safe_text(&backend["executable"].to_string())
                     );
                 }

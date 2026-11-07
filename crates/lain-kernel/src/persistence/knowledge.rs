@@ -271,6 +271,7 @@ impl Store {
         j.next = Some(id);
         j.coverage="bounded_source_projection_30_second_freshness_lease_no_collection_or_participation_claim".into();
         let s = KnowledgeArchiveState {
+            coverage: page.coverage,
             source_id: j.source_id,
             local_grant_revision: g.revision,
             reader_revision: j.reader_revision.clone().ok_or(ControlError::Conflict)?,

@@ -149,6 +149,15 @@ The local observer records gaps on disconnect/overflow/media failure and retries
 only idempotent outbox uploads with bounded backoff. OneBot has no durable delivery
 ack/backfill in this adapter: a crash before outbox commit can lose an event, and
 the authentication boundary has a receive gap. It never claims complete coverage.
+
+Source-scoped `/v1/changes?source_id=...` also returns an optional `coverage`
+envelope: `observed_at_ms`, `bounded_history: true`,
+`source_epochs_untracked: true`, and at most 20 newest-first events from that
+source (`sequence`, `kind`, `recorded_at_ms`). The service retains only the global
+latest 1000 reports. Times record receipt of the report, not true disconnect or
+recovery boundaries; legacy events lack source authorization epochs. This is
+historical gap metadata, never a heartbeat, backfill or completeness guarantee.
+Unscoped changes return null coverage, not other sources' events.
 Invalid/conflicting events are recorded as a local gap rather than silently
 changed into successful ingestion. A server source revoke stops/purges that
 source's pending uploads on rejection; offline local copies remain bounded by
@@ -168,3 +177,5 @@ and restore the matching complete stopped state for incompatible schema rollback
 Tests: `PYTHONPATH=. python -m unittest discover -s tests -v`. Native platform,
 real-provider and real-NapCat evidence are separately recorded in
 [`../../docs/QQ_KNOWLEDGE_ACCEPTANCE.md`](../../docs/QQ_KNOWLEDGE_ACCEPTANCE.md).
+
+Kernel terminal controls for its separately authorized registration/import/sync are documented in [SOURCE_SETUP](../../docs/SOURCE_SETUP.md). They do not edit this service or the observer allowlist.

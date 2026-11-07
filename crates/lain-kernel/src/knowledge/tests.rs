@@ -160,6 +160,163 @@ async fn pull(
 }
 
 #[tokio::test]
+async fn reply_references_survive_scoped_import_update_and_withdrawal_without_target_reads() {
+    let (_dir, k, s, c, r, server) = fixture().await;
+    r.page.lock().unwrap()["items"][0]["message"]["segments"] = json!([
+        {"type":"reply","reference":"9001","target_body":"not fetched target secret"},
+        {"type":"text","text":"bridge original"}
+    ]);
+    let first = pull(&k, s, &c, None).await;
+    assert_eq!(first.state, ArchiveReadState::Completed);
+    assert_eq!(first.new_records, 1);
+    assert_eq!(first.record_ids.len(), 1);
+    let id = first.record_ids[0];
+    let record = k.archive_record(id).unwrap();
+    let deadline = record.retain_until_ms;
+    let body: Value = serde_json::from_str(record.text.as_deref().unwrap()).unwrap();
+    assert_eq!(body["native_message_id"], "1234");
+    assert_eq!(
+        body["reply_references"]["observed_markers"][0]["native_reference_id"],
+        "9001"
+    );
+    assert_eq!(
+        body["reply_references"]["observed_markers"][0]["segment_index"],
+        0
+    );
+    assert_eq!(
+        body["reply_references"]["observed_markers"][0].get("resolved_target"),
+        Some(&Value::Null)
+    );
+    assert!(body["reply_references"].get("targets").is_none());
+    assert_eq!(
+        body["reply_references"]["lookup_scope"],
+        "current_source_only"
+    );
+    assert_eq!(
+        body["reply_references"]["target_resolution"],
+        "not_attempted"
+    );
+    assert!(body["reply_references"].get("scope").is_none());
+    assert_eq!(
+        body["reply_references"]["target_chronology"],
+        "unknown_without_verified_target_clock"
+    );
+    assert_eq!(
+        body["reply_references"]["target_content"],
+        "not_loaded_by_reference"
+    );
+    assert_eq!(body["reply_references"]["omitted_references"], 0);
+    assert!(!record.text.unwrap().contains("not fetched target secret"));
+    assert_eq!(r.calls.load(Ordering::SeqCst), 1);
+    assert_eq!(k.archive_source(s).unwrap().total_records, 1);
+
+    let mut changed = page(2, "bridge original", "active");
+    changed["items"][0]["message"]["segments"] = json!([
+        {"type":"reply","reference":"9002"},
+        {"type":"text","text":"bridge original"}
+    ]);
+    *r.page.lock().unwrap() = changed;
+    let second = pull(&k, s, &c, Some(first.request.request_id)).await;
+    assert_eq!(second.updated_records, 1);
+    let updated = k.archive_record(id).unwrap();
+    assert_eq!(updated.revision, record.revision + 1);
+    assert_eq!(updated.retain_until_ms, deadline);
+    let body: Value = serde_json::from_str(updated.text.as_deref().unwrap()).unwrap();
+    assert_eq!(
+        body["reply_references"]["observed_markers"][0]["native_reference_id"],
+        "9002"
+    );
+    assert!(!updated.text.unwrap().contains("9001"));
+    assert_eq!(r.calls.load(Ordering::SeqCst), 2);
+
+    *r.page.lock().unwrap() = page(3, "", "recalled");
+    let withdrawn = pull(&k, s, &c, Some(second.request.request_id)).await;
+    assert_eq!(withdrawn.withdrawn_records, 1);
+    assert!(k.archive_record(id).unwrap().text.is_none());
+    assert_eq!(k.archive_source(s).unwrap().total_records, 1);
+    assert!(k.list_sessions().unwrap().is_empty());
+    server.abort();
+    let _ = server.await;
+}
+
+#[test]
+fn reply_reference_projection_is_bounded_and_legacy_messages_stay_unchanged() {
+    let raw = page(1, "bridge original", "active");
+    let legacy: Message = serde_json::from_value(raw["items"][0]["message"].clone()).unwrap();
+    let old_projection = projection(&legacy).unwrap();
+    assert!(
+        serde_json::from_str::<Value>(&old_projection)
+            .unwrap()
+            .get("reply_references")
+            .is_none()
+    );
+    let mut message = raw["items"][0]["message"].clone();
+    message["segments"] = json!([{"type":"text","text":"not another original body"},{"type":"at","reference":"2222"}]);
+    let ordinary: Message = serde_json::from_value(message.clone()).unwrap();
+    assert_eq!(projection(&ordinary).unwrap(), old_projection);
+    // Existing plain messages must not spuriously update/withdraw owner edits on upgrade.
+    assert_eq!(
+        serde_json::to_value(&ordinary).unwrap(),
+        serde_json::to_value(&legacy).unwrap()
+    );
+    message["segments"] = json!(
+        (0..128)
+            .map(|i| json!({"type":"reply","reference":format!("{}{}", "9".repeat(76), i)}))
+            .collect::<Vec<_>>()
+    );
+    let many: Message = serde_json::from_value(message).unwrap();
+    let text = projection(&many).unwrap();
+    archives::validate_text(&text).unwrap();
+    let body: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        body["reply_references"]["observed_markers"]
+            .as_array()
+            .unwrap()
+            .len(),
+        4
+    );
+    assert_eq!(body["reply_references"]["omitted_references"], 124);
+    assert_eq!(body["original_message_text"]["text"], "bridge original");
+}
+
+#[tokio::test]
+async fn invalid_reply_metadata_cannot_import_or_refresh_a_source() {
+    let (_dir, k, s, c, r, server) = fixture().await;
+    let invalid = [
+        json!([{"type":"reply","reference":""}]),
+        json!([{"type":"reply","reference":"unsafe\nidentity"}]),
+        json!([{"type":"reply","reference":"9".repeat(81)}]),
+        json!([{"type":"reply","reference":123}]),
+        json!([{"type":"reply"}]),
+        json!(
+            (0..129)
+                .map(|_| json!({"type":"reply","reference":"9001"}))
+                .collect::<Vec<_>>()
+        ),
+        json!([{"type":"reply","reference":"fixture-knowledge-read-1234567890"}]),
+    ];
+    for segments in invalid {
+        let mut raw = page(1, "must not import", "active");
+        raw["items"][0]["message"]["segments"] = segments;
+        *r.page.lock().unwrap() = raw;
+        let failed = pull(&k, s, &c, None).await;
+        assert_eq!(failed.state, ArchiveReadState::Failed);
+        assert_eq!(failed.failure, Some(ArchiveReadFailure::InvalidContent));
+        assert_eq!(k.archive_source(s).unwrap().total_records, 0);
+        assert!(k.knowledge_state(s).unwrap().is_none());
+    }
+    let mut tombstone = page(1, "", "forgotten");
+    tombstone["items"][0]["message"]["segments"] = json!([{"type":"reply","reference":"9001"}]);
+    *r.page.lock().unwrap() = tombstone;
+    assert_eq!(pull(&k, s, &c, None).await.state, ArchiveReadState::Failed);
+    assert_eq!(r.calls.load(Ordering::SeqCst), 8);
+    assert_eq!(k.archive_source(s).unwrap().total_records, 0);
+    assert!(k.knowledge_state(s).unwrap().is_none());
+    server.abort();
+    let _ = server.await;
+}
+
+#[tokio::test]
 async fn selected_projection_updates_withdrawals_and_owned_cursors_are_atomic() {
     // fetch() resolves this test-only SecretRef in the same native process.
     let (_dir, k, s, c, r, server) = fixture().await;
@@ -213,6 +370,43 @@ async fn selected_projection_updates_withdrawals_and_owned_cursors_are_atomic() 
     assert_eq!(same.state, ArchiveReadState::Completed);
     assert_eq!(r.calls.load(Ordering::SeqCst), calls);
     assert!(k.list_sessions().unwrap().is_empty());
+    server.abort();
+    let _ = server.await;
+}
+
+#[tokio::test]
+async fn bounded_coverage_survives_bridge_without_liveness_or_legacy_claims() {
+    let (_dir, k, s, c, r, server) = fixture().await;
+    r.page.lock().unwrap()["coverage"] = json!({"observed_at_ms":2000,"bounded_history":true,"source_epochs_untracked":true,
+        "events":[{"sequence":7,"kind":"disconnected_gap","recorded_at_ms":1800}]});
+    let first = pull(&k, s, &c, None).await;
+    assert_eq!(first.state, ArchiveReadState::Completed);
+    let state = k.knowledge_state(s).unwrap().unwrap();
+    let coverage = state.coverage.unwrap();
+    assert_eq!(
+        coverage.events[0].kind,
+        ArchiveCoverageKind::DisconnectedGap
+    );
+    assert_eq!(coverage.events[0].recorded_at_ms, 1800);
+    assert!(coverage.source_epochs_untracked);
+    let status = k.archive_source_status(s).unwrap();
+    assert_eq!(status.receiving_now, None);
+    r.page
+        .lock()
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .remove("coverage");
+    let second = pull(&k, s, &c, Some(first.request.request_id)).await;
+    assert_eq!(second.state, ArchiveReadState::Completed);
+    assert!(k.knowledge_state(s).unwrap().unwrap().coverage.is_none());
+    let mut bad = page(2, "must not import", "active");
+    bad["coverage"] = json!({"observed_at_ms":1000,"bounded_history":true,"source_epochs_untracked":true,
+        "events":[{"sequence":8,"kind":"disconnected_gap","recorded_at_ms":1800}]});
+    *r.page.lock().unwrap() = bad;
+    let failed = pull(&k, s, &c, Some(second.request.request_id)).await;
+    assert_eq!(failed.state, ArchiveReadState::Failed);
+    assert!(k.knowledge_state(s).unwrap().unwrap().coverage.is_none());
     server.abort();
     let _ = server.await;
 }

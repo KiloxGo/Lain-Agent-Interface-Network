@@ -4,6 +4,7 @@ mod archives;
 mod channel;
 mod chat;
 mod chat_notice;
+mod desk;
 mod devices;
 mod inference;
 mod local;
@@ -11,6 +12,7 @@ mod memory;
 mod reading;
 mod sharing;
 mod signals;
+mod sync_cache;
 mod tui;
 
 use anyhow::{Result, ensure};
@@ -31,6 +33,14 @@ struct Args {
 }
 #[derive(Subcommand)]
 enum Command {
+    /// Open the unified conversational terminal.
+    Desk {
+        #[arg(long)]
+        conversation: Option<ConversationId>,
+        /// Local 29 x 18 UTF-8 character portrait; also LAIN_PORTRAIT_FILE.
+        #[arg(long)]
+        portrait: Option<std::path::PathBuf>,
+    },
     Device {
         #[command(subcommand)]
         command: devices::Commands,
@@ -159,6 +169,8 @@ enum ActorCommands {
 }
 #[derive(Subcommand)]
 enum Work {
+    /// Open the dedicated Worker terminal.
+    Dashboard,
     List,
     Start {
         #[arg(long)]
@@ -301,10 +313,20 @@ async fn run(args: Args) -> Result<()> {
     };
     let Some(command) = args.command else {
         ensure!(!args.json, "--json requires a non-interactive command");
-        return tui::run(client, None).await;
+        return desk::run(client, None, None).await;
     };
     let json_output = args.json;
     match command {
+        Command::Desk {
+            conversation,
+            portrait,
+        } => {
+            ensure!(
+                !json_output,
+                "desk is interactive; use --json ask/work/device commands"
+            );
+            desk::run(client, conversation, portrait).await
+        }
         Command::Device { command } => devices::run(&client, command, json_output).await,
         Command::Experience { command } => {
             reading::experiences(&client, command, json_output).await
@@ -432,6 +454,10 @@ async fn run(args: Args) -> Result<()> {
             )
         }
         Command::Work { command } => match command {
+            Work::Dashboard => {
+                ensure!(!json_output, "dashboard requires an interactive terminal");
+                tui::run(client, None).await
+            }
             Work::List => {
                 let value: Value = client.get("v1/work-sessions").await?;
                 if json_output {

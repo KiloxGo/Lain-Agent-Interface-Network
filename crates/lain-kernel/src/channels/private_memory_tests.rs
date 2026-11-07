@@ -33,9 +33,21 @@ impl ActorModel for PrivateModel {
             .iter()
             .rev()
             .find(|v| v["type"] == "function_call_output");
+        let committed = request.input.iter().any(|v| {
+            v.get("content").and_then(Value::as_str).is_some_and(|s| {
+                s.starts_with("Kernel record of already committed effects (IDs only")
+            })
+        });
         let reply = if let Some(output) = output {
             Reply {
                 text: format!("已处理。{}", output["output"].as_str().unwrap_or("")),
+                calls: vec![],
+                usage_tokens: 1,
+                continuation: vec![],
+            }
+        } else if committed && matches!(self.mode, "correct" | "forget") {
+            Reply {
+                text: "已处理。".into(),
                 calls: vec![],
                 usage_tokens: 1,
                 continuation: vec![],
@@ -199,7 +211,7 @@ async fn actor_independent_memory_recalls_actual_id_then_corrects_and_forgets_wi
     drop(m);
     let (a, _) = actor(&k, "correct", None);
     let t = complete(&k, &a, &b, "柠檬茶说错了，改为白水").await;
-    assert_eq!(t.state, TurnState::Completed);
+    assert_eq!(t.state, TurnState::Completed, "{t:?}");
     let replacement: MemoryId =
         serde_json::from_value(t.actions[0].result.as_ref().unwrap()["memory_id"].clone()).unwrap();
     assert_eq!(k.memory(id).unwrap().superseded_by, Some(replacement));
@@ -231,6 +243,12 @@ async fn revocation_during_generation_and_legacy_review_cannot_be_bypassed() {
     let (a, m) = actor(&k, "legacy", None);
     let t = complete(&k, &a, &b, "请记住这件事").await;
     assert_eq!(t.state, TurnState::PendingConfirmation);
+    assert_eq!(
+        k.memory_candidate(CandidateId(t.actions[0].id.0))
+            .unwrap()
+            .origin,
+        Some(MemoryOrigin::Channel { channel_id: b.id })
+    );
     assert!(
         !m.requests.lock().unwrap()[0]
             .tools

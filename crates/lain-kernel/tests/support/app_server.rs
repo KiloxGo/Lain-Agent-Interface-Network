@@ -74,10 +74,14 @@ fn main() {
                 }
                 std::fs::write(workspace.join("fixture-config.json"), json!({"args":config,"model":params["model"],"provider":params["modelProvider"],"sandbox":params["sandbox"],"approval_policy":params["approvalPolicy"],"config":params["config"]}).to_string()).unwrap();
                 if request["method"] == "thread/resume" {
-                    let saved: Value = serde_json::from_str(
-                        &std::fs::read_to_string(workspace.join("fixture-history.json")).unwrap(),
-                    )
-                    .unwrap();
+                    let specific = thread_history(&workspace, params["threadId"].as_str().unwrap());
+                    let selected = if specific.exists() {
+                        specific
+                    } else {
+                        workspace.join("fixture-history.json")
+                    };
+                    let saved: Value =
+                        serde_json::from_str(&std::fs::read_to_string(selected).unwrap()).unwrap();
                     thread = saved["id"].as_str().unwrap().into();
                     assert_eq!(params["threadId"], thread);
                     turns = saved["turns"].as_array().unwrap().clone();
@@ -89,6 +93,7 @@ fn main() {
                 } else {
                     thread = uuid::Uuid::new_v4().to_string();
                 }
+                persist(&workspace, &thread, &turns);
                 result(
                     id,
                     json!({"model":params["model"].as_str().unwrap_or("fixture-default"),"reasoningEffort":params["config"]["model_reasoning_effort"].as_str().unwrap_or("high"),"thread":{"id":thread,"turns":turns,"status":{"type":"idle"}}}),
@@ -112,6 +117,39 @@ fn main() {
                 result(id, json!({"turn":turn}));
                 let turn_id = turn["id"].clone();
                 match mode.as_str() {
+                    "command-output-burst" => {
+                        note(
+                            "item/started",
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"id":"read","type":"commandExecution","command":"fixture read"}}),
+                        );
+                        for _ in 0..12000 {
+                            note(
+                                "item/commandExecution/outputDelta",
+                                json!({"threadId":thread,"turnId":turn_id,"itemId":"read","delta":"x"}),
+                            );
+                        }
+                        note(
+                            "item/completed",
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"id":"read","type":"commandExecution","command":"fixture read","aggregatedOutput":"FINAL READ OUTPUT 你好","exitCode":0}}),
+                        );
+                        note(
+                            "item/completed",
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"id":"answer","type":"agentMessage","text":"FINAL SUMMARY 你好"}}),
+                        );
+                        finish(&workspace, &thread, &mut turns, "completed");
+                    }
+                    "activity-result" | "activity-followup" => {
+                        let text = if mode == "activity-followup" {
+                            "**SECOND RESULT**\n\nPrevious answer remains in the timeline."
+                        } else {
+                            "**RESULT BOLD**\n\n- First item\n- Second item\n\n```rust\nlet result = 42;\n```"
+                        };
+                        note(
+                            "item/completed",
+                            json!({"threadId":thread,"turnId":turn_id,"item":{"id":"activity-result","type":"agentMessage","text":text}}),
+                        );
+                        finish(&workspace, &thread, &mut turns, "completed");
+                    }
                     "notice-gate" => {
                         // A fixture-owned file gate lets the native PTY test
                         // type before completion; no real work or provider runs.
@@ -188,7 +226,11 @@ fn main() {
                             json!({"id":approval,"method":"item/unknown/request","params":{"threadId":thread,"turnId":turn_id}}),
                         );
                     }
-                    "approve" | "approve-string" | "permissions" | "file-approval" => {
+                    "approve"
+                    | "approve-string"
+                    | "approve-unconfirmed"
+                    | "permissions"
+                    | "file-approval" => {
                         approval = if mode == "approve-string" {
                             json!("server-approval")
                         } else {
@@ -327,10 +369,17 @@ fn main() {
                     request["result"]["decision"].is_string()
                         || request["result"]["permissions"].is_object()
                 );
-                note(
-                    "serverRequest/resolved",
-                    json!({"threadId":thread,"requestId":approval}),
-                );
+                // Persist the actual native wire response independently of
+                // Lain's own decision/Applied records. Acceptance must detect
+                // an adapter accidentally sending accept for a denial.
+                turns.last_mut().unwrap()["fixture_approval_response"] = request["result"].clone();
+                persist(&workspace, &thread, &turns);
+                if mode != "approve-unconfirmed" {
+                    note(
+                        "serverRequest/resolved",
+                        json!({"threadId":thread,"requestId":approval}),
+                    );
+                }
                 approval = Value::Null;
                 finish(&workspace, &thread, &mut turns, "completed");
             }
@@ -340,11 +389,13 @@ fn main() {
 }
 
 fn persist(workspace: &std::path::Path, thread: &str, turns: &[Value]) {
-    std::fs::write(
-        workspace.join("fixture-history.json"),
-        json!({"id":thread,"turns":turns}).to_string(),
-    )
-    .unwrap();
+    let bytes = json!({"id":thread,"turns":turns}).to_string();
+    std::fs::write(workspace.join("fixture-history.json"), &bytes).unwrap();
+    std::fs::write(thread_history(workspace, thread), &bytes).unwrap();
+}
+fn thread_history(workspace: &std::path::Path, thread: &str) -> PathBuf {
+    let id = uuid::Uuid::parse_str(thread).expect("fixture thread UUID");
+    workspace.join(format!("fixture-thread-{id}.json"))
 }
 fn finish(workspace: &std::path::Path, thread: &str, turns: &mut [Value], status: &str) {
     turns.last_mut().unwrap()["status"] = json!(status);

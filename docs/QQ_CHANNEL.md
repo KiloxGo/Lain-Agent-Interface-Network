@@ -1,5 +1,31 @@
 # QQ private conversation channel
 
+## Current cloud private entry — 2026-11-05
+
+The explicitly selected server-hosted NapCat now authenticates the intended Lain
+account and connects to the existing cloud Kernel. The old local reply grant is
+revoked, its idle Kernel stopped and its history preserved. Native account/Online
+checks, a same-binding Kernel restart, actual text/model/send receipts and user
+confirmation pass. Cloud image reception is now explicitly enabled with the
+existing image-capable model. Its first real images failed before pixel decoding:
+the official CDN returned 25 public DNS answers, exceeding the old limit of 16.
+The bounded correction is now deployed and two actual user images reached pixel
+preparation, Completed model turns and Confirmed QQ replies. The user confirms
+understanding and receipt. See [visual acceptance](VISUAL_CHAT_ACCEPTANCE.md);
+this current cloud evidence is separate from the historical local upgrade below.
+
+The user separately authorized seven days of Q2-A memory inside this private
+binding, starting after its new-input watermark, with correction/forget and no
+cross-conversation sharing. Actual remember/correct operations and active versus
+superseded versions were verified using user-provided preferences. Old local QQ
+and terminal memories were not imported or silently shared. Source-history
+lookup, group collection and proactive contact remain off. Live forgetting,
+broader naturalness and multi-day reliability remain separately unverified.
+Cloud operation and backup boundaries are in [CLOUD_OPERATIONS](CLOUD_OPERATIONS.md).
+The user chose to continue development immediately. Longer-term observation runs
+alongside development; the seven-day memory permission is not extended by that
+choice and is not a requirement to wait before implementing the next increment.
+
 ## Current private pictures and expressions — 2026-10-28
 
 The conversation adapter now normalizes pictures, picture/market stickers, QQ
@@ -27,9 +53,10 @@ model history. Image-influenced automatic memory writes are refused; forgetting
 an existing exact memory retains its separate quoted-text/grant checks.
 
 See [ADR 027](adr/027-private-visual-conversation.md) and
-[acceptance/upgrade status](VISUAL_CHAT_ACCEPTANCE.md). Development schema is 024;
-the historical Q1/C1 schema numbers below describe those releases, not an
-automatic personal upgrade. The separately authorized schema24 personal release
+[acceptance/upgrade status](VISUAL_CHAT_ACCEPTANCE.md). The historical picture
+increment used schema024; the current cloud Kernel uses schema032. Q1/C1 schema
+numbers below describe those releases, not an automatic personal upgrade.
+The separately authorized schema24 personal release
 now has real model/QQ acceptance for ordinary pictures and static picture stickers;
 broader visual quality and live animated/market variations remain unverified.
 
@@ -268,6 +295,14 @@ Reconnection restores live reception only: the implementation does not backfill
 messages missed while disconnected, nor claim complete history.
 
 ## Deployment design
+
+2026-11-05: the user selected server-hosted QQ login as the next daily-use slice.
+The optional [cloud transport template](../deploy/napcat/README.md) prepares a
+separate pinned-image NapCat container beside the existing Kernel, with private
+state, authenticated loopback-only ports and explicit resource/log limits.
+Preparation, actual account login, switching the old reply binding, cloud chat
+and memory/continuity acceptance are separate steps. A running container is not
+an Online QQ account, and this template adds no second Actor or memory store.
 
 First topology: one private server/service account hosting Kernel and NapCat.
 NapCat's OneBot listener and the Kernel API bind to loopback. The QQ connection

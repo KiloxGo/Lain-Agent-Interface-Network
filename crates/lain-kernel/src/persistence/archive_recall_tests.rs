@@ -189,6 +189,10 @@ fn archive_lookup_audit_and_versions_commit_atomically_and_corrections_invalidat
     ));
     t = s.actor_turn(t.id).unwrap();
     assert!(t.private_chat.as_ref().unwrap().archive_versions.is_empty());
+    // Production replaces the entire model input after ChatRefresh::Updated;
+    // merely refreshing source vectors must not erase old continuation leases.
+    s.memory_context_history(t.id, s.actor_recent(t.conversation_id).unwrap())
+        .unwrap();
     let a = search(&mut s, &mut t, None, Some("测试"));
     s.archive_actor_lookup(t.id, a, &Redactor::new(vec![]))
         .unwrap();

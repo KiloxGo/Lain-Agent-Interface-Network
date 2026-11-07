@@ -361,6 +361,7 @@ mod tests {
         let tid = TurnId::new();
         let mut actor = ActorTurn {
             reading_activity: None,
+            briefing_activity: None,
             sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: c.id,

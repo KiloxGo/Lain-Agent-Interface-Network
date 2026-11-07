@@ -260,7 +260,7 @@ def run(s):
     require(budget["reserved_requests"] == len(f.requests), "media bypassed inference ledger")
     s.stop()
     with closing(sqlite3.connect(s.local / "state.db")) as db:
-        require(db.execute("PRAGMA user_version").fetchone()[0] == 24, "schema")
+        require(db.execute("PRAGMA user_version").fetchone()[0] == 32, "current schema")
         history = "\n".join(row[0] for table in ["channel_incoming", "lain_actor_turns"] for row in db.execute(f"SELECT snapshot FROM {table}"))
         require(not any(v in history for v in ["base64", "data:image", "C:/private", "fixture-market"]), "transport/pixels leaked to history")
         require(db.execute("SELECT count(*) FROM lain_memories").fetchone()[0] == 0, "visual input wrote semantic memory")

@@ -7,6 +7,79 @@ use std::{io::Read, path::PathBuf};
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Local reader configuration/credential metadata, not connection liveness.
+    KnowledgeReader,
+    /// Coordinate all selected day pages in a finite background task.
+    BriefingRun {
+        conversation: lain_wire::ConversationId,
+        id: RequestId,
+    },
+    BriefingRunStatus {
+        conversation: lain_wire::ConversationId,
+        id: RequestId,
+    },
+    BriefingReport {
+        conversation: lain_wire::ConversationId,
+        id: RequestId,
+        #[arg(long, default_value_t = 0)]
+        after: u16,
+        #[arg(long, default_value_t = 4)]
+        limit: u16,
+    },
+    /// Start exactly one finite model batch for the selected day manifest.
+    BriefingProcess {
+        conversation: lain_wire::ConversationId,
+        id: RequestId,
+        #[arg(long, default_value_t = 0)]
+        from_index: u16,
+    },
+    /// Read one batch's current state and source-gated generated items.
+    BriefingBatch {
+        conversation: lain_wire::ConversationId,
+        id: RequestId,
+        #[arg(long, default_value_t = 0)]
+        from_index: u16,
+    },
+    /// Inspect independent daily-briefing disclosure authority for one conversation.
+    BriefingGrant {
+        conversation: lain_wire::ConversationId,
+    },
+    /// Read one historical operation; does not restore authority or replay a change.
+    BriefingReceipt {
+        conversation: lain_wire::ConversationId,
+        request: RequestId,
+    },
+    /// Explicit reviewed SetBriefingGrant JSON; creates no collector or memory grant.
+    BriefingEnable {
+        conversation: lain_wire::ConversationId,
+        #[arg(long)]
+        file: PathBuf,
+    },
+    BriefingRevoke {
+        conversation: lain_wire::ConversationId,
+        #[arg(long)]
+        request_id: RequestId,
+        #[arg(long)]
+        revision: u64,
+    },
+    /// Freeze yesterday's retained-source evidence, without generating a summary.
+    BriefingPrepare {
+        conversation: lain_wire::ConversationId,
+        #[arg(long)]
+        request_id: RequestId,
+        #[arg(long)]
+        revision: u64,
+    },
+    BriefingManifest {
+        conversation: lain_wire::ConversationId,
+        id: RequestId,
+    },
+    BriefingPage {
+        conversation: lain_wire::ConversationId,
+        id: RequestId,
+        #[arg(long, default_value_t = 0)]
+        from_index: u16,
+    },
     MemoryGrant {
         channel: lain_wire::ChannelId,
     },
@@ -92,6 +165,10 @@ pub enum Commands {
         id: RequestId,
     },
     Sources,
+    /// Read source grants, last actual receipt and synchronization metadata; no collection.
+    Status {
+        id: Option<ArchiveSourceId>,
+    },
     Grants {
         id: ArchiveSourceId,
     },
@@ -162,6 +239,19 @@ fn file(path: PathBuf) -> Result<Value> {
 }
 pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()> {
     let value:Value=match command {
+        Commands::KnowledgeReader=>client.get("v1/archives/knowledge-reader").await?,
+        Commands::BriefingRun{conversation,id}=>client.post(&format!("v1/briefing/{conversation}/manifests/{id}/run"),None).await?,
+        Commands::BriefingRunStatus{conversation,id}=>client.get(&format!("v1/briefing/{conversation}/manifests/{id}/run")).await?,
+        Commands::BriefingReport{conversation,id,after,limit}=>client.get(&format!("v1/briefing/{conversation}/manifests/{id}/report?after={after}&limit={limit}")).await?,
+        Commands::BriefingProcess{conversation,id,from_index}=>client.post(&format!("v1/briefing/{conversation}/manifests/{id}/process"),Some(json!({"from_index":from_index}))).await?,
+        Commands::BriefingBatch{conversation,id,from_index}=>client.get(&format!("v1/briefing/{conversation}/manifests/{id}/batches/{from_index}")).await?,
+        Commands::BriefingGrant{conversation}=>client.get(&format!("v1/briefing/{conversation}/grant")).await?,
+        Commands::BriefingReceipt{conversation,request}=>client.get(&format!("v1/briefing/{conversation}/grant/requests/{request}")).await?,
+        Commands::BriefingEnable{conversation,file:p}=>client.post(&format!("v1/briefing/{conversation}/grant"),Some(file(p)?)).await?,
+        Commands::BriefingRevoke{conversation,request_id,revision}=>client.post(&format!("v1/briefing/{conversation}/grant"),Some(json!({"request_id":request_id,"expected_revision":revision,"scope":null}))).await?,
+        Commands::BriefingPrepare{conversation,request_id,revision}=>client.post(&format!("v1/briefing/{conversation}/prepare"),Some(json!({"request_id":request_id,"grant_revision":revision,"day":"yesterday"}))).await?,
+        Commands::BriefingManifest{conversation,id}=>client.get(&format!("v1/briefing/{conversation}/manifests/{id}")).await?,
+        Commands::BriefingPage{conversation,id,from_index}=>client.get(&format!("v1/briefing/{conversation}/manifests/{id}/page?from_index={from_index}")).await?,
         Commands::MemoryGrant{channel}=>client.get(&format!("v1/archives/memory/{channel}")).await?,
         Commands::MemoryGrants{channel}=>client.get(&format!("v1/archives/memory/{channel}/grants")).await?,
         Commands::MemoryEnable{channel,file:p}=>client.post(&format!("v1/archives/memory/{channel}"),Some(file(p)?)).await?,
@@ -180,6 +270,8 @@ pub async fn run(client: &Client, command: Commands, machine: bool) -> Result<()
         Commands::ReadJob{id}=>client.get(&format!("v1/archives/reads/{id}")).await?,
         Commands::CancelRead{id}=>client.post(&format!("v1/archives/reads/{id}/cancel"),None).await?,
         Commands::Sources=>client.get("v1/archives/sources").await?,
+        Commands::Status{id:Some(id)}=>client.get(&format!("v1/archives/sources/{id}/status")).await?,
+        Commands::Status{id:None}=>client.get("v1/archives/status").await?,
         Commands::Grants{id}=>client.get(&format!("v1/archives/sources/{id}/grants")).await?,
         Commands::Edits{id}=>client.get(&format!("v1/archives/records/{id}/edits")).await?,
         Commands::Register{file:p}=>client.post("v1/archives/sources",Some(file(p)?)).await?,

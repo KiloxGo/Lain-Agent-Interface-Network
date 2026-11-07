@@ -1,0 +1,18 @@
+[Unit]
+Description=Private bounded Lain Kernel backup and restore verification
+ConditionPathExists=/var/lib/lain/lain.sqlite3
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /srv/lain/ops/backup.py
+UMask=0077
+PrivateTmp=yes
+PrivateNetwork=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/lain/backups
+MemoryMax=512M
+CPUQuota=50%
+TimeoutStartSec=120s
+LogNamespace=lain

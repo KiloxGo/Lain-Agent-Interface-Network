@@ -26,7 +26,9 @@ impl Kernel {
             inner.state == KernelState::Ready,
             crate::backend::ControlError::Unavailable
         );
-        inner.store.device_revoke(id, input)
+        let result = inner.store.device_revoke(id, input)?;
+        let _ = self.device_events.send(());
+        Ok(result)
     }
     pub(crate) fn device_claim(
         &self,

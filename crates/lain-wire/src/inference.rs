@@ -14,6 +14,9 @@ pub struct InferenceDecision {
     pub revision: u64,
     pub enabled: bool,
     pub limit: Option<InferenceLimit>,
+    /// Explicitly remove only the aggregate count/expiry ceiling.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unlimited: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unlimited_private_channel: Option<crate::ChannelId>,
     pub changed_at_ms: u64,
@@ -23,6 +26,8 @@ pub struct InferenceDecision {
 pub struct SetInferenceBudget {
     pub expected_revision: u64,
     pub limit: Option<InferenceLimit>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub unlimited: bool,
     #[serde(default)]
     pub unlimited_private_channel: Option<crate::ChannelId>,
 }
@@ -49,6 +54,7 @@ pub enum InferenceRequestState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum InferenceReason {
+    Briefing,
     Conversation,
     PrivateConversation,
     Reading,

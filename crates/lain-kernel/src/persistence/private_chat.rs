@@ -200,7 +200,8 @@ pub(super) fn delivery_current(db: &Connection, d: &Delivery) -> Result<bool> {
     )?;
     Ok(latest_input(db, d.channel_id)? <= through
         && memory_current(db, &t)?
-        && super::sources::selected_current(db, &t)?)
+        && super::sources::selected_current(db, &t)?
+        && super::memory_context::publication_current(db, &t)?)
 }
 
 impl Store {

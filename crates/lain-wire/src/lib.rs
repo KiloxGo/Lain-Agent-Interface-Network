@@ -2,12 +2,19 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 pub mod archives;
+pub mod briefing;
 pub mod chat;
+pub mod client_sync;
+pub mod device_commands;
+pub mod device_execution;
+pub mod device_work;
 pub mod devices;
 pub mod inference;
 pub mod media;
 pub mod memory;
+pub mod memory_context;
 pub mod notices;
+pub mod projects;
 pub mod reading;
 pub mod sharing;
 pub mod source;
@@ -48,8 +55,13 @@ macro_rules! id {
     };
 }
 id!(ConversationId);
+id!(BriefingItemId);
 id!(DeviceId);
 id!(DeviceWorkspaceId);
+id!(ProjectId);
+id!(DeviceCommandId);
+id!(DeviceExecutionId);
+id!(WorkerApprovalId);
 id!(ActorTurnId);
 id!(MessageId);
 id!(ActionId);
@@ -107,7 +119,7 @@ pub enum ActionState {
     Failed,
     Unknown,
 }
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Sandbox {
     ReadOnly,
@@ -116,6 +128,28 @@ pub enum Sandbox {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "name", content = "arguments", deny_unknown_fields)]
 pub enum ToolCall {
+    #[serde(rename = "memory.selection.inspect")]
+    MemorySelectionInspect(memory::InspectMemorySelection),
+    #[serde(rename = "memory.selection.change")]
+    MemorySelectionChange(memory::ChangeMemorySelection),
+    #[serde(rename = "briefing.remember")]
+    BriefingRemember(briefing::RememberBriefing),
+    #[serde(rename = "briefing.yesterday")]
+    BriefingYesterday {},
+    #[serde(rename = "briefing.read")]
+    BriefingRead(briefing::BriefingRead),
+    #[serde(rename = "briefing.inspect")]
+    BriefingInspect(briefing::BriefingInspect),
+    #[serde(rename = "device.list")]
+    DeviceList {},
+    #[serde(rename = "device.work.list")]
+    DeviceWorkList {},
+    #[serde(rename = "device.work.inspect")]
+    DeviceWorkInspect(device_work::InspectDeviceWork),
+    #[serde(rename = "device.queue")]
+    DeviceQueue(device_work::ProposeDeviceWork),
+    #[serde(rename = "device.send")]
+    DeviceSend(device_work::ProposeDeviceFollowup),
     #[serde(rename = "archive.remember")]
     ArchiveRemember(archives::RememberArchive),
     #[serde(rename = "archive.search")]
@@ -191,7 +225,11 @@ impl ToolCall {
     pub fn mutating(&self) -> bool {
         matches!(
             self,
-            Self::WorkCreate { .. }
+            Self::MemorySelectionChange(_)
+                | Self::BriefingRemember(_)
+                | Self::WorkCreate { .. }
+                | Self::DeviceQueue(_)
+                | Self::DeviceSend(_)
                 | Self::WorkSend { .. }
                 | Self::WorkCancel { .. }
                 | Self::WorkResume { .. }
@@ -213,6 +251,11 @@ pub struct ActorMessage {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActorAction {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory_change_review: Option<memory::MemorySelectionReview>,
+    /// Owner-only, source-checked preview; not an execution result or persisted action payload.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memory_review: Option<memory::MemoryCandidate>,
     pub id: ActionId,
     pub call_id: String,
     pub tool: ToolCall,
@@ -221,10 +264,22 @@ pub struct ActorAction {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActorSnapshot {
+    /// A restricted network projection, never a replacement for durable audit state.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub availability: Option<ActorAvailability>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub effect_receipts: Vec<memory::MemoryEffect>,
+    /// Committed reviewed selections; historical metadata, never source text or authority.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reviewed_memory_receipts: Vec<memory::ReviewedMemoryReceipt>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub memory_change_receipts: Vec<memory::MemorySelectionEffect>,
     pub id: ActorTurnId,
     /// Kernel-initiated reading work; None for user-originated turns.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reading_activity: Option<ReadingId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub briefing_activity: Option<briefing::BriefingActivity>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sharing_activity: Option<ShareId>,
     pub conversation_id: ConversationId,
@@ -246,10 +301,76 @@ pub struct ActorSnapshot {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_chat: Option<chat::PrivateChatContext>,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActorAvailability {
+    SourceUnavailable,
+}
 impl ActorSnapshot {
     pub fn validate(&self) -> Result<(), &'static str> {
         use std::collections::BTreeSet;
-        if (self.reading_activity.is_some() || self.sharing_activity.is_some())
+        if self.messages.len() > 32 || self.actions.len() > 4 || self.model_requests > 4 {
+            return Err("Actor bounds exceeded");
+        }
+        if self.effect_receipts.len() > 4
+            || self
+                .effect_receipts
+                .iter()
+                .any(|e| e.actor_turn_id != self.id || e.grant_revision == 0)
+        {
+            return Err("invalid effect metadata receipt");
+        }
+        let mut receipts = BTreeSet::new();
+        if self.reviewed_memory_receipts.len() > 4
+            || self.reviewed_memory_receipts.iter().any(|r| {
+                r.actor_turn_id != self.id
+                    || r.conversation_id != self.conversation_id
+                    || r.action_id.0.is_nil()
+                    || r.memory_id.0.is_nil()
+                    || r.candidate_id.0 != r.action_id.0
+                    || r.recorded_at_ms == 0
+                    || !receipts.insert(r.action_id)
+            })
+        {
+            return Err("invalid reviewed memory receipt");
+        }
+        let mut changes = BTreeSet::new();
+        if self.memory_change_receipts.len() > 4
+            || self.memory_change_receipts.iter().any(|r| {
+                r.actor_turn_id != self.id
+                    || r.conversation_id != self.conversation_id
+                    || r.action_id.0.is_nil()
+                    || r.memory_id.0.is_nil()
+                    || r.previous_revision == 0
+                    || !matches!(
+                        r.operation,
+                        memory::MemoryOperation::Forget | memory::MemoryOperation::Correct
+                    )
+                    || (r.replacement_memory_id.is_some()
+                        != (r.operation == memory::MemoryOperation::Correct))
+                    || r.replacement_memory_id
+                        .is_some_and(|id| id.0.is_nil() || id == r.memory_id)
+                    || r.recorded_at_ms == 0
+                    || !changes.insert(r.action_id)
+            })
+        {
+            return Err("invalid memory change receipt");
+        }
+        if self.availability.is_some() {
+            if !self.messages.is_empty()
+                || !self.actions.is_empty()
+                || self.private_chat.is_some()
+                || self.channel_memory.is_some()
+                || self.channel_source.is_some()
+                || self.error.as_deref() != Some("Source unavailable; previous content withheld.")
+            {
+                return Err("invalid restricted Actor projection");
+            }
+            return Ok(());
+        }
+        if (self.reading_activity.is_some()
+            || self.sharing_activity.is_some()
+            || self.briefing_activity.is_some())
             && (self.private_chat.is_some()
                 || self.channel_memory.is_some()
                 || self.channel_source.is_some()
@@ -257,11 +378,12 @@ impl ActorSnapshot {
         {
             return Err("reading activity cannot acquire chat, memory or Worker actions");
         }
-        if self.reading_activity.is_some() && self.sharing_activity.is_some() {
+        if usize::from(self.reading_activity.is_some())
+            + usize::from(self.sharing_activity.is_some())
+            + usize::from(self.briefing_activity.is_some())
+            > 1
+        {
             return Err("conflicting activity origin");
-        }
-        if self.messages.len() > 32 || self.actions.len() > 4 || self.model_requests > 4 {
-            return Err("Actor bounds exceeded");
         }
         if self.channel_memory.as_ref().is_some_and(|c| {
             c.batch_id.0 != self.request_id.0 || c.grant_revision == 0 || c.expires_at_ms == 0
@@ -364,6 +486,47 @@ impl ActorSnapshot {
                     return Err("invalid proposal");
                 }
             }
+            if let Some(c) = &a.memory_review {
+                c.validate()?;
+                let ToolCall::BriefingRemember(q) = &a.tool else {
+                    return Err("memory preview on another tool");
+                };
+                let memory::MemorySource::BriefingSelection { evidence: e } = &c.provenance.source
+                else {
+                    return Err("wrong memory preview source");
+                };
+                if a.state != ActionState::Proposed
+                    || c.status != memory::CandidateStatus::Candidate
+                    || c.actor_action != Some(a.id)
+                    || e.actor_turn_id != self.id
+                    || e.conversation_id != self.conversation_id
+                    || e.briefing_id != q.briefing_id
+                    || e.reconciliation.as_ref().is_some_and(|r| {
+                        !q.include_related || !r.member_numbers.contains(&q.item_number)
+                    })
+                {
+                    return Err("memory preview identity mismatch");
+                }
+            }
+            if let Some(r) = &a.memory_change_review {
+                let ToolCall::MemorySelectionChange(q) = &a.tool else {
+                    return Err("change preview on another tool");
+                };
+                if a.state != ActionState::Proposed
+                    || r.actor_turn_id != self.id
+                    || r.action_id != a.id
+                    || &r.request != q
+                    || r.target.conversation_id != self.conversation_id
+                    || r.target.memory_id != q.memory_id
+                    || r.target.revision != q.expected_revision
+                    || !r.valid_replacement()
+                    || q.message_id.0.is_nil()
+                    || q.quote.trim().is_empty()
+                    || q.quote.len() > 2048
+                {
+                    return Err("memory change preview identity mismatch");
+                }
+            }
             if a.state == ActionState::Executing && self.state != ActorTurnState::Running {
                 return Err("executing action in inactive turn");
             }
@@ -426,7 +589,12 @@ mod tests {
     #[test]
     fn contradictory_durable_actor_records_are_rejected() {
         let mut turn = ActorSnapshot {
+            availability: None,
+            effect_receipts: vec![],
+            reviewed_memory_receipts: vec![],
+            memory_change_receipts: vec![],
             reading_activity: None,
+            briefing_activity: None,
             sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: ConversationId::new(),
@@ -561,6 +729,8 @@ mod tests {
         turn.state = ActorTurnState::PendingConfirmation;
         assert!(turn.validate().is_err());
         turn.actions.push(ActorAction {
+            memory_review: None,
+            memory_change_review: None,
             id: ActionId::new(),
             call_id: "call_1".into(),
             tool: ToolCall::WorkCancel {

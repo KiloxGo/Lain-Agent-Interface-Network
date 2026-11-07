@@ -1,5 +1,303 @@
 # Domain Model
 
+## Selected-memory reply references — local candidate, 2026-11-07
+
+The private memory_answer view selects ephemeral finite short read references
+bound to exact action/memory/revision tuples from this ordinary ActorTurn's
+successful current-conversation active selected-memory reads, or an actually
+empty query page. Raw save/provenance IDs are not read choices. It is not a new
+persisted entity, Tool, grant, memory mutation or source inspection. Quoted saved
+text and typed origin remain distinct from independent truth; query coverage and
+optional deadline/capture facts come from the read, never model-added facts.
+Mixed work, other origins/scopes and management-only reads remain outside this
+bounded view. No schema or wire DTO changes. See MEMORY.md.
+
+## Same-record citation context — local candidate, 2026-11-07
+
+source_context is optional transient report-citation projection, not another
+archive, selected quote, original-inspection receipt, grant or MemoryDraft.
+Available text is an exact bounded paragraph span around a unique full checked
+quotation in the same current cited record, with before/after omissions; unavailable
+status has no text. All source/origin/version/dependency and confidentiality gates
+remain. Source context is untrusted data and not proof other paragraphs lack
+conditions. Original quoted fields/query/selected-memory construction remain.
+No migration; older JSON result readers can ignore the added projection field.
+
+## Direct original-view request — local candidate, 2026-11-07
+
+A conservative recognized Chinese direct phrase in the latest current User
+message constrains only the existing source-only final evidence selection. It is
+not a new persisted intent, grant, source, Worker control or arbitrary language
+classifier. Quoted/source/tool/assistant/older messages do not grant this request.
+After actual source reads, report-only completion is rejected; checked original
+or a scoped actual empty lookup is required. Empty lookup remains non-absence
+evidence. Catalog reference validation stays separate from whole-reply intent;
+both final representations still enforce the same publication path. No schema.
+
+## Selected source wording — local candidate, 2026-11-07
+
+An optional complete quote section belongs to the existing reviewed MemoryDraft
+string, not a new memory/source entity. It contains only actual selected item/group
+citations, including typed origin and each citation's clock basis. Uncited batch
+inputs remain provenance dependencies, not automatically remembered text. The
+unverified selection authority/conversation visibility/finite expiry stay.
+
+Candidate validation reconstructs the exact original full draft under current
+sources and unchanged provenance; it may also recognize the exact optional quote
+addition when the complete body fits4096bytes. No generic suffix stripping, partial
+quote/group acceptance or mutation of existing candidates/records is permitted.
+This retains known old-format review/restore compatibility without new wire fields
+or a schema change. User correction remains separately attributed, not source text.
+
+## Briefing presentation detail — local, 2026-11-07
+
+The optional detailed flag in the private answer envelope selects presentation
+of already-read report notes, not a domain state, new source, permission or memory.
+The private briefing_answer function is an alternate final-output representation
+of that envelope, not a persisted/executable Tool or an operation receipt.
+Canonical item references remain unchanged when an identical checked quotation
+is rendered once with another selected item's pointer. Generated title/summary/
+uncertainty stay in full receipts and are labelled in the expanded view; concise
+source excerpts do not become independently verified facts. Original lookup,
+retention/publication dependencies and all effect/review semantics remain.
+
+## Briefing final evidence selection — local candidate, 2026-11-07
+
+The source-only answer envelope is a private application format, not a new domain
+entity or provider protocol. It contains manifest/item/citation handles whose
+content must already occur in this ActorTurn's Executed briefing read receipts.
+It cannot supply facts, prose, author identity, permissions or additional sources.
+Rendered Assistant content retains existing manifest-dependent disclosure and
+recovery semantics; the original user request and action receipts are unchanged.
+Titles remain labelled generated summaries, quotations retain their origin and
+excerpt limits, and receipt-fallback clocks cannot define sender-relative dates.
+No selected-memory or Worker state transition is introduced. See DAILY_BRIEFING.
+
+## Phrase lookup and reader gate — deployed, 2026-11-06
+
+BriefingRead.query optionally selects one bounded literal phrase within the same
+manifest's processed, attributed items and checked quotations. It is a read
+filter, not a new source/archive/search entity or semantic-memory fact. Original
+item/citation identity, group relationships, ordinary counts and disclosure
+dependencies remain. Empty results still depend on the manifest. Schema040 gates
+new persisted query arguments; it adds no table or authority. Missing/null accepts
+legacy actions. Normal39→40 maintenance is public-accepted on the original file
+and identity; no source or sharing authority was added. See ADR041.
+
+## Current default-read freshness and extraction projection — 2026-11-06
+
+Default latest first-page Actor reads compare the existing bounded yesterday
+selection with the still-readable historical manifest. A content-free refresh
+notice is an ordinary read result, not a new entity, authority or admitted run.
+Normal disclosure capture still binds the historical source gates. Explicit IDs
+and later pages keep historical semantics; unavailable old bodies remain denied.
+Only the separate preparation/coordinator path starts finite processing.
+
+Extraction clock labels are a private projection after typed page/fingerprint
+admission, derived by the same formatter as ordinary citations. They do not
+modify ArchiveRecord, wire structs, manifest fingerprints or old results. Receipt
+fallback remains distinct from sender occurrence and cannot anchor relative days.
+Both repairs are deployed on the original39 database. Real-source acceptance is
+pending, and actual-model prose remains fallible; see DAILY_BRIEFING_ACCEPTANCE.
+
+## Preparation receipts and fresh day selection — 2026-11-06, deployed repair
+
+Existing Actor Action.result can hold a closed, content-free `briefing_prepared`
+receipt while Executing: actual Actor/action/conversation/grant revision and
+manifest ID. It binds creator and reuse actions equally. Normal tool completion
+replaces it with actual run status; it is not a completion result or source/body
+grant. New manifest insertion and action receipt share the existing transaction.
+No wire field, table, schema migration or alternate memory/entity is introduced.
+
+Fresh ordinary requests compare a newly computed bounded selection with the
+cached immutable manifest. Selected versions, bounded omission/fallback state
+and meaningful coverage matter; unrelated arrivals and observation/cursor clocks
+do not. Existing request identities stay bound to their first accepted selection.
+Unknown runs and historical manifests retain their original meanings. This repair
+has native Windows/isolation and Linux deployment evidence; the original39 database
+and reader remain. Real-source product acceptance is still pending; see DAILY_BRIEFING.
+
+## Reviewed source configuration — 2026-11-06, local increment
+
+Existing ArchiveSource/ArchiveGrant/KnowledgeSyncGrant remain the owners of source
+identity, retained imports and finite synchronization. KnowledgeReaderStatus exposes
+only local config/credential availability and its fingerprint, not connection
+liveness or secrets. Optional SetKnowledgeSync.expected_reader_revision fences a
+reviewed launch configuration; stopping remains independent. It is not data-source
+authority. No new persistence table or semantic-memory type is introduced.
+
+
+## Finite briefing relationships — 2026-11-06, local schema039
+
+BriefingStage distinguishes Extract, Index and Compare(item_number). A run can be
+Reconciling before becoming terminal. One briefing_relations row binds each stage
+key to its actual Actor, immutable input fingerprint and checked result. Parent
+candidates only reference earlier original numbers; a non-Different judgment
+requires real quoted evidence from both supplied items. ReportedCorrection also
+names the actual correcting item, independent of arrival/number ordering.
+
+Groups preserve original item identities and relationship direction; numbers are
+not reassigned after duplicate folding. Semantic matching remains a model
+interpretation with finite discovery, never proof of exhaustive understanding.
+BriefingMemoryReconciliation is an immutable provenance reference, not another
+semantic store or source authorization. Internal activity conversations are
+operational contexts of the same Actor, not separate Lain personas.
+
+
+## Reviewed conversation correction — 2026-11-06, local schema038
+
+ConversationCorrectionEvidence binds one current User MessageId, real conversation,
+Actor/action, previous MemoryId/revision and inherited finite expiry. It represents
+an explicitly reviewed user correction, independently attributed from the old
+source report. MemorySelectionReview carries the actual replacement candidate;
+MemorySelectionEffect optionally names its committed replacement ID, never body.
+Existing semantic, candidate and effect stores remain their owners. Schema038 is
+a JSON-reader compatibility gate with no extra table. Superseding old content,
+accepting new content and recording the operation are one transaction.
+
+
+## Reviewed briefing memory — 2026-11-05, local schema036
+
+Conversation memory scope binds a real cloud ConversationId, independent of
+private-channel identities and device/project contexts. BriefingSelection
+provenance records the actual item, extraction turn, all batch input versions,
+selecting action/turn, finite source authority and original conversation.
+Individual review authorizes one fixed unverified episodic selection.
+ReviewedMemoryReceipt is content-free historical write evidence projected from
+accepted candidates; it is separate from channel MemoryEffect and source-body
+availability. It survives interrupted acknowledgements and source withdrawal,
+never authorizing replay. [Contract and incomplete scope](adr/038-reviewed-briefing-memory.md).
+
+## Briefing run and foreground disclosure — 2026-11-05
+
+BriefingRun belongs to a conversation/manifest and persists finite progress,
+start/end/deadline, omission and terminal reasons. Completed means processed
+selected records, never complete upstream history or verified semantic truth.
+Schema035 also stores per-turn action/manifest disclosure dependencies without
+copying source bodies. Readable report pages retain stable item numbers and exact
+original lookup; foreground disclosure is not memory-write authority. Source
+changes withdraw derived speech, while a closed operational notice may end the
+turn without restoring authority. [Details](DAILY_BRIEFING.md).
+
+## Briefing extraction activity — 2026-11-05
+
+BriefingActivity binds a target conversation/manifest/page to a single internal
+Actor turn. Schema034 stores the immutable input fingerprint and optional
+validated batch output. BriefingItem IDs survive restart and carry model origin,
+category, sender-relative quoted time, uncertainty and exact source-version
+citations with original text origin and occurrence/receipt timestamps. A batch
+has one inference request, four-record/item bounds and an explicit omission flag;
+it is not the user's memory or proof of complete upstream/day coverage. Current
+source validity gates both structured items and ordinary Actor snapshots.
+
+## Daily briefing manifest — 2026-11-05
+
+BriefingGrant is an explicit, finite read/model-disclosure decision for one real
+ConversationId and selected source/import revisions. It is independent of old
+private-channel recall and memory grants. BriefingManifest freezes one request's
+yesterday interval, fixed offset, scope clipping, high-water metadata and bounded
+record-version dependencies without source bodies. BriefingPage returns complete
+texts with a bounded byte/count cursor after current authorization and all-record
+version checks. These are evidence, not generated items, semantic memory or proof
+of complete upstream collection. Schema033 and [ADR037](adr/037-conversation-bound-daily-briefing.md)
+are local implementation; model and memory integration remain in progress.
+
+## Operational sync identity — 2026-11-05
+
+Schema032 introduces a persistent Kernel instance ID, a per-open boot ID and a
+transactional invalidation revision. These identify storage/connection generations,
+not separate personas or semantic-memory facts. A bounded bootstrap carries
+existing project/device/context/work pointers and checked Actor projections.
+No source archive or Worker transcript becomes Lain memory through synchronization.
+See [CLIENT_SYNC](CLIENT_SYNC.md) and [ADR035](adr/035-client-startup-and-live-invalidation.md).
+
+## Conversation memory context — 2026-11-04
+
+ConversationMemoryContext is an explicit owner selection with a CAS revision,
+exact request receipt and optional MemoryContextSelection. The selection binds
+device/workspace and optional reviewed project/mapping versions. Each new Actor
+turn separately captures that context and bounded source-memory revisions.
+Origin names a collection path or owner-selected context independently of the
+record's visibility; it does not invent physical device attestation. Missing
+legacy origin remains unknown. See [ADR034](adr/034-contextual-semantic-memory.md).
+
+## Stable project identity and assignments — 2026-11-04
+
+ProjectId identifies an explicitly created project independently of display name,
+host path and repository origin. Project holds Active/Archived state and a CAS
+revision. ProjectWorkspace binds a DeviceId/DeviceWorkspaceId pair to an optional
+ProjectId with its own revision, original RequestId and reviewed project/device
+versions. Null is a retained unbinding tombstone. Neither an assignment nor its
+historical receipt grants Worker execution or semantic-memory disclosure.
+See [registry and remaining scope](CLOUD_CONTINUITY.md).
+
+## W4 permission application observations — 2026-11-03
+
+`DeviceApprovalReport` carries an approval ID, exact immutable owner decision and
+Received/Applied stage within `ExecutionEvidence`. It is a device observation,
+not an owner receipt, grant, verified artifact or user-goal acceptance. Reports
+remain bounded, cumulative and monotonic; cloud persistence rejects unrecorded
+or changed decisions. Missing stage evidence stays unconfirmed. Terminal cancel
+reviews/pending outcomes are disposable client state over the existing command
+revision and `cancel_requested`, not new work or persistent Lain memory.
+
+## W4c continuation family — 2026-11-03
+
+DeviceContinuation binds a child command to its root/parent/reviewed revision,
+original local session and previous turn. Child execution/turn IDs remain unique;
+only that explicit family can reuse the session. Parent continued_by is an
+operational head pointer with a revision, not a new task input or memory. Child,
+lineage, head change and any confirmed Actor receipt commit together. A family
+does not become a cloud-local Supervisor session. [ADR033](adr/033-same-device-session-continuation.md).
+
+## W4b remote conversation origin — 2026-11-03
+
+DeviceWorkOrigin identifies the actual conversation and optional confirmed
+Actor/action. DeviceWorkRecord joins that origin to current DeviceCommand truth;
+it is not a WorkSession, memory or guaranteed notification history. Origin/link,
+command admission and Actor partial receipt commit together. Snapshot pages are
+bounded current projections, not authority to replay effects. See [DEVICE_WORK.md](DEVICE_WORK.md).
+
+## W4a display projections — 2026-11-02
+
+The terminal draft, surface selection, review-reading progress and cached rows
+are frontend-only state, not Lain memory or new runtime identities.
+`DeviceCommandSummary` is an owner-only metadata projection of existing commands;
+it carries no original task/output/approval and grants no execution authority.
+Details retain the existing command/evidence distinction. See
+[terminal contract](TERMINAL_DESIGN.md).
+
+## W3b native operational ownership — 2026-11-02
+
+The device-owned immutable Intent binds the exact command input, manifest/policy
+revisions and deterministic Lain execution/session/turn IDs. Launch, submission,
+permission response, cancel and stop fences are operational receipts, not Lain
+memory, conversation or independent persona. The local Kernel stores actual
+Worker metadata; cloud reports remain evidence DTOs rather than cloud-local
+Supervisor sessions. A response fence and an owner decision receipt are distinct
+from actual backend acknowledgement. See [DEVICE_HOST.md](DEVICE_HOST.md).
+
+## W3a execution evidence and approval receipts — 2026-11-02
+
+ExecutionEvidence is an optional device report with stable execution/session/turn
+UUIDs, phase, bounded pending approval and factual result. It is not a cloud
+WorkSession. DeviceApprovalDecision stores one immutable exact-scope owner choice
+per command/approval, with its own RequestId. It is distinct from both a device
+event receipt and actual backend response/application. Device-reported paths are
+references, not verified artifact bytes. See [DEVICE_EXECUTION.md](DEVICE_EXECUTION.md).
+
+## W2b command and event records — 2026-11-02
+
+DeviceCommand binds a Lain ID to the original administrator RequestId, device
+revision, admitted WorkspaceId, device-local profile, sandbox, task and deadline.
+Its revision/state and independent cancel_requested flag are Kernel projections
+of admission and device-reported facts. CommandEventReceipt preserves the exact
+per-command sequence/RequestId, observation, server receive time and historical
+published revision. CommandChange has a separate per-device server sequence and
+metadata only. It is a resync hint, never executable authority. Expired/revoked
+accepted work becomes Unknown; a late fact does not authorize another start.
+See [ADR 028](adr/028-durable-device-commands.md).
+
 ## Private conversation media — 2026-10-28
 
 InputSegment preserves text, visual reference, QQ expression and quoted-message
@@ -510,8 +808,8 @@ A Workspace is a filesystem/project scope in which a worker operates.
 Examples:
 
 ~~~text
-/home/user/codebase/Klog
-/home/user/projects/lain
+/home/you/codebase/example
+/home/you/projects/lain
 ~~~
 
 A WorkspaceRef should be normalized and validated server-side.

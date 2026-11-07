@@ -12,7 +12,7 @@ upgrade, reading or contact has occurred during D1–D3c development.
 | Model allowance | At most 60 Lain adapter reservations total: fixed 48 isolated replay + 12 personal QQ; no transfer/refill/new ID after failure |
 | Provider access | Inspect only the selected Actor configuration, its explicitly selected protected credential source/SecretRef and referenced provider-bridge startup/implementation needed to verify attempts; no raw token in output |
 | Isolated replay | Synthetic OneBot 1001 ↔ 2002, temporary synthetic-binding memory, no personal transcript import or actual QQ connection |
-| Personal target | `F:\Lain-Q1-Acceptance`, existing binding bot <bot-qq> ↔ owner <user-qq> only, subject to fresh identity validation |
+| Personal target | `F:\Lain-Q1-Acceptance`, existing binding bot <bot-qq> ↔ owner <owner-qq> only, subject to fresh identity validation |
 | Personal memory/history | Keep existing historical-source grant and semantic-memory write grant off; no synthetic human messages in the personal conversation |
 | Real source | Only `https://www.rfc-editor.org/rfc/rfc20.txt`; at most 2 acquisitions, 65536 bytes each, retain actual source/derived summary for at most 1 hour; no redirects or additional source URLs |
 | Source processing | Only that personal binding, at most 2 model requests, fixed UTC+08:00; experience states actual excerpt/truncation, not verification |

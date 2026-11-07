@@ -67,11 +67,23 @@ impl Store {
         reader: Option<String>,
         now: u64,
     ) -> Result<KnowledgeSyncGrant> {
+        ensure!(
+            q.expected_reader_revision
+                .as_ref()
+                .is_none_or(|r| r.len() == 64 && r.bytes().all(|b| b.is_ascii_hexdigit())),
+            ControlError::InvalidInput
+        );
         let tx = self.connection.transaction()?;
         crate::knowledge::source_key(&archives::source(&tx, id)?.key)?;
         let old = grant(&tx, id)?;
         ensure!(old.revision == q.expected_revision, ControlError::Conflict);
         if let Some(s) = &q.scope {
+            ensure!(
+                q.expected_reader_revision
+                    .as_ref()
+                    .is_none_or(|expected| Some(expected) == reader.as_ref()),
+                ControlError::Conflict
+            );
             let a = archives::grant(&tx, id)?;
             let active = archives::active(&a, now)?;
             ensure!(s.archive_revision == a.revision, ControlError::Conflict);
@@ -256,6 +268,32 @@ impl Store {
 mod tests {
     use super::*;
     use crate::domain::now_ms;
+    #[test]
+    fn knowledge_sync_reviewed_reader_fence_rejects_changed_configuration_but_allows_stop() {
+        let (_dir, mut db, id, reader) = setup();
+        let now = now_ms().unwrap();
+        let mut q = scope(now);
+        q.expected_reader_revision = Some("b".repeat(64));
+        assert!(
+            db.knowledge_sync_set(id, q.clone(), Some(reader.clone()), now)
+                .is_err()
+        );
+        assert_eq!(db.knowledge_sync_grant(id).unwrap().revision, 0);
+        q.expected_reader_revision = Some(reader.clone());
+        db.knowledge_sync_set(id, q, Some(reader), now).unwrap();
+        db.knowledge_sync_set(
+            id,
+            SetKnowledgeSync {
+                expected_revision: 1,
+                expected_reader_revision: Some("b".repeat(64)),
+                scope: None,
+            },
+            None,
+            now,
+        )
+        .unwrap();
+        assert!(db.knowledge_sync_grant(id).unwrap().scope.is_none());
+    }
     fn setup() -> (tempfile::TempDir, Store, ArchiveSourceId, String) {
         let dir = tempfile::tempdir().unwrap();
         let mut db = Store::open(&dir.path().join("state.db")).unwrap();
@@ -288,6 +326,7 @@ mod tests {
     }
     fn scope(now: u64) -> SetKnowledgeSync {
         SetKnowledgeSync {
+            expected_reader_revision: None,
             expected_revision: 0,
             scope: Some(KnowledgeSyncScope {
                 archive_revision: 1,
@@ -352,6 +391,70 @@ mod tests {
         assert_eq!(g.stopped, Some(KnowledgeSyncStop::Exhausted));
     }
     #[test]
+    fn full_read_receipt_capacity_stops_unused_plan_without_spending_or_discarding_history() {
+        let (_dir, mut db, id, reader) = setup();
+        let now = now_ms().unwrap();
+        let (first, _) = db
+            .knowledge_admit(
+                id,
+                ReadArchive {
+                    request_id: "00000000-0000-4000-8000-000000000000".parse().unwrap(),
+                    expected_revision: 1,
+                    after: None,
+                    limit: 16,
+                },
+                reader.clone(),
+            )
+            .unwrap();
+        finish(&mut db, &first);
+        let seed = db.archive_read_job(first.request.request_id).unwrap();
+        db.connection.execute(
+            "WITH RECURSIVE n(v) AS (VALUES(1) UNION ALL SELECT v+1 FROM n WHERE v<9999) INSERT INTO archive_reads SELECT printf('00000000-0000-4000-8000-%012x',v),?1,json_set(?2,'$.request.request_id',printf('00000000-0000-4000-8000-%012x',v),'$.next',printf('00000000-0000-4000-8000-%012x',v)),printf('00000000-0000-4000-8000-%012x',v) FROM n",
+            (id.to_string(),serde_json::to_string(&seed).unwrap()),
+        ).unwrap();
+        let mut decision = scope(now);
+        for revision in 0..2 {
+            decision.expected_revision = revision;
+            decision.scope.as_mut().unwrap().max_requests = 2 + u32::try_from(revision).unwrap();
+            db.knowledge_sync_set(id, decision.clone(), Some(reader.clone()), now)
+                .unwrap();
+            assert!(
+                db.knowledge_sync_plan(Some(reader.clone()), now)
+                    .unwrap()
+                    .0
+                    .is_none()
+            );
+            let g = db.knowledge_sync_grant(id).unwrap();
+            assert_eq!(g.stopped, Some(KnowledgeSyncStop::Exhausted));
+            assert_eq!(g.used_requests, 0);
+            assert!(!g.pending);
+            assert!(g.last_read.is_none());
+            assert_eq!(
+                db.connection
+                    .query_row("SELECT count(*) FROM archive_reads", [], |r| r
+                        .get::<_, i64>(0))
+                    .unwrap(),
+                10000
+            );
+        }
+        db.knowledge_sync_set(
+            id,
+            SetKnowledgeSync {
+                expected_revision: 2,
+                expected_reader_revision: None,
+                scope: None,
+            },
+            None,
+            now,
+        )
+        .unwrap();
+        assert!(db.knowledge_sync_grant(id).unwrap().scope.is_none());
+        assert_eq!(
+            serde_json::to_value(db.archive_read_job(first.request.request_id).unwrap()).unwrap(),
+            serde_json::to_value(seed).unwrap()
+        );
+    }
+    #[test]
     fn reservation_and_job_rollback_together_and_unknown_never_replays() {
         let (_dir, mut db, id, reader) = setup();
         let now = now_ms().unwrap();
@@ -410,6 +513,7 @@ mod tests {
                     db.knowledge_sync_set(
                         id,
                         SetKnowledgeSync {
+                            expected_reader_revision: None,
                             expected_revision: 1,
                             scope: None,
                         },
@@ -476,7 +580,7 @@ mod tests {
             .unwrap();
         let state = serde_json::to_string(&db.knowledge_state(id).unwrap()).unwrap();
         db.connection
-            .execute_batch("DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; PRAGMA user_version=20;")
+            .execute_batch("DROP TABLE actor_memory_contexts; DROP TABLE memory_context_requests; DROP TABLE conversation_memory_contexts; DROP TABLE project_requests; DROP TABLE project_workspaces; DROP TABLE projects; DROP TABLE device_work_continuations; DROP TABLE device_work_links; DROP TABLE device_approval_decisions; DROP TABLE device_executions; DROP TABLE device_command_changes; DROP TABLE device_command_events; DROP TABLE device_commands; DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE briefing_relations; DROP TABLE conversation_memory_effects; DROP TABLE briefing_memory_suppressions; DROP TABLE briefing_disclosures; DROP TABLE briefing_runs; DROP TABLE briefing_batches; DROP TABLE briefing_manifests; DROP TABLE briefing_grants; PRAGMA user_version=20;")
             .unwrap();
         drop(db);
         let mut db = Store::open(&dir.path().join("state.db")).unwrap();
@@ -484,7 +588,7 @@ mod tests {
             db.connection
                 .pragma_query_value(None, "user_version", |r| r.get::<_, u32>(0))
                 .unwrap(),
-            24
+            crate::persistence::SCHEMA_VERSION
         );
         assert_eq!(
             db.connection
@@ -526,6 +630,7 @@ mod tests {
             .knowledge_sync_set(
                 id,
                 SetKnowledgeSync {
+                    expected_reader_revision: None,
                     expected_revision: 10000,
                     scope: None,
                 },

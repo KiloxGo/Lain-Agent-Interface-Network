@@ -239,7 +239,7 @@ fn schema23_upgrade_preserves_original_text_input_bytes_and_adds_no_image() {
         .unwrap();
     s.connection
         .execute_batch(
-            "DROP TABLE channel_media_frames; DROP TABLE channel_media; PRAGMA user_version=23;",
+            "DROP TABLE actor_memory_contexts; DROP TABLE memory_context_requests; DROP TABLE conversation_memory_contexts; DROP TABLE project_requests; DROP TABLE project_workspaces; DROP TABLE projects; DROP TABLE device_work_continuations; DROP TABLE device_work_links; DROP TABLE device_approval_decisions; DROP TABLE device_executions; DROP TABLE device_command_changes; DROP TABLE device_command_events; DROP TABLE device_commands; DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE briefing_relations; DROP TABLE conversation_memory_effects; DROP TABLE briefing_memory_suppressions; DROP TABLE briefing_disclosures; DROP TABLE briefing_runs; DROP TABLE briefing_batches; DROP TABLE briefing_manifests; DROP TABLE briefing_grants; PRAGMA user_version=23;",
         )
         .unwrap();
     drop(s);
@@ -278,6 +278,7 @@ fn visual_expiry_withholds_assistant_and_tool_bodies_without_rewriting_original_
     let mut t = ActorTurn {
         id: ActorTurnId::new(),
         reading_activity: None,
+        briefing_activity: None,
         sharing_activity: None,
         conversation_id: b.conversation_id,
         request_id: batch.id.0,

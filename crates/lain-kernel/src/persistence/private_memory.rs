@@ -381,6 +381,10 @@ impl Store {
             );
             return Ok(old);
         }
+        ensure!(
+            !super::briefing_conversation::tainted(&tx, turn_id)?,
+            ControlError::InvalidInput
+        );
         let (selection, previous, e, operation) = match &action.tool {
             Tool::MemoryRemember(s) => (Some(s), None, &s.evidence, MemoryOperation::Remember),
             Tool::MemoryCorrect(s) => (
@@ -477,7 +481,7 @@ impl Store {
         } else {
             None
         };
-        let refresh_after_effect = old
+        let archive_influenced = old
             .as_ref()
             .is_some_and(|r| matches!(r.provenance.source, MemorySource::ArchiveSelection { .. }))
             || (previous.is_some()
@@ -533,10 +537,10 @@ impl Store {
                 key(&effect)?
             ],
         )?;
-        if refresh_after_effect {
+        if previous.is_some() && turn.private_chat.is_some() {
             let mut fresh = turn.clone();
             let c = fresh.private_chat.as_mut().ok_or(ControlError::Conflict)?;
-            c.archive_memory_tainted = true;
+            c.archive_memory_tainted |= archive_influenced;
             c.memory_versions.clear();
             c.archive_memory_versions.clear();
             c.archive_memory_grant_revision = None;
@@ -644,6 +648,7 @@ mod tests {
             .unwrap();
         let mut turn = ActorTurn {
             reading_activity: None,
+            briefing_activity: None,
             sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: b.conversation_id,
@@ -1133,7 +1138,7 @@ mod tests {
             )
             .unwrap();
         assert!(legacy.owner_confirmed_at_ms.is_some());
-        s.connection.execute_batch("DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; DROP TABLE channel_memory_inspections; DROP TABLE channel_memory_suppressions; DROP TABLE channel_memory_effects; DROP TABLE channel_memory_grants; PRAGMA user_version=8;").unwrap();
+        s.connection.execute_batch("DROP TABLE actor_memory_contexts; DROP TABLE memory_context_requests; DROP TABLE conversation_memory_contexts; DROP TABLE project_requests; DROP TABLE project_workspaces; DROP TABLE projects; DROP TABLE device_work_continuations; DROP TABLE device_work_links; DROP TABLE device_approval_decisions; DROP TABLE device_executions; DROP TABLE device_command_changes; DROP TABLE device_command_events; DROP TABLE device_commands; DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP TABLE channel_source_reads; DROP TABLE channel_source_grants; DROP INDEX channel_source_window; DROP INDEX channel_incoming_batch; DROP TABLE channel_memory_inspections; DROP TABLE channel_memory_suppressions; DROP TABLE channel_memory_effects; DROP TABLE channel_memory_grants; DROP TABLE briefing_relations; DROP TABLE conversation_memory_effects; DROP TABLE briefing_memory_suppressions; DROP TABLE briefing_disclosures; DROP TABLE briefing_runs; DROP TABLE briefing_batches; DROP TABLE briefing_manifests; DROP TABLE briefing_grants; PRAGMA user_version=8;").unwrap();
         drop(s);
         let s = Store::open(&path).unwrap();
         assert_eq!(s.memory(legacy.id).unwrap(), legacy);

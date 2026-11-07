@@ -1,5 +1,3553 @@
 # L.A.I.N. Development Log
 
+## 2026-11-07 — Comparison output selects citations instead of copying UUIDs
+
+The parser already accepted `citation_index`, but `RELATION_COMPARE` still told the
+model to copy `record_id`, so a real run would have repeated the one-character
+UUID failure. A new Actor-level regression simulates that miscopy: it ends Unknown
+with the old instructions and Completed with the new ones. Stored judgments keep
+real IDs, exact-UUID output stays valid, and the compare payload and its input
+fingerprint are unchanged. Native fixtures now use the index form.
+
+The maximum-group test takes about 112s alone in a debug build, so its 120s wait
+timed out under parallel tests; the wait is now 300s. Personal paths, real QQ IDs
+and a personal project name in docs are replaced with placeholders ahead of a
+public release. Real-provider acceptance of this change is still pending.
+
+## 2026-11-07 — Selected-memory evidence view and two actual reference failures
+
+Current Windows25f414a0a0d8/d47/schema40 implements a checked selected-memory
+final view: finite ephemeral read strings bind actual current-turn reads/records/
+versions; full saved words, typed correction/source origin, query limits and
+requested UTC deadline/capture basis are rendered without free fact invention.
+Ordinary chat, other origins/scopes, mixed Work, mutations and bodyless management
+retain their existing path. No schema/grant/TTL or reviewed-body change.
+
+Real Actor red wrongly Completes known query/capture claims; new rejection retains
+2requests/14tokens/1read and holds speech. R1preview assertion was initially hollow;
+real streaming+counter+empty-page/no-old-dependency case fixes it, R2closes the gap.
+First actual E4run35requests/264247tokens stops08recall: model copies saved-provenance
+action ID instead of current read ID. Read succeeds; correct rejection retains
+17768tokens/2requests/1read, no replay, cleanup passes. Finite-choice schema red→green
+removes ambiguous model-supplied UUID tuples without accepting the bad reference.
+Actual native image also exposed lazy Markdown continuation of Kernel labels;
+Parser red→green plus two blank boundaries separates them from quoted saved words.
+R3static review has no new finding on the changed interface/quote boundaries.
+
+Final65Actor/105briefing filters overlap, fmt/strict Kernel checks/native build
+pass. Initial maximum producer passes within the earlier105pass/1obsolete-fixture
+failure; later filters correctly skip it. Legacy fixture is updated to actual
+catalog selection and strengthens complete quoted-body checks. Native48fixture
+requests pass both audiences with review/literal recall/correction/forget/restart/
+isolation and cleanup. First native failure assumed a receipt fits current viewport;
+exact persisted receipt plus bounded real PgUp/zero-model traversal preserves the
+UI requirement. Native evidence is not actual-provider lifecycle acceptance.
+
+Changed25candidate actual rerun stops before memory at source reconciliation:
+5completed requests/22124tokens,6records processed in2batches; compare output copies
+one source UUID character wrong while the quote matches the actual supplied
+citation. Exact evidence validation rejects and run becomes Unknown/model_failed.
+All Returned usage/accounting and cleanup pass; no guessed ID correction, hidden
+retry or replay. Thus current actual full-memory tail is NOT accepted. Older ce43
+18step evidence remains old-version only. Next fix explicit comparison citation
+selection through exact item/citation indices while preserving stored real IDs,
+input fingerprint, old exact-UUID compatibility and all quotation/currentness gates.
+
+Known default-label verbosity/report splitting/English review notices remain.
+No latest Linux/deployment/realQQ-source activation/trial/Git change. Unanswered
+source proposal stays disabled; full goal remains active, not blocked. External
+local evidence: configured visualizations/lain-memory-evidence-view-2026-11-07/.
+
+## 2026-11-07 — Keep eligibility conditions beside checked short citations
+
+Reproduce b801default missing first50/one-per-person despite an English summary
+retaining them. Real Actor regression fixes only same-record paragraph context:
+exact checked model quote stays; context is unique, bounded512UTF8bytes and gated
+by full-record secrets/current authority/version. No other source fetch, model
+call, schema or memory promotion. Default labels context and omitted paragraphs;
+unavailable context warns. Original inspection remains an actual separate read.
+
+R1finds an intermediate12KiB fitting interval that shortened old quotes beside
+optional context; red proves it, drop context whole first. Initial actual maximum
+group fails from extra metadata; extreme whole optional-metadata fallback restores
+legacy citation semantics, preserves original group fields and warns. Specific
+maximum rerun passes95.59s.4context/58Actor/103briefing filters overlap, final fmt/
+strict/build pass. Native51source proves forced-short conditions in terminal and
+simulatedQQ actual model inputs/default views;48memory retains reviewed save,
+Chinese literal recall/correction/forget/restart. Cleanup passes, R2static clear.
+
+Focused actual e1c5/d47/currentmedium uses unchanged6synthetic records/4questions:
+15completed requests/99302reported tokens,max26864.4provider context observations
+match exact welfare record/text; original correction consumed and displayed first
+once, plus separately inspected base original. Actual quote includes conditions
+this time, not causal short-quote proof. Exact paging/ledger/selected reads/end
+scope checks/cleanup pass. Read4answers and actual ConPTY cells, not physical font
+acceptance. Replies still repetitive/technical; selected-memory prose issues remain.
+No latest actual full-memory tail/Linux/deploy/realQQ/source/trial/Git changes;
+ce43actual18step memory stays scoped, full goal active. External evidence:
+configured visualizations/lain-source-context-2026-11-07/.
+
+## 2026-11-07 — Bind explicit original request to an actual original read
+
+Preserve b801actual original failure; real Actor red falsely Completes report-only
+selection. Add conservative direct Chinese current-User shortcut and final evidence
+gate: fail original_required if no selected actual original/scoped empty read.
+Catalog hides item-only choices until original exists, adds no authority/automatic
+read/retry; private catalog still validates real handles and final checks remain.
+Hold speech,2requests/14tokens/1read/no replay verified. Initial custom notice loses
+category and is repaired. R1finds tilde/long-code fence misclassification; red confirms.
+Reuse already-locked client Markdown parser in Kernel, same package versions; direct
+prefix/quoted/narrated/negated/meta boundaries tested. First parser green loses现在
+positive, restore it. Final57Actor/99briefing overlap, fmt/strict/build pass; initial
+100test run includes unchanged maximum group (wrong skip string), no repeat of it.
+Native51source/48memory fixture requests and cleanup pass; R2closes fence finding.
+
+aa71/d47/medium on unchanged6synthetic notices/4focused questions:15completed
+actual calls/97391tokens,max26399. Original turn3requests actually inspects correction,
+provider consumes exact expected source body, renderer puts it first once/pointer.
+Allaccounting/read references/scoped end checks/cleanup pass; all4answers/ConPTY
+read, not physical fonts. Welfare limits complete this sample, but no relevant
+condition code changed; prior omission stays. Full actual memory tail not rerun;
+ce43 evidence not promoted. Next deterministic condition/citation coverage then
+memory prose. General quality/Linux/deploy/realQQ/permission/trial/Git unchanged,
+full goal active. External lain-original-request-2026-11-07/ preserves failures.
+
+## 2026-11-07 — Follow actual read cursors; show inspected original first
+
+Reproduce3renderer failures from ce43manual readback. Track only exact current-turn
+same snapshot/query/run cursor chains after refresh; retain gaps/cycles/other-query
+hints. Move the existing original renderer first and point only its same canonical
+concise citation back, preserving other sources/details/bounds.55Actor, format,
+strict checks/build pass. Native51briefing proves both audiences' exact continuation
+and mixed original display;48memory reruns selection/recall/change/forget/restart.
+First native observer cannot resolve sharedstatus;5tests red5failures→green strict
+resolution. Then it assumes private source actions appear in ordinary API; retained
+diagnostic proves sanitized actions empty/body correct. Audit only own isolatedDB,
+close that connection (first leak blocks cleanup), remove only verified own residual
+fixture. Final cleanup passes, no production privacy change. R1review clear.
+
+Focused b801/d47/medium actual4questions:14completed requests/89918tokens,max25995.
+Read-to-end output consumes exact0→4→terminal receipts and has no false hint, but
+final original query reads reports twice then selects excerpts, never inspects.
+Keep functional failure04and full trace; no unchanged paid rerun. Offline original
+call-count assumption is corrected to actual two read calls without new model use.
+All4answers/ConPTY read: checked welfare quote/default also drops first50/one-per-
+person conditions. Actual memory tail not in this campaign; previous ce43 evidence
+not promoted. End effect scan unreached; temporary cleanup/accounting pass. Next
+original-intent/evidence constraint and condition coverage, then memory prose.
+General quality/Linux/deploy/realQQ/full goal remain; no Git/grant/trial change.
+External lain-briefing-paging-2026-11-07/ retains original and observer failures.
+
+## 2026-11-07 — Keep selected source wording in reviewed memory
+
+Reproduce English-note/Chinese-query miss, append only checked selected citation
+fragments with source/origin/own clocks after full original draft/group. All fit
+within4096bytes or retain the exact complete old draft; no truncating conditions,
+group narrowing, new read or model call. Exact old pending candidates survive
+restart; edited/stale drafts reject.3targeted tests,5-member group assertion,
+52Actor/58briefing overlap, fmt/strict/native build pass. Native43/48 pass, but
+independent R1finds QQ recall result discarded. Preserve that insufficient report,
+reproduce7false-green negative cases in4tests, enforce actual query/result/reply
+and reviewed-body equality, green/native48r2/R2review close the finding.
+
+Actualce43c91b30b1/d47/medium on same8synthetic records plus one literal question:
+18foreground steps,47requests/358040reported tokens,max28224. Save/review exact,
+literal领取hit and exact provider-consumed body verified; source refresh/original,
+restart recall/correct/expiry/forget/reconnect/accounting/end/cleanup pass. Read18
+answers/ConPTY cells: current generated notes Chinese (forced-English repair is
+proved separately), but memory prose still presumes unresolved older notice,
+exceeds active query coverage and overstates capture-date reference. Paging,
+original duplication, English review/verbosity remain. No general quality/Linux/
+deployment/realQQ/source grant/trial/Git claim. Full goal remains active; next
+receipt-based presentation/paging and bounded exact-memory recall, not more prompt
+layers. Evidence: external lain-memory-source-wording-2026-11-07/.
+
+## 2026-11-07 — One query declaration; current-candidate full actual path
+
+Measure duplicated model-tool payload, decline the low-gain table-format prototype.
+Offer existing memory_search once for null listing/literal filtering while keeping
+the typed memory_list alias and all Kernel gates/restore/API/CLI paths. Group only
+field-free offered global/internal kinds; selected IDs never cross-product. Reuse
+shared source policy in concise briefing descriptors. Actual initial fixture tool
+bytes15275→11997; intermediate over-target failures stay. Legacy equivalence/
+foreign-scope/exact selected-ID/invalid pair tests pass. Final52Actor/55briefing
+overlap, fmt/strict checks/build, independent R1/R2 and native43/48fixtures pass.
+
+Currentd800/d47/medium on unchanged synthetic messages/questions completes17
+foreground steps including3reviews:47actual calls/349869tokens,maxforeground29010.
+Calendar/source clocks, late refresh/original, save/restart/recall/correct/expiry/
+forget/reconnect and scoped end checks/cleanup pass. One incorrectly quoted active
+status is refused without action; valid read recovers. Offline analyzer initially
+fails on the nonJSON refusal; preserve failure, distinguish opaque control from
+evidence and retain strict reference checks. Two observer fixture errors are fixed,
+3tests pass; no paid replay. All17answers/final ConPTY cells read: English selected
+content impairs Chinese literal recall, unrequested capture-date conversion and
+verbose/paging/review-language UX remain. No general prose/reliability acceptance.
+Next preserve checked source wording in memory drafts within current content/
+scope/review/bounds, then constrain recall/paging. No Linux/deploy/realQQ/grant/
+trial/Git change; full goal open. External lain-model-metadata-2026-11-07/.
+
+## 2026-11-07 — Ordinary source rules compacted; complete-model path still open
+
+One ordinary conversation policy replaces repeated source workflow/calendar/
+quotation/memory/style blocks. Exact dynamic grant/clock, facts/corrections,
+typed tools, internal extraction/comparison and all gates/budgets remain. Native
+four-request red demonstrates12071-byte old initial instructions; final9609bytes
+retain exact scope/clock/tool-allowance and source-receipt equality. Intermediate
+tests incorrectly query active-only scope after completion and require ordinary
+tools after their existing allowance ends; fix test observation, not production.
+Independent review catches not_attempted falsely phrased as no target; actual
+outbound regression red→green and R2 closes it. Final51Actor/55briefing overlap,
+fmt/strict checks/build and native43briefing/48memory pass.
+
+Real1942df955413/d47/unchanged medium on the same sources/questions completes7
+foreground stages through late original. Later calendar query still fails33097
+against32768 (30202input+2895output);30actual calls/228833tokens, all Returned,
+valid read selections and temporary cleanup verified. No memory tail/end effect
+scan reached, no blind replay or cap increase. Read seven replies/cell capture:
+irrelevant lunch/injection item is included initially; original-first/duplicate
+and continuation-hint UX remain. Static bytes decrease is not evidence of a
+stable cumulative budget or useful item selection. Next attribution separates
+tool/result description redundancy from facts and provider-owned continuation.
+No Linux/deploy/realQQ/source authority/trial/Git change, full goal open.
+External lain-source-guidance-2026-11-07/ retains all failures and evidence.
+
+## 2026-11-07 — Short default with expandable evidence; retain actual cap failure
+
+Source-only final replies default to exact source excerpts, essential clocks and
+stable references. Generated notes remain explicitly expandable via detailed;
+identical same-source/record/version quotations can share one body without losing
+item numbers. Keep query/page/coverage warnings and separate original/empty footers.
+Initial helper red catches English generated notes; actual original-footer red
+and independent review close misleading footer and expanded-turn refresh bugs.
+Native input remains single-submit: observe rendered draft before one Enter;
+retain unsent-draft failure and improved redacted failure capture, not a claimed
+product input fix. Two marker/7observer unit tests pass after native-interpreter
+access correction. No terminal layout, schema or grant change.
+
+First actual attempt9calls/58138tokens stops after valid final selection is emitted
+as an undeclared function; normal invalid-tool handling adds a fourth completion,
+foreground39216. Declare private briefing_answer only for eligible source reads;
+normalize sole final choice into the same checked envelope, no Kernel Action or
+extra roundtrip. Actual Actor red→green and rejection matrix preserve usage and
+deny mixed calls/unknown fields/unread refs/reused IDs. Native51Actor/55briefing
+filters overlap, fmt/strict checks/build pass, then43briefing/48memory fixture
+requests pass; scoped independent source/protocol reviews close findings.
+
+Actual4aa4f012c24c/d47/current medium next run completes7foreground stages through
+short view, expansion, today-only reuse, late refresh and original lookup. Default
+sample2221bytes; no controlled runtime/token savings claim. Calendar follow-up
+then fails32982/32768 in3requests (30655input+2327output). All28provider completions
+and215725reported tokens match Returned ledger, cleanup passes. Original analysis
+incorrectly required originals-only footer on a mixed report+original reply;
+retain first analyzer, repair offline without model replay. Read all7actual replies
+and actual ConPTY short-view capture; no full memory tail or general prose/lifecycle
+acceptance. Pagination hint and duplicate mixed view remain UX caveats. Next reduce
+duplicated source guidance while retaining current intent/evidence/capabilities,
+not raise limits or blindly remove provider reasoning. No Linux/deploy/realQQ/new
+source/Git writes; full goal stays open. External lain-briefing-compact-2026-11-07/.
+## 2026-11-07 — Bind final source speech to actual reads, retain UX gaps
+
+Add a private source-only final selection envelope and bounded Kernel presenter
+after actual briefing reads. It retains source provenance/time, original item
+numbers, query/page scope, generated-reference labels and source-local speaker
+labels. Unknown/duplicate/unread references fail with known failure categories;
+returned usage stays accounted, previews/drafts held and publication checks stay.
+No additional inference/read authority, schema or permissions change.
+
+Initial actual9calls/51421tokens fail on one JSON fence surrounded by prose;
+strict unique-fence compatibility discards drafts. Next actual9/50169 returns
+valid JSON but selects3unread originals; correct Reference rejection is retained.
+A real Actor red reproduces missing output choices. Per-request catalogs now
+derive only individually renderable report/original/empty references, reusing
+refresh checks and carrying no source body. Same strict final validation remains.
+Earlier four static review findings and the shared-cache mutation restoration
+are preserved in external evidence; no failure is relabelled as product success.
+
+Final Windows49Actor/53briefing (overlap), fmt/strict checks/build pass. Native
+24briefing and48memory fixture HTTP calls cover originals/paging/withdrawal and
+reviewed save/correct/forget/restart/two audiences. Update obsolete memory fixture
+reply to the selection contract, leaving lifecycle assertions intact. Actual
+c53bacaddaac/d47/current medium three-question run:12calls/82471tokens, maximum
+foreground30155, all terminal usage/Returned ledger agree, two7reference selections
+bind actual reads. Today-only reuse, empty global Work/channel lists, empty current-
+conversation active memory and cleanup pass; not a database-wide memory audit. Read all three
+replies and actual ConPTY cells: no repeated Sunday/forwarding mistake, but English
+generated summaries and verbose repeated blocks remain. Concise naturalness is
+not accepted. Actual original/memory tail, native Linux/deployment/live sources
+remain; cloudb9a+medium/full goal unchanged. See DAILY_BRIEFING_ACCEPTANCE and
+external lain-briefing-presentation-2026-11-07/acceptance.md.
+
+## 2026-11-07 — Make missing sender evidence explicit, retain new prose failures
+
+Actual prior ordinary report lacks speaker fields while its answer claims the
+same sender. Add static report attribution status and existing original lookup
+pointer; source-local imported labels are not verified people or correction
+authority. Preserve report12KiB, source/secret/publication checks, original DTO,
+current-turn exact-receipt sharing and all authorization/schema/profile settings.
+Red real lookup sees Null, red actual four-round input sees0shared fields versus2.
+First green fixture fails because its report turn was never ended; complete it
+through established fixture lifecycle and retain that failure. Final targeted3,
+53briefing (including256maximum group,105.37s),4context, fmt/strict Clippy/build
+pass. Scoped six-path independent static self-check has no evidenced blocker.
+Native24HTTP/ConPTY/simulatedQQ calls pass;5report/original observations retain
+explicit missing sender status and source-local labels in two isolated audiences.
+
+One actual same-three-question run on729da4efc8e8/d47/current medium copy finishes
+13requests/88276reported tokens; foreground13605/27700/28401<32768,8ordinary
+clocks/6read metadata observations, all completions/Returned accounting agree.
+No yesterday reprocessing for today's arrival, final noWork/channel/memory effect,
+temporary cleanup pass. Analyzer initially leaves new field references unresolved;
+preserve original KeyError,2red→green observer tests and7legacy negatives after
+one-field whitelist update. Reconstruct unchanged raw requests offline; no paid
+retry. Actual original briefing ConPTY cell capture viewed.
+
+Manual all-three-reply readback does not show prior shared-sender speech, but
+final prose calls the actual Friday source day Sunday and imported records group
+forwarded notices. manual_check.py binds both to actual source texts/clock; full
+prose remains failed. No new date prompt patch or extra paid run to obtain green.
+Local-only, no Linux/deployment/newsource/QQ. Cloudb9a+medium, source proposal
+and full goal unchanged. External lain-sender-attribution-2026-11-07/acceptance.md.
+
+## 2026-11-07 — Verify a current reply frame without rewriting source time
+
+The existing ordinary briefing scope now supplies a per-request epoch/local
+time/today/tomorrow clock, moved into current Actor instructions on each round.
+Old report calendars/source wording remain immutable; internal activities and
+unavailable grants are excluded. No profile/schema/authority change. The earlier
+wrong reply already had correct calendar dates, so do not claim sole causation.
+Actual-four-round red→green plus fixed +8/-8 midnight/year-boundary tests cover
+fresh request fields and unchanged historical calendars, not controlled-clock
+Actor midnight E2E.43Actor/51briefing filters overlap;1clock/2calendar tests,
+fmt/strict checks/build and independent five-path static review pass.
+
+Native Windows HTTP/ConPTY/simulatedQQ24fixture calls pass12ordinary/12internal
+clock separation and prior source/recovery/isolation checks. Initial observer
+unittest invocation uses the wrong directory and imports no tests; preserve its
+failure, then explicit discovery passes5tests. No product repair or paid retry is
+attributed to that test-launch correction.
+
+One actual current-medium copy run on631559bd33d3/d47 reuses the initial6notices
+and first3questions, adding only the already-selected today-only notice.12model
+requests/75120reported tokens, foreground6731/27647/27888 allbelow32768; every
+provider completion matches Returned ledger.7ordinary clocks match their epochs;
+same-correction item identities survive. No yesterday reprocessing on today's
+arrival, no Work/channel/memory effect, all temporary state/processes cleaned.
+Viewed original briefing ConPTY cell rendering, not real desktop/font evidence.
+
+Manual readback no longer shows the old two-followups/source-day-as-today errors
+in this run. It still asserts shared authorship without sender fields in the
+ordinary read. Fixture truth is not model-visible evidence; preserve the finding
+and avoid general prose acceptance. Late refresh/original/memory tails were not
+rerun. Local-only candidate; cloudb9a+medium, private-source consent and full goal
+remain. Evidence: external lain-reply-clock-2026-11-07/acceptance.md.
+
+## 2026-11-07 — Observe the real clock chain, retain message-origin evidence
+
+Use accepted local a717 and current medium8192/32768 on the same8synthetic notices
+and first8questions, not the memory tail. A stale5eclient pin stops before SSH/
+provider; actual d47 is accepted separately, corrected explicitly for a fresh
+directory. Main run30requests/218365reported tokens reaches refreshed briefing,
+original and both calendar/source-clock questions, maxforeground30964. All
+provider completions match the returned ledger. Main exit1 is a collector KeyError:
+private citations intentionally lacked record_id. Offline actual snapshot/item/
+citation binding (with negative snapshot/index/quote/clock cases) recovers all
+three matching receipt-clock paths; no paid replay.5observer+2binding tests pass.
+Original failure and skipped final storage-wide no-effect scan remain explicit.
+
+Static review catches manifest versus script bytes; prove original hash equals
+current source normalized LF while actual file is CRLF. Record both, repair
+metadata/diff without changing the live script; follow-up verifies resolution.
+Native terminal capture viewed. Manual actual answers still fail message-count,
+today/source-day, daytime/last-night and unsupported independent-new-notice claims.
+These remain product issues even though explicit later clock questions are right.
+
+One concrete information-loss fix follows: full report/source citations retained
+the same ArchiveRecordId for a correction's two generated facts, but private
+projection removed it. Keep that existing ID for equality, not chronology or
+unprompted display; no source/permission/schema change. New regression first
+failsNullversusUUID. Broader test catches obsolete omission assertion, changed to
+exact retained equality. Next old+1000byte score fails at7921/7085; shorten only
+the redundant projection note and retain that gate. Final43Actor/51briefing
+filters (overlap; maxquote unchanged skip), fmt/strict Clippy/build and scoped
+R2static self-check pass. No paid proof of corrected prose yet.
+
+Native HTTP/ConPTY/simulatedQQ identity fixture first exposes stale historical
+phrase assertion. Maintained script now checks actual assistant JSON terminal
+metadata;2pure tests reject user/active/malformed/legacy-phrase cases. Local native
+chain24fixture calls passes two explicitly authorized audiences,17source records,
+12citation handles/8distinct originals, originals/cursors/reconnect/withdrawal/
+noWorkMemory and cleanup. Final nonstring guard separately passes unit tests.
+385185221be1 stays Windows-local, no Linux/deployment. Cloudb9a+medium, real-source
+consent/full goal unchanged. External three acceptance directories retain scopes.
+
+## 2026-11-07 — Separate internal evidence work from conversational instructions
+
+Two bounded external low/medium attempts use the retained synthetic4record input,
+same model/body except effort. The diagnostic observer raises AttributeError
+before retaining terminal projection in both; no comparison or returned-usage
+conclusion can be recovered. Preserve original script/report/log, correct the
+misleading known-sum0 to actual-totalnull/two unreported attempts. Reproduce safe
+nullable projection offline, then pass3observer tests; store known terminal
+accounting before optional content checks, stop on diagnostic error and reject
+rerunning an existing report. No third paid request or cloud profile change.
+
+Independently confirmed unnecessary context: internal briefing still receives
+companion voice and Work/memory policy. A real Actor request test first fails;
+persisted briefing activities now choose a compact explicit untrusted-evidence,
+no-tool/effect, credential/uncertainty base. Stage instructions, full source input,
+output validation and Kernel gates remain. Ordinary chat/reading/sharing retain
+their original base. No provider-specific core objects, profile, schema or grant.
+
+Windows42Actor/51briefing/40reading-filter tests (overlap; prior same-tree max
+quote evidence reused), format, strict all-target Clippy/build and scoped static
+self-check pass. Actual native HTTP17records/5completed+1forged-rejected batches
+preserve exact citations, restart identity, source invalidation and no tools.
+Native HTTP+ConPTY2foreground/1failed extraction preserves ordinary instructions,
+new internal base, failure/restore/no replay.9fixture calls total,0paid/realQQ in
+runtime validation, temporary state/processes cleaned. Outgoing instruction hash
+matches exact reconstruction from retained old stage suffix:7158to3738bytes,
+3420redundant bytes removed. No token/speed/reliability improvement is inferred.
+
+Binarya717c610baf6 remains Windows local; no deployment or actual-model acceptance
+of new prompt. Prior8192reasoning/no-text failure and receipt-clock prose remain
+unresolved. Cloudb9a+medium/identity/source consent remain; full goal open.
+External lain-briefing-activity-context-2026-11-07 and extraction-diagnostic.
+
+## 2026-11-07 — Report stopped preparation without another model or stale wait
+
+Preserve two observed failures before implementation: corrected test reaches the
+wrong terminal reply instead of factual failure feedback; a durable run-only stop
+cannot wake the existing Actor-event wait in2seconds. The first test's8second
+timeout collided with the actual8second readiness deadline; retain that false
+failure and use20seconds for actor settlement without changing product limits.
+
+Successful typed preparation status now directly gives pending or failed/stopped
+feedback. Failed0processed differs from readable partial coverage; source-invalid
+feedback omits counts. Full receipt and backgroundUnknown remain; foreground
+completes with that truthful reply, no extra model/later tools/restart. Normal
+completed/partial reads and private-input/memory/source publication checks stay.
+The existing Kernel revision watch replaces Actor-only notifications, subscribing
+before status reads; coordinator final commits wake it, with no polling or new
+task/schema/configuration/authority.
+
+Native Windows42Actor/51briefing-filter tests (overlap), formatting, strict
+all-target Clippy and laind build pass. Unchanged maximum quote case is explicitly
+skipped using previous same-tree evidence. Five-path independent static self-check
+finds no evidenced blocker. Binaryca958b0215bb with real local Responses HTTP and
+ConPTY passes initial failure, restored history and a fresh status question after
+restart.2foreground+1extraction fixture calls,0paid/0realQQ,11079synthetic reported
+tokens, no later Work action/Unknown replay, temporary processes/state cleaned.
+Viewed02-restored-failure.png; actual cell-render evidence, not desktop/font QA.
+
+No cloud install or Linux claim. The model's exhausted reasoning/output response
+and receipt-clock prose remain unresolved; prior failed usage is not backfilled.
+Cloudb9a+medium/source consent remain, full goal active. External
+lain-briefing-terminal-status-2026-11-07/acceptance.md.
+
+## 2026-11-07 — Account unsuccessful terminal responses without accepting them
+
+Reproduce the observed11059usage drop through real ResponseStream parsing and
+Actor admission: expected11059, actual0. The adapter now carries only valid
+representable integer total_tokens alongside the existing allowlisted incomplete
+cause. Actor records it once before returning that same failure, interrupts the
+preview, persists turn usage/timing without source publication and never enters
+the separate completed-format repair path. Missing/malformed/out-of-range usage
+stays unknown. No schema, configuration, grant or historical backfill change.
+
+Native Windows4target/41Actor/50briefing/11inference-filter tests (overlap), format,
+strict all-target Kernel Clippy/build pass. Preserve intermediate test visibility
+compilation failure and initial zero-match inference filter; tests move under the
+adapter module and use only two test-fixture visibility changes, preserving
+production privacy. Independent seven-path static self-check finds no evidenced
+blocker. Actual native binary4bc443fff50a plus CLI and loopback streaming HTTP
+passes known/missing/zero/other-reason and in-flight-revocation cases, restart and
+duplicate-no-replay:4fixture calls,0paid/0realQQ,22118synthetic reported tokens,
+cleaned temporary processes/state. Fixture usage is not a provider invoice.
+
+Local only, no Linux/cutover. Earlier failed usage is not retrospectively repaired;
+cloudb9a+medium/identity/data/source consent remain. Next address extraction's
+reasoning/output failure and user feedback before another focused actual model
+comparison. Full daily-briefing/selected-memory goal remains open. External
+lain-failed-usage-2026-11-07/acceptance.md.
+
+## 2026-11-07 — Readable archive receipt candidate and retained output-cap failure
+
+Actual prior request24 formats source Friday14:00 but gives receipt Saturday02:17
+only as milliseconds; speech wrongly places late intake on the source day.
+Add archive_received_local_time to checked extraction/report/original views using
+the existing fixed-offset formatter. Preserve raw values/text/source anchors and
+all source/publication gates; invalid receipt yieldsnull without losing a valid
+source time. Two real Actor/clock regressions fail before implementation and pass
+after. This input improvement remains a hypothesis for prose, not proof of repair.
+
+The first quote run finds a genuine new maximum-row regression:3pass/1fail,256
+member conflict group cannot fit12KiB even with minimum nonempty quotes. Retain
+failure; only in that extreme case omit redundant receipt labels with an explicit
+notice, preserving raw milliseconds, full facts/relationships and original lookup.
+Final4quote/3context projection, format, strict Windows Clippy and service build
+pass. Independent five-path review plus fallback second round finds no evidenced
+blocker, not deployment approval. No new schema/grant or page-cap increase.
+
+One shortened actual-provider/nativeTUI comparison preserves the same8source
+messages and first8questions, skipping unrelated memory mutations. It stops at
+first extraction response.incomplete/max_output_tokens:8192output all reasoning,
+0visible text,0published items,Unknown/no replay. Four checked cross-day receipt
+labels reach actual extraction input, but report/original are not reached. Two
+admitted calls: ledger6566reported tokens; raw terminal total17625 includes11059
+known failed usage that adapter/ledger does not retain. Preserve both numbers and
+cleanup, not a passing retry. Current output validator caps8192, so do not simply
+write16384 or cancel32768 turn limits. Next inspect safe returned-error usage and
+bounded extraction budget/failure feedback before another actual comparison.
+
+Candidate7ac6015bc307 is local only; current cloudb9a+medium and private source
+consent remain unchanged. Full goal active. External receipt-clock acceptance.
+
+## 2026-11-07 — Protected medium-only adoption and current-profile full workflow
+
+The cloud's low setting differed from successful isolated medium evidence.
+Adapt the existing one-field profile operator to current schema40/four configs/
+six-member backup and checked reader. Five conversion regressions first fail
+against the old output-only transform, then pass;13local pure/16native guard
+cases,3copy mutations and8actual isolated service faults pass. Independent static
+review catches a missing public-verifier source manifest; supply its accepted
+byte-identical copy and enforce manifest→plan identity before production. No
+uploaded operator drift or policy/QA relaxation. Original low hash baseline stays;
+new medium baseline is separately recorded for later maintenance.
+
+Configuration operatione1edae96 is public-accepted. Actual pre-backup/current
+JSON comparison proves reasoning_effort low→medium only, preserving8192/32768,
+model/credential/timeout/vision. Same b9a executable/original40inode/identity,
+other configs/reader/trial/native Codex host remain. Public Windows HTTPS/SSE/
+loaded profile/CLI/installed ConPTY and independent six-member post-backup restore
+pass;7backups8128346bytes,active timer,0builder/fixture. Maintenance invokes0model,
+QQsend or newgrant; real personal-source proposal stays unanswered.
+
+Then current cloud profile copy/accepted Windows binaries/8synthetic notices run
+the full16foreground-turn chain:45actual requests/364893reported tokens, maximum
+singleturn29754. Today reuse, late refresh/old immutable snapshot, one-question
+original, date/source clocks, reviewed save/restart recall/exact User correction/
+expiry/forget/reconnect pass. Paid-driver changes retain the same questions and
+source text; only pins/current-profile requirement, safe diagnostics, exact intake
+reference observation and a corrected Friday17:00 test expectation change. Two
+observer tests are offline; an offline finalizer initially mistakes a trailing
+Kernel identity annotation for User text, then readback repairs selection without
+another paid run. Requests44/45 have no old502/503body. Temporary state cleaned.
+
+Manual review of16answers retains a real failure: source Friday14:00 versus raw
+Kernel receipt Saturday02:17 still yields “当天较晚才进入整理”. No general prose
+acceptance; input clock-format asymmetry is observed, not proved sole cause.
+Verbose page/group narration and underused User capture clock remain. Screenshots
+are ConPTY cells, not desktop fonts; old default client still shows a missing-read
+error, while the separate d47preview has a verified neutral branch. Full goal
+remains active. Next: inspect checked receipt-clock projection/cross-day regression,
+not another identical45-call paid loop. External medium-profile acceptance.
+
+## 2026-11-07 — Preserve rejected extraction reasons and verify original follow-ups
+
+Existing strict extraction gates now attach a closed static rejection reason;
+the Actor publishes only safe diagnostics and preserves Unknown/no replay. No
+raw parser error, rejected model body, schema or authority change. Real Actor
+regressions cover seven categories and restart/duplicate recovery; two intended
+red failures precede repair. Final Windows86briefing/39Actor filters (overlap),
+format/strict checks/build pass; six-path static review is scoped separately from
+intake semantics. Removing time_text's exact citation gate in a temporary copy
+causes the actual Actor regression to fail;319 active inputs unchanged, copy gone.
+
+Low actual four-question run reaches two originals but stops on an observer
+assertion that incorrectly expects private source reads in normal action views.
+Preserve its14requests/101522tokens and genuine last-night/last-chance prose errors;
+no later withdrawal/restart credit. Offline observation instead binds the current
+question to actual briefing_inspect outputs, source/text and call identity; four
+negative cases pass without another model request or private-action exposure.
+
+Same candidate/messages/questions with temporary medium finishes11requests/
+76894tokens, both exact originals, withdrawal/restart/no replay and cleanup.
+Manual readback confirms literal补收, attributed resend, relative November7 dates
+and conditions; verbosity/numeric labels remain and first question returns
+processing progress. This focused run creates no memory, realQQ, source grant or
+cloud write, and is not full lifecycle/ordinary prose acceptance.25requests/
+178416tokens total; earlier5/29483 remains separate. Screenshot is ConPTY cell
+rendering, not native desktop/font evidence. Frozen319-input b9a217fa171a changes
+eight existing Kernel/test paths versus cloud4b8, no additions/dependencies/schema.
+This frozen source now passes native Linux86briefing/39Actor (overlap), all-target
+checks with the existing1.89 style-only exception and release build.30guards,
+3copy mutations and8native isolated fault cases pass; independent scoped static
+review finds no evidenced new blocker. Three local preparation stops (fixture
+marker count, generated set ordering, CRLF comparison) remain recorded; no gate
+was weakened. Program-only operation3bd98b0b is public-accepted on original40/
+inode/identity/config/reader/trial. Actual Windows HTTPS/SSE/CLI/installed preview
+ConPTY restoration and independent six-member post-backup restore pass. Native
+host identity unchanged;7backups7942554bytes,active timer,0builder/fixture. No model,
+QQsend,newgrant or Gitwrite in maintenance. Medium adoption remains a separate
+protected configuration operation. Full goal open, personal-source proposal
+unanswered. External rejection and intake-release stages.
+
+## 2026-11-07 — Separate intake clocks from publication claims, local candidate
+
+Read the actual prior source/answer: literal补收 became补发. Extraction/report/
+original now share interpretation-only intake_semantics: source/receipt clocks
+alone do not prove publication history; ambiguous words stay quoted, an explicit
+resend stays an unverified source report. Raw identity/text/clocks, gates and
+Actor instructions are unchanged. The field joins existing exact-result/snapshot
+sharing, not generic deduplication. Two intended red regressions precede repair;
+intermediate case-sensitive assertion and unfinished test-turn mistakes are kept.
+Final target tests,84briefing including maximum escaped conflict group,3projection,
+format/strict checks/native build pass; filters overlap. Seven-path static self-
+check finds no evidenced blocker, not actual-model or deployment acceptance.
+
+Actual native TUI/cloud-low-copy attempt stops at extractionUnknown/model_failed:
+4requests/25,482reported tokens, no original follow-up reached. Old trace omitted
+visible extraction output, so the rejection reason is not recoverable or guessed.
+A new observer plus one native batch-only diagnostic uses1request/4,001tokens and
+accepts two items, preserving补收 and attributing explicit补发 as unverified. This
+does not resolve the first failure or prove the full foreground scenario. All
+5requests/29,483tokens and both cleanups remain. Future observer now preserves raw
+visible output and failed batch/turn/budget before cleanup; it has not been used
+to rerun the full scenario. Cloud4b8/low, sources/trial/host remain unchanged by
+this local work. Concrete next task: retained safe extraction-rejection reasons,
+then actual original follow-up. Full goal open; source consent still pending.
+External: lain-intake-semantics-2026-11-07/acceptance.md.
+
+## 2026-11-07 — A missing memory read is not a generic tool incident
+
+The completed isolated model chain left a real Failed memory.inspect/not_found
+receipt after forgetting. Keep that authoritative result but classify only the
+exact read/false-success/not_found combination as not found or not visible. Do
+not infer forgetting/deletion from a miss; other failures and turn errors remain.
+Two red regressions precede repair; a test initially inspected body instead of
+layout title, then required a mutable layout read. Both intermediate failures
+are retained, and the final renderer/TUI regressions pass. Renderer8/desk43 cases
+(overlap with the two targets), format, strict checks/build and scoped static
+self-check pass. Native local Kernel/ConPTY with2simulated requests verifies
+folded/expanded/restarted receipt and no replay; no paid model or realQQ.
+
+Client d47f52f08e2b is installed in a new private preview directory using the
+byte-identical previously reviewed installer. Existing default/profile/portrait/
+credential files are never written and observed hashes remain. Actual installed
+ConPTY restores the existing cloud test conversation, browses empty Sources and
+returns/exits; not an actual missing-read branch on production. Full goal remains
+open. Frozen319-file source4b8d15fa0954 has ten changed existing inputs and two new
+test files versus cloud94922. Native Linux83briefing/39Actor/8sync/2client filters
+(overlap), all-target checks with the existing1.89 style-only exception and release
+build pass. Thirty guards, three temporary-copy mutations and eight actual isolated
+native service fault cases pass; independent static self-check has no evidenced
+blocker. Initial collector hash-basis/local mutation-row record ambiguities were
+clarified before production; uploaded code stayed fixed.
+
+Same40 program-only maintenance is now public-accepted on the original inode/
+identity/config. Actual Windows HTTPS/SSE/profile/reader, existing CLI and new
+installed preview ConPTY restoration pass. Post six-member backup independently
+restores DB/configs; seven archives6,890,859bytes/timer active, no builder/fixture.
+Local Codex host PID/start/path unchanged. Cloud remains low; this maintenance
+invokes no model, realQQsend, source grant or trial extension. Earlier paid full
+chain retains its Windows/synthetic/temporary-medium scope. External stages:
+lain-memory-lookup-ui-2026-11-07 and lain-briefing-lifecycle-release-2026-11-07.
+
+## 2026-11-07 — Reuse evidence instead of repeated framing and preparation
+
+Trace the actual39562token failure: each historical source turn repeats its
+explanation, and current reads repeat calendar/status/citation metadata. Keep
+per-turn state/navigation with one bounded explanation. Share only equal known
+metadata in the same request and snapshot, after exact matching against actual
+executed results; preserve full data/input/audit and all normal read gates.
+Tests first fail, then reconstruction/negative cases and real Actor-input fixture
+pass. Initial test import error is retained separately.47briefing/39Actor-filter
+checks overlap; one unchanged maximum-group case skipped. Format/strict checks/
+build and scoped independent review pass. Removing the exact-match fence in an
+external copy triggers its intended assertion; project source never mutated.
+
+Actual low run uses the layout but fails source-versus-reply-day wording (23calls/
+144915tokens). A single isolated medium comparison stops at an unread second page
+(21/128549), not a token fault. Trace reveals guidance always re-prepared ready
+work, spending an unnecessary model round. Correct only that workflow instruction:
+checked latest read first on prepared follow-up, refresh when required, continue
+authorized actual cursor pages. Keep both failures and unchanged scenario checks.
+
+New pinned8a9c5d84b08c/native Windows plus isolated medium completes the original
+full synthetic-message chain:16foreground turns,45requests/370647reported tokens,
+largest foreground28968. Actual provider, terminal, Kernel and reviewed memory;
+no liveQQ/cloud mutation. Read back correction/deadline/forget outputs and labelled
+ConPTY screens; cleanup passes. Default cloud low profile is not changed. Verbose
+speech, unsupported补发 phrasing and a post-forget NotFound error card remain
+qualified; no general factual-quality, Linux or personal-source acceptance claim.
+External: lain-briefing-context-2026-11-07/acceptance.md.
+
+## 2026-11-06 — Progress is not another round of old-report reads
+
+Reconcile97numbered requirements plus10normative clauses against31current/evidence
+paths without declaring completion. Old missing correction-clock/follow-up gaps
+are resolved by accepted94922; actual QQ intake still awaits the existing source
+answer. Run one justified current full-chain model comparison after those repairs:
+it fails at late refresh35078tokens. Preserve18requests/117160reported tokens and
+cleanup; no later memory credit.
+
+Actual trace identifies old report reads after new nonterminal preparation. Add an
+Actor-entry regression that fails on2foreground requests, then a typed status
+completion branch producing one factual progress sentence without another model
+or later batch call. Background/old explicit history/current input/source gates
+remain. Initial private-module test access compile error is kept; move only that
+test to its owning module.46briefing/38Actor-filter cases (overlap; one unchanged
+max-group case skipped), format/strict Clippy/build and independent static review
+pass. Candidate is local only.
+
+Same questions/data/assertions with the new pinned binary pass the refresh point
+with1request/7294tokens, proceed through new original/calendar reads, then fail
+source-clock follow-up39562tokens from repeated searches.30requests/215008tokens,
+no memory/correction/forget steps executed in this run; cleanup verified. Known
+prose errors and both unsuccessful full-chain runs remain. No cloud/source/QQsend/
+trial/Git change. External: lain-briefing-pending-2026-11-06/acceptance.md and
+lain-goal-audit-949-2026-11-06/requirements-audit.json with current addendum.
+
+## 2026-11-06 — Source quota and service capacity are different stops
+
+Fix a misleading Sources explanation: a finite plan can stop with unused quota
+when the existing shared read-receipt ledger is full. Show the actual distinction
+without increasing limits or discarding receipts. A view regression fails before
+repair; an actual isolated Store test characterizes capacity, preserved history,
+no spend and explicit revocation. Eight sync/four view tests, formatting, strict
+all-target Kernel/client checks and native client build pass.
+
+Static installation review catches a configuration check/replace race before
+execution. Replace that unexecuted plan with a fresh preview directory and entry
+that never writes existing configuration or launchers. Actual installation and
+cloud-connected Windows ConPTY restoration/Sources/return/exit pass; manually
+read the labelled ConPTY render. No new model call, QQ send, source grant, cloud
+cutover, host restart or Git write. Default entry remains unchanged. Evidence:
+external lain-source-capacity-2026-11-06/acceptance.md.
+
+## 2026-11-06 — Checked source follow-up reaches the cloud
+
+Deploy source94922bbab226through the existing same40 guarded maintenance on the
+original database and identity. Exact six compiled-input compatibility, scoped
+native checks,30guards,2copy mutations and8isolated systemd/SQLite/HTTP cases pass.
+Independent review catches a stale collector derivation record; refresh evidence
+before launch without changing uploaded code or weakening gates. Actual Windows
+HTTPS and installed ConPTY restoration/source browsing pass; post six-member
+backup independently restores DB/configs. No model, QQsend, source enablement or
+Git write accompanies maintenance. Current configs/reader/trial/native host remain.
+Personal-source consent and general prose quality still limit full-goal acceptance.
+See CLOUD_OPERATIONS and external lain-reply-release-2026-11-06/acceptance.md.
+
+## 2026-11-06 — Observed reference is not a resolved message, local
+
+Follow the actual original-read evidence rather than treating a completed flow
+as correct prose. Explicit unknown target chronology removes the earlier claim
+but still permits a same-source assertion in one7request/48077token attempt.
+Keep it. Reshape the private adapter's unverified references as observed markers,
+raw reference IDs and null resolved targets; source identity of the containing
+message is unchanged and no target is fetched. Plain fingerprints,4/128bounds,
+8192byte total validation and current authorization remain. New HTTP shape test
+first fails; final9knowledge/strict checks/native build pass.37Actor checks cover
+the unchanged shared guidance; independent static second-round review is scoped.
+
+Final actual service/nativeTUI/provider test completes original read, source
+withdrawal and restart with7requests/47422tokens. Manual readback retains exact
+quote/conditions, correct source clock and unknown event day, without claimed
+target source/chronology/correction; still one unnecessary native ID. General
+model compliance and realQQ remain unproven. Total14requests/95499tokens. Native
+Linux6156228f82f1previous candidate now passes9knowledge/37Actor/8lookup/Clippy/
+build and is hash-pinned; new94922bbab226is in isolated Linux staging. No cloud
+cutover, source enablement, QQsend or Git write. Full goal remains active with
+real-source consent pending. External: lain-reply-chronology-2026-11-06/acceptance.md.
+
+## 2026-11-06 — Source interpretation and recoverable original follow-up, local
+
+Clarify that a source clock cannot supply a missing event day and an observed
+reply ID does not establish target existence/source. Refine the unreleased reply
+metadata to separate lookup restriction from resolution. The unchanged actual
+service/provider driver then finds a genuine follow-up failure: historical source
+bodies were correctly omitted, but all navigation was also lost. Keep bounded
+executed report/item/citation pointers in later Actor context, requiring ordinary
+current-authority reads. No schema, permission, source or stored-body change.
+
+New actual Actor-input regression fails before repair, then9lookup/37Actor,
+format/strict checks/native Windows build pass. Independent static reviews cover
+the interpretation and follow-up deltas separately. Same synthetic source with
+actual WSGI/nativeTUI/model now returns the original in one question, withdraws it
+and survives restart without restoration:7requests/47332reported tokens. Initial
+5requests/30396token refusal and its unreached lifecycle steps remain recorded.
+Model still calls an unresolved target earlier and uses unnecessary technical
+metadata, so flow success is not general prose acceptance. Source6156228f82f1 is
+now native-Linux checked and independently hash-pinned; cloudf65a and the original personal state remain.
+No real QQ send/source enablement/Git write. Full goal awaits real-source consent.
+External evidence: lain-briefing-interpretation-2026-11-06/acceptance.md.
+
+## 2026-11-06 — Preserve observed reply references, local
+
+Fix the explicit reply-association gap at the existing knowledge adapter, with
+bounded4reference projection, no target fetch/new authority and unchanged plain-
+message fingerprints. Missing-reference and later plain-fingerprint regressions
+first fail, then Windows9knowledge/service contract/strict checks/build pass.
+Temporary-source segment-bound mutation is killed/cleaned; static review clean
+within scope. Actual independent service/nativeKernel/TUI uses6simulated calls;
+future render observation repairs an early screenshot without product changes.
+First fixture's fresh-admin-owned-root ACL refusal is retained; only newly created
+empty temp-root ownership preparation changes, original guard stays. Real model
+uses8requests/49428reported tokens, retains actual references/quote/conditions,
+then source withdrawal/restart passes and state is cleaned. Manual undated-time
+day inference and target-certainty overstatement remain, not semantic acceptance.
+Source58dd has2compiled changes; Linux9knowledge/Clippy/build pass; candidate remains undeployed. Cloudf65a
+unchanged, no realQQ/source consent/Git action. Full goal active. Evidence:
+external lain-reply-references-2026-11-06/acceptance.md.
+
+## 2026-11-06 — Correction capture and independent User recall deployed
+
+Sourcef65a3f48d94b (317files, six compiled changes versus6ab) is public-accepted
+through same-schema40 maintenance on the original database and identity. Checked
+User-message capture shares the ordinary read lock; recall guidance preserves
+current User words, and metadata explains the existing independent correction
+dependency. No schema/grant/retention/config change. Native Linux66memory/37Actor
+filters overlap, all-target checks with the existing1.89 style-only exception
+and release build pass. Windows scoped checks/build and earlier clock evidence
+retain their exact candidate scopes.
+
+Actual Windows model/nativeTUI uses15requests/110397reported tokens: reviewed
+save/exact correction/current recall, forget only the synthetic original, then
+read the byte-identical active User record. Final speech correctly attributes
+the words, distinguishes capture/expiry and denies automatic correction loss
+after old-source withdrawal. Requests14/15contain no old502body. Verbosity and
+omission of requested concrete storage timestamp remain; general prose/realQQ
+acceptance is not claimed. Initial guidance-only false dependency warning stays.
+
+Final30maintenance guards,2temporary-copy mutations and8actual isolated systemd/
+SQLite/HTTP fault cases pass. Initial stale3path positive fixture is repaired to
+the exact6 reviewed inputs without loosening production gates; failure retained.
+The failed guard-only bundle is hash-archived locally and exact-filecleaned.
+Actual publicHTTPS/auth/bootstrap/policy/profile/SSE/reader and installed native
+CLI/ConPTY restore/source browse/return/exit pass. Post sixmemberbackup restores40/
+integrity/identity/DBhash/fourconfig hashes. Original DBinode, configs, reader,
+trial and native Codex host identity remain.7backups3427137bytes,timeractive,
+0builders/0temporaryfixtures. No model/QQsend/newgrant/Gitwrite in maintenance.
+Sources0/pending real-source consent keep the full goal active. Evidence: external
+lain-correction-recall-release-2026-11-06/acceptance.md and sibling recall stage.
+
+## 2026-11-06 — Checked correction-message capture clock, local
+
+Ordinary current/scoped memory reads can resolve exact persisted correction User
+message capture time under the same Kernel lock. Match conversation/message/role/
+status/exact quote; expose only identity/capture UTC and explicit non-platform,
+non-event/non-storage basis, with no timezone inference or record rewrite. Missing
+match staysnull, original16KiB full-result fallback remains. No schema/grant change.
+Cross-day delayed-review regression first fails, then passes; mismatched body/role
+and foreign/duplicate identities are denied by the relevant existing/new gates.
+Initial invalid negative-fixture expectation is retained/repaired without weakening
+snapshot checks. Windows66memory/37Actor filters (overlap), format/strict checks/
+build pass; temporary-source User-role mutation is killed by the actual regression
+and cleaned. Independent static review finds no evidenced scoped defect.
+
+Actual model/nativeTUI over one synthetic notice completes15requests/111728reported
+tokens. Requests13/15receive unchanged record and exact original User-message clock,
+distinct from storage/expiry. Explicit follow-up distinguishes clocks and retracts
+prior timezone assumption; ordinary recall still speculates about an ambiguous day.
+Keep that manual failure/verbosity: no general prose/date or realQQ acceptance.
+Temporary state cleaned. New sourcea970fa81ec43 is in confirmed-live native Linux
+staging, not deployed; accepted cloud remains6ab/schema40. Real-source consent/full
+goal stay pending. Evidence: external lain-correction-clock-2026-11-06/acceptance.md.
+
+## 2026-11-06 — Audit full goal and retain broader-context qualification
+
+Read back ten actual evidence reports and map97numbered/bulleted requirements
+without declaring full completion. Correct stale Current usable deployment39
+text to actual40/6ab, source-setup remaining tasks and README demo status. Recheck
+only the retained8notice context after the attribution change:44actual requests/
+315933reported tokens reach reviewed correction/current recall and expiry; the
+reply attributes replacement to User, but uses storage time as date corroboration.
+A legal metadata-inspect expiry query is falsely refused by an annotation-only
+harness gate. Preserve stopped run/cleanup; no later forget/restart pass is claimed.
+Repair future observation only, offline actual-helper positive plus5identity/
+state/tool negatives pass,0extra model calls. No product/cloud/grant/Git change.
+Fresh metadata Sources0 and pending real consent remain. Checked correction
+message-time projection is a concrete independent next gap; general prose and
+long-term finite-sync operation stay qualified. Full goal active. Evidence:
+external lain-goal-audit-2026-11-06/acceptance.md and requirements-audit.json.
+
+## 2026-11-06 — Selected-memory deadlines and speaker attribution deployed
+
+Snapshot 6ab1dbfbcc0e is public-accepted through same-schema40 maintenance on the
+original database and identity. The three compiled changes add optional checked
+UTC expiry/visibility and typed source-versus-user-correction interpretation;
+full records, existing16KiB limit, permissions, deadlines and source scope remain.
+Native Windows and Linux65memory/37Actor filter cases pass (overlap), with format,
+strict Windows checks and Linux all-target checks using the existing1.89 style-only
+exception. Actual-provider evidence is the earlier focused native Windows run:
+15requests/110986reported tokens, reviewed save/correct/recall and attribution on
+one synthetic notice; not real QQ or universal factual-quality acceptance.
+
+Final maintenance30guards, two temporary-copy mutations and eight actual isolated
+systemd/SQLite/HTTP fault cases pass. Initial inherited-fixture marker failure is
+retained; all3markers and both exact uniqueness-error assertions are repaired.
+Independent static review has no unresolved evidenced defect. Two obsolete guard
+bundles are independently hash-archived locally and removed by exact file paths.
+
+Actual Windows HTTPS/auth/boot/SSE/reader and installed native CLI/ConPTY restore,
+source-page browse/return/exit pass. The post-upgrade six-member backup independently
+restores40/integrity/identity/database hash and four config hashes. Original DB
+inode, configurations, reader, trial and native Codex host identity remain.
+Seven backups total2,066,831bytes; timer active, no builder/temporary fixture.
+No model call, real QQ send, new source grant or Git write accompanies maintenance.
+Sources remain0 and pending real-source consent leaves the full goal active.
+See external lain-memory-attribution-release-2026-11-06/acceptance.md and sibling
+lain-memory-attribution-2026-11-06/acceptance.md. Earlier local-only entries below
+are historical; neither deployed annotation guarantees arbitrary model prose.
+
+## 2026-11-06 — Attribute selected-memory words to their own speaker, local
+
+Actual retained reply misattributes the exact User correction's today to the source
+notice's tomorrow; stored record/provenance are correct. Optional checked memory
+metadata now labels typed source selection versus verbatim User correction and
+separates speaker-relative dates from storage/expiry clocks. No record/schema/
+policy/source change; same16KiB whole-result fallback. Regression first fails,
+then65memory/37Actor filters (overlap), format/strict checks/native Windows build
+pass. Static independent review finds no evidenced defect. One native-terminal/
+actual-provider synthetic notice completes15requests/110986reported tokens; both
+current recall and attribution replies correctly name the User origin. Actual
+record projection equals storage; temporary state is cleaned. This is focused,
+verbose prose, not general factual or real QQ acceptance; old extraction inference
+remains. Prior deadline-only dbfb snapshot now passes native Linux and pins its
+own binary. New attribution source6ab1dbfbcc0e is in a distinct live Linux job;
+no newer deployment. Cloud stays d769/schema40; real-source consent/full goal
+remain pending. Evidence: external lain-memory-attribution-2026-11-06/acceptance.md.
+
+## 2026-11-06 — Make selected-memory expiry explicit without changing its lifetime
+
+Broader-context verification of the retained memory issue uses45actual requests:
+workflow succeeds but generated summary speculates about an earlier notice and
+corrected recall invents a today/window expiry. Root evidence separates stored
+UnverifiedSelection inference from valid User correction and its real deadline.
+Do not erase these manual failures. New actual checked-read regression first
+fails, then projection adds exact stored expiry/UTC milliseconds and fixed scope
+versus lifetime interpretation for selected/corrected records only. Original full
+records stay equal; optional annotation cannot displace them at the same16KiB
+bound. Empty/other origins remain unchanged. No schema/TTL/grant/config change.
+
+Native Windows65memory-filter/37Actor-filter (overlap), format/strict checks/build
+pass; UTC/range/bound/type-origin checks pass. Independent static review finds no
+evidenced defect. Final47actual-request native-TUI/synthetic scenario checks the
+actual emitted deadline and correct window explanation, then forget/restart with
+both old/new body markers absent from actual requests. All3scenarios113actual
+requests/833747reported tokens; cleaned. General wording is not accepted: another
+answer attributes the User correction's today to the original notice and evades
+its event date. Retain that qualification. Windows0af0c716ee51 is local; native
+Linux sourcedbfb6fb4269e is staged, not deployed. Cloud/source grants/trial/QQ/Git
+unchanged, full goal active. External deadline-fix.md holds exact evidence.
+
+## 2026-11-06 — Verify exact-item memory content through real reviews and model inputs
+
+Follow the retained wrong500/501/previous-notice examples with one isolated actual
+source-backed memory scenario on the accepted d76923f31fc1 source, without changing
+code or repeating broad refresh tests.21actual model requests/156198reported tokens
+complete nine foreground interactions in53.02s. Native TUI all-page decisions
+save one UnverifiedSelection record, restart/read it, correct via exact current-
+user quote to503with Explicit provenance/same scope/expiry, read the replacement,
+then forget and restart. Actual stored records/IDs/404/empty page agree with final
+speech. Images and all replies are read;500/501 are absent in this case only.
+
+Synthetic request capture binds phases to the exact current User MessageId.
+Corrected recall has no old502body, and only gets503after native retrieval; both
+post-forget requests lack either body. Initial analysis wrongly uses the last
+wire user role (Kernel-attributed identity data), so phase count fails before any
+body assertion. Offline reanalysis fixes that evidence query, not product code;
+no extra inference. All temporary state/server/terminal are cleaned. No new Rust
+checks/rebuild/deploy/source grant/QQsend/trial/Git action. Source metadata GET
+still reports0. Retain old multi-notice failures and verbose/ambiguous organizer
+wording qualifications; this is not universal factual quality or real-source QQ
+acceptance. External evidence: lain-memory-fidelity-2026-11-06/acceptance.md.
+
+## 2026-11-06 — Context/calendar/quotation repair deployed on the original40 database
+
+Source snapshotd76923f31fc1 (317files/ten reviewed compiled changes) is now
+public-accepted through same40 program maintenance. Native Linux75briefing
+(including the maximum conflict group),34Actor,2API and11foundation cases,
+all-target checks with the existing1.89 nonminimal_bool style exception and
+service build pass. The independent pinned executable matches its unique build
+log hash. Thirty native maintenance guards and eight actual isolated systemd/
+SQLite/HTTP fault cases pass; two temporary-copy mutations prove schema and QA
+candidate bindings are guarded. Static maintenance review finds no evidenced new
+defect. No schema/config/source scope change is introduced.
+
+The original database inode/identity, four configs, loaded reader, model limits
+and trial expiry remain. Actual Windows HTTPS/boot/auth/SSE, existing installed
+CLI and ConPTY reconnect/source browse/return/exit pass. The post-upgrade six-
+member backup independently restores40/integrity/identity/database hash and all
+four configs. Seven archives total2,066,845bytes; timer active, no builder or
+cutover fixture remains. Original native Codex host is still observed running.
+No model call, QQsend, source grant, Git write or publication accompanies this
+maintenance. QQOnline is connection evidence only. Source0/pending consent and
+qualified memory/prose quality leave the full daily briefing goal active.
+
+Actual-provider evidence remains the prior native Windows/synthetic-source
+32actual requests/205639reported tokens plus1injected17token reply, not paid Linux
+or real QQ acceptance. See external lain-context-release-2026-11-06/acceptance.md
+and sibling lain-briefing-context-2026-11-06/. The user walkthrough is now in
+DAILY_BRIEFING.md. Earlier local-only entries below retain historical meaning.
+
+## 2026-11-06 — Reduce repeated briefing metadata without weakening evidence
+
+Actual prior failure totals34093turn tokens after one malformed argument. Keep
+32768 and exact native parsing; project only the already checked model-bound
+BriefingRead result. Full API/audit result persists. Omit redundant UUID/revision/
+epoch fields, add actual citation positions and lift identical scope text once;
+retain all facts, checked excerpts, own clocks, corrections, members, unknown
+fields, dates, matching indices, cursors, coverage and omissions. Refresh/empty/
+error/other tools remain unchanged. Shorten3descriptions without schema/policy
+changes. Actual Actor recording regression first fails, then74briefing-filter and
+34Actor-filter cases pass; sets overlap. Fix test-module position after initial
+Clippy refusal; final format/strictKernel all-target checks/native build pass.
+Static review finds no evidenced scoped defect. Fixture7057→5924bytes; initial
+tool definitions16419→15275bytes. This is model context, not Worker compaction.
+
+Actual HTTP/Responses/nativeTUI/simulatedQQ fixture passes10requests/100tokens with
+one-question repair/original each and one QQ final. Actual provider over synthetic
+sources: final32requests/205639reported actual tokens +1synthetic17token error,
+121.70s, all8turns under32768 (max29277). Checks cover immutable late refresh,
+unchanged-day reuse, same-question native original after injected bad format,
+10:00/10:04/14:00 clocks,201→301, correct current-day dates and restart inspection.
+Final images and all prose/source reports are read. No explicit read retry is used;
+refresh_required notice is not observed because preparation is called directly.
+
+Retain first attempt's measurement JSON assumption failure (one reserved request
+not forwarded) and second's genuine HTTP/provider failure/Unknown/no automatic
+retry. Three attempts total70actual attempts/421800reported actual tokens plus2
+synthetic replies/34tokens; missing returned usage is not estimated. Textual error
+measurement is repaired without modifying forwarded requests. All owned temporary
+state/processes are cleaned. Prose remains verbose/overcautious and occasionally
+confuses item/record counts; do not claim general factual/memory-prose acceptance.
+No real QQ/source/trial/cloud/Git changes. Local2ffc6d4bc70e remains undeployed;
+Linux/release/real-source proof remain. External evidence:
+lain-briefing-context-2026-11-06/acceptance.md. Full goal active.
+
+## 2026-11-06 — Reject text invocations before preview/completion and account one safe regeneration
+
+The actual original-message failure is a whole DSML envelope returned as ordinary
+assistant text, Completed with no native action. New native regressions first
+reproduce completion and split-preview acceptance. The Responses adapter now
+recognizes that whole-response prefix only, refuses it without parsing names or
+arguments, and emits a body-free normalized format error with returned usage.
+Ambiguous preview prefixes are held across deltas/item-done frames; literal code
+examples and normal native calls remain usable. No provider envelope type leaks
+into domain or frontend records.
+
+Four Actor regressions first fail for missing regeneration/accounting. The
+repaired path charges returned tokens/timing before deciding, records preparation,
+and admits at most one regeneration through the normal loop and unchanged four-
+request/four-tool/token/time limits. Only actual completed allowlisted reads (or
+no actions) qualify; effects/uncertain/executing/preparation/wait/finish/background
+activities do not. It neither parses text into a tool nor replays effects. Normal
+network/incomplete errors retain no automatic retry. Exhaustion notice discloses
+the actual one repair. Final32Actor/71briefing, format/strictKernel all-target
+checks/build pass; unchanged costly max-group evidence is reused, not rerun.
+Independent static review checks freshness, accounting and preview boundaries,
+finds no evidenced defect and runs no tests/remote calls.
+
+Real local Responses HTTP and native terminal plus simulated QQ prove the same
+question recovers a malformed response, reads/inspects one actual fixture record,
+answers within four requests and sends one QQ reply. Ten HTTP requests/100fixture
+tokens match the ledger. Initial harness assertions wrongly inspect deliberately
+hidden source actions and Tool notes in ordinary snapshots. Another expects an
+unneeded singleton index and leaves a SQLite connection open (context manager
+only commits). Read-only isolated ledger diagnosis proves two extraction plus
+eight foreground calls. The exact owned residual is checked/removed; corrected
+native-wire-4 passes with cleanup. Earlier failures stay separate from product
+proof. This is simulated provider/QQ, not paid-model or personal-source acceptance.
+
+The actual-provider attempt never reaches planned fault injection. It accounts
+26calls/159,799reported tokens; refreshed-ready hits32768 after four requests total
+34,093tokens. Trace shows page1 read, malformed unquoted UUID in page2 arguments,
+corrected page2 and final prose; invalid JSON is not executed. The turn is Failed,
+not Unknown despite the old driver's generic assertion label. No injection/repair
+is claimed for this real run. Preserve it as context-budget evidence; reduce
+redundant model-only context next without losing source/scope/currentness or
+raising the bound. All actual and fixture services/terminals/state are cleaned.
+Local service393f4a6c8a68 is not deployed; cloud, source authority, trial and Git
+remain unchanged. Full goal active. Evidence: external lain-reply-format-2026-11-06/.
+
+## 2026-11-06 — Make source-relative and answer-relative dates explicit
+
+The retained real reply has correct explicit dates but calls the same current-day
+arrangements tomorrow evening. Existing input contains local day bounds, but not
+an explicit separation of the two relative-date frames. Add one bounded calendar
+projection to report/original reads: source yesterday/today/tomorrow and next
+Monday-to-Monday, versus this read's today/tomorrow, in the grant's fixed offset.
+Only occurrence-based citations may use source anchors; no activity-date parser,
+original/summary/memory rewrite, schema change or new authority is introduced.
+
+The report regression fails before implementation. Two pure date cases then pass;
+the first integration fixture incorrectly completes a still-Executing read and
+is repaired without weakening Actor validation. Final72briefing/25Actor/2API,
+format/strictKernel all-target checks/native build pass. Cases cover cross-year
+positive/negative offsets, Sunday/Monday, historical source versus reply dates,
+unrepresentable time and the actual maximum256-item conflict report. Static
+independent review finds no evidenced defect and runs no tests/model requests.
+
+Native Windows actual-provider synthetic workflow uses final a7340dccac70 service
+and unchanged5e8835ee20d5 client:50accounted/protocol requests,373,508reported tokens,
+145.83s;8synthetic messages/7selected yesterday records.24actual input observations
+include calendar. Today/next-Monday and10:00/10:04/14:00 challenges, fresh snapshot,
+reviewed selected memory, restart recall, correction and forget/reconnect pass.
+Native terminal cells are viewed. Automated success remains qualified: original
+first reply is Completed/noactions but contains DSML invocation text, so exact
+inspection requires a second user turn. Manual source/store comparison also
+finds invented prior vague notice and501/500 comparisons; actual original is502,
+replacement503, and selected stored bodies contain none of those added stories.
+No universal prose or one-turn original acceptance is claimed.
+
+All isolated services/terminal/state are cleaned. No real QQ send/source grant,
+private message read, cloud write, trial extension or Git publication occurs.
+Cloud remains prior schema40 program. Continue the provider-format/completion
+boundary before a consolidated deployment, keeping the source consent pending.
+Evidence: external lain-calendar-frames-2026-11-06/ (native logs, actual protocol,
+manual-model-review.json, source/memory comparisons and acceptance.md).
+
+## 2026-11-06 — Ground foreground prose in checked quotations without breaking bounded reports
+
+Retained actual-model output assigns an unrelated14:00 source clock to the
+course original/correction despite correct Kernel clocks. Foreground reports
+previously omitted the checked source words. Add one literal at-most128-byte
+UTF-8 prefix per citation, an explicit truncation flag and data/clock semantics.
+Full quotations use the current redactor before clipping, including owner HTTP
+reads, so a newly configured secret spanning the prefix boundary is refused.
+Original inspection, complete summaries, whole-manifest capture and currentness,
+query numbering and memory authority remain; no schema/grant change.
+
+Missing-excerpt and current-secret regressions fail before implementation. The
+three first scoped tests and native68briefing/2API/25Actor/strict checks/build
+pass. Independent static review then identifies a valid single-row overflow with
+256conflict members, escaped maximum-length fields and8citations. The first
+maximum fixture attempts fail for stale-grant correction and an oversized fake
+extraction response; they are not product reproductions. The latter's panicked
+isolated child is explicitly stopped after process identity checks. Corrected
+64-batch extraction/actual relation processing completes, then report reading
+fails (102.21s). Binary search now preserves the entire row while shortening only
+marked excerpts against final serialized12KiB, retaining at least one character.
+The same maximum case passes within the four scoped tests (100.13s);65other
+briefing and2API tests, strict checks/format/build pass on the final code. Re-review
+finds no new evidenced defect, without claiming runtime execution by reviewers.
+
+Actual-provider/native-Windows first candidate ec690f9c9859 runs29accounted requests,
+185,095reported tokens/98.05s over synthetic isolated messages. Foreground traces
+contain29citation excerpts and11report-semantics observations. Refresh, unrelated
+today reuse, correct source-clock challenge, one-turn late original and reconnected
+correction original pass; viewed terminal cells show the factual challenge. Manual
+readback also finds a real remaining "tomorrow evening" error after correct explicit
+current-day dates. Automated pass is therefore not overall factual-quality approval.
+Final7d8a936b5b13 byte-repaired binary is built locally but not model-retested or
+deployed. Temporary model state/terminal/services are cleaned. No personal QQ,
+source grant, cloud write, trial extension or Git/publication occurs. Full goal
+remains active; continue current-day prose grounding and authorized real-source
+acceptance. Evidence: external lain-quote-evidence-2026-11-06/.
+
+## 2026-11-06 — Deploy phrase lookup with an explicit39→40 recovery boundary
+
+Final317-file snapshot6a7fd0e92d9c passes native Linux11foundation/all-target
+checks with the existing1.89 style-only exception and build. Earlier65briefing_
+plus2API/25Actor evidence is reused only after whole-source comparison proves
+the sole difference is two foundation current-version expectations. The accepted
+executable is independently bound to its own build-log hash. A collection SSH
+interruption and public timeout precede production admission; finite probes
+distinguish reachability, then observation/collection resumes the same terminal
+job without starting another compiler or replaying a service mutation.
+
+New maintenance regressions first reject old39 publication/verification and old
+reader startup against40. The repaired scoped derivative admits exactly ten
+compiled changes/two additions, verifies40, and requires39 again before starting
+the previous program. Full-row stopped39 equality remains the only previous
+selection path; migrated40 or uncertain/live/new-data failures preserve state.
+Initial test discovery imports a TestCase twice; that fixture issue is removed,
+not counted as independent coverage.24native guards pass. Six additional local
+tests execute the actual production entry's admission prefix: five expose missing
+candidate/source/previous-runtime binding or duplicated fault coverage before
+repair. Native final bundle runs all30 guards successfully; its local actual
+production entry is SHA-bound to the tested copy. Static independent reviews find
+no evidenced defect, without claiming to run those tests.
+
+Ten actual isolated systemd/SQLite/HTTP cases pass with cleanup. They cover normal
+upgrade, backup failure/missing reader, pre-start39 failure, live observation loss,
+new accepted data, config/reader drift, failure after migration before verification
+and stopped40 without new data. The happy case restores a six-member40 backup.
+Production PID/inode are unchanged during these fixtures; no model/QQ is invoked.
+
+One actual production operation is now public-accepted on original inode/identity
+at40 with all four private configs, reader, limits and trial expiry retained.
+Public HTTPS/auth/bootstrap/SSE/profile/reader and installed Windows client reads
+pass. Actual ConPTY reconnects/restores the dedicated old test answer, browses
+empty Sources, returns and exits; its cell render is viewed. Post-upgrade backup
+restores40/integrity/identity/hash/configs. Seven archives total2,066,844bytes;
+timer active. Three never-production guard-only bundles are hash-archived outside
+Git, rechecked and removed by exact file paths, freeing316,690bytes. Current/
+previous programs, backups and actual operation bundle remain. No builder or
+temporary fixture remains. No commit/push/publication/source grant or trial extension.
+
+Real sources remain0 and the existing specific consent is unanswered. QQOnline
+is connection evidence only. Actual-model synthetic lookup proof is inherited
+from the preceding entry; this maintenance adds0model calls/QQsend tests and does
+not prove general prose quality or full personal briefing/memory acceptance.
+Evidence: external lain-phrase-release-2026-11-06/ (native builds,30guards,
+10cases, review, public/backup/UI/cleanup/inventory) and preceding lookup stage.
+
+## 2026-11-06 — Locate an original by topic without paging through the entire report
+
+Actual-provider traces previously show a four-request original follow-up ending
+with summary-only evidence. The report had only cursor reads while inspection
+required an item number. Extend the existing read with a nullable bounded literal
+query over validated generated title/summary/time and checked citation quotations.
+Filter before normal page/byte bounds, retain original IDs/numbers and expose
+matching citation indices; matching folded originals are independently locatable.
+Whole-report counts remain separate from match counts. Empty matches carry an
+explicit non-absence limitation. Current/freshness/redaction/disclosure gates are
+shared with ordinary reads; no extra source scan, model activity or permission.
+
+Three new boundary tests first fail on old unknown arguments. Initial green work
+uncovers fixture errors: a synthetic late item retains a time phrase absent from
+its checked quote, and pagination leaves the previous foreground turn unfinished.
+Diagnostics prove these causes; the fixtures are repaired. Windows67briefing and
+25Actor tests, strict all-target Kernel/wire checks, format and native service
+build pass. Eleven existing foundation tests additionally pass after changing two
+post-migration current-version expectations to40. Historical1 and future99 stay.
+Schema040 is only a reader gate; existing39 data/tables/legacy actions are retained.
+Independent static review finds no evidenced defect, including those expectations.
+
+Actual extraction over13explicitly synthetic notices places the target beyond
+page1. A fresh foreground receives neither item number nor preloaded report.
+Its real protocol trace shows query -> item13 -> exact original. Restart/reconnect
+then reopens that same source. The passing scenario uses12actual requests and
+63,016reported tokens/54.25seconds; foreground queries use4/6.12s and3/5.52s.
+An earlier nine-call attempt also reads the correct original but its harness
+mistakenly requires read-only calls in persisted UI action history; fixing the
+assertion to actual protocol calls is recorded. Both attempts total21requests/
+103,117reported tokens. Two actual ConPTY cell renders are viewed; temporary
+databases/services are removed. These are not personal QQ/source or general
+reliability acceptance. Evidence: external lain-phrase-lookup-2026-11-06/.
+
+The317-file b11f7b9689bd Linux candidate passes65briefing_/25Actor, existing1.89
+style-only-exception checks and native build. Exact Windows/Linux test-name
+comparison identifies two excluded API cases; they pass separately on that same
+frozen candidate. A final launch initially refuses the wrong67-in-one-log claim
+before dispatch; its guard now requires65+2+25 actual summaries. Initial binary
+cd6a66ce45049631 is pinned independently to its build-log hash. Actual installed
+39 program also refuses a separate synthetic40 database before listening,
+preserving its bytes/sentinel and the production PID; temporary state is removed.
+
+Initial frozen pack predates the two final foundation expectation changes.
+Final317-file snapshot6a7fd0e92d9c differs only in that test file; its guarded
+foundation/check/build job is running, reusing no unrelated test evidence.
+Read-only inventory proves the original inode/schema39/instance, four configs,
+reader backup units and accepted32fd program remain, source0,7backups/2,066,327bytes,
+timer active and no initial builder/fixture remains. The final builder is a
+separate later live job, not a production service. Real-source
+consent, factual prose quality and normal40 maintenance/live acceptance remain.
+No Git write, source grant, real QQ send or trial extension occurs.
+
+## 2026-11-06 — Prove the actual-model refresh path and repair its missing clocks/read guard
+
+An expanded actual-provider test over explicitly synthetic messages reveals wrong
+send-hour/date arithmetic in extraction. Foreground replies have canonical clocks
+but extraction only receives milliseconds. Reuse the existing fixed-offset
+formatter in the private model-page projection: source_local_time/time_basis/
+original_relative_date_available and local day bounds, preserving original data,
+typed page fingerprint, source gates and schema. Receipt fallback cannot establish
+the sender's relative day. A recording Actor regression fails for missing input
+fields, then passes; pure clock tests cover positive/negative offsets, fallback
+and invalid timestamps. Progress guidance asks for short natural replies without
+reciting polling rules, retaining the existing finite wait/no automatic follow-up.
+
+A later actual run reveals that the model can read an old latest report instead
+of calling the repaired preparation tool. A separate native regression first
+fails while today-only/revocation behaviour passes. Default null-ID/after0 reads
+now compare the same bounded current selection and return only a refresh_required
+notice when meaningful inputs changed. No manifest, run or model is launched by
+the read; a separate tool call owns processing. Explicit IDs and later cursor
+pages retain historical semantics and normal source dependency/publication checks.
+Final Windows61briefing/25Actor, strict checks/format/build pass. Separate static
+clock/read reviews find no evidenced defect and execute no tests/model/server work.
+
+Eight actual-provider attempts are retained, not relabelled as all green. Harness
+mistakes include requiring preparation for a valid unchanged read, rejecting a
+correct source date, reading only page1, a forget-boundary wording mismatch and
+Chinese date whitespace. These are corrected by actual result/cursor/page evidence.
+One real read needs four model requests after malformed JSON repair and cannot
+inspect its original in that turn; the reply honestly says it has only a summary.
+A bounded explicit read-only continuation is separately recorded in the final
+scenario, never a replay of writes. Final run8 needs no continuation and passes
+actual original/read/save/correct/forget/reconnect with39calls/260,444reported
+tokens/106.39seconds. All attempts sum179calls/1,074,049reported tokens. Source
+clock inputs are verified in actual outgoing requests; review pages and actual
+ConPTY images are retained and viewed. Occasional source-time paraphrases and
+historical batch-limit misstatements remain known quality gaps, not solved by the
+passing flow. All data is synthetic; no personal QQ binding/source is activated.
+
+Frozen315-input Linux snapshot32fdcd2ab363 passes61briefing/25Actor/all-target
+checks with the recorded Rust1.89 style-only exception and service build. Only
+six reviewed compiled paths differ and no files/schema/configs are added. Updated
+nineteen maintenance guards and eight actual isolated fault cases pass with cleanup;
+static derivative review finds no evidenced issue. The actual same39 upgrade is
+public-accepted, preserving original database inode/instance, four private configs,
+reader, model limits and trial expiry. Actual Windows HTTPS/auth/SSE/profile/reader/
+client checks and installed ConPTY source-browse/return/exit pass. Six-member
+post-backup restores identity/hash/integrity/configs;7archives total2,066,327bytes,
+timer active. No builder/fixture/test directory remains; original Codex host is
+observed running without arguments/restart. Maintenance makes0model/QQsend/grant
+operations; the179test calls belong to isolated Windows ledgers, not cloud history.
+
+Source0 and the existing concrete unanswered consent remain. Full real QQ
+briefing/original/selected-memory/correct/forget/reconnect and general naturalness
+are unproven. No Git write/publication. Evidence: external lain-refresh-model-
+2026-11-06/ (all attempts, red/green, reviews, actual-run-8 and model-attempts.json)
+and lain-clock-release-2026-11-06/ (build, maintenance, public/backup/inventory).
+
+## 2026-11-06 — Release late-arrival refresh without losing the installed reader
+
+Frozen snapshot840252830a0f has315 inputs. Compared with the running release,
+compiled changes are the previously accepted client memory presentation, four
+existing refresh-related Kernel files and one new refresh-test file; Cargo/SQL/
+identity inputs remain fixed. Native Linux briefing57/Actor25, all-target checks
+with the established Rust1.89 nonminimal_bool style exception and service build
+pass. A build-log-bound independent executable is pinned before deployment.
+
+The previous same39 operator assumes three configs/five backup members and no
+reader. Native synthetic regressions expose that mismatch; its scoped derivative
+now admits only the six reviewed changed paths/one new file, fences four configs
+and exact loaded reader, and verifies six backup members plus reader manifest hash.
+Original full-row/stopped-state/no-replay recovery is retained. Nineteen native
+guards and eight actual isolated systemd/SQLite/HTTP cases pass and clean up.
+The Windows guard attempt cannot import Linux fcntl and is not native evidence;
+initial wrong exception and mismatched synthetic reader-body attempts are retained.
+
+Independent static review identifies copied collector tests that do not guard the
+actual dispatch code. Tests now extract that actual entry. A transferred in-memory
+mutation of its hash fence fails before attestation as intended; actual candidate
+code is unchanged. Re-review and separate launch/public-acceptance static review
+find no new evidenced defect; reviewers execute no server or test actions.
+
+The live one-shot operation is public-accepted on the original39 database/inode/
+instance and unchanged four private configs/backup units. Actual Windows HTTPS
+verifies the new boot, profile/reader/auth/SSE, existing conversation and installed
+client. Actual ConPTY restores the prior test answer, browses empty Sources,
+returns and exits; the viewed image is terminal-cell rendering, not desktop/font
+acceptance. A UTF-8 script-copy preparation failure starts no terminal; the corrected
+copy passes. Six-member post-backup independently restores database identity/hash/
+integrity and all configs. Seven backups total2,072,289bytes; timer active. Seven
+completed guard directories are hash-archived externally and removed, freeing
+491,990bytes; no active builder/fixture remains. One existing native Codex host
+is observed running without reading arguments or restarting it.
+
+No paid model/QQsend, source grant, trial extension, Git write or publication
+occurs. Source0 and the existing pending concrete consent remain; real-source
+briefing/original/selected-memory/correct/forget/reconnect is still unverified.
+External evidence: lain-refresh-release-2026-11-06/ build, guard/red/mutation,
+native-maintenance-evidence, independent/launch-review, public/backup/inventory,
+installed-client-cloud-native and acceptance.md. Full goal remains active.
+
+## 2026-11-06 — Fix stale ordinary briefings after late receipt and preserve exact preparation
+
+The ordinary yesterday cache only checks previously selected record versions.
+A late-imported message whose source timestamp belongs to yesterday is therefore
+missed by subsequent natural queries. Independent real SQLite/Store tests first
+reproduce that failure while unchanged/today-only/foreign-source, revoked-source
+and Unknown guards pass. The repair reuses existing bounded selection, compares
+actual versions/omissions/fallback/coverage and preserves immutable old snapshots;
+it ignores pure observation/cursor churn. No polling, new source authority,
+protocol field, database table or memory-policy change is added.
+
+Static review finds a second exact-action issue: B can reuse A's manifest, then
+retrying still-Executing B after a late arrival silently selects new work. A
+separate test initially fails to compile because SQLite count uses unsupported
+u64; after correcting the test to i64 the target assertion fails. A closed,
+content-free preparation receipt in existing Action.result binds creator/reuser
+to exact manifest and grant. New manifest and receipt share a transaction; normal
+completion replaces it with actual run status. Additional tests prove atomic
+rollback, copied-receipt refusal, empty→nonempty, known selection cap reuse and
+coverage normalization. Existing startup Unknown/no-replay and source gates stay.
+Re-review confirms the P2 fix and finds no new evidenced issue, executing no tests.
+
+Native Windows58 scoped briefing tests and one later original-correction/forget
+refresh case pass, plus format, strict Kernel all-target checks and local service
+build. The actual ConPTY/simulated QQ process flow starts with17 notices, reuses
+yesterday after a today-only import without extra processing, then refreshes to18
+after a backdated late import. It follows the eighteenth original, verifies the
+old manifest stays unchanged, restores history, uses independently granted QQ
+audience and withdraws source-dependent bodies after correction.39 accounted
+HTTP model calls are all fixtures; private temp state/processes clean completely.
+The viewed image renders actual terminal cells with synthetic input, not a desktop
+or personal QQ/provider acceptance. No cloud/local installation, personal source,
+QQ send/model request, host change, Git write or publication occurs.
+
+This is a local repair, not a deployed fix; the existing cloud reader/source0 and
+pending concrete consent are unchanged. Next is native Linux candidate acceptance
+and normal reader-aware same39 upgrade, then the authorized real-source product
+flow. External evidence: lain-briefing-refresh-2026-11-06/ refresh-red/green,
+reuse-binding-red/qualified, binding-green, briefing-regressions, correction-refresh,
+fmt/clippy/build and native-refresh/report/screens. Full goal remains active.
+
+## 2026-11-06 — Make reviewed memory effects understandable in the daily terminal
+
+The existing shared memory review puts actual saved/replacement content first,
+then separates selected1record change, current-conversation visibility, inherited
+expiry and source-input side effects. Forget now includes original expiry and
+metadata status without rereading withdrawn bodies. The explanation distinguishes
+other memories becoming unavailable from deleting their records, preserves full
+user quotations, and makes no invented exact impact count. No wire/domain/policy,
+source grant, confirmation semantics or cloud maintenance change is introduced.
+
+The initial restricted tool environment cannot resolve the existing development
+environment/Cargo, so no test runs there. In the actual native Windows user
+environment Cargo1.99.1 runs three reviewed tests, the source-draft test and the
+small-window/full-reading gate test. Formatting, strict client all-target checks
+and native client build pass. The actual ConPTY/simulated QQ two-audience flow
+then saves a cross-batch source group, withdraws uncited inputs, reviews exact
+corrections, forgets corrected records and reconnects. It accounts48 fixture model
+requests and cleans private test state/processes. The driver observes each actual
+review page and checks the effect boundary before the read gate permits approval;
+it no longer assumes five PageDown events. Screens are viewed actual terminal-cell
+renders with synthetic data, not desktop/font or personal QQ acceptance.
+
+Independent static review finds no evidenced issue and performs no tests/actions.
+The frozen native client input manifest has265 files; owner-only existing installer
+checks the manifest, accepted candidate hash, original profile and actual read-only
+cloud proof. It retains old binary/profile backup, changes only binary selection,
+and leaves open windows alone. Candidate and installed CLI reads verify the cloud
+reader revision and QQOnline; installed actual ConPTY restores the old test chat,
+browses empty Sources/returns/exits and cleans its cache. No model/QQsend, grant,
+server restart/data replacement, worker-service change, Git write or publication.
+
+Real-source consent still awaits the existing concrete question; reader configured
+and sources0 remain. This closes the current review-wording gap, not the full
+real QQ briefing/selected-memory/reconnect goal. External evidence:
+lain-memory-review-2026-11-06/ review/source-review/review-gate tests, fmt/clippy/
+build logs, native-flow/report/screens, source-manifest-client.json, client-plan/
+installed and candidate/installed-public-check.json, installed-client-cloud-native/.
+
+## 2026-11-06 — Install read-only knowledge connection with complete configuration recovery
+
+The reader JSON, two private environment entries and an explicit backup drop-in
+are installed through the existing same39/no-replay maintenance flow. Only the
+existing read-role key is referenced; raw values stay in server memory/private
+files. Original program/database inode/instance, Actor/NapCat settings,8192/32768
+limits and private-memory trial expiry are retained. A stopped five-member pre-
+backup and online six-member post-backup independently restore with database
+integrity/instance/hash and all selected config digests. Timer active is observed.
+Seven archives total2,076,236bytes at final acceptance; no database is replaced.
+
+Seven document/protected-file cases first fail against unimplemented helpers,
+then pass. Independent static review identifies recovery adopting a newly read
+foreign file as its own replacement fence. A separately authored regression
+proves exactly three foreign-file failures while normal recovery passes. One
+failed patch attempt leaves source unchanged and a repeated red log is retained;
+after the actual fix all nine tests pass. Before each restoration mutation the
+recorded before/after states are revalidated. Re-review finds no new evidenced
+issue; it performs no tests or remote actions. Nine actual isolated Linux systemd/
+SQLite/HTTP cases also pass, including partial selection, startup failure, changed
+data, live uncertainty, drift and lost timer responses. Fixtures clean completely
+and the personal process/inode are unchanged during those tests. No model/QQ runs.
+
+Actual Windows HTTPS proves the installed reader revision/new boot, auth/SSE,
+existing conversation and installed-client reads. A native ConPTY test renders
+empty Sources, returns to its original test chat, exits and removes its cache;
+the image is real terminal cells, not a desktop/font screenshot. QQ reports Online
+but no new QQ send/receive is claimed. Independent upstream HTTPS metadata checks
+the read-role credential/store without message/change/image body GETs. Source0,
+no new sharing/import/sync authority and unchanged trial expiry remain. Final
+operation is public-accepted; the full real QQ briefing/memory/reconnect goal is
+still incomplete. The existing concrete source-consent question remains pending.
+
+External evidence: lain-reader-config-2026-11-06/ files-red/green/recoveryred/
+recoverygreen/recoveryfixed logs, native-maintenance-evidence/, private-reader-
+preflight/production job/status, reader-public-acceptance.json, reader-final-
+acceptance.json and reader-client-cloud-native/. An obsolete unexecuted candidate
+is archived locally and removed by exact path/file/hash checks, freeing96,922bytes;
+accepted maintenance code/plan/receipts remain. No commit, push, public release,
+third-party message, worker-service change or source activation occurs.
+
+## 2026-11-06 — Install verified backup helper before reader configuration
+
+The live backup task is read-only inventoried by loaded argv, fragment/drop-in
+hashes and private-file permissions; it currently selects Actor and NapCat JSON
+along with environment/database. The optional reader-capable helper is installed
+atomically under the maintenance lock with owner/mode preservation. Only the backup
+timer is paused; laind's PID/program and all three configs/backup arguments remain.
+The real existing backup service produces an exact five-member archive; independent
+restoration checks39/integrity/instance/database hash and all three config hashes.
+The timer is observed active again. Seven archives total2,080,462bytes. No reader
+file, collection permission, Kernel restart, database restore or model call occurs.
+
+Before installation, independent static review finds three control defects: a
+late input drift can leave a success flag true, lost timer-stop response can miss
+recovery, and the launch marker directory is not fsynced. Initial test runs expose
+a mock-module DEVNULL omission; their logs remain and are not target regression
+evidence. After the fixture repair, exactly those three qualified regressions fail.
+They then pass with durable pause intent, independent timer observation, refused
+acceptance on drift and marker-directory persistence. Final nine native temporary
+file/SQLite cases use simulated systemctl and clean up. They include one accepted
+operation replay refusal and lost resume response without replay. Re-review finds
+no new evidenced issue and performs no tests/service actions. Actual installation
+is separately recorded as accepted, not inferred from those simulated cases.
+
+The connection-only reader configuration is drafted with the existing HTTPS base,
+store UUID, read-role SecretRef, exact future environment digest, root:lain0640
+reader file and optional backup drop-in. Raw credentials stay in server memory;
+no environment/file is written by drafting. Owner-auth metadata confirms source0
+and readerunset. The reader installation still needs its own changed-state-safe
+configuration/backup path; the draft is not authority to collect or share messages.
+Existing source consent remains pending, full real QQ briefing/memory/reconnect
+is unverified, and the trial expiry is unchanged. No commit/push/publication.
+
+External evidence: lain-reader-ready-2026-11-06/private-unit-preflight.json,
+install-red/red2/red3/green/final logs and hashes, private-helper-job/launch/status,
+and private-reader-configuration-draft.json. Sensitive deployment details stay
+outside Git. No actual-source data or raw credential is included in this log.
+
+## 2026-11-06 — Ship unavailable-source handling and prepare recoverable reader setup
+
+The Linux candidate uses a frozen314-file snapshot and differs from the current
+compiled inputs only in Actor request handling and its tests. Briefing46/Actor25,
+Kernel all-target checks (existing1.89 nonminimal_bool-only allowance) and service
+build pass. Its own unique build-log hash binds an independent executable; twelve
+guard tests and six native systemd/SQLite/HTTP cases preserve the real process and
+database during isolated tests, clean fixtures and retain changed data/config on
+failure. The one-shot live operation then preserves the original39 inode/identity,
+three config hashes,8192/32768 limits and memory-trial expiry.
+
+Actual Windows public HTTPS verifies the new boot, authentication, SSE, existing
+conversation/client reads and unchanged loaded Actor profile. A separate cloud
+model question completes with1request4563tokens and0actions. Installed native
+ConPTY restores that test conversation, displays the actual answer, visits empty
+Sources and returns, then exits and cleans its local cache. This is a rendered
+real terminal session against the cloud, not a desktop/font or QQ send test.
+Post-backup restoration checks the39 instance/database hash and all three config
+members. Seven archives total2,082,699 bytes, all39; the32 executable now has no
+backup/process/current/previous reference and is removed by exact three-file hashes,
+freeing34,191,741 bytes. Current/previous39 plus the older39 referenced by two
+backups remain. There are no active builders or synthetic fixture roots.
+
+Independent reader readiness uses the existing HTTPS status endpoint and distinct
+read-role credential, checking store identity with no message/change/image GET.
+It discovers a concrete deployment prerequisite: the optional reader JSON is not
+in the installed backup member set. New --knowledge-config stays explicit,16KiB,
+ordinary/private-file bounded, independently restored/hashed before publication
+or pruning, and never includes the separate knowledge DB/media. Tests first show
+three real failures in19 native cases, then green19; final20 includes the actual
+CLI with all three config flags. Tests leave no temporary code/state. New helper
+is not installed or part of the already frozen Actor snapshot/operator bundle.
+Two independent static reviews find no evidenced issue; reviewers execute no
+tests/builds/remote actions. Source0/readerunset and real QQ product acceptance
+remain under the full goal. No trial extension, third-party message or Git write.
+
+External evidence: lain-empty-release-2026-11-06/ native-linux-build-summary/log,
+native-maintenance-evidence/, empty-public-acceptance.json, empty-post-backup-poll-
+finalize.json, empty-source-live-result/answer.json, empty-client-cloud-native/,
+private-final-inventory.json, obsolete-release-plan/cleanup.json and reader-backup-
+red/green/final logs. Private endpoints/credential values stay outside Git.
+
+## 2026-11-06 — Adequate output profile and reproduced empty-source failure
+
+The cloud profile changes only max_output_tokens1024→8192;32768 per-turn and
+the existing unlimited aggregate decision remain. Seven native Linux guards and
+six actual synthetic maintenance cases pass, preserving the real process/inode
+during testing and cleaning all fixture state. The one-shot live change uses a
+stopped full-row39 backup, atomic owner/mode-preserving profile replacement and
+actual loaded-profile/new-boot readback. Program/release, database inode/identity,
+kernel.env, NapCat config and trial expiry are retained. Actual Windows HTTPS,
+auth/bootstrap/SSE/conversation/native-client checks and post-backup restoration
+pass; seven archives total2,226,817 bytes at that checkpoint. No source grant,
+reader activation or QQ send occurs.
+
+A separate live-model cloud test in its own conversation fails after two requests
+and three memory reads. The subsequent isolated native Windows/provider trace
+confirms a three-memory-call response followed by two work lookups against one
+remaining slot. The original failed turn is not replayed. Request-recording tests
+first fail for missing explicit negative access, dynamic allowance and exhausted
+tool definitions. The local repair keeps all caps/policy gates and whole-batch
+refusal, adds fixed error classification and actual current-request context.
+Six targeted tests then pass; Actor25/briefing46, native build and strict Kernel
+all-target checks pass. Independent static review reports no evidenced issue and
+runs no tests or remote actions. One actual-provider local retest completes with
+one request/no tools; its too-technical phrasing motivates a final sentence-only
+naturalness refinement. Final six targeted regressions, format, strict Kernel
+all-target checks and native build pass. A fresh actual-provider/native-terminal
+retest completes in one request/no tools with a brief honest limitation and no
+internal terminology; readback records the remaining conditional memory suggestion
+and does not generalize one sample to overall quality. Final local binary/source
+hashes and the static-only review are retained. No conversational deployment is
+claimed. Real-source/reader/QQ product acceptance remains pending.
+
+Private evidence outside Git: lain-profile-ready-2026-11-06/ (operation/status,
+profile-public-acceptance.json, profile-post-backup-poll-finalize.json,
+native-maintenance-evidence/, empty-source-live-result.json, empty-local-before/,
+empty-local-after/, empty-local-final/, empty-source-final-readback.json and
+targeted/native validation logs). Original failed evidence
+is retained; temporary local model services/state are cleaned. No commit or push.
+
+## 2026-11-06 — Deliver grouped-recall interpretation to the cloud
+
+Only Actor tools/policy and two tests differ among compiled inputs; migrations,
+wire/domain parsers and clients are unchanged. Native Linux35 briefing and22
+Actor/archive-Actor tests, Kernel all-target checks with the existing1.89
+nonminimal_bool style allowance and service build pass;314 source files verify.
+Static self-check finds and rechecks a repaired provenance defect: collecting
+shared output later could misattribute another build. Collection now requires
+its own unique build-log SHA and checks an independent candidate file, consumed
+by QA/production. Four collector regressions plus eight SQLite/source guards pass.
+The reviewer ran no tests or remote actions and reports no remaining evidenced blocker.
+
+Six actual native synthetic maintenance cases pass: success, backup failure,
+pre-start failure, running observation timeout, stopped candidate after new data,
+and config drift. They retain data/configuration fences and clean fixture children,
+units and private state without changing the real Kernel process/inode. The unique
+live maintenance then changes only the executable on the original39 database.
+Real Windows public HTTPS binds its new boot and compiled policy revision, owner
+auth, bootstrap/SSE and installed client read. Native terminal browse/cancel/exit
+passes. QQ reports Online; no actual receive/send or model call occurs. A post-
+upgrade backup restores/integrity-checks independently; verification copy is removed,
+retention seven/2,816,695 bytes. An initial local post-check wrapper import failed
+before any network call; correcting its helper path did not replay a remote action.
+
+The obsolete guard bundle's11 files are hash-archived locally then removed. One
+unused release is removed after process, current/previous, backup-reference and
+exact three-file checks, freeing34,122,886 bytes. Current/previous39 and the32
+program needed by four backups remain. Personal state/config and other services
+are not removed. Evidence is external lain-recall-release-2026-11-06/:
+native-linux-build-summary.json, native-maintenance-evidence/, maintenance-self-check.md,
+recall-public-acceptance.json, recall-post-backup-poll-finalize.json and cleanup/
+inventory records. Sources remain zero, reader unset, output1024/per-turn32768;
+real-source choice and live product acceptance remain pending. No trial extension,
+commit or push. See CLOUD_OPERATIONS, SOURCE_SETUP and DAILY_BRIEFING_ACCEPTANCE.
+
+## 2026-11-06 — Preserve historical uncertainty without presenting stale batch limits
+
+Actual saved synthetic evidence showed an original notice and a later room
+correction in one reviewed memory, while the correction's old extraction-page
+uncertainty still said its original was absent. Recall repeated that historical
+limitation as if it constrained the group. New fixed Actor tool-result notes are
+derived from actual reconciliation provenance after the existing memory gates;
+they do not parse body text, alter the saved draft or confer source authority.
+Policy directs source-clock interpretation and concise current arrangements.
+
+The exact grouped read first fails for missing interpretation metadata, then
+passes with list/inspect agreement, unchanged body and isolation/deletion checks.
+Single-item selection retains no grouped interpretation. An initial exact-name
+test command matched zero tests and is not counted; its log is retained. Final
+Windows35 selected tests, formatting, strict Kernel all-target Clippy and native
+service build pass. No native Linux rebuild or deployment is claimed for this
+small follow-up; current cloud/installed client stay on the accepted prior source.
+
+Actual-model iteration1 makes16 accounted calls over12 synthetic messages:
+functional checks pass, dates resolve and the original is acknowledged, but it
+still narrates obsolete batch history at length. Readback marks it partial. The
+final focused scenario guarantees the original/correction/old-limit reproduction
+using6 fixture setup requests, then makes2 actual-model recall requests. It names
+the corrected room and exact discussion/deadline dates, omits obsolete page-limit
+narration and retains uncertainty/nonparticipation. Reviewed text is unchanged;
+temporary state is cleaned. This is one verified synthetic example, not general
+conversation-quality or live QQ acceptance. The first full-flow screens remain
+evidence of that partial iteration, not illustrations of the final wording.
+
+Formal behavior: MEMORY.md and DAILY_BRIEFING.md. External evidence under November6:
+recall-semantics-red-actual.log, recall-targeted-final.log, recall-quality-live-1/
+and recall-quality-focused-final/. Real source choice is still pending. No real
+source activation, trial extension, production change, commit or push.
+
+## 2026-11-06 — Schema39 live deployment verified without enabling sources
+
+The previously accepted one-shot cutover finished successfully. Current process
+hash matches the native candidate; the same cloud instance/database inode now
+uses39, with unchanged Actor, QQ and runtime environment files. Four native Linux
+synthetic cases cover normal upgrade, stopped-backup failure, pre-migration launch
+failure and a running candidate accepting new data before an observation timeout.
+Seven deterministic flow tests are separate from that native evidence.
+
+Windows-to-Linux public HTTPS verifies certificates/hostname, owner-only access,
+unsupported-protocol refusal, bootstrap and content-free SSE resnapshot. Existing
+conversation restoration and the installed native client's channel query pass.
+QQ is Online, and the trial expiry is unchanged; no actual message is sent, so
+this does not prove post-upgrade QQ receive/reply or real-source briefing. Kernel
+sources remain empty and the reader is unconfigured.
+
+The maintained backup service produces an online39 archive. Independently opening
+its private restored database verifies integrity/version/instance identity; that
+copy is removed, and retention remains seven archives (3,406,508 bytes at this
+checkpoint). The operation record reaches public_accepted, meaning deployment
+acceptance only. Full product acceptance is still pending. Initial public-verifier
+failures were local harness assumptions about relative binary paths, a keyed hash
+manifest and channel-status wrappers; the deployed client was unchanged and its
+actual hash matches. Failed outputs and final evidence are retained externally.
+
+See DAILY_BRIEFING_ACCEPTANCE.md and CLOUD_OPERATIONS.md. No new source activation,
+model invocation, QQ send, memory-trial extension, commit or push occurs.
+
+The subsequent native Windows client build is installed through an independent
+private version directory and atomic profile replacement. Accepted source hashes
+and existing binary/profile/ACL checks precede selection; the old profile/binary,
+conversation and credential remain. Both pre-install candidate and actual installed
+binary pass live-cloud ConPTY source-list, registration-open/cancel and clean-exit
+checks. Public HTTPS/read/SSE checks also pass with the new installed executable.
+The first harness attempt used a Python environment missing websockets; the
+existing complete private test environment is reused, with no new dependencies.
+The screen is a real VT-cell render, not a Windows font screenshot. Three obsolete
+synthetic cutover bundles (32 files) are archived/hash-checked locally and removed
+only after terminal-unit/process/path checks. The current operator is retained.
+
+## 2026-11-06 — Native Linux candidate verified; live cutover pending
+
+The final native Linux service/client build and all-target checks pass, with the
+already recorded Clippy1.89 nonminimal_bool style exception; no permission
+predicate is relaxed. A separate rich-text collapsible branch is flattened with
+the same behavior. Linux client172/one ignored and final rich9 pass; Windows
+rich9 and strict client checks pass. The accepted binary-source snapshot is
+21f437fd040f; native hashes and all earlier failed logs are retained externally.
+
+An actual consistent private cloud snapshot passes eight isolated checks:32→39,
+identity/entity retention, no new authority/effect, restart, old-binary rejection
+and exact-baseline old-binary recovery. No model/QQ/source configuration is loaded;
+all child processes, private database copies and temporary old binaries are gone.
+The first old-binary test hit /run noexec; the successful retry uses the existing
+program cache while retaining the mount policy and the failed evidence.
+
+New read-only cloud_upgrade_guard.py rejects automatic restore after any changed
+counter, old object/complete row or new-table data. Eleven Windows/Linux SQLite
+tests and a killed same-count-edit mutation pass; independent static review finds
+no evidenced issue. It also rejects a baseline with nonempty WAL/journal. An
+additional actual-snapshot experiment disproves the assumption that idle boot
+preserves all state: recovery updates sharing_runtime and the sync counter. The
+guard correctly refuses it; do not waive those checks or call that failed positive
+assertion a passing rollback. Live failure handling must preserve changed state.
+
+Production remains schema32, with no source activation or Git write. Source choice,
+the reviewed stopped-backup/cutover/failure path, public HTTPS/client acceptance,
+recall phrasing and real QQ briefing remain under the full active goal. Evidence:
+linux-candidate-build-summary.json, private-migration-result-2.json,
+private-migration-cleanup-2.json, upgrade-guard-* and the actual refusal diagnostic
+in the November6 external daily-brief directory.
+
+### Earlier candidate checkpoint
+
+The existing single build cache now holds an isolated candidate and the exact
+locked missing dependencies, verified against Cargo.lock package checksums. No
+production service, personal database or source authorization has changed.
+Native Linux release library checks pass: Kernel347/two existing ignored, local2,
+wire8. Initial foundation failures exposed stale schema32 assertions and a fixture
+that deleted selected new tables to pretend it was schema1. It now builds a real
+migration001 database separately and retains Unknown/recovery rollback checks;
+production migrations remain strict. Native Windows foundation11/profiles5 and
+the two tests' strict static checks pass; Linux foundation11 passes. Independent
+read-only review finds no evidenced issue in those two test-file changes.
+
+Candidate service/client binaries compile on native Linux; the first all-target
+check stopped at the existing Clippy1.89 nonminimal_bool style diagnostic. The
+existing server build's one-lint exception is retained; Windows strict checks
+need no allowance. Linux profiles5 now pass, with terminal tests/final checks
+still running. No permission predicate was changed to satisfy that lint. An
+isolated current-cloud snapshot migration/old-binary restore rehearsal is prepared,
+not executed or accepted. Real-source selection remains pending; staging does not
+enable intake, reading, model activity or a trial extension. External evidence:
+November6 daily-brief directory, linux-candidate-validation.md and private job/
+snapshot manifests. The full daily briefing goal remains active.
+
+## 2026-11-06 — Explicit source registration, retained import and finite sync
+
+The local /sources workflow now offers N to register an exact QQ account/group or
+private peer, E to review Kernel import retention/expiry/count, and S to review
+finite existing-service GET synchronization. Each confirmation applies exactly one
+existing API decision; G conversation disclosure and memory review stay separate.
+Sync explicitly includes retained upstream fragments, not a from-now filter.
+A metadata-only reader endpoint reports configuration/credential availability and
+a hash; new reviewed sync requests fence that hash before the existing transaction.
+Old explicit calls remain compatible, and stopping does not require a live reader.
+No new archive store, channel runtime, model activity or schema table is added.
+
+Lost responses recover only by reading source/version/scope records. The older
+APIs lack request IDs, so matching configuration is not claimed as original-request
+identity or current authority. Absent records after an unknown POST remain Unknown;
+a fully read warning can abandon local tracking without cancelling the request.
+Independent review caught pending keyboard paging and late GET reopening after
+Esc; both reproduce with failing tests and are repaired. Additional failing
+regressions cover background metadata erasing unsent fields and result navigation
+being lost on sync. Only local input drafts survive revalidation; old source/reader
+snapshots and approval gates do not. Explicit navigation/close cancels result focus.
+
+Final client173 passed/3existing ignored, standing-sync7 and reader-API1 pass;
+strict Kernel/client/wire all-target checks and native builds pass. Native Windows
+ConPTY goes from an empty registry through N/E/S, copies one actual synthetic HTTP
+projection, resumes the committed cursor on the second read, stops and restarts
+without replay:10 cases,2 source GETs,0 model calls. Existing G controls pass14
+native cases on the same build. Private state/temporary services are cleaned.
+A one-page narrow-details assumption in the old driver was replaced with bounded
+page-to-visible-content handling after metadata grew; its failed evidence stays.
+
+Formal operation/limits: docs/SOURCE_SETUP.md. External evidence under November6:
+source-setup-native-final/, source-setup-existing-access-final/,
+validation-source-setup/ and source-setup-acceptance.md. Initial native registration
+navigation failure and all earlier evidence remain. No cloud deployment, source
+authorization change, installed-client replacement or Git write. Actual-source
+selection is now requested with a concrete private scope proposal; unselected
+sources remain off. Cloud reader/staging preparation and actual QQ acceptance,
+finer suppression and grouped-recall phrasing remain under the full active goal.
+
+
+## 2026-11-06 — Reviewed source-disclosure controls in the terminal
+
+The local /sources entry now offers G to select existing authorized QQ sources,
+set the current conversation's date window/offset/record limit and review the
+complete old/new scope before Ctrl-Y. F8 reviews revocation. This never enables
+intake, synchronizers, automatic memory or another audience. Dates, source epochs,
+finite expiry and complete reading are checked; source/CAS checks repeat before
+the Kernel mutation. Clipboard delivery binds editor/field as well as connection,
+conversation and draft identity.
+
+Exact content-free grant receipts reuse existing persistence and owner-auth APIs;
+history survives revocation/restart without restoring authority. A lost response
+is recovered with GET only. Independent review found definite409 rejection left
+the editor permanently pending; a failing real HTTP regression and classification
+repair cover409, committed500, committed400 and rejected400 (400 first checks the
+exact receipt because response validation can occur after commit).
+
+Native final revalidation found an additional race: creating another conversation
+before G invalidates global sync, canceling the load or routing stale g into Chat.
+Two regressions now preserve only the requested metadata-opening intent, withdraw
+old editor/selection/read gates, resume GET after sync and cancel that intent on
+navigation. Pending writes never replay. The failed native-final artifact remains.
+
+Final client162 passed/3existing ignored, receipt persistence1 and briefing API2,
+strict Kernel/client/wire all-target checks and native builds pass. Final native
+Windows ConPTY flow passes14 cases with0 model requests, no real QQ, and temporary
+state cleaned. Review, finite scope, independent audience and revocation were
+checked against actual Kernel state. Screenshots are synthetic ConPTY renders,
+not user font or real QQ evidence. Independent read-only re-review finds no scoped
+blocking issue. No cloud/installed-client upgrade, source activation or Git write.
+
+Evidence: source-access-native-final-evidence/, validation-source-access/,
+source-access-acceptance.md and source-manifest-source-access.json under the
+November6 external daily-brief directory. Next: understandable source registration
+and actual QQ intake configuration, finer suppression/recall quality and explicitly
+authorized real-source/cloud acceptance. The full goal remains active.
+
+
+## 2026-11-06 — Finite cross-batch relationships and reviewed grouped memory
+
+Local schema039 keeps immutable original item numbers, adds bounded index/pair
+activities and folds duplicates while retaining correction/conflict direction and
+original lookup. Group selection uses existing reviewed memory, full-input
+provenance, finite earliest expiry and source-dependent disclosure/suppression.
+Oversize or unfinished groups return truthful no-write notices through normal QQ
+freshness checks. No source collection, cloud/installed-client upgrade or Git write.
+
+Checkpoint Kernel340/client152/wire8; final briefing45, refusal2 and private-delivery1
+regressions plus strict checks/native builds pass. Native two-audience final flow
+uses48 fixture requests. Actual DeepSeek final synthetic 12-message/three-batch
+flow passes25 accounted requests,164000 reported tokens,92.23s. These prove selected
+functional paths, not real QQ sources or daily conversational quality. Manual
+readback still finds batch-local uncertainty repeated as a whole-group limitation
+and unnecessarily technical narration; this remains a quality follow-up. Earlier
+failed/intermediate evidence is preserved; the first paid run failed a retention
+assertion that incorrectly matched a negated claim. Final post-forget reply has no
+old body and distinguishes semantic deletion from retained audit.
+
+Evidence: November6 external daily-brief directory, relations-native-final/,
+relations-live-final/, validation-schema039/ and relations-acceptance.md.
+Source-management configuration, real-source selection, finer suppression UX and
+production acceptance remain under the full active goal.
+
+
+## 2026-11-06 — Exact reviewed user correction on the existing memory store
+
+Schema038 adds ConversationCorrection provenance for one exact current-user
+quotation and its real MessageId, conversation, review action, predecessor
+revision and inherited expiry. Both terminal entries show the complete user
+request, separately labelled excerpt and actual new draft. Explicit attribution
+means the user supplied the correction; it never verifies the old source report.
+Fresh metadata-only management can correct a withdrawn selection without copying
+its old body or reopening old authorization.
+
+Existing candidate acceptance, new semantic record, predecessor supersession/body
+scrubbing, FTS update, old input suppression and content-free replacement receipt
+commit with the fixed operational acknowledgement. Generic candidate acceptance
+cannot skip the predecessor/effect transaction. Expiry also prunes correction
+records and candidate copies; restart/retry recovers metadata without another
+mutation. No new semantic store, standing grant or private-memory trial extension.
+
+Tests first reproduced unsupported correction, then covered exact quote/scope/
+expiry, rollback, predecessor/index scrubbing, concurrent target changes,
+replacement forgetting and restart. Kernel334 passed/two existing ignored,
+client152/three existing ignored, wire8; strict checks/builds pass. A later focused
+normal ActorModel tool-dispatch test now exercises both Correct and Forget via
+actual inspect/change definitions and real message identity. Read-only independent
+review found no scoped blocking issue; its noted ordinary-dispatch coverage gap
+has been covered by this additional test and the native chain.
+
+Native TUI and simulated QQ, two independent audiences: 30 accounted fixture
+requests pass review-before-write, correction after source withdrawal, exact new
+text, attributed predecessor, restart, forgetting and final absence. First attempt
+failed because the test fixture did not recognize the new correction intent and
+sent the old yesterday request; it was a driver error, not a product pass.
+Actual DeepSeek functional acceptance uses four synthetic messages, 17 requests,
+114,056 reported tokens and 51.19 seconds. Manual final-answer review found an
+overclaim that no trace remained, although only semantic/index/candidate bodies
+were deleted. Guidance now explicitly distinguishes conversation/archive/audit
+retention. A follow-up failed at the pre-correction extraction output limit;
+a separate 8192-output run then exposed genuine history leakage: old User correction
+text remained visible after semantic forgetting. A regression reproduced it;
+creation now captures a version dependency on the new memory in the same tx.
+Existing gates withdraw that historical quotation after forget/supersede/expiry,
+without rewriting raw User audit or losing effect metadata. Independent follow-up
+review confirms no cycle or transaction gap. Final memory63 tests and strict
+Kernel checks pass. Final native30 and actual-model17 requests pass; actual final
+usage112,518 reported tokens,43.25 seconds. Its post-forget reply contains no old
+arrangement and correctly distinguishes retained audit. This is not general
+naturalness or real QQ source acceptance.
+
+Artifacts are under the November 6 external daily-brief directory:
+`correction-native-final/`, `correction-live-final/`, `validation-schema038/` and
+`correction-acceptance.md`. All earlier failed/intermediate evidence is retained. Cloud identity/database/QQ login,
+installed client and original Codex host remain unchanged. No commit/push/release.
+Cross-batch reconciliation, fine-grained suppression, real-source configuration
+and production acceptance remain open under the full active goal.
+
+## 2026-11-06 — Reviewed forgetting without restoring withdrawn sources
+
+Schema037 implements the Forget part of ADR039 using existing Actor review and
+semantic stores. Metadata inspection binds one real conversation-owned selection
+and revision without disclosing its body. A change proposal requires an executed
+same-turn inspection plus exact text and MessageId from the current user. The
+model receives bounded current-message identities, not forged private incoming
+IDs. The tool currently offers only Forget; correction remains planned.
+
+Semantic/index deletion, candidate scrubbing, inherited source-input suppression,
+content-free receipt and the fixed operational completion commit together.
+Exact retry recovers committed metadata. Earlier invalidated read lineage is
+retained, so ordinary restore cannot republish deleted evidence; a separate
+typed memory-change receipt survives source withdrawal and restart. Both terminal
+entries validate and display the operation, exact target/version and user intent
+before independent approval. No autonomous write grant or trial extension.
+
+Red-to-green tests cover missing inspection, forged quotation, normal Actor
+dispatch/review, source-stale metadata management, transaction failure rollback,
+prior-body withdrawal and restart. Independent read-only review finds no scoped
+blocking issue. Native whole-page acceptance discovered metadata-only rendering
+had cleared User messages required by shared quote validation; a failing whole
+Model snapshot test reproduced it, and rendering now retains only User records
+for validation while emitting no duplicate user text. Follow-up review confirms
+no body/visibility widening. Two later harness failures were early F4 input and
+an exact-title mismatch; their evidence remains separate from successful v4.
+
+Native Windows TUI/simulated QQ passes save/recall, source withdrawal, reviewed
+forget of both independent audiences, actual 404 after deletion and restart
+without resurrecting memory, using 24 accounted fixture calls. Actual DeepSeek
+on four synthetic messages passes the corresponding native path, including
+post-restart post-forget readback: 13 accounted calls, 82,905 reported tokens,
+40.02 seconds. The model confirms the real Forget receipt and absent record,
+without repeating the old body. It still overexplains IDs and lookup details;
+this is not general naturalness approval or real QQ source collection.
+
+Final validation: Kernel329 passed/two existing ignored; client151 passed/three
+existing ignored; wire8 passed; strict all-target checks and native builds pass.
+Evidence: `forget-acceptance.md`, `forget-native-v4/`, `forget-live/` and
+`validation-schema037/` under the documented November 6 external directory.
+All successful fixtures clean their private temporary state/services.
+
+Natural correction and cross-batch reconciliation remain open. Suppression still
+uses complete extraction inputs, so other selections sharing those inputs may
+become unavailable; only the chosen record is deleted. Fine-grained UX/semantics,
+real source choices and personal deployment acceptance remain required by the
+active full goal. Cloud identity/database/QQ login, installed client and original
+Codex service are unchanged. No Git commit, push or public release.
+
+## 2026-11-05 — Reviewed briefing selection and truthful save recovery
+
+Local schema036 connects actual numbered briefing items to existing reviewed
+memory candidates, records and FTS. A real Conversation scope avoids fabricated
+channel identities and accidental Global sharing. The Kernel derives a fixed
+cautious episodic draft, retains every extraction input version (including
+uncited inputs) and keeps UnverifiedSelection authority after actual review.
+Ordinary Actor chat can read the report, propose a selection, wait for review
+and later retrieve the saved record in that same conversation. Both desk and
+retained chat display the same checked draft, visibility and finite UTC expiry.
+CLI administration gains `memory list --conversation`; `/stop` can end pending
+Actor review. No standing source-memory grant is added.
+
+Independent scoped review found three gaps: suppression was not part of pending
+review currency, new candidate deadlines did not wake retention, and ordinary
+restore lost committed saves after source withdrawal or interrupted ack. Each
+was reproduced and repaired. Candidate creation wakes existing maintenance;
+approve/decline/cancel of stale pending selections closes without writing.
+Typed reviewed-memory receipts derive from accepted candidates and actual
+review times independently of action-result publication. They retain only IDs,
+time and real conversation, never withdrawn bodies or permission to replay.
+Follow-up review found retained chat could confirm a selection without showing
+its draft; shared validation/rendering fixes that too. Scoped re-review finds
+no remaining finding in these fixes.
+
+Native terminal acceptance then found a distinct real history reconstruction
+bug: a later withheld read cleared an earlier restored save card. A failing
+regression reproduced it; checked history now rebuilds only metadata cards
+after body withdrawal. Final native Windows TUI/simulated QQ uses four records
+per audience, two independently granted conversations and 18 accounted HTTP
+requests. Exact F4 review, approval-before-save, recall, restart, audience
+isolation, uncited-input correction and metadata-only recovery pass. An initial
+test-driver error assumed nested rather than existing flattened MemoryRecord
+JSON; its failed evidence is retained separately.
+
+Actual DeepSeek over four synthetic messages also passes natural briefing,
+first-item selection, native review, one conversation-local save, actual semantic
+memory readback, restart and source withdrawal: nine accounted calls, 54,226
+reported tokens, 30.88 seconds. Manual inspection confirms the selected room
+correction and uncertainty/nonparticipation language. Recall is still verbose
+and exposes internal IDs/import labels; this is not general naturalness approval.
+No live QQ source is collected. Screenshots are ConPTY renders, not native GUI
+font acceptance. External evidence is in `memory-acceptance.md`,
+`memory-native-v3/`, `memory-live/` and `validation-schema036/` under the existing
+daily-brief visualizations directory documented in DAILY_BRIEFING.md.
+
+Final native Kernel library: 325 passed/two existing ignored. Final client:
+150 passed/three existing ignored; the earlier same-stage CLI integration also
+passes, wire8 passes. Formatting, strict all-target checks and native builds
+pass. A full-suite legacy scope assertion was extended to check the exact new
+conversation ID and deny foreign IDs. A restart test now waits for the owning
+Actor task to release after Completed, rather than racing its final snapshot
+publication; its original lock failure was separately reproduced.
+
+Natural reviewed correction/forget and cross-batch semantic reconciliation are
+still required, alongside real source selection and production acceptance.
+The goal remains active. Cloud identity/database/QQ login, installed daily client
+and original Codex host remain unchanged. No commit, push or public release.
+
+## 2026-11-05 — Finite daily coordination and natural original lookup
+
+Local schema035 adds durable run progress and per-foreground-turn manifest
+disclosure dependencies. One explicit run reuses existing tool-free Actor
+batches, with at most 64 batches/20 minutes and earlier manifest expiry. It
+subscribes before starting/reading terminal events, remains independent of HTTP
+callers, and never relaunches Unknown coordination on reopen. Normal yesterday/
+read/inspect tools require the actual conversation's independent source grant;
+source changes gate later inference, publication, QQ prewrite and restored text.
+Generic/source-influenced memory writes remain unavailable pending a properly
+typed selection path.
+
+Independent review found a stopped run could still admit prepared input at the
+actual inference transition. A failing regression reproduced it; the final gate
+keeps that ledger entry Prepared. Late results cannot extend a stopped report.
+A second fix keeps the closed source-change notice usable without clearing its
+invalid disclosure lineage or authorizing another call. Scoped re-review finds
+no remaining finding. Reports now expose stable item numbers, readable QQ source
+identities and a complete-response 12 KiB bound; whole-item trimming recalculates
+the cursor so no item is skipped. A dense regression first reproduces the gap.
+
+Actual model trials exposed the cloud-derived 1024-output budget, repeated
+not-ready queries and unnecessary per-item original lookups exhausting tool
+limits. Isolated tests use 4096 output within the unchanged 32768 turn limit;
+production configuration is unchanged. Readable attribution and truthful
+progress guidance reduce these calls. A successful actual run then exposed a
+wrong model timezone conversion on manual readback. Kernel now supplies checked
+fixed-offset source clocks and explicit half-open day bounds, marking receipt
+fallback separately. It reuses the existing time crate, adds no host timezone or
+general natural-language calendar engine, and retains all failure evidence.
+
+Native Windows clock-base validation: Kernel316 passed/two existing ignored; client146
+plus one integration passed/three existing ignored, wire7 passed; formatting,
+strict all-target Clippy and native binaries pass. Nineteen focused briefing
+tests include restart, revoke, stop, late completion, source withdrawal, original
+lookup, audience denial, byte paging and clock boundaries. Native TUI/simulated
+OneBot uses two independently authorized conversations, 17 records each, ten
+batch requests and 22 total accounted requests. Reconnect, original follow-up,
+continuation and visible source withdrawal pass. Screenshots are inspected.
+Final history-continuity and initial-status date changes then pass four context
+and nineteen briefing checks plus fresh client/wire, strict checks and builds.
+Earlier ended source turns retain only a fixed ephemeral state marker, not their
+answer, delivery claims or authority. A native regression first reproduces the
+missing marker. Initial scope/status now also carry explicit dates; a failing
+regression reproduces that earlier omission after actual progress misdated the day.
+
+Final synthetic-source actual DeepSeek terminal run passes natural yesterday
+query, completed report, second-item original and API/UI source withdrawal. Seven
+requests (six foreground/one extraction), 35663 reported tokens, 24.49 seconds;
+the answer correctly anchors the sample's relative dates. This proves one
+selected example, not general semantic completeness or real QQ collection.
+The final terminal waits for source words to disappear and a recovered connection
+before its withdrawal screenshot. One earlier clock-base screenshot raced the UI
+and is not accepted evidence. Metadata-only progress is allowed to remain; an
+overstrict harness assertion was corrected without weakening source withdrawal. Earlier
+attempts remain failed/Unknown without replay. All temporary test state/services
+are cleaned. External local evidence is indexed by
+`lain-daily-brief-2026-11-05/conversation-acceptance.md` under the documented
+visualizations root in DAILY_BRIEFING.md.
+
+Full goal remains active: selected-memory save/recall/correct/forget, cross-batch
+reconciliation/date ambiguity, explicit live sources and production acceptance
+are unfinished. Cloud identity/database/QQ login, the installed client and
+original Codex host are unchanged; no commit, push or public release occurred.
+
+## 2026-11-05 — Cited model items through the existing Actor
+
+Added local schema034 page-to-Actor bindings and independent finite extraction
+activities. Each model page carries up to four complete records/16KiB and one
+accounted request; source revisions, retention, grants and knowledge freshness
+gate input, admission, completion and ordinary Actor restores. Generated items
+retain stable IDs, exact original substrings, Kernel-owned versions/timestamps/
+text origin, model summary origin, uncertainty and explicit omissions. The
+internal processing origin cannot carry tools, private context, memory or Worker
+actions. Repeating a page returns the original turn, including Unknown; it does
+not resume provider work. There is no whole-day runner or natural query tool yet.
+
+Independent read-only review found rejected provider JSON could survive the
+ordinary two-phase Assistant-body/completion path. A regression first fails on
+the actual Actor snapshot leak. Briefing now commits body, citation validation,
+result and Completed together, and finishes held preview only after success.
+The regression passes and scoped re-review confirms the finding resolved. A test
+reopen race was also corrected by waiting for the actual owning Actor task to
+release its Kernel reference before opening another process-level DB owner.
+
+Four focused Actor tests pass, including revoke-during-call, fabricated quote/
+Worker tool rejection and shutdown/restart Unknown with retained reservation.
+The complete Kernel library now reports 308 passed/two existing ignored, wire
+seven passed, client 146 plus one integration passed/three ignored. Strict
+Kernel/client all-target Clippy, formatting and native build pass. Seventeen
+historical schema cases pass after extending their explicit downgrade fixtures.
+
+A native HTTP Responses fixture processes all 17 synthetic notices in five
+batches, adds a rejected sixth batch, verifies restart without replay/stable item
+IDs, exact citations, common inference accounting, rejected-body isolation and
+all-record invalidation. Temporary state is cleaned; this is simulated model
+output over real HTTP, not paid-provider evidence. Separately, one actual DeepSeek
+batch accepts two items from four synthetic messages in 5.95 seconds with 2645
+reported tokens. Human inspection confirms the 201-to-301 room correction and
+resource deadline/eligibility, retains relative-time uncertainty and ignores
+chatter/injection. An earlier actual request ends Unknown before a returned
+usage record; cause remains unproven. A metadata-only connection check succeeds;
+the successful independent experiment does not erase or replay that first call.
+
+External artifacts: `lain-daily-brief-2026-11-05/model-http-native`,
+`model-live-native` (Unknown), `model-live-diagnostic` (accepted). Both actual tests
+use isolated native storage and private in-memory credentials, no live QQ, no
+production mutation. Cloud schema32, original services/data, existing grants and
+installed daily client stay unchanged. Full goal remains active for day
+coordination, ordinary interaction, original follow-up and selected memory.
+
+## 2026-11-05 — Daily evidence: source gaps, scoped consent and complete pages
+
+The independent QQ service now includes at most 20 source-scoped historical gap
+reports in its changes feed; Kernel persists them and the terminal distinguishes
+report receipt time, expired snapshots and unknown live presence. Six bridge
+checks, one wire bound/order/time check, client rendering and all 16 independent
+service/observer checks pass. No live source is enabled. An administrative group
+candidate probe fails to establish a usable metadata WebSocket; no group bodies
+are retained and temporary SSH tunnels are closed. This does not block local work.
+
+ADR037 and additive schema033 introduce an independent finite conversation grant,
+not an extension of existing private recall/memory trials. Day preparation stores
+IDs/versions/coverage metadata only; complete-text pages recheck all selected
+versions and current grants/freshness. Exact retries preserve the original day
+and sources across restart. Seven targeted core/API cases cover full-day selection,
+source/conversation isolation, complete UTF-8 text, bounded pages, date boundaries,
+receipt-time fallback, correction/forgetting/revocation and exact recovery.
+
+The schema change exposes stale historical-version fixture construction: newly
+added tables remained while fixtures manually downgraded user_version. The
+fixtures now remove schema033 tables before pretending to be older databases;
+their content-preservation/default-off assertions remain. A dedicated schema32
+upgrade checks original archive snapshot bytes and invalidation triggers. The
+17 migration regressions pass. The earlier complete Kernel run reports 290 passed,
+14 fixture failures and two ignored; the 14 failures are then repaired and covered
+by the targeted 17-case migration rerun, not misreported as a new full-suite run.
+
+Client 146 unit checks (three existing ignored), one CLI integration check, strict
+Kernel/client all-target Clippy, formatting and native binary build pass. Actual
+isolated Windows CLI/API startup reads 43 synthetic records over six pages,
+reopens the Kernel, recovers the exact manifest and rejects stale/cross-conversation
+reads. The eight-case native source TUI fixture passes again on schema033. Both
+fixtures make zero model calls, use no live QQ and clean temporary state.
+Scoped independent read-only review finds no evidence-backed defect in the day
+manifest/grant/API/CLI changes. Evidence stays outside Git under
+`lain-daily-brief-2026-11-05/day-evidence-native` and `sources-terminal-schema33`.
+
+This is evidence preparation, not generated briefing or a completed daily demo.
+Next work remains model processing with the shared inference ledger, persisted
+items/citations, fresh original follow-up and memory integration. Cloud schema32,
+personal data, installed binaries, source authorizations and QQ login are unchanged.
+
+## 2026-11-05 — Daily briefing foundation: context and truthful source status
+
+Started the user's full authorized daily-briefing goal. Revalidated existing
+archives, independent QQ knowledge, private recall and source-derived memory:
+ordinary three-record recall cannot substantiate a whole day, and ordinary TUI
+turns do not inherit private-channel grants. Read-only cloud inventory finds no
+registered archive source and one reply binding; no source or grant is enabled.
+
+Two new history regressions fail on full old tool payload replay and history
+size. The projection now retains exact current input, recent user referents and
+operation state/IDs without old task/output bodies, with labelled assistant
+excerpts and a 12 KiB history soft cap under the existing 48 KiB hard cap. Existing
+source/memory guards and full persisted audit remain. Twenty-two selected Actor
+and 28 archive regressions pass at this checkpoint; scoped independent read-only
+review finds no evidence-backed correctness defect.
+
+Added owner-only source status GETs, CLI `archive status` and TUI `/sources`.
+Status separates import authority, current-epoch actual receipt time, retention,
+last reader result and finite synchronization; live collection presence remains
+unknown without evidence. Duplicate imports do not update receipt time and old
+grant epochs do not appear as new receiving activity. Three core/API checks and
+two UI unit checks pass. Eight native Windows ConPTY cases pass for empty/selected
+sources, actual receipt/duplicate, no body leakage, narrow paging, revocation and
+zero-model navigation. Strict Kernel/client Clippy and native build pass before
+the final detail-paging adjustment; final checks remain separately recorded.
+
+Implementation is local only, with no cloud/installed-client upgrade. The next
+work is actual collection-gap propagation, explicit briefing audience/grants,
+bounded day processing/citations and selected-memory integration. No real QQ
+source or full briefing acceptance is claimed. External evidence is under the
+session artifact directory `lain-daily-brief-2026-11-05`.
+
+## 2026-11-05 — A real web task, continued through Lain
+
+The user requests a complete small-webpage test. An isolated writable project,
+separate cloud conversation and finite dedicated native host exercise actual
+Codex/provider execution. Three turns produce and refine a working static task
+page. Work creates the first task, F6 adds filtering/clearing, then Lain Chat
+finds the latest parent and proposes a final fix, explicitly reviewed in TUI.
+All three complete in one native session. Parallel Chat status lookup, closing
+and reopening the frontend during execution, and complete three-round history
+are verified against actual cloud receipts and ConPTY views.
+
+Chrome independently verifies adding/completing/counting/blank rejection,
+localStorage persistence, filtering without deletion, clearing only completed
+tasks, keyboard Enter, accessible input and no horizontal overflow at actual
+390/1440 px viewports. A favicon 404 is corrected by Codex through the real Chat
+proposal path; the final fresh browser context has only three successful local
+resource requests and no console errors/warnings. The tester independently runs
+the final script's real Node syntax check, exit 0. The first turn's PATH-related
+check failure is retained, not presented as a completely error-free run.
+
+The temporary host stops normally, its registration is revoked and dedicated
+credential removed. The original host/policy and cloud release remain unchanged.
+The generated webpage, local loopback preview and evidence are retained outside
+Git. This is actual selected Windows workflow evidence, not a claim of universal
+reliability, automatic setup or Kernel artifact verification. See
+[acceptance details](docs/WORK_WEB_ACCEPTANCE.md).
+
+## 2026-11-05 — Devices becomes a computer and project view
+
+Replaced the raw device-ID table/task-list default with named computer rows and
+an explicit detail page: OS, authority expiry, historical version/report time,
+project selection and full registered directory. Runtime presence and local
+policy remain unknown without evidence. C only rereads cloud inventory; I shows
+startup/recovery help, F7 exposes non-secret diagnostics and T retains the
+device-wide task inventory behind a labelled secondary route.
+
+N enters the existing Work form with a freshly checked exact device/workspace.
+Refresh preserves selection by ID; removed destinations retain drafts without
+selecting another computer/project. Task review, revision checks and uncertain
+request recovery remain enforced. Added bounded detail wheel scrolling and
+narrow-screen hints, retaining the selected portrait and Chat/Work text behavior.
+
+Native Windows validation: 143 client unit tests plus one CLI integration pass
+(three existing explicit native/manual cases ignored), strict client all-target
+Clippy, format and build. The synthetic actual-ConPTY smoke passes eight grouped
+checks including narrow layout/wheel, exact task destination and preserved Chat
+draft, with no task/model/Worker calls. Artifacts remain outside Git under the
+session directory `lain-devices-ux-2026-11-05/terminal-final`. This increment changes
+no Kernel/host protocol or cloud database; Linux/macOS UI remain unverified.
+
+The existing protected Windows daily launcher now selects the new client, with
+the previous binary retained. Its actual cloud-connected read-only terminal check
+reaches computer details, the registered project, startup help and preselected
+Work form, then exits without submission. No personal transcript/screenshot or
+clipboard content is saved; neither the host nor cloud service is restarted.
+
+## 2026-11-05 — Explicit global unlimited quota enabled
+
+The user explicitly removes the finite aggregate model-request allowance. The
+existing management API supports finite limits and one-private-channel daily use,
+so this change adds a real `unlimited:true` global mode rather than a fabricated
+large finite ceiling. The authenticated revision-checked API/CLI selects exactly
+one mode. Unlimited preserves per-turn/activity limits, permissions, source grants,
+Stop, atomic reservations and the historical finite ledger; it enables no new
+activity or model credential. Missing legacy fields default false. ADR036 records
+the policy extension and old-binary rollback's conservative stopped behavior.
+
+The regression fails before implementation on the unknown unlimited field. Native
+Windows passes 13 related Kernel tests and 138 client tests plus one CLI
+integration case, strict Kernel/client all-target Clippy and format. Native Linux
+passes the same 13 related tests, ten Actor integration cases, the final eleven
+inference contract cases and library Clippy with the existing documented
+nonminimal_bool allowance. Checks cover exhaustion removal, persistence, old
+totals, mode exclusion, pending requests and stop-before-entry. Independent
+read-only review finds no scoped blocker. No real model call is needed for this
+configuration change.
+
+Cloud release `/srv/lain/releases/unlimited-b9d6092df4af` is selected, binary
+SHA-256 `985b13262edc151f7b29d24cbfc710429ec123dadc8f97e3e630b27e4804a612`.
+After idle checks, stopped backup, atomic selection and public HTTPS/auth/receipt/
+event checks, the owner API writes decision revision 2. Readback confirms enabled
+global unlimited, null limit/remaining requests and no aggregate expiry. The old
+finite budget still exists with its spent totals; model/environment, identity,
+database inode, QQ binding and grants are retained. A verified subsequent backup
+contains the enabled decision. Two releases and seven backups remain.
+
+The local CLI includes `inference unlimited --revision N`; the selected client
+SHA-256 is `448a6f0a46d8306a4cc2b985537b14bf37267c95e7fb4ae9bceb114fe2459150`.
+The old running client remains valid; no local host restart or task dispatch is
+performed. Local metadata-only evidence and operation records:
+`<local-evidence>/lain-unlimited-inference-2026-11-05/`.
+Aggregate cost authorization does not remove the separate long-context/per-turn
+budget concern recorded below or establish upstream provider billing capacity.
+
+## 2026-11-05 — Cloud Actor multi-call compatibility and failure causes
+
+The user reports intermittent failures while listing sessions and requesting a
+follow-up through Chat. Read-only evidence shows both selected failures stop in
+the first model request with no recorded action, while a nearby query succeeds;
+the original provider cause was discarded by the generic error handler. A
+separate deterministic incompatibility is verified: DeepSeek documents that
+parallel_tool_calls=false is ignored, but the adapter rejects complete responses
+with multiple calls and Actor consumes only the first. Both regression cases fail
+before the change. This does not retroactively prove both historical failures had
+the same cause.
+
+The adapter now accepts up to four distinct call identities. Actor preflights the
+whole batch against remaining tool slots, executes serially through existing typed
+guards and pairs every original call with its result in the next Responses input.
+The first review-required action stops with exactly one current proposal; later
+calls do not execute. Private source/input fences, correction/forget refresh,
+request/token/time ceilings and no-replay rules remain. Allowlisted provider
+errors now distinguish timeout/connection, HTTP rejection, interrupted or
+incomplete output, output-length truncation and protocol failure without provider
+bodies, credentials or raw URLs.
+
+Native Windows passes 33 Actor-related library tests, ten Actor integration tests,
+the final three-case batch suite and strict Kernel all-target Clippy/format.
+Native Linux independently passes the same 33+10 cases, the final three-case
+contract run and library Clippy (retaining the documented unchanged-code
+nonminimal_bool compatibility allowance). Tests include two/four-call reads,
+read-before-confirmation, stopping after a proposal, no partial oversized batch,
+remaining-slot enforcement, duplicate IDs, request/result pairing and secret-free
+failure notices. Independent read-only review reports no scoped blocker.
+
+The schema32 cloud release is now `/srv/lain/releases/chat-ae6ae3610a1f`, binary
+SHA-256 `2c6500145d7985d28ebe63c5f0d237865f9372de4f00f8866d82902e8b2145b9`.
+Publication checks idle chat/device work, takes a stopped verified backup and uses
+the existing atomic selection/rollback path. Database inode/instance, model and
+environment configuration, QQ binding/grant and budget decision are unchanged.
+Public HTTPS/auth, missing-request receipt and SSE checks pass. A single new
+read-only query in the actual conversation completes with work.list and
+device.work.list, both executed, in two model requests. Its report-parser failure
+is recovered by GET only; no second POST or task control is issued. The trial
+allowance changes from ten to eight requests for that validation, with no refill.
+Two releases and seven backups remain; QQ is online.
+
+Known next concern: this long-conversation validation uses 31,733 of the existing
+32,768 cumulative turn-token ceiling. Budget-aware context slimming remains
+pending; neither the ceiling nor the current low-reasoning/1024-output setting is
+silently changed. One successful query is not general reliability acceptance or
+verification of a real follow-up's result. Local metadata-only evidence:
+`<local-evidence>/lain-chat-reliability-2026-11-05/`.
+
+## 2026-11-05 — Stable scroll and drag-selection coordinates
+
+The user reproduces stuck scrolling and large viewport jumps during selection in
+real long Chat history. Two deterministic red cases identify unconditional redraw
+reanchoring as the shared cause: an empty row is treated as source offset zero,
+and every code caption can match the message heading. A requested row 2 becomes
+row 1; starting selection at row 203 jumps to row 1. Prior short-text selection
+checks do not cover these long blank-separated messages.
+
+The reader now honors explicit scroll movement and relocates a source anchor only
+when the actual layout changes without new user scrolling. Empty rows retain real
+parsed offsets and code captions retain distinct block identities. Mouse hit tests
+use the last presented scroll position; dragging inside the first/last visible row
+does not auto-scroll. Direction compares source anchors, and changed source
+versions invalidate even a zero-width pending selection. Chat and Work retain
+separate View state and the existing clipboard/source generation checks.
+
+Native Windows verification passes 138 client unit tests and one CLI integration
+test, with three existing explicit manual checks ignored, strict all-target
+Clippy, format and build. Four focused regressions cover exact scroll positions,
+blank-top selection, background layout changes and presented-frame/boundary hits.
+The extended native ConPTY/private-window-station test traverses a long synthetic
+history, confirms exact plain/Markdown/code/drag clipboard contents, and preserves
+the user's interactive clipboard; only a simulated provider is used. Independent
+read-only review finds no blocking issue within this scope.
+
+The side-installed client SHA-256 is
+`5f878cb7a1681d586c8c036952f4c4d5ad3a339c510c8a73d026aeffc3d8382f`;
+the prior version and all running services remain. The actual daily launcher then
+passes twelve distinct upward-scroll frames and a drag with unchanged visible
+text in the existing cloud conversation. This read-only check submits no message
+or task, accesses no clipboard, and saves no personal transcript or screenshot.
+Local evidence is under
+`<local-evidence>/lain-scroll-selection-2026-11-05/`.
+Linux/macOS acceptance remains unverified; this does not claim arbitrary terminal
+emulators or all pointer timings have been manually accepted.
+
+## 2026-11-05 — Readable Work context and retained turn history
+
+The user reports that UUID-only Work rows hide task purpose, time and directory,
+and that follow-ups appear to replace prior results. The previous reader renders
+only the selected command's output_tail even though each continuation command
+retains its own request and receipt. Work now shows original-request summaries,
+local creation/latest-receipt timestamps, device labels and registered directories.
+Selection includes the latest instruction; the sidebar uses the declared path.
+The default detail pairs every loaded instruction with its own Markdown result.
+Missing ancestors use the existing conversation-scoped GET; mismatched families
+are refused and incomplete reads are explicit. No schema/server/Worker change or
+new task/model invocation is needed for the product behavior.
+
+The original two-turn regression fails before the change and passes after it.
+Native Windows checks pass 134 client unit tests and one CLI integration test,
+with three existing explicit manual checks ignored, strict all-target client
+Clippy, format and build. Additional tests cover stale/missing recent ancestors,
+scope mismatch, authentication failure and bounded source copying. Independent
+review identifies a fixed-eight-round scroll overflow; adaptive display-budget
+pagination and a legal 8192-byte multi-line request regression resolve it. At most
+64 rounds are loaded and each page holds at most eight complete pairs. F5 and
+Shift-F5 change the reading window, not the task targeted by control operations.
+
+Native ConPTY checks cover both results after same-session continuation and client
+restart, task context, Markdown/copy menu, explicit diagnostics, draft retention
+and direct new-task exact text. Fixtures use no paid model or real QQ and leave
+the user's clipboard untouched. The side-installed client SHA-256 is
+`95c32b10c3d8890d65c5890f8ab0b8c2977ab96dd978f3de7ccc3aebf7a45ec7`;
+the previous client remains available. Actual installed-launcher HTTPS navigation
+then confirms the existing selected family has two retained output-bearing rounds
+and the timeline shows both; no task IDs change during the observation. No private
+transcript or screenshot is saved, and no host/cloud restart occurs. Local evidence:
+`<local-evidence>/lain-work-history-2026-11-05/`.
+Each output remains the existing bounded device receipt, not a full native log or
+independently verified artifact. Linux/macOS terminal acceptance is not claimed.
+
+## 2026-11-05 — Compact activity cards and Work result reader
+
+After the user confirms real read-only Codex results, the selected UI change
+replaces repeated long System dumps with stable compact cards. Device tasks update
+in place; their result action opens the same Work task. F7 offers keyboard activity
+selection in Chat and result/diagnostic switching in Work. Tools and retained
+Kernel Worker receipts default to folded details. Work reuses Markdown rendering
+and source-based plain/Markdown/code copying with its own document and selection;
+bounded device output remains labelled as an excerpt when incomplete.
+
+The cold-start replay regression is red before implementation. Native Windows
+validation passes 128 client unit cases and one CLI integration case, with three
+existing checks ignored, strict client all-target Clippy, format and build. The
+native ConPTY script covers quiet historical snapshots, live compact cards,
+keyboard entry, Markdown, copy-menu availability, explicit diagnostics, preserved
+Chat draft and quiet reopen. It uses structured fake Workers and zero model/paid
+calls, never the interactive clipboard; synthetic temporary state is cleaned.
+
+Independent review identifies full synchronization retiring the first card, a
+single-stream reconnect baseline gap, temporary-message anchors disappearing and
+hidden notices entering /seen. These are corrected with bounded metadata-only
+identity/version/position checkpoints, stable message anchors, separate stream
+baselines and filtering before the displayed-notice set. Actual HTTP/SSE tests
+cover Changed → empty/retired view → checked replacement → restored card before
+later conversation. Retirement still clears body/menus/selection/copy epochs;
+neither plaintext nor signatures survive in the presentation checkpoint. Hidden
+receipts are not acknowledged. No task replay, approval bypass or extra inference.
+
+The Windows daily launcher now selects the checked side-installed client; actual
+launcher status and read-only ConPTY navigation against the existing HTTPS Kernel
+pass without task or chat submission. Existing client binary/configuration are
+retained; host/cloud service, credentials, database and portrait are unchanged.
+The user only needs to reopen the Lain interface. External evidence stays in the
+session's `lain-activity-cards-2026-11-05` directory. Linux/macOS behavior was not
+newly exercised. No commit or push.
+
+## 2026-11-05 — Codex command output burst disconnect
+
+The user started the prepared device host and submitted the selected read-only
+task. It reached a real Codex turn, opening message and command start, then became
+Unknown with `worker protocol stream closed`, without a final report. Read-only
+inspection of this command's local journal/Worker history and its exact native
+Codex thread/process shows interrupted work and a command outputDelta burst;
+no other personal transcript, login credential or raw protocol was retained.
+
+A 12,000-notification subprocess regression fails against the previous transport.
+The fix drains only well-formed request-ID-free command progress notifications
+before the 512-entry lifecycle queue. Final aggregated output, assistant text,
+permissions and lifecycle events remain on their original path and retain their
+existing bounds/redaction. Fixed transport-close reasons replace opaque receive
+errors without exposing original frames/stderr. The native seven-test Worker
+suite passes, including exact final output and later same-session approval;
+genuine overflow, bad framing, cancellation and recovery retain their protection.
+The original Unknown command is not resent, edited or marked complete.
+
+The classifier unit test and all 17 native Windows device-service scenarios pass,
+including final-summary reporting after the output burst, with zero paid calls
+and normal synthetic state cleanup. The intentional network-disconnect fixture
+also emits its existing WinError10053 server traceback; it does not fail a check.
+Strict Kernel all-target Clippy and workspace build pass. Independent source
+review finds no code or installer blockers; the stale event mapping is corrected
+in the same change. Native Linux/macOS are not newly verified by this Windows fix.
+
+The selected PC has a side-installed checked executable behind a protected
+manifest and stable `Start-Codex-Host.cmd`. Its prerequisite check passes. The
+original running binary is retained; no policy, credential, cloud service or
+execution database is replaced. The user is asked to stop the old foreground host
+normally and use the new entry. Installation is not a running-version or real-task
+success claim. External `lain-codex-output-fix-2026-11-05` artifacts retain the red/
+green logs, selected tests and installation evidence. No commit or push.
+
+## 2026-11-05 — Direct Work desk and native Codex preparation
+
+The user selected Work-first development and explicitly deferred Claude. Work now
+has a direct N/new-task flow: declared computer/workspace selection, an independent
+unchanged task draft, finite deadline and sandbox, full exact review and explicit
+submission. It uses existing device commands and starts no conversational model.
+Chat remains usable with its own draft; task details retain their originating tab.
+
+A read-only conversation/device/request receipt route reuses persisted links,
+without schema changes. Target preflight and route support checks precede POST;
+uncertain responses retain the original request and recover by GET only. Native
+loopback regressions cover response loss, changed targets, older servers and scope
+isolation. This is not permission to replay an uncertain Worker mutation.
+
+Installed Codex 0.166.0-alpha.5.1 passes selected protocol checks and both existing
+isolated native Rust adapter probes, including same-thread resume without login
+or inference. The exact allowlist adds this alpha; adjacent unknown versions stay
+rejected. Device initialization can explicitly declare `--codex-work`, independently
+of pairing, host policy/start and actual provider access.
+
+Native ConPTY testing exposed LF loss in ordinary Windows key-event paste. F9 now
+explicitly reads local clipboard text into an unchanged editable draft, with view/
+target binding and whole-input bounds. A test-only private window station verifies
+exact multiline text, one queued task, preserved Chat draft and task persistence
+after exit, without touching the interactive clipboard. The latest desk suite
+passes 91 tests (two existing checks ignored); the native host fixture passes 16
+scenarios. All use synthetic state: no paid Worker task or cloud rollout is implied.
+Independent review found and resolved paste routing and tab-origin issues. Formal
+scope and remaining real-device acceptance are recorded in docs/WORK_DESK.md.
+
+The follow-up selected installation updates the cloud with a seven-file schema32
+maintenance snapshot and the native daily client. Native Linux passes the five
+receipt-store tests, six device API tests and three Codex adapter tests; Clippy
+uses the previously documented nonminimal_bool compatibility exception. An
+initial overly narrow adapter filter selected zero tests; the actual current
+test binary subsequently runs the three adapter tests, with its hash/source
+snapshot recorded separately before publication. Windows final checks pass 122
+client unit tests, one CLI integration test, strict client/Kernel all-target
+Clippy, format and workspace build. The native host fixture remains 16 passing.
+
+Publication uses a verified stopped backup, exact source manifest and actual
+release selection, retaining the original database/identity/configuration/QQ/
+memory/budget. Native Linux synthetic fault injection confirms recovery after a
+post-replace fsync failure and refusal of a foreign release. Review catches
+outer deadlines shorter than allowed rollback/finalization paths; both are
+increased to 600 seconds before use. Public HTTPS verifies owner receipt/null,
+device/unauthenticated denial, readiness and snapshot SSE. Final retention leaves
+two releases and seven backups. No model/task requests are submitted by these
+operator checks.
+
+The actual Windows launcher now selects the new client; real ConPTY navigation
+sees the paired PC/project and opens Work's task editor, then exits normally
+without submission or changed task IDs. No production screenshot/transcript or
+interactive clipboard is retained. Native pairing prepares a seven-day device
+registration and read-only host policy; prerequisite checks pass, but the host
+is not started and real provider access remains unverified. A PowerShell null
+conversion initially prevents the client-profile replacement; original/stage/
+backup hashes confirm no selection change. A synthetic replacement verifies
+NullString, then exact content/ACL/hash checks complete that same staged switch,
+without replaying pairing or deployment. Operational evidence is outside Git in
+the session's `lain-work-entry-2026-11-05` artifact directory. No commit or push.
+
+## 2026-11-05 — Cloud picture restoration and temporary image retention
+
+The user selected continued development without a multi-day testing prerequisite.
+The independently authorized seven-day private-memory scope/expiry remains intact.
+Cloud QQ image reception was enabled on the existing image-capable Actor, with
+the same database inode, model/configuration, reply binding, memory grant and
+finite inference decision. No operator model submissions or input replay occurred.
+
+The renewed real-image check failed before decoding. Read-only metadata diagnosis
+confirmed an allowed official HTTPS QQ image URL and 16 public A plus nine public
+AAAA records; the downloader rejected that legitimate answer count above 16.
+A native Windows regression reproduces UnsafeLocation before the correction.
+The narrow fix bounds answers at 64, still rejecting every private/over-limit
+answer set before pinning; exact CDN, body, proxy/redirect/retry and timeout
+restrictions remain. Both native Windows and Linux pass 50 channel tests.
+Windows strict Kernel-library Clippy passes; Linux's scoped check requires an
+explicit existing-code nonminimal_bool compatibility exception. Removing the
+public-IP guard from a separate extracted-code copy fails the new regression.
+The Linux maintenance binary is deployed on the original schema32 database with
+unchanged identity/inode/configuration/budget/grants. Actual public HTTPS auth,
+readiness and SSE pass. Two new real user images produce one and three pixel
+samples, appear in actual viewed_media dependencies and receive Completed model
+turns/Confirmed sends. The user confirms understanding and replies. No failed
+image input was replayed. See `docs/VISUAL_CHAT_ACCEPTANCE.md`; broader visual
+quality is not implied by this selected-sample confirmation.
+
+The maintained `scripts/napcat_cache.py` has eight native non-root Linux safety
+tests, initially red before implementation, then green. Removing its hardlink
+guard in a separate copy makes the protection test fail. Its installed root
+oneshot passes under filesystem/network restrictions and an hourly timer is
+active. Only aged top-level temporary pictures qualify, with minimum-age,
+scan/deletion limits, soft byte target and quarantined identity revalidation.
+The first real inventory was empty; no disk-reclamation claim is made. Native
+QQ account/media storage and login backups remain separate concerns.
+
+Independent review found a stale idle snapshot after backup and two partial
+publication/durability gaps. Rechecking activity, inspecting actual release
+selection during rollback and syncing the release parent fix these. A native
+Linux synthetic post-replace fsync fault verifies old-binary recovery and refusal
+of a foreign target. No database overwrite/recovery replay is introduced.
+Nine Windows visual process checks also pass using fake providers; their final
+schema assertion now reflects schema32. The private `lain-cloud-visual-2026-11-05`
+artifact directory retains execution metadata outside Git. No commit or push.
+Final verified backup/retention leaves two releases and seven archives totaling
+655153 bytes at the checkpoint. The known older compatible release and two
+failed-build input scripts were removed with exact path/hash/process checks;
+the immediate previous binary and final build recipe remain. Cleanup holds the
+same upgrade lock as publication, and no temporary diagnostic directories remain.
+
+## 2026-11-05 — Cloud QQ cutover and bounded private memory trial
+
+Authenticated server management confirms the intended Lain account is logged in.
+The previous local binding had no queued/in-flight deliveries, proactive scope or
+Worker sessions; its reply grant was revoked and its Kernel stopped gracefully,
+retaining all 27 previously confirmed exchanges and its database. The same cloud
+Kernel/database/model/budget now owns the QQ adapter. Replies start disabled,
+enable only after the exact account is Online, and persist across an additional
+idle Kernel restart with the same binding/conversation/grant. Initial post-start
+process-image checking had not yet observed the expected executable; subsequent
+read-only inspection confirmed that image was Online with replies still disabled.
+The reviewed recovery continued that verified process without another restart
+or effect replay. The existing finite inference decision was never reset.
+
+The user confirms real private receipt. Durable records show ordinary completion,
+QQ confirmed sends and real remember/correct operations after a separately
+approved seven-day, current-binding, new-input-only memory grant. The old preference
+is Superseded and the corrected preference Active with inferred ChannelSelection
+provenance; private contents remain outside Git. The user used a real preference,
+so it was preserved rather than deleted as a synthetic fixture. Live forget and
+cross-conversation sharing are unverified/off. One early real turn ended Unknown
+without returned token usage; it was not replayed and later turns completed. Its
+specific cause remains unproven. Topic carryover also shows naturalness still
+needs daily-use evaluation. Cloud image input/group collection/proactive contact
+are not enabled by this narrow cutover.
+
+Backup now optionally includes the exact 8 KiB-bounded NapCat adapter JSON and
+restore/hash verification, alongside the existing environment/model/database.
+New archive/link/size regressions first fail; 16 synthetic native Linux non-root
+tests then pass, and removing the restore hash guard in a separate copy fails the
+new corruption case. The exact tested helper was installed. Actual pre-cutover,
+staged, enabled and final backups pass; the final five-entry archive is restored/
+checked, with seven archives totaling 316331 bytes and no restore scratch paths.
+QQ login/media state remains a separate backup/retention concern. Independent
+review caught boot-time reply revocation and missing parent-directory fsync in
+operation fences; both were fixed before cutover. Operator syntax/targeted
+whitespace checks pass. No Rust binary rebuild, new public listener, personal DB
+import, automatic model-test submission, commit or push. Evidence is the private
+local `lain-cloud-qq-2026-11-05` artifact directory.
+
+## 2026-11-05 — Server-hosted QQ transport prepared for login
+
+The user explicitly selected server-side QQ login for the next daily-use slice.
+A separate NapCat container is deployed beside the existing cloud Kernel using
+an inspected immutable official image digest. Its QQ processes run as a dedicated
+non-root account, host ports bind only to literal loopback, and private QQ/config/
+plugin state is separated from the Kernel database. Memory/swap is limited to
+1536 MiB, CPU to 1.5 cores, processes to 512 and core dumps disabled. The maintained
+optional deployment template/runbook is in `deploy/napcat`; connection/account/
+credential values and operation evidence remain outside Git.
+
+Native Linux runtime checks verify the pinned image, mounts, numeric QQ UID,
+resource/log configuration, authenticated management status and all original
+12 containers plus the unchanged Kernel process/binary. A real startup check
+exposed that NapCat prints auth-bearing management/QR URLs before per-account
+log settings take effect even with console/file logging disabled. Before any
+account login, only the new container was stopped/removed, its logging data
+removed, management/OneBot credentials rotated and the same private state retained.
+The rebuilt container uses Docker's `none` log driver. Startup process validation
+also exposed Docker's mandatory PID column and Linux username truncation; the
+operator now validates the numeric UID. No weaker runtime permission was needed.
+Independent static deployment review and a follow-up cover this boundary; final
+template validation occurs before a destructive service-replacement step.
+
+The authenticated service is now in `waiting_qrcode`, not logged in or connected
+to the Actor. This is deployment preparation, not acceptance of QQ chat, memory
+continuity/correction or multi-day companionship. Local QQ replies/history are
+preserved; no database migration, group collection, proactive contact, Worker,
+paid model request, Kernel restart, commit or push occurred. Actual login requires
+the user's phone confirmation; reply cutover and real-use checks follow it.
+QQ media/session disk retention and backup are separate from existing bounded
+Kernel backups and are not claimed complete by container resource limits.
+
+## 2026-11-05 — Source-backed terminal text and clean local copying
+
+The portrait/sidebar remains intact while Chat now renders saved Assistant
+Markdown without a surrounding transcript border. Headings, emphasis, lists,
+quotes, inline code and syntax-highlighted fenced code have separate source and
+display representations. Prose is bounded to 96 columns and prefers whole words;
+code uses the available width. User input, operational receipts and transient
+previews remain plain text. Complex tables, math, Mermaid and dedicated HTML
+rendering are outside this increment; links are styled but never opened.
+
+F2 or `/copy` offers plain reply, canonical source Markdown and individual literal
+code blocks. Ctrl-O copies the latest saved reply. App-owned mouse selection plus
+Ctrl-C copies body text without roles, sidebar or visual soft wraps; original code
+tabs, line breaks and pipe characters survive. F3 or `/read` opens a wider read-only
+view and restores the draft/scroll state on return. Copy targets retain message
+identity/version rather than following a changing menu index. Source retirement
+removes text, anchors and menu targets, and invalidates pending clipboard setup;
+an already-started system clipboard write is not revocable. Clipboard access is
+local, asynchronous and explicit, with success shown only after native delivery.
+No OSC 52/SSH clipboard forwarding or archive pagination is claimed.
+
+Independent read-only review found empty-start preview forwarding, reference-link
+display amplification, outside-origin drag continuation and zero-width cell
+mapping defects. Failing regressions preceded their fixes. Additional regressions
+cover reverse selection, frozen menu targets, changed-anchor highlighting,
+word-aware wraps and oversized source replacement. Text/cache bounds are explicit;
+an oversized authoritative message replaces stale copyable text with an honest
+noncopyable limit notice rather than disappearing or leaving old text available.
+
+Validation on native Windows: 109 client tests and one CLI integration pass,
+formatting and strict affected-target Clippy pass. Three explicit/manual tests
+remain ignored by the default suite; the private-window-station clipboard test
+was run explicitly, and the isolated desk entry was exercised through ConPTY.
+The latter verifies actual native clipboard round trips for plain/Markdown/two
+code blocks and drag selection, plus reader draft retention. The 13 existing
+terminal cases also pass. Final acceptance uses seven local fake model requests,
+zero paid calls, and no access to the interactive desktop clipboard. Tests clean
+their temporary state and services before reporting success; a fixture shutdown
+omission and a mouse-coordinate frame race were fixed in the acceptance script.
+Evidence is external to Git under the local `lain-rich-chat-2026-11-05` artifact
+directory. Images reconstruct actual ConPTY output with synthetic content.
+Native Linux/macOS clipboard/UI and Rust 1.89 execution remain unverified for
+this increment; declared new dependency minimums do not exceed 1.89.
+The versioned daily cloud client entry now points to the tested executable
+`6bb54f1f7e4b…`; its hash and owner-only ACL passed the launcher's read-only check.
+Prior client binaries/windows remain intact. No server restart, model invocation,
+credential change, commit or push was performed for this installation.
+
+## 2026-11-05 — Chat wheel scrolling and local terminal sidebar
+
+Real terminal feedback exposed that the alternate-screen client ignored mouse
+wheel events. A native ConPTY reproduction failed on the previous executable;
+the repaired client captures/releases mouse input and scrolls only the Chat body,
+preserving drafts and pausing follow mode while reading. Ctrl-End restores latest
+output. Mouse restoration precedes raw-mode restoration on Windows. Existing
+recent-history and transcript byte bounds are unchanged; full archive pagination
+is not part of this increment.
+
+The portrait remains verbatim. Its wide-screen sidebar now shows OS/architecture,
+logical CPU availability, physical memory, local cwd, selected task workspace and
+real operational task states. Local metrics stay local; Worker state comes from
+the existing checked event stream and linked device tasks. Kernel/global tasks
+are labelled, disconnection is not a running claim, and no task or model is
+started by observing. Independent review caught default-height task clipping and
+approval states labelled as responding; both are fixed and covered, including a
+two-line cwd/workspace fixture that fails under the original layout.
+
+Native Windows validation: 92 client tests pass (one existing manual check
+ignored), one CLI integration, formatting, strict affected-target Clippy and one
+test-decoder regression. Thirteen native ConPTY cases pass with six local fake
+model requests and zero paid calls. The pyte wide-cell stub issue was separately
+reproduced and handled only in the test display helper. Windows telemetry and
+actual wheel input are verified; native Linux/macOS this increment are unverified.
+The separate versioned daily client entry was updated without closing prior
+windows, changing credentials or restarting the cloud service. No commit/push.
+
+## 2026-11-05 — Multi-step chat budgets and truthful memory retrieval
+
+Real terminal feedback exposed two distinct failures: an exact multi-word search
+missed a saved preference, and the following model request crossed the per-turn
+token ceiling. The latter rolled back its turn usage accounting while the durable
+provider ledger already recorded both returned requests. The saved memory itself
+was intact. New regressions reproduce 5085 + 5261 tokens: the lower cap now records
+10346, preserves the completed read receipt and fails without publishing the
+over-budget reply; a 32768 cap completes the same two-step fixture.
+
+Memory tool schemas and receipts now explain literal substring matching and
+filtered-page coverage. The Actor policy distinguishes a historically committed
+ordinary proposal from current visibility and an empty search from a failed save.
+No search scope, memory authority or approval requirement was widened. Known
+token exhaustion has a specific error; generic interruptions remain uncertain.
+The terminal labels runtime failures as System output, translates the exact legacy
+generic error on display and no longer advertises an unavailable desk `/history`
+command. Existing stored history is unchanged.
+
+Ctrl-J is the primary newline key in Chat and Worker continuation input. Modified
+Enter is retained when the terminal forwards it; Windows Terminal's default
+Alt-Enter fullscreen binding is respected. Native Windows tests pass: Kernel
+library 282 (two manual probes ignored), client 86 (one ignored), CLI integration
+one, strict affected-target Clippy and formatting. Ten native ConPTY checks pass,
+including multiline editing while idle/running, retained drafts, restart and
+approval handling; five local simulated model calls, zero paid calls.
+
+The user explicitly approved a cloud per-turn cap of 32768. That configuration
+change is backed up and active on the existing identity/database, preserving the
+original total request budget and expiration. A separate versioned native client
+update preserves the old running window. Native Linux selected validation passes
+308 tests (282 library, ten Actor, seven reliability, nine memory; two manual
+probes ignored), followed by a native release build. The exact completed build
+receipt binds the source snapshot, unit, tests and executable hash. A durable
+idle-guarded cutover and actual HTTPS bootstrap/memory/budget checks verify the
+same schema-32 database, identity and saved active memory. No paid model call was
+made by diagnosis, tests, configuration change or deployment. A post-upgrade
+backup includes the Actor configuration; retention leaves two releases and the
+existing bounded backup set. No commit or push was performed.
+Markdown remains plain text; real QQ collection
+and model interpretation/naturalness are not claimed by deterministic checks.
+
+## 2026-11-05 — Explicit cloud chat activation and separate native entry
+
+Enabled the existing selected DeepSeek Flash configuration on the same cloud
+Kernel after explicit user authorization to reuse its protected credential.
+An independent Windows cloud entry keeps current-user-only connection files,
+the verified native client and the selected portrait, while preserving the local
+instance/database and global environment. An initial persistent ceiling allows
+100 model requests/seven days without refill; no QQ, background activity or
+device execution was enabled.
+
+One short real HTTPS conversation completed with one provider request and
+3423 reported total tokens. Checked bootstrap restores its reply in the native
+terminal. Opening the actual cloud window leaves that count at one. Its 1.234s
+observed completion is only this short connection check, not a direct-Codex
+latency benchmark or broad real-provider acceptance. Original cloud identity,
+database inode and twelve existing containers are preserved; no personal data
+was imported and no local Kernel was started.
+
+Extended the backup helper with an explicit bounded Actor JSON input and checked
+restore hash. Twelve native Linux regressions pass; an isolated size-guard removal
+fails its regression. The Lain-only backup override includes the selected model
+file, and actual post-activation/first-chat archives verify database and Actor
+configuration while retaining seven archives within the one-GiB cap.
+
+Independent review found a configuration-recovery scope gap, fixed before use.
+Actual guarded activation then exposed the systemd pre-exec image race; the
+operator now waits within a finite readiness deadline while requiring the exact
+Kernel executable hash. Two configuration-failure cases and the startup-image
+case pass synthetic native Linux checks. Failed attempts restored configuration,
+kept provider calls at zero and reused the same budget without refill. Windows
+provisioning also handles the Administrators creation owner only for this new
+exclusive installation; final files remain protected current-user-only.
+
+Private receipts, source hashes, failures/reviews and the activation handoff stay
+outside Git. No commit/push. Real Worker tasks, QQ and multi-day experience remain
+unverified and separately scoped.
+
+## 2026-11-05 — Cloud continuity maintenance, retention and complete evidence handoff
+
+Deployed the exact selected-scope tool-schema executable accepted by native Linux
+328 tests and seven strengthened real-HTTPS memory cases. The same-schema update
+took and independently restored a stopped backup, retained the cloud identity,
+database inode and private configuration, and verified the actual running process
+hash. Native Windows verified public certificate/authentication/bootstrap/SSE and
+the new boot generation. The latest twelve HTTPS Worker cases pass again on this
+executable with the matched native Windows binaries and exact no-replay counts.
+
+A further online backup passed isolated restore. Retention keeps the current and
+previous schema32 releases and seven archives within the one-GiB cap. The first
+retention attempt refused an incorrect three-file assumption before deletion;
+the actual two-file legacy release layout and unknown-extra-file refusal now
+have regressions and independent recheck. The obsolete schema28 binary is removed;
+its historical isolated rollback proof is not a currently retained rollback target.
+
+All twelve temporary fixture instances are cleaned. Thirty-six exact completed
+operator inputs were archived outside Git, revalidated and individually removed;
+the production PID remained fixed. Final inspection records about4.28MiB runtime
+memory,0.161 cumulativeCPU seconds, two tasks, two releases, seven archives totaling
+130583bytes and one2.73GiB retained build cache. Original twelve containers remain
+running. These empty-instance measurements are not long-term workload benchmarks.
+
+The full original eight-part goal is mapped to direct evidence and explicit
+limits in the private final audit and maintained [acceptance](docs/CLOUD_ACCEPTANCE.md).
+Architecture, operation/removal/recovery and minimum real-use configuration are
+documented. The cloud Actor stays unconfigured; no personal endpoint/DB migration,
+paid inference, realQQ effects, global cleanup, commit or push occurred. Real
+provider latency, QQ companionship, native macOS, offsite disaster recovery and
+multi-day reliability/naturalness remain separate unverified work.
+
+## 2026-11-05 — Candidate HTTPS scoped-memory and live withdrawal acceptance
+
+Seven strengthened actual Linux–Windows HTTPS cases pass on the tested candidate
+with 38 bounded local fake-model calls. Real native CLI equal-path registrations
+remain isolated; explicit mappings share project knowledge while device/channel
+bodies remain restricted. Every offered memory tool is checked for exact scope
+branches and strict closed objects; successful reads bind exact source ID/revision/
+scope and independently captured model input. Model-generated selected memory
+retains inferred provenance and explicit candidate review.
+
+Correction and deletion of a separately active source invalidate derived replies
+in model history, startup snapshots, the complete scrolled terminal, private
+metadata cache checks and reopened client. A real short-lived device bounds the
+snapshot lease and causes idle SSE expiry; a fresh active source proves revocation
+withholding. Independent review found three weak assertions and one nested schema
+gap; all were strengthened and final raw-input evidence was rechecked. Six guard
+tests and five model contract tests pass. Temporary cloud route/unit/candidate/
+data and Windows state are cleaned; production identity/PID/binary remain fixed.
+The candidate is accepted, not yet deployed. No paid/QQ effects, personal-data
+migration, commit or push. Maintenance release and final full-stage audit remain.
+
+## 2026-11-05 — Context-aware model tool schema follow-up
+
+The stage-wide audit found that stable device/project memory scopes were enforced
+by Kernel retrieval but missing from the strict schemas actually offered to the
+model. A regression captures real Actor model requests and fails on the omitted
+device branch. Tool definitions now use the exact Kernel-selected ID enums for
+search/list/inspect/propose, exclude daemon-local paths in a selected remote
+context, and retain the legacy unselected Workspace path contract without leaking
+another conversation's IDs. Kernel source/authority/review checks remain separate.
+
+Native Windows Kernel280 and Actor/reliability17 tests pass (two existing
+manual/live ignored), with strict targeted Clippy and independent scoped review.
+The same 228-input source passes 328 selected native Linux tests (two existing
+manual/live ignored). This follow-up is not yet deployed. The full
+stage still needs the remaining memory/sync audit and final maintenance inventory.
+
+## 2026-11-05 — Actual HTTPS native Worker fault/recovery chain
+
+Ran the real Linux Kernel in a temporary synthetic instance behind the existing
+verified HTTPS proxy, with native Windows terminal/device execution and the
+structured local Worker fixture. Twelve checks pass: pairing/credential isolation,
+local scope rejection, terminal dispatch and exact denied permission/application,
+allowed permission and same-session continuation, parallel chat/client exit,
+Kernel restart/cancellation, host crash recovery, native/HTTP missing receipts,
+unconfirmed permission, partition and revocation. Ten work sessions create ten
+empty seed threads plus ten durable forks and twelve accepted turns; recovery
+does not add submissions. Unknown outcomes remain unknown. No paid/QQ calls.
+
+The first native run exposed raw Win32 ACL opens failing on long execution paths.
+A failing Unicode-path test reproduces error3. Lexical absolute/extended-path
+handling fixes it without resolving reparse points or weakening ACL checks; six
+native local tests, 84 terminal tests and strict local/client Clippy pass. An
+independent scoped security review reports no blocking findings. Two test-model
+history mistakes were separately reproduced and fixed; three model contract
+tests pass. Actual provider-thread counting now includes the adapter's existing
+empty seed instead of incorrectly calling it duplicate work.
+
+Successful Windows temporary state and the isolated Linux unit/route/data are
+cleaned; the production Kernel retains its PID, identity, schema32 and binary.
+Failed-run reports and exact binary hashes remain outside Git. Final memory/sync
+coverage audit, operations inventory and architecture delivery remain required;
+this is not daily-use, real-provider, QQ or multi-day acceptance. No commit/push.
+
+## 2026-11-05 — Backed-up cloud upgrade and stopped-WAL backup repair
+
+Published the native schema32 release while retaining the previous binary and
+matching schema28 backup. The first attempt stopped before migration because the
+old backup helper could not open a closed WAL-mode source in its read-only mount;
+the original service was restored. A low-privilege reproduction confirmed the
+cause. The maintained helper now takes the actual Kernel ownership lock for a
+quiescent DB/WAL copy into private scratch, retaining live SQLite backup when the
+Kernel owns that lock. No source-directory write permission was added.
+
+Nine native Linux backup regressions pass, including committed crash WAL and
+aggregate archive-byte retention. Removing that byte guard in an independent
+copy fails the intended assertion. Independent review also fixed release traversal
+permissions and an unsafe six-count rollback assumption; eight isolated rollback
+guard tests pass. Both review reports retain findings and fix rechecks.
+
+The resumed upgrade used a verified stopped backup, preserved the original
+database inode/configuration and left existing applications running. Native
+Windows verified real HTTPS certificate/authentication, protocol negotiation and
+SSE; after a real service restart, identity persisted and boot generation changed.
+An actual schema32 online backup also passes. Current and previous releases remain;
+private resource/evidence inventories are outside Git. Model/QQ remain unconfigured,
+and no personal database, paid inference, Git commit or push was involved. Actual
+HTTPS two-machine Worker work and the final stage audit are still required.
+
+## 2026-11-05 — Terminal live synchronization and private metadata cache
+
+Connected the terminal to bootstrap/invalidation with a conservative monotonic
+lease, connection generations and bounded read-only retry. Invalidation retires
+rendered bodies and permission previews and cancels old readers. In-flight effects
+retain exact receipts independently, without replay or stale-body restoration.
+HTTP authentication/protocol failures stop retries until explicit Ctrl-R, including
+ordinary reads, receipt recovery and notices. A 16 KiB private atomic cache stores
+only endpoint/identity/resource hints and a checked-on-resume conversation ID.
+
+Failing regressions exposed ordinary-read auth retirement, stale submit receipt
+loss, diagnostic refresh and effect-recovery auth gaps. Independent static review
+also found the notice error path; fixes have been rechecked. Native Windows passes
+89 selected tests (one existing manual ignored), strict workspace/all-target
+Clippy and format. Eleven HTTP/SSE lifecycle cases and native negative ACL cases
+exercise these changes. The same 228-input source passes all 429 native Linux
+workspace tests (three existing manual ignored); Linux Clippy was not rerun.
+Ten Windows ConPTY interaction cases preserve the selected portrait, independent
+Worker inspection, restart and repaired configuration. Two isolated-copy guard
+removals fail their intended regressions; their copies/targets are cleaned.
+
+On the actual Linux server, an isolated copy of the empty schema28 cloud database
+opens with the new binary as schema32. The old binary explicitly refuses it;
+restoring the verified baseline database lets the old binary become ready again.
+All rehearsal processes/directories are cleaned, and production PID, inode and
+schema remain unchanged. This proves a database restore rehearsal, not a live
+upgrade/rollback operation. Real HTTPS Worker work, service upgrade, final
+operations inventory and the full stage audit remain open. No paid/QQ calls,
+personal migration, commit or push. See [operations](docs/CLOUD_OPERATIONS.md).
+
+## 2026-11-05 — Versioned startup and invalidation protocol
+
+Added schema032 with persistent operational instance identity, per-open boot
+generation and a transactional invalidation counter. Source/grant deadlines have
+an indexed set; expired entries cannot hide another future deadline in the same
+snapshot. Existing Kernel lock ownership signals committed changes without a
+polling service or new model call. New authenticated bounded bootstrap and SSE
+invalidation routes close the snapshot/subscription gap and require resnapshot
+for expired, foreign, future or old cursors.
+
+Terminal startup negotiates before conversation restoration; manual Chat refresh
+uses the same checked snapshot. Rendering is rebuilt while drafts/uncertain IDs
+remain. Red-first regressions exposed same-revision withdrawn text surviving and
+late history overwriting a newer live completion. Both are fixed; the latter was
+found in independent scoped review. Windows selected regression and strict lint
+pass (397 tests, three existing manual ignored); the same 225-input source passes
+327 native Linux tests (two existing manual ignored). Two independent-copy
+mutations removing clock updates and live/history generation fencing fail their
+expected regressions. The automatic runtime subscriber,
+local expiry and private metadata cache remain unfinished. No service/schema
+upgrade, paid provider/QQ call, personal migration, commit or push occurred.
+
+## 2026-11-04 — Private lineage and publication boundaries
+
+Added schema031 as a serialization gate without rewriting legacy rows. Private
+evidence keeps cumulative direct and inherited source leases, original input
+fingerprints and monotonic influence. Generic proposals cannot promote private
+source material. Complete input rebuilds retire excluded message/action IDs from
+publication and future model history while preserving raw audit records.
+
+Meaningful failing regressions reproduced same-turn A-to-B recall losing A,
+withdrawal between body save and final completion, stale restore/duplicate-submit
+and queued SSE responses, inherited QQ source changes before send, and discarded
+audit speech returning after a rebuild. Corresponding focused tests now pass.
+Normal HTTP/SSE responses use checked projections; QQ delivery checks full
+lineage. Fixed operational notices and exact committed-effect metadata stay
+separate from provider prose. Native Windows passes 389 selected tests (three
+existing manual ignored), Linux passes 322 (two existing manual ignored) for the
+same 218-input uncommitted source snapshot. Windows strict workspace/all-target
+Clippy and formatting pass. Four isolated-copy guard-removal mutations fail the
+expected regressions; source/copy hashes were checked and temporary mutation
+outputs removed. Independent static review found the races above and verified
+their fixes; it did not run the tests or review client synchronization.
+Startup/live client invalidation, actual HTTPS device fixtures and
+database rollback remain pending. No provider/QQ calls, personal migration,
+runtime upgrade, commit or push accompanies this increment.
+
+## 2026-11-04 — Cloud continuity: contextual semantic memory
+
+Added schema030 without rewriting legacy memory JSON. Project, Device and
+DeviceWorkspace scope use stable IDs and explicit reviewed registry context,
+not Linux canonicalization of Windows paths. Owner-selected conversation context
+has CAS and exact historical receipts; generic Actor tools cannot borrow transport
+administrator power. New candidate/record origin distinguishes owner API,
+selected device/workspace context, actual channel and summary provenance while
+keeping legacy origin unknown.
+
+Memory reads persist bounded source versions before model disclosure. Compatible
+current history carries its restrictions forward; corrected/deleted or differently
+scoped generated history is excluded, and derived records check their lineage.
+Untracked legacy generated memory stays owner-inspectable but is not model
+evidence. Inference admission and publication recheck sources, and influenced
+previews are held. A real Actor fixture exposed denial/cancellation being treated
+as fresh generated speech after revocation; operational Tool receipts keep those
+cleanup paths available while approval remains blocked.
+
+The final maintained source passes Windows Kernel259/wire6 plus foundation11,
+memory9 and profiles5 (290 distinct; two existing manual ignored), and actual
+Linux Kernel259/wire6 (265; two manual ignored). Windows strict workspace/all-target
+Clippy and format pass. Two external source mutations fail at the intended
+privacy assertions. Their first cache reuse exposed a Cargo artifact collision
+between identical package clones; only three goal-owned local package artifacts
+were cleaned, then maintained-source tests were rebuilt and passed. The temporary
+source copy was removed; evidence and the separate-target requirement remain
+outside Git. No Linux Clippy pass is claimed for this increment.
+
+Full stage acceptance remains open: explicitly verify channel-to-generic
+promotion/inherited-evidence paths, connect startup/live synchronization and
+private disposable caches, run actual HTTPS Linux–Windows Worker fixtures, then
+prove upgrade/database rollback and final resource retention. The running cloud
+instance remains the original empty schema28 deployment; no personal database,
+QQ scope, model budget, commit or push changed. [Contract](docs/CLOUD_CONTINUITY.md).
+
+## 2026-11-04 — Cloud continuity: project registry foundation
+
+Started the full cloud/memory/device stage while retaining the existing dirty
+W2–W4 tree. Added schema029 and owner-only project/assignment APIs with stable
+Lain IDs, explicit device/workspace membership, exact reviewed revisions and
+atomic historical receipts. Same names/paths/workspace UUIDs never infer a shared
+project; unbinding retains its revision. Existing semantic-memory JSON is preserved
+across the schema28 fixture migration. There is no new Actor administration tool
+or Worker authority.
+
+Seven focused native Windows tests pass after expected failing tests on actual
+Linux (missing domain) and Windows HTTP (missing route). A fresh Windows build
+also exposed incomplete cached GCC SDK files; restored only missing files from
+the SHA-256-verified official matching GCC/MSVCRT release, preserving existing
+files and removing the trial header-selection flag. Broad validation now covers
+251 Windows Kernel library tests plus foundation11/memory9/profiles5 (276 distinct,
+two existing manual ignored), native Linux library251 (two manual ignored),
+strict Windows workspace/all-target Clippy and format. Removing the admitted
+workspace guard in an external copy makes its test fail while production source
+stays unchanged. Older version fixtures were updated to remove the new project
+tables when constructing actual old schemas; no migration checks were weakened.
+Source and evidence remain separate; actual server
+profiles/logs are outside Git. No existing instance upgrade, paid model, QQ change,
+personal data migration, commit or push. Full stage remains active; memory context,
+bootstrap/live sync, real cross-machine fixtures and rollback are still required.
+
+## 2026-11-04 — Native visual acceptance and usable chat-configuration feedback
+
+The user provided a real Windows Terminal screenshot and explicitly accepted the
+selected A portrait/sidebar appearance. Retained its original bytes and source
+record outside Git; visible Chinese/borders/ASCII cursor confirm wide native
+rendering, while the shown disconnection establishes no live-chat result. Exact
+font family/complex IME/all DPI variants are not claimed. Updated W4's acceptance
+matrix and current roadmap, retaining fixture versus human evidence distinctions.
+
+Continued development on the screenshot's confusing unavailable-chat path. The
+terminal reads existing allowlisted diagnostics at startup/explicit Chat refresh
+with a three-second bound. Known unconfigured model/missing credential/invalid
+configuration preserves input with a concrete reason and no submit; Work/Devices
+remain usable. Unknown diagnostics preserve existing server authority. Repeated
+Enter during uncertain delivery keeps the original identity/text and precise
+refresh/retry guidance. Configuration recovery is read-only and never sends a
+draft automatically. No new server schema, model call or service startup.
+
+Added four relevant client tests; all67 unit +1 CLI passed (one existing manual
+ignored), strict client Clippy and native build passed. An ordinary final link
+was blocked by in-use preview files; built the same source offline in independent
+target-w4f, preserving the user's two running previews. Same-binary terminal10
+and work11 passed with cleanup and5/3 fake model calls, zero paid/real QQ. New
+process cases prove absent-model/no submit and explicit refresh/then-send. Earlier
+fixture failures exposed a wrong compact-label expectation and a synthetic marker
+matching existing credential redaction; fixed fixture inputs/expectations only.
+Redaction and product guards were retained.
+
+Full368 earlier workspace +11 added client cases means379 distinct coverage,
+not a full379 invocation. Kernel/device-host/fixture binaries are unchanged from
+host16; no extra inference/QQ was used for configuration checks. Source/evidence
+and latest hashes are in [W4 acceptance](docs/W4_ACCEPTANCE.md). External artifacts:
+session `lain-w4f-2026-11-04/{native-bin,terminal-accepted,work-final}` and user
+screenshot/metadata; logs `%TEMP%/lain-q1-tools/w4f-*`. The manual Python preview
+now selects that explicit binary set and passed its headless check. Local W4 is
+accepted; broader live environments remain separate. No commit/push/deployment,
+personal database migration or system execution-policy change.
+
+## 2026-11-03 — Make manual terminal review independent of PowerShell script policy
+
+The user attempted the prepared GUI review but Windows refused its generated
+`manual-client.ps1` before Lain started. Replaced that disposable launcher with
+`manual-client.py`, run explicitly by the user in their existing terminal. Its
+child environment drops Lain/provider overrides case-insensitively, selects only
+the protected synthetic connection and passes program arguments without a shell.
+No system execution-policy change, installed service or automatic GUI action.
+
+The host's `--check-only` now executes the actual generated Python entry in
+read-only mode rather than checking an independent command. Native rehearsal
+passed isolated saved-connection access with zero model/QQ and complete cleanup.
+Updated the local manual instructions and maintained runbook. External evidence:
+`%TEMP%/lain-q1-tools/w4e-manual-python-launcher-check.log`. The desktop/font
+acceptance is still pending; the execution-policy failure did not run Lain and
+therefore supplies no GUI evidence. Core Rust code and its prior validation are
+unchanged.
+
+## 2026-11-03 — W4 acceptance follow-up: current cancellation status and cross-machine handoff
+
+Reopened the local audit while inspecting actual terminal effect images. Task
+details correctly reported Cancelled, but the bottom message could still say
+native termination was unconfirmed. A second red regression showed a late cloud
+acknowledgement could hide an already known completion. Added one bounded typed
+frontend notice over the original task identity/revision; fresh remote/detail
+snapshots update terminal status, and late receipts use the newest known matching
+facts. This adds no Kernel record, request, model wake or backend mutation.
+
+Both regressions passed, as did all63 client unit tests and one CLI integration
+test (one existing manual test ignored), strict client Clippy/build and format.
+The new same-binary native11 work and8 terminal runs passed with cleanup and zero
+paid/real QQ calls. The work test now checks the actual device-cancellation status
+text before saving its image. Full368 prior workspace plus seven added client
+tests gives375 distinct coverage, not a claimed full375 invocation. Server/host/
+fixture binaries are unchanged from the native16 host acceptance.
+
+Expanded [the runbook](docs/W4_RUNBOOK.md#conditions-for-the-next-real-cross-machine-acceptance)
+with concrete two-machine/native-build, authenticated HTTPS/streaming, isolated
+state/rollback, selected execution scope, independent credentials, Actor versus
+Worker spending authority and evidence/cleanup prerequisites. Seven explicit
+cross-machine scenarios are prepared, not executed or newly authorized. Updated
+[acceptance](docs/W4_ACCEPTANCE.md) with the new client hash, images and logs.
+External evidence: session artifact `lain-w4e-2026-11-03/{native-status-final,terminal-status-final}`;
+logs `%TEMP%/lain-q1-tools/w4e-cancel-status-*.log`. Actual Windows Terminal font
+confirmation remains pending. No commit/push, personal migration or deployment.
+
+## 2026-11-03 — W4d/e: reported permission application and explicit task cancellation
+
+Added backward-compatible cumulative `approval_reports` with exact original owner
+decision and Received/Applied observations. The cloud requires a real immutable
+decision for that command, rejects lost/changed/regressing evidence, and grants no
+new permission. Native observation/final-result paths derive receipt from the
+protected response fence and application only from matching Supervisor resolution.
+Pending/responding/expired/unknown stays unconfirmed, including after a completed
+turn. Scope is rechecked before writing the response fence, without extra pre-RPC
+cloud reporting or replay. Records/HTTP reads remain explicitly bounded at128/256
+KiB for the finite256 reports and duplicated current/last-event evidence.
+
+The terminal displays three exact stages. F8 now opens a full task cancellation
+review; Ctrl-K requests a stop only after full reading and fresh exact-revision
+GET. Esc/navigation does nothing, Lain draft stays separate, and uncertain outcomes
+use current facts or an explicit original-revision retry. A flag is not attributed
+to this client and is not native termination/rollback; completion winning the race
+is shown as the actual result. Loading/stale/unread targets cannot be cancelled.
+
+TDD guards first reproduced missing report support and missing UI stages, then
+passed exact-decision/monotonic storage and native scope/choice/resolution checks.
+New structured fixture mode omits the permission-resolution event while completing
+the turn: native acceptance confirms Received, never Applied. A later cancel
+rehearsal failed because its second F8 preceded the task-detail GET; the client
+correctly refused. The fixture now waits for the exact target and a loading-state
+unit guard covers it. No production assertion was weakened.
+
+Permission final: full368 Rust/zero failures/three existing manual-live ignored,
+strict workspace checks/build; native16 host,11 work,8 terminal. Cancel increment:
+61 client unit +1 CLI integration passed (one manual ignored), strict client
+checks/build and final11 work/8 terminal passed with cleaned synthetic state.
+Together373 distinct Rust tests are covered, not a claimed full373 invocation.
+Native tests made zero paid/real QQ calls; work/terminal used3/4 fake requests.
+An isolated manual GUI host's headless check passed with zero model/QQ and cleanup;
+it opens no terminal itself. Human Windows Terminal font review remains pending.
+
+Added [W4 runbook](docs/W4_RUNBOOK.md) and [full acceptance matrix](docs/W4_ACCEPTANCE.md).
+External logs are `%TEMP%/lain-q1-tools/w4d-*` and `w4e-*`; images/reports/manual
+steps are the session artifact directory's `lain-w4d-2026-11-03/` and
+`lain-w4e-2026-11-03/`. Reports identify actual binary hashes and distinguish VT
+renders from desktop captures. Full W4 remains active pending manual font evidence;
+the current local completion audit is recorded. No personal DB migration, paid-provider/TLS deployment, installed
+service, commit or push is implied; unavailable native OSs remain unverified.
+
+## 2026-11-03 — W4c: continue the original remote session and remove orphan ACL helpers
+
+Added schema028 linear continuation families, atomic origin/child/head/receipt
+admission, typed Actor `device_send`, owner follow-up/receipt APIs and CLI. The
+terminal F6 composer keeps Lain and Worker drafts separate, previews actual
+target/text and recovers uncertain cloud receipts without replaying native RPCs.
+The native service requires protected original parent scope and actual provider
+binding, reuses the original session/thread with new turn IDs, and rejects absent
+bindings rather than silently creating replacement work.
+
+Native rehearsal exposed a real recovery error: a verified idle parent's existing
+binding was classified as an unexplained root. A minimal red regression and the
+narrow verified-parent branch now preserve both continuation and no-replay rules.
+Client regressions also protect newer snapshots from late historical queue
+receipts and preserve drafts while refreshing pre-submit scope.
+
+A subsequent host regression passed its functional assertions but failed cleanup:
+an orphan PowerShell ACL helper retained the synthetic log. Restart Manager and
+PID/parent/creation/ACL-helper checks established the exact holder before targeted
+cleanup. Shared Rust security now uses handle-based Win32 APIs, preserving current
+SID/owner-only policy, check-only existing paths and link/type restrictions, with
+no ACL child process. Three native tests cover protected ACLs and rejection of
+foreign/inherited/null/empty ACLs, hard links and wrong types.
+
+The ACL increment passed full364 Rust tests (zero failures, three existing manual/
+live ignored), format, strict all-target workspace Clippy and build. Its same
+binaries passed11 native work,15 host and8 terminal cases with normal cleanup,
+zero paid inference/real QQ. No-PowerShell device status is a new host regression.
+Evidence is outside Git in `%TEMP%/lain-q1-tools/w4c-native-acl-*.log` and the
+session artifact directory's `lain-w4c-2026-11-03/{native-acl-final,terminal-acl-final}`.
+Each report contains its actual binary hashes. GUI font fallback, final W4 audit,
+unified task cancel and separately tested permission-application visibility remain.
+No commit/push, personal migration, installed service or public deployment.
+
+## 2026-11-03 — W4b: inspect actual dispatch text and diagnose native prerequisites
+
+The terminal now compares the exact current-turn user records with actual
+DeviceQueue/WorkCreate/WorkSend text. It shows Changed/Unchanged, separate message
+IDs, whitespace-preserving JSON strings, the full replacement diff and complete
+tool payload; remote ActionId-based RequestId remains visible. This enables no
+prompt compiler. Missing/mismatched originals fail closed; confirmation recomputes
+the whole view so changed originals cannot reuse a read/approved old scope.
+
+Added `lain-device-agent --check --directory`: same private startup settings,
+native executable/version-only probe, canonical workspace checks and device-only
+cloud GET, with no operational Kernel/database/lock/Worker creation. It reports
+prerequisites, not live-service presence or paid-provider availability. Unreachable
+cloud is explicitly not ready. Structured start arguments avoid shell quoting
+assumptions; foreground shutdown remains explicit. Startup reuses settings checks.
+
+Three regression tests first failed for the missing comparison/stale-original
+guard, then all 22 desk tests passed. Current-source full workspace validation:
+350 passed, 0 failed, 3 pre-existing manual/live ignored. Workspace format, strict
+all-target Clippy and native build passed. Two Python AST checks and 515 relative
+documentation file-link targets passed (different broader scanner than the older
+324-link entry, not a count of newly added links); tracked whitespace checks passed.
+
+Expanded native W4 acceptance passed all seven isolated cases, including actual
+Changed preview/full-scope reading, exact payload/identity, explicit allow/deny,
+parallel chat, close/restore/retry, Kernel restart/cancel, pre-start diagnostics
+without execution state and unavailable-cloud diagnostics. Three fake Responses
+requests, zero paid calls/real QQ effects and cleaned temporary state. Images
+render actual ConPTY VT with synthetic inputs, not native Windows Terminal GUI
+font evidence. Report/images: local-only
+`<local-evidence>/lain-w4b-2026-11-03/fidelity-diagnostics-attempt5/`.
+Its binary hashes are in report.json; subsequent cargo test relinked regular
+binaries, so those hashes must not be presented as the later regression hashes.
+
+The native rehearsal exposed fixture mistakes: Windows service/Store exclusively
+lock host.lock and worker.db.lock, so the test observes the identity/size/mtime of
+these two exact files rather than bypassing their locks. Another attempt precisely
+identified `.receipt-2.json.pending-*` becoming receipt-2.json after the cloud
+already exposed its WaitingForApproval event. The whole-tree no-write assertion
+now waits for the matching native receipt to be durably published before taking
+a quiescent snapshot; all other file bytes remain compared. No production lock,
+permission gate or Worker-application assertion was weakened. Earlier failed
+attempt artifacts/logs are retained beside the final report.
+
+Local logs: `%TEMP%/lain-q1-tools/w4b-fidelity-red.log`, `w4b-fidelity-green.log`,
+`w4b-diagnostics-red.log`, `w4b-diagnostics-unit.log`,
+`w4b-fidelity-diagnostics-{workspace,clippy-final,native-attempt5}.log`.
+Existing host/terminal native regressions then passed all 14 and eight cases on
+the cargo-test-relinked binaries, using one and four fake model requests and
+cleaning temporary state. Their actual hashes are in
+`w4b-fidelity-diagnostics-{host,terminal}.log`; terminal images/report are in
+`fidelity-diagnostics-terminal/` beside the seven-case report. No Rust source
+changed between these validation builds; do not merge their binary identities.
+Full W4 remains ACTIVE: actual same-session
+remote follow-up, GUI font evidence and final goal-wide audit remain required.
+No commit/push, personal migration, paid calls, real QQ sends, installation or
+deployment occurred.
+
+## 2026-11-03 — W4b: conversation-bound dispatch, remote permission and result return
+
+Continued the full W4 goal beyond its visual increment. Schema027 atomically links
+each new device command to its actual originating conversation and, for confirmed
+Actor dispatch, the exact Actor/action partial receipt. The action UUID becomes
+the stable request identity. Unrelated existing work cannot be adopted/moved;
+failed link insertion leaves neither an executable command nor a device change.
+No cloud-local WorkSession is fabricated for remote execution.
+
+Added typed device list/queue/conversation work reads; ordinary on-demand Lain
+requests receive bounded last-known evidence without another model wake. Owner
+`queue --conversation` and authenticated conversation device-work snapshot APIs
+reuse existing device notifications. Terminal Work joins distinct local/remote
+rows; Enter on remote work routes to its device details. Meaningful reported
+state/results arrive while chat and drafts remain independent. Reconnect dedupes
+versions and restores recent facts rather than repeating work.
+
+Remote F4 review now displays complete actual scope/fingerprint/offered choices,
+requires contiguous reading and fresh current-task preflight, and retains its
+exact decision identity on uncertainty. Ctrl-R reads receipts; explicit
+`/decision-retry` retains the same body/RequestId. Truncated scope cannot approve,
+stale/unread views cannot send, and a cloud recorded choice is not presented as
+device receipt or backend application. Existing device/Supervisor fences remain.
+Contract: [DEVICE_WORK.md](docs/DEVICE_WORK.md), [ADR032](docs/adr/032-conversation-bound-device-work.md).
+
+Tests exposed missing wire ToolCall registration for the new typed action and
+outdated old-version migration fixtures. Fixed the actual missing wire boundary;
+updated 11 fixture table-drop sequences and four version expectations instead of
+weakening production migrations with IF NOT EXISTS. Full workspace then passed
+346 Rust tests, 0 failures, 3 pre-existing manual/live ignored. Strict workspace
+Clippy and native build passed. A later client-only restoration fix added one
+regression and passed all 19 desk tests plus strict client Clippy/build: combined
+coverage is 347 distinct tests, not a claimed full rerun after that last edit.
+
+New native Windows ConPTY acceptance passed five complete isolated scenarios:
+confirmed natural Actor dispatch, exact deny/factual chat result, explicit allow
+verified in the real device Supervisor store, parallel chat/frontend close/
+restore/exact retry, Kernel restart with unchanged remote session plus actual
+cancel evidence. Three fake Responses requests, zero paid calls and QQ sends;
+owned temporary state cleaned. First rehearsal found ConPTY drops legacy CSI14
+F4; a separate temporary console probe established SS3S input, fixing the fixture
+without changing approval assertions. Next rehearsal exposed a full ID wrapping
+inside the long update title and reversed restore display. Added a failing
+regression, gave full IDs their own lines and restored newer tasks last in chat
+while Work stays newest first. Final native rehearsal passed all five.
+
+Final native binaries also passed the 14-case existing host regression (one fake
+request) and eight-case existing desk/portrait regression (four fake requests),
+with no paid/real QQ effects and cleaned temporary state. The host report now
+queries actual schema27 rather than printing stale26. Python syntax and 324
+relative documentation links passed; tracked diff whitespace checks passed.
+
+Local-only evidence: `%TEMP%/lain-q1-tools/w4b-workspace-tests.log`,
+`w4b-clippy.log`, `w4b-build.log`, `w4b-device-work-*.log`,
+`w4b-device-review-*.log`, `w4b-restored-id-*.log`,
+`w4b-work-process-attempt3.log`, `w4b-host-regression.log`,
+`w4b-terminal-regression.log`. Images/report:
+`<local-evidence>/lain-w4b-2026-11-03/work-attempt-3/`
+and `terminal-regression/` beside it. Images render actual VT output with synthetic
+content; native GUI font fallback is still unverified. Earlier failed process
+attempt images remain in `work/`; console key probe is outside Git.
+
+| Final native binary | SHA-256 |
+| --- | --- |
+| lain | `23dd5683d2947a6e35ff51b9e695fd9a52901a475d820bb77307cc13635ac728` |
+| laind | `ab4bc6123b3952c3d5b98b71d0a2e2c089e3ec748193863776c36134515b0c8a` |
+| lain-device-agent | `321071c335de7da696a4ce132be8878ebd45cbcbec38029c44eb2fae050927f8` |
+| lain-test-app-server | `29c34c4a667f2b2bf04995be50d8b1c5e2d5b3d7bc1315d809898db4f0ec25cd` |
+
+Full W4 remains ACTIVE. Same-session remote follow-up, service diagnostics,
+explicit Changed/Unchanged outbound presentation, GUI font evidence and the
+goal-wide completion audit remain. The real cross-device TLS/paid-provider/
+Linux/macOS/multi-day checks retain their independent status. No commit/push,
+personal runtime migration, real source collection, service installation or
+public deployment occurred.
+
+## 2026-11-03 — W4b begins: selected portrait and terminal continuity
+
+Continued the selected W4 goal in the existing dirty checkout without replacing
+the W2/W3/W4a baseline. Removed the rejected handmade portraits; an explicit
+`desk --portrait <file>` or `LAIN_PORTRAIT_FILE` loads a bounded local 29×18 UTF-8
+asset verbatim. The selected third-party A remains outside Git, with source and
+unverified redistribution terms recorded. No automatic file discovery, download,
+persona change or font installation. Malformed/control/double-width assets fail
+before creating a new conversation. No configured asset means a functional
+text-only identity, never the rejected face.
+
+Wide windows retain the full portrait rail; 80×24 empty Chat shows all 18 rows,
+then yields the space to messages on submission. Smaller windows keep controls
+without clipping artwork. Bounded frontend page positions preserve chat reading,
+follow state and Worker selection across navigation. Draft ownership is unchanged.
+
+Added regression tests first: the initial compile failure exposed the absent
+resource contract; later rendering assertions found that TestBackend wide-cell
+padding must be skipped when reconstructing Chinese text. Corrected that test
+reader, retaining the actual draft assertion and complete-portrait row counts.
+Final native Windows GNU client tests: 40 passed/1 existing manual ignored;
+CLI integration: 1 passed. Client all-target strict Clippy, format and build passed.
+Eight native ConPTY cases passed, including the added selected-art/welcome/resize
+case; 4 fake Responses requests, 0 paid/real QQ calls, owned temporary state cleaned.
+The test image renderer selects Segoe UI Symbol for Braille. These images render
+actual native VT output with synthetic content, not desktop captures or proof of
+Windows Terminal font fallback. Other native platforms remain unverified.
+
+Tested client SHA-256:
+`1890609f0aaeb754726f37adb554e3ab9cff1c92279a694b70377e28c3bd3ca3`.
+Local logs: `%TEMP%/lain-q1-tools/w4b-portrait-red.log`,
+`w4b-portrait-green.log`, `w4b-client-tests.log`, `w4b-terminal.log` in that directory.
+Images/report:
+`<local-evidence>/lain-w4b-2026-11-03/terminal/`.
+
+This is a visual/continuity increment, not complete W4. Remote conversational
+dispatch, exact remote permission UI, supported session follow-up, factual
+conversation results and service diagnostics remain. Actual GUI font fallback,
+cross-device TLS and real-provider acceptance still need evidence. No personal
+instance upgrade, deployment, commit or push.
+
+## 2026-11-02 — Portrait rejected; source-based character-art research
+
+The user rejected the refined handmade portrait and requested faithful reproduction,
+research into better methods and existing artwork. Inspected real public Lain
+character-art entries rather than drawing another face from memory. Found a
+29-column/18-row Lain head and a 34-column/22-row bear-onesie figure, both Unicode
+Braille text; preserved their original characters and verified the local research
+copies against browser-read text fingerprints. Compared them with the current
+draft using fixed-cell font specimens. These are existing third-party artworks,
+not original project assets; original artist/republication terms remain unverified.
+
+Research distinguishes structure/edge-to-glyph matching from brightness-only
+conversion, citing the authors' 2010 structure-based ASCII project and the 2022
+text-placement paper. Chafa's official docs provide a practical offline generator
+reference. Also inspected a MIT Lain CLI logo: it is a Copland symbol, not a
+character portrait; the Hermes Lain skin describes NAVI computer art. Neither is
+misrepresented as a ready-made human avatar.
+
+Font-file checks found missing-glyph output for tested Braille characters in
+Consolas/Courier New under Pillow and distinct glyphs in Segoe UI Symbol. This is
+not native Windows Terminal fallback/width acceptance. No font, tool package or
+third-party installer was installed. No application code or personal runtime
+changed. Updated terminal design to mark the rejected visual draft accurately;
+passing render tests never meant the user accepted its likeness.
+
+Local-only sources, original text candidates, comparison image, rendering script
+and detailed method/source notes:
+`<local-evidence>/lain-art-research-2026-11-02/`.
+The comparison is a font-layout specimen, not a screenshot of a newly implemented
+terminal. New visual assets, expression frames and native font acceptance remain
+next steps; no claim of new implementation or user approval.
+
+## 2026-11-02 — Refined character portrait direction
+
+The user selected detailed character art after comparing Lain visual references.
+Replaced the eight-line placeholder with an original 18-line ASCII portrait:
+asymmetrical fringe, crossed hairclip, one long sidelock, outlined eyes and collar.
+Idle looks straight ahead rather than winking. Existing quiet/responding/review/
+unavailable states alter only the eyes. Independently drawn eight- and five-line
+versions preserve the silhouette in smaller windows; no bitmap/image protocol,
+font dependency, runtime image fetch or new timer was introduced.
+
+At >=110 columns and >=32 rows, a 34-column portrait rail leaves the conversation
+its full vertical space. Medium windows use an eight-row header; smaller ones use
+five rows. Input and exact-scope review keep their existing behavior. Updated the
+[terminal design](docs/TERMINAL_DESIGN.md) with these layout thresholds. This is
+a reviewable artwork iteration, not a claim that the user approved this drawing.
+
+Validation: both existing render/resize/approval-reading tests passed, client
+all-target strict Clippy, workspace format check and locked/offline client build
+passed. All seven native Windows ConPTY scenarios passed again with four fake
+model requests, zero paid/real QQ calls and cleaned temporary state. The final
+tested `lain` SHA-256 is
+`d7180f1561e3139e689014ac7a72e0d58463a4a49abcc6d0d651dbabef3e6462`;
+the Kernel/Worker-fixture binaries are unchanged from W4a. Other native platforms
+remain unverified. No personal runtime upgrade or Git commit/push.
+
+Local-only logs: `%TEMP%/lain-q1-tools/portrait-*.log`.
+Character study, actual ConPTY-output renderings and final `report.json`:
+`<local-evidence>/lain-character-portrait-2026-11-02/`.
+The study is a font-rendered art draft; terminal images reconstruct the actual
+native VT stream with synthetic conversations, not desktop screenshots.
+
+## 2026-11-02 — W4a: Lain's conversational terminal
+
+Implemented the already selected Claude Code-like terminal direction as a pure
+Rust Chat/Work/Devices shell. `lain` / `lain desk` show Lain ASCII status expressions,
+an editable Unicode/multiline draft, authoritative Actor rendering, exact-action
+review, existing Worker details and read-only device task lists/details. Explicit
+conversation restoration, legacy line chat and dedicated Worker entrances remain.
+No second persona, prompt rewriting, remote dispatch UI, service installation,
+automatic approval or native Worker-terminal emulation was added. Full interaction
+contract: [TERMINAL_DESIGN.md](docs/TERMINAL_DESIGN.md), [ADR 031](docs/adr/031-conversational-terminal.md).
+
+Added an owner-only bounded device-command metadata projection, with no schema or
+executor change. Tests verify principal isolation, empty/nonempty lists, no task
+body/output in summaries and no Worker launch. Terminal regressions cover original
+request identity, busy Enter preserving the next draft, late page responses,
+device-cache isolation, reading recovery and stale-action suppression. Failing
+tests exposed and guarded trailing-newline cursor placement, skipped approval
+scope in tiny windows, and leaving a loading page blocking chat refresh. Actual
+Windows ConPTY exposed stale alternate-buffer characters after returning from a
+Worker; explicit clears fix re-entry on both surfaces. A failed history read now
+marks data unavailable; reconnect can observe the same unchanged Actor revision
+without replaying a submission.
+
+Validation on native Windows, Rust 1.99.1 GNU/GCC 16.2 (external caches):
+
+- Workspace run: **328 passed, 0 failed, 3 manual/live ignored**. After the remaining
+  client fixes/tests, targeted final client run: **37 passed, 0 failed, 1 ignored**;
+  final owner-summary API test: **1 passed**. These runs cover **333 distinct Rust
+  tests**; this count combines the workspace baseline and final targeted reruns,
+  rather than claiming another full workspace run after every UI edit.
+- `cargo fmt --all --check`, strict workspace/all-target Clippy and locked/offline
+  workspace build passed. Changed terminal Python scripts parse; 22 changed/new
+  Markdown documents have 330 valid relative links; `git diff --check` passed.
+- `scripts/desk_terminal_smoke.py`: **7 native ConPTY cases passed**, 4 fake Responses
+  requests, zero paid/real QQ calls. Covers draft editing during generation,
+  Chat/Work/Devices navigation, native resize, Kernel restart/read recovery,
+  Worker inspection/return, exact Lain-action refusal, enrolled-device task list/
+  detail observation, parallel chat and exit leaving Worker approval pending.
+  All owned temporary state cleaned. Fixture corrections were expected HTTP
+  201/202 statuses, a valid-length fake credential and a temporary directory name
+  that accidentally matched the existing secret-shaped-output filter; production
+  credential filtering was preserved.
+- `scripts/terminal_smoke.py`: native error/caught-panic raw-mode restoration passed;
+  dedicated Worker attach without resume, resize, detached follow-up, offered
+  approval denial and clean terminal exit passed. Removed its incidental `rtk`
+  dependency; it invokes the native Cargo executable directly, locked/offline.
+
+Final binaries used by the seven-case acceptance:
+
+| Binary | SHA-256 |
+| --- | --- |
+| lain | `55f26cb9d7470c6eaf358f93a088526c6aee6f3b6975f66f7cc342bacfce5a33` |
+| laind | `1204985bd7a4ac6dbbae43d469e4d49c2c3cd135c8821b041b7c448b03b487e1` |
+| lain-test-app-server | `5c4d5ba52e7d39ddc31dd2eab8a6d2c786ab98c51b2bd715acb2afc1173d20ad` |
+
+Local-only evidence, outside Git: logs under
+`%TEMP%/lain-q1-tools/w4a-*.log`; accepted images
+and `report.json` under
+`<local-evidence>/lain-w4a-2026-11-02/`.
+Images render the actual native ConPTY VT stream with synthetic fixture content;
+they are not desktop screenshots or evidence of real-model chat quality.
+
+No personal QQ/runtime upgrade, cloud deployment, commit or push occurred. macOS,
+Linux and real paid/cross-device behavior remain unverified here. W4 is still in
+progress: remote dispatch/permission interaction, device-service management,
+capability-supported native terminal entrances and authorized follow-up remain.
+
 ## 2026-10-28 — Actual QQ picture/sticker conversation accepted
 
 The owner sent three actual image-only picture stickers and an ordinary photograph
@@ -100,7 +3648,7 @@ instances. Zero paid calls, real QQ sends or real device installation were initi
 See [acceptance](docs/DEVICE_PAIRING_ACCEPTANCE.md) and ADR 026.
 
 At the user's request, regenerated the protected NapCat login QR. After phone
-confirmation, actual existing account <bot-qq> → peer <user-qq> was verified
+confirmation, actual existing account <bot-qq> → peer <owner-qq> was verified
 Online with no connection failure; personal Kernel remained Ready on its separate
 schema16 maintenance release and authorized private-daily inference decision.
 This development did not migrate it or enable new personal source/memory/Worker
@@ -263,7 +3811,8 @@ search/change feed, role-specific API keys and a durable bounded upload outbox.
 No Kernel/persona/semantic-memory/Worker runtime dependency or historical DB upload.
 
 Actual Ubuntu/Caddy/Docker deployment serves a loopback-only unprivileged container
-through verified public HTTPS at hub.example.com/lain-knowledge. A real synthetic
+through the private deployment's verified public HTTPS `/lain-knowledge` route.
+The actual address is retained outside Git. A real synthetic
 image was stored/downloaded with equal SHA-256 and described by DeepSeek Flash:
 one request, 322 reported tokens, independent lifetime cap 10. Duplicate event
 delivery did not spend another call; synthetic source subsequently revoked.
@@ -1489,7 +5038,7 @@ used while native platform acceptance is incomplete.
 
 After the implementation and authorized real acceptance recorded above (latest
 pushed checkpoint `e883425`), the owner supplied a normal `lain chat` walkthrough
-asking Lain to read and introduce a separate local project, `sjtu-automata`.
+asking Lain to read and introduce a separate local project, `example-automation`.
 This follow-up was explicitly scoped to explaining the observed behavior. No
 runtime/CLI behavior was changed and no new implementation was authorized by
 that discussion.
@@ -1931,7 +5480,7 @@ The initial portable LLVM-MinGW build passed Kernel tests but its CLI executable
 failed before test entry with native access violation `0xc0000005`. A separate
 checksum-verified GCC 16.2.0 / MinGW-w64 14.0.0 MSVCRT toolchain completed the full
 run with `RUSTFLAGS=-C link-self-contained=no`. Tools, build output and test logs stay in the task-owned external
-directory `C:/Users/example/AppData/Local/Temp/lain-q1-tools/`; no system PATH or
+directory `%TEMP%/lain-q1-tools/`; no system PATH or
 user runtime configuration was changed. Native MSVC, Linux/macOS, interactive
 terminal acceptance and existing Phase 6.6/7.1 real-provider gaps remain separate.
 
@@ -2485,3 +6034,171 @@ the subsequent operation-truth extension; earlier 179-test/66-request reports
 are retained without promoting them to final-extension evidence. Real public
 TLS/source/provider quality, multi-day continuity and native macOS/Linux remain
 unverified. Commit/push this verified milestone; the complete goal stays active.
+
+
+## 2026-11-02 — W2b durable device command and receipt protocol
+
+Continued the user-selected server/device mainline on codex/d3-live-repair,
+based on 9b40de0, without restarting the architecture or adding a Worker runtime.
+Added immutable selected-workspace work intents, per-command device event
+receipts, transactional per-device change cursors and authenticated bounded waits.
+Administrator queue/cancel and device fetch/inspect/report remain separate.
+Native CLI journals an event before HTTP and retains its matching receipt; exact
+replay recovers uncertain acknowledgements without a replacement work identity.
+
+Cancellation is separate from an observed stop. Queued cancellation prevents
+acceptance; accepted/running cancellation requests retain uncertainty until actual
+device observations arrive. Deadline/revoke cannot claim execution stopped.
+Late ordered observations can reconcile uncertainty without authorizing a new
+start. Server restart never requeues accepted work. Device revocation and command
+invalidation commit together. Additive migration 025 changes no existing grant,
+conversation, model selection or media. Actor tool/Worker approval remains intact.
+No native executor, paid inference, real QQ sends, device installation, cloud
+Kernel deployment or personal-instance migration is part of this increment.
+
+Native Windows Rust 1.99.1 GNU/GCC MSVCRT validation: 304 tests passed, zero failed,
+three existing manual/interactive probes ignored; format, strict all-target
+workspace Clippy and locked build passed. Device process acceptance passed six
+checks with no model/Worker execution. Visual process regression passed nine
+checks with twelve fake requests/eight fixture media reads. Real old/new binary
+schema24→25/full-rollback rehearsal over synthetic state passed five checks with
+three fake requests. Python script checks ran fourteen tests: nine passed and
+five existing opt-in/platform cases skipped. All process reports match the binary
+hashes recorded in docs/DEVICE_COMMANDS.md; temporary services/state cleaned up.
+Native MSVC, Linux/macOS, cross-device TLS and actual remote Codex remain unverified.
+
+Validation exposed old migration fixtures that left new tables behind, an old
+upgrade-version upper bound, and a paused-clock/real-handshake race under Windows.
+Updated only the affected fixtures/schema assertions; the timeout test now pauses
+after its real handshake while preserving all identity/timeout assertions. Native
+elevated fixture setup used an external fresh-path owner adapter and DATSO backup
+copy; it never repaired existing user paths or relaxed private-file checks.
+Original task line endings are preserved, including Windows CRLF; terminal control
+characters, credential-shaped observations and traversal-like profile identifiers
+are rejected. Local build/test reports remain outside Git under
+%TEMP%/lain-q1-tools/w2b-*.
+
+Contract, operational commands, limits and deferred W3 execution obligations are
+in docs/DEVICE_COMMANDS.md and ADR 028. Updated product/architecture/domain/runtime,
+CLI/configuration, resident design, roadmap and development instructions together.
+Changes are local implementation work; no commit, push or deployment is claimed.
+
+## 2026-11-02 — W3a typed execution evidence and explicit permission receipts
+
+Continued the selected cloud/device mainline with a reviewable permission and
+evidence increment, before introducing native effects. Device events now retain
+typed Lain execution/session/turn bindings, one bounded pending approval and
+factual result feedback. Correlation cannot be removed, changed or shared with
+another command on the same device. Original work intent remains immutable;
+reports neither create cloud-local Supervisor sessions nor establish that a
+native Worker ran. Output tails preserve failed-command, withheld-reference and
+history-truncation facts; relative paths are reported references, not verified or
+uploaded artifact bytes.
+
+Added owner-only exact-scope decisions and device-only receipt reads to the
+existing HTTP/CLI surface. A versioned fingerprint binds execution/session/turn,
+approval identity, visible kind/description, truncation and explicit choices.
+Truncated scope cannot offer approval; new choices require an active, unexpired,
+uncancelled Running command with that exact pending request. Changed/recycled
+approval contents and reused decision identities conflict. Recording a choice
+publishes its revision atomically but does not claim backend application. Exact
+receipt recovery remains possible after resolution without granting permission
+to replay uncertain Worker mutations. No Actor, QQ or model decision can call
+this owner authority implicitly.
+
+Schema026 adds execution-correlation and approval-decision ledgers. Legacy W2b
+snapshots/receipts omit the optional evidence and retain their original replay
+identity. Secret-bearing evidence is rejected before local journaling and server
+persistence. Updated earlier migration fixtures and expected target schemas;
+also corrected an existing deadline test to project past the later of its two
+command deadlines instead of assuming their wall-clock timestamps coincide.
+
+Final native Windows GNU workspace validation: 316 passed, zero failed, three
+existing manual/real-service tests ignored; formatting, all-target Clippy and
+workspace build passed. Python helper suite: 14 tests, nine passed/five skipped.
+Six approval and six legacy-command process checks, nine visual checks and five
+schema24 → 26 upgrade/full-rollback checks passed on the same final binaries.
+Protocol runs started no Worker/model; visual/upgrade runs used 12/3 fake model
+requests, zero paid calls and zero real QQ sends. Temporary services/state were
+cleaned up. Process and upgrade evidence is recorded in docs/DEVICE_EXECUTION.md.
+All build, test and process logs stay outside Git in
+%TEMP%/lain-q1-tools/w3a-*.
+
+W3 remains in progress. This increment starts no native host or Worker, applies
+no backend approval and does not enable QQ/Actor dispatch to a real device. W3b
+must implement native policy/journal, launch/submission fences, actual permission
+application, cancellation and restart reconciliation around the existing
+Supervisor. W4 retains terminal/chat/dashboard integration. Updated product,
+architecture, domain/runtime, CLI/configuration, resident design, roadmap,
+development instructions and ADR029 together. No paid invocation, deployment,
+personal database upgrade, commit or push is part of this work.
+
+
+## 2026-11-02 — W3b native device Worker service and effect recovery
+
+Added the explicit native lain-device-agent service and device host-configure
+entry. It uses only protected device credentials, a separate Worker operational
+store and the existing Supervisor/structured Codex adapter. It creates no Actor,
+channel, memory service, administrator listener or second Lain persona. Local
+policy selects the canonical executable, read-only or explicitly workspace-write
+scope and finite network grace. The first supported path is serial codex/local;
+capability/version probes, the exact registered workspace and current cloud
+scope gate actual effects. Configuration starts no service and edits no global
+Worker settings. The shared lain-local crate extracts the existing native ACL/
+private-file helpers without adding another runtime or identity registry.
+
+Persisted original intent and deterministic session/turn IDs precede native work.
+Separate launch, submission, response, cancel and stop fences prevent uncertainty
+from becoming replacement tasks. Stable Kernel metadata/prompt interfaces reuse
+existing supervision instead of adding another harness. Restart resumes only the
+original bound session/turn; a claimed launch without a binding or submitted
+unmapped turn stays Unknown. Owner decisions must match the current native and
+cloud approval fingerprints and choices, and response intent is persisted before
+RPC. Truncated/redacted/incomplete scope cannot offer approval. Cancellation,
+revocation, expiry, changed policy and prolonged network loss stop new effects;
+only an observed terminal event confirms cancellation. Pending result facts can
+be delivered after reconnection without restarting work. Recovered status marks
+history incomplete; original bounded output, failures and relative reported paths
+remain facts rather than an LLM evaluation or verified artifact upload.
+
+Two actual native process failures tightened the implementation. Abrupt death
+while a receipt file was being created left an incomplete record: journal writes
+now fully write/sync unique private staging files and atomically publish them
+under the exclusive host lock. Interrupted staging is not an effect fence.
+A regression test first demonstrated that a mismatched receipt could advance the
+outbox; advancement now checks the full immutable prior event. The other failure
+was a locked fixture log held by an orphan Windows ACL helper during shutdown/
+crash cases. A read-only Windows resource query identified that helper and its
+exited parent; it was cleaned up only after verifying ownership of the synthetic
+fixture. ACL helpers now use the same CREATE_NO_WINDOW console isolation as
+owned Workers. The final native service rehearsal passed all fourteen scenarios
+and normal cleanup without weakening owner checks or hiding cleanup failures.
+The lookup followed [Microsoft's RmGetList contract](https://learn.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmgetlist);
+no unrelated application was stopped or restarted.
+
+Final Windows GNU checks: 322 Rust tests passed, zero failed, three existing
+manual/live cases ignored; formatting, all-target Clippy, locked offline build
+passed. Six host-specific tests cover recovery plans, hidden-scope redaction,
+metadata identity, immutable scope/fences, receipt validation and interrupted
+staging. Native process evidence and compatibility regressions are recorded in
+docs/DEVICE_HOST.md. The process Worker is the structured fixture only; the
+parallel-chat case uses one fake Responses request and fake OneBot, no paid
+provider or real QQ message. Python helper tests: 14 total, nine passed/five
+skipped. External local evidence stays under
+%TEMP%/lain-q1-tools/w3b-*; no temporary debug
+script, fixture state, log, credential or personal content is added to Git.
+
+Final compatibility gates on the same native binaries: six W3a permission checks,
+nine visual checks (12 fake requests/8 fixture media reads) and five actual
+schema24 → 26 executable upgrade/full-rollback checks (three fake requests).
+Each final process report confirms cleanup and zero paid requests; common binary
+hashes and the explicit native-host hash are in docs/DEVICE_HOST.md. Actual
+synthetic backup copy preserved ownership with DATSO through the external fresh-
+path harness; the existing report's DATS label is not the actual copy flag.
+
+Product/architecture/domain/runtime, backend/configuration, resident design,
+CLI, roadmap, development instructions and ADR030 document the same ownership
+and lifecycle boundaries. W3's real paid-provider, cross-device TLS and other
+native platform acceptance remain separate. W4 owns service management and
+terminal/chat/dashboard dispatch. No actual device installation, cloud deployment,
+personal QQ upgrade, commit or push occurred.

@@ -24,10 +24,16 @@ pub struct Renderer<W: Write> {
     turn: Option<lain_wire::ActorTurnId>,
     messages: BTreeSet<MessageId>,
     actions: BTreeMap<ActionId, ActionState>,
+    reviewed_memories: BTreeSet<ActionId>,
     retired: BTreeSet<PreviewId>,
     current: Option<Preview>,
     error: Option<String>,
     pub first_visible: Option<Instant>,
+}
+impl Renderer<Vec<u8>> {
+    pub(crate) fn drain_text(&mut self) -> String {
+        String::from_utf8(std::mem::take(&mut self.output)).expect("renderer writes UTF-8")
+    }
 }
 impl<W: Write> Renderer<W> {
     pub fn new(output: W) -> Self {
@@ -36,6 +42,7 @@ impl<W: Write> Renderer<W> {
             turn: None,
             messages: BTreeSet::new(),
             actions: BTreeMap::new(),
+            reviewed_memories: BTreeSet::new(),
             retired: BTreeSet::new(),
             current: None,
             error: None,
@@ -82,6 +89,7 @@ impl<W: Write> Renderer<W> {
             self.turn = Some(id);
             self.messages.clear();
             self.actions.clear();
+            self.reviewed_memories.clear();
             self.retired.clear();
             self.error = None;
             self.first_visible = None;
@@ -90,6 +98,31 @@ impl<W: Write> Renderer<W> {
     }
     pub fn snapshot(&mut self, turn: &ActorSnapshot) -> Result<()> {
         self.begin_turn(turn.id)?;
+        for receipt in &turn.reviewed_memory_receipts {
+            if self.reviewed_memories.insert(receipt.action_id) {
+                self.interrupted("committed memory receipt")?;
+                writeln!(
+                    self.output,
+                    "System> 已保存来源事项 · 仅当前会话 · 历史操作回执\n      Memory: {} · recorded_at_ms: {}\n      回执不表示正文仍可用，也不授权再次保存。",
+                    receipt.memory_id, receipt.recorded_at_ms
+                )?;
+            }
+        }
+        for r in &turn.memory_change_receipts {
+            if self.reviewed_memories.insert(r.action_id) {
+                let label = if r.operation == lain_wire::memory::MemoryOperation::Correct {
+                    "已更正保存事项"
+                } else {
+                    "已忘记来源事项"
+                };
+                self.interrupted("committed memory change")?;
+                writeln!(
+                    self.output,
+                    "System> {} · 仅当前会话\n      Memory: {} · recorded_at_ms: {}\n      历史操作回执；不会恢复或自动重放旧正文。",
+                    label, r.memory_id, r.recorded_at_ms
+                )?;
+            }
+        }
         for message in &turn.messages {
             if message.role != MessageRole::Assistant || !self.messages.insert(message.id) {
                 continue;
@@ -137,14 +170,21 @@ impl<W: Write> Renderer<W> {
         for action in &turn.actions {
             if self.actions.insert(action.id, action.state) != Some(action.state) {
                 self.interrupted("tool state changed")?;
-                self.action(action)?;
+                self.action(turn, action)?;
             }
         }
         if let Some(error) = &turn.error
             && self.error.as_ref() != Some(error)
         {
             self.interrupted("generation ended")?;
-            writeln!(self.output, "Lain> {}", safe_text(error))?;
+            let display = if error
+                == "Inference or tool execution did not finish reliably; inspect recorded actions before retrying. No mutation was replayed."
+            {
+                "本轮模型请求或工具执行未可靠完成。请先查看已有操作回执，再决定是否重试；没有自动重放操作。"
+            } else {
+                error
+            };
+            writeln!(self.output, "System> {}", safe_text(display))?;
             self.error = Some(error.clone());
         }
         if turn.state != ActorTurnState::Running {
@@ -153,7 +193,7 @@ impl<W: Write> Renderer<W> {
         self.output.flush()?;
         Ok(())
     }
-    fn action(&mut self, action: &lain_wire::ActorAction) -> Result<()> {
+    fn action(&mut self, turn: &ActorSnapshot, action: &lain_wire::ActorAction) -> Result<()> {
         let tool = serde_json::to_value(&action.tool)?;
         let name = tool["name"].as_str().unwrap_or("tool");
         let state = match action.state {
@@ -161,11 +201,28 @@ impl<W: Write> Renderer<W> {
             ActionState::Executing => "approved; submitting operation",
             ActionState::Executed => "operation accepted",
             ActionState::Rejected => "declined; no operation executed",
+            ActionState::Failed if missing_memory_read(action) => {
+                "not found or not visible (state: failed)"
+            }
             ActionState::Failed => "operation failed",
             ActionState::Unknown => "outcome unknown; inspect before retrying",
         };
         writeln!(self.output, "Tool> {name} · {state}")?;
         if action.state == ActionState::Proposed {
+            if matches!(action.tool, lain_wire::ToolCall::MemorySelectionChange(_)) {
+                writeln!(
+                    self.output,
+                    "{}",
+                    crate::memory::selection_review(turn, action)?
+                )?;
+            }
+            if matches!(action.tool, lain_wire::ToolCall::BriefingRemember(_)) {
+                writeln!(
+                    self.output,
+                    "{}",
+                    crate::memory::briefing_review(turn, action)?
+                )?;
+            }
             writeln!(
                 self.output,
                 "      Action: {}\n      Exact arguments: {}",
@@ -221,11 +278,22 @@ impl<W: Write> Renderer<W> {
             {
                 writeln!(
                     self.output,
-                    "      {} entries; exact receipt is available in /history.",
+                    "      {} entries; receipt stored in Kernel history.",
                     entries.len()
                 )?;
             } else {
-                writeln!(self.output, "      Exact receipt is available in /history.")?;
+                if let Some(records) = outcome
+                    .get("page")
+                    .and_then(|p| p.get("records"))
+                    .and_then(|r| r.as_array())
+                {
+                    writeln!(
+                        self.output,
+                        "      本次查询匹配 {} 条；结果仅覆盖指定筛选与分页范围。",
+                        records.len()
+                    )?;
+                }
+                writeln!(self.output, "      Receipt stored in Kernel history.")?;
             }
         }
         Ok(())
@@ -324,6 +392,9 @@ impl<W: Write> Renderer<W> {
         }
         Ok(())
     }
+    pub(crate) fn preview_checkpoint(&self) -> Option<(PreviewId, MessageId, u64)> {
+        self.current.as_ref().map(|p| (p.id, p.message, p.sequence))
+    }
     pub fn preview(&mut self, event: PreviewEvent, turn: &ActorSnapshot) -> Result<()> {
         self.begin_turn(turn.id)?;
         if turn.id != event.turn_id
@@ -408,13 +479,118 @@ impl<W: Write> Renderer<W> {
     }
 }
 
+// Presentation only: NotFound does not establish deletion or its cause. Keep the
+// authoritative Failed state and original result intact, including diagnostics.
+pub(crate) fn missing_memory_read(action: &lain_wire::ActorAction) -> bool {
+    action.state == ActionState::Failed
+        && matches!(action.tool, lain_wire::ToolCall::MemoryInspect { .. })
+        && action.result.as_ref().is_some_and(|result| {
+            result.get("success") == Some(&serde_json::Value::Bool(false))
+                && result.get("error").and_then(serde_json::Value::as_str) == Some("not_found")
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use lain_wire::*;
+    #[test]
+    fn reviewed_memory_receipt_remains_readable_once_without_source_text_or_action_ack() {
+        let mut turn = running();
+        turn.availability = Some(ActorAvailability::SourceUnavailable);
+        turn.error = Some("Source unavailable; previous content withheld.".into());
+        let action = ActionId::new();
+        turn.reviewed_memory_receipts
+            .push(memory::ReviewedMemoryReceipt {
+                action_id: action,
+                actor_turn_id: turn.id,
+                conversation_id: turn.conversation_id,
+                candidate_id: CandidateId(action.0),
+                memory_id: MemoryId::new(),
+                recorded_at_ms: 1234567,
+            });
+        turn.validate().unwrap();
+        let mut renderer = Renderer::new(Vec::new());
+        renderer.snapshot(&turn).unwrap();
+        renderer.snapshot(&turn).unwrap();
+        let text = String::from_utf8(renderer.output).unwrap();
+        assert_eq!(text.matches("已保存来源事项").count(), 1);
+        assert!(text.contains(&turn.reviewed_memory_receipts[0].memory_id.to_string()));
+        turn.reviewed_memory_receipts[0].conversation_id = ConversationId::new();
+        assert!(turn.validate().is_err());
+    }
+    #[test]
+    fn missing_memory_lookup_does_not_claim_failure_recovery_or_forgetting() {
+        let mut turn = running();
+        turn.actions.push(ActorAction {
+            memory_review: None,
+            memory_change_review: None,
+            id: ActionId::new(),
+            call_id: "lookup".into(),
+            tool: ToolCall::MemoryInspect {
+                memory_id: MemoryId::new(),
+                scope: memory::MemoryScope::Global,
+            },
+            state: ActionState::Failed,
+            result: Some(serde_json::json!({"success":false,"error":"not_found"})),
+        });
+        let render = |turn: &ActorSnapshot| {
+            let mut renderer = Renderer::new(Vec::new());
+            renderer.snapshot(turn).unwrap();
+            String::from_utf8(renderer.output).unwrap()
+        };
+        let text = render(&turn);
+        assert!(text.contains("not found or not visible (state: failed)"));
+        assert!(text.contains("not_found") && !text.contains("operation accepted"));
+        assert!(!text.contains("forgotten"));
+
+        for result in [
+            serde_json::json!({"success":false,"error":"forbidden"}),
+            serde_json::json!({"success":false,"error":"transport"}),
+            serde_json::json!({"success":true,"error":"not_found"}),
+            serde_json::json!({"error":"not_found"}),
+            serde_json::json!({"outcome":{"success":false,"error":"not_found"}}),
+        ] {
+            turn.actions[0].result = Some(result);
+            assert!(render(&turn).contains("operation failed"));
+        }
+        turn.actions[0].result = Some(serde_json::json!({"success":false,"error":"not_found"}));
+        turn.actions[0].tool = ToolCall::WorkCancel {
+            session_id: WorkSessionId::new(),
+        };
+        assert!(render(&turn).contains("operation failed"));
+        turn.actions[0].tool = ToolCall::WorkInspect {
+            session_id: WorkSessionId::new(),
+        };
+        assert!(render(&turn).contains("operation failed"));
+        turn.actions[0].tool = ToolCall::MemoryInspect {
+            memory_id: MemoryId::new(),
+            scope: memory::MemoryScope::Global,
+        };
+        turn.actions[0].state = ActionState::Unknown;
+        assert!(render(&turn).contains("outcome unknown; inspect before retrying"));
+    }
+
+    #[test]
+    fn runtime_failure_is_system_output_not_lain_speech() {
+        let mut turn = running();
+        turn.state = ActorTurnState::Unknown;
+        turn.error = Some("Inference or tool execution did not finish reliably; inspect recorded actions before retrying. No mutation was replayed.".into());
+        let mut renderer = Renderer::new(Vec::new());
+        renderer.snapshot(&turn).unwrap();
+        let text = String::from_utf8(renderer.output).unwrap();
+        assert!(text.contains("System>"));
+        assert!(text.contains("回执"));
+        assert!(!text.contains("Lain>") && !text.contains("Inference or tool execution"));
+    }
     fn running() -> ActorSnapshot {
         ActorSnapshot {
+            availability: None,
+            effect_receipts: vec![],
+            reviewed_memory_receipts: vec![],
+            memory_change_receipts: vec![],
             reading_activity: None,
+            briefing_activity: None,
             sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: ConversationId::new(),
@@ -531,6 +707,8 @@ mod tests {
         let task = "只读检查；不要修改文件。保留原样。";
         let sid = WorkSessionId::new();
         turn.actions.push(ActorAction {
+            memory_review: None,
+            memory_change_review: None,
             id: ActionId::new(),
             call_id: "fixture".into(),
             tool: ToolCall::WorkCreate {

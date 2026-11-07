@@ -145,10 +145,14 @@ pub(super) fn discover(explicit: Option<PathBuf>) -> Result<PathBuf> {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("unsupported Codex version; adapter verified against 0.160.0")]
+#[error("unsupported Codex version; adapter accepts only explicitly verified versions")]
 pub(super) struct UnsupportedVersion;
+// 2026-11-05: installed alpha checked with exported consumed-field/enum schema,
+// native isolated empty-session lifecycle and native profile-injection probes.
+// Unknown adjacent alphas remain rejected; this is not a semver range.
+pub(super) const SUPPORTED_VERSIONS: &[&str] = &["0.160.0", "0.166.0-alpha.5.1"];
 fn verify_version(version: &str) -> Result<()> {
-    ensure!(version == "0.160.0", UnsupportedVersion);
+    ensure!(SUPPORTED_VERSIONS.contains(&version), UnsupportedVersion);
     Ok(())
 }
 pub(super) async fn probe(executable: &Path) -> Result<String> {
@@ -610,6 +614,11 @@ impl Codex {
 #[tokio::test]
 #[ignore = "manual real Codex protocol probe; no inference"]
 async fn probe_unused_thread_persistence() {
+    let home = std::env::var_os("CODEX_HOME").expect("explicit isolated CODEX_HOME required");
+    assert!(
+        !PathBuf::from(home).join("auth.json").exists(),
+        "native probe must not use personal login"
+    );
     let path = discover(None).unwrap();
     let dir = tempfile::tempdir().unwrap();
     let options = ResolvedRuntimeProfile::legacy(&SessionOptions::default()).unwrap();
@@ -681,7 +690,7 @@ fn error_normalization_never_uses_provider_prose() {
 async fn probe_profile_launch_configuration() {
     use crate::profiles::{ProfileDefinition, RuntimeProfile};
     let path = discover(None).unwrap();
-    assert_eq!(probe(&path).await.unwrap(), "0.160.0");
+    assert!(SUPPORTED_VERSIONS.contains(&probe(&path).await.unwrap().as_str()));
     let mut processes = Vec::new();
     for (name, model, endpoint) in [
         ("a", "fixture-model-a", "http://127.0.0.1:39001/v1"),
@@ -743,6 +752,13 @@ async fn probe_profile_launch_configuration() {
     for mut rpc in processes {
         rpc.shutdown().await.unwrap();
     }
+}
+
+#[test]
+fn checked_native_alpha_contract_has_an_explicit_version_gate() {
+    assert!(verify_version("0.166.0-alpha.5.1").is_ok());
+    assert!(verify_version("0.166.0-alpha.5.2").is_err());
+    assert!(verify_version("0.167.0").is_err());
 }
 
 #[test]

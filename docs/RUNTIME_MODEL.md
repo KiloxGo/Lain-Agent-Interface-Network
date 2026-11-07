@@ -1,5 +1,401 @@
 # Runtime Model
 
+## Selected-memory reply publication — local candidate, 2026-11-07
+
+Eligible successful read-only ordinary selected-memory turns advertise one private
+memory_answer final-output function and a receipt-derived catalog. Its array
+items are finite offered short strings mapped to exact current reads/records/
+versions, not model-supplied provenance/save IDs. Empty choice sets use zero-item
+arrays rather than an invalid empty enum; unknown or old tuple forms reject.
+The function
+is a sole bounded final selection, not a Kernel action; matching text envelopes
+remain accepted. Whole saved records are quoted under typed source/correction
+labels. Query pages retain their actual limited coverage, and requested optional
+details distinguish stored UTC expiry from Kernel capture and sender/event time.
+Invalid selections cannot publish raw draft text or previews. Normal usage and
+timing are recorded once, including rejected replies, with no new model request,
+hidden lookup or replay. Source/memory freshness and ordinary publication/restart
+gates remain authoritative; another origin/scope, mixed action or bodyless
+management lookup does not enter this view. No schema/grant/config change.
+
+## Same-record source-context read — local candidate, 2026-11-07
+
+Within the existing briefing report read/current manifest lock, each citation may
+load its exact current archive record and form a unique-quote paragraph span up
+to512UTF8bytes. Full-record secret checking precedes context boundaries; duplicate
+quote/oversize/sensitive context is explicitly unavailable, not partially returned.
+No external call, other source/batch record, model request or new authority is
+added. Existing12KiB paging still owns row admission; single-row fitting drops
+optional contexts whole with page-bound metadata before legacy quote fitting.
+At the maximum group, optional context status/description may also be omitted
+whole, restoring legacy citation semantics under the existing page-bound flag;
+the presenter still warns about missing context. Required item/group data stays.
+Presenter uses available context for concise display and marks missing context;
+actual original inspection stays required and memory construction is unchanged.
+Record changes suppress all dependent old context through the same publication
+checks. No DTO/schema/entity or operational-source configuration change.
+
+## Direct original-view finalization — local candidate, 2026-11-07
+
+For an eligible source-only turn, a conservative Chinese shortcut recognizes a
+direct original request in the latest actual User message, excluding quoted/code/
+blockquote text, common negations and meta questions. If no current renderable
+original exists, final item choices are withheld while existing tools remain.
+Report-only final selection fails original_required before speech publication;
+usage/receipts stay, no automatic model roundtrip/read/replay is added. An actual
+checked original or empty scoped lookup can be selected; all old freshness/source/
+secret/byte gates remain. Individual catalog checks omit only the whole-answer
+view requirement, never the evidence gates. This adds no DTO/schema/authority and
+does not claim general intent recognition or cover no-tool/mixed/background turns.
+
+## Receipt-based source presentation — local candidate, 2026-11-07
+
+Continuation hints follow only this turn's already executed exact cursor chain
+for the same snapshot/query/run, after the latest matching refresh fence. Missing,
+nonadvancing or other-scope pages preserve the hint; an actual terminal continuation
+closes it without another read or model request. This does not establish upstream
+completeness or that every read row was displayed. Inspected originals render
+before report selections; only the same canonical snapshot/item/citation points
+back instead of repeating an excerpt in concise mode. Detailed notes and other
+citations remain. Source/secret/publication checks and final byte bounds stay.
+
+## Source-wording draft preparation — local candidate, 2026-11-07
+
+Briefing selection prepares/validates the existing complete base draft and group
+first. A bounded optional addition uses the current processed report items' exact
+selected citations, preserving their source/type/clock; it fetches no new external
+source. Whole addition fits or none is appended. The final body passes the same
+memory/provenance/secret validation. No model/provider or review semantics change.
+
+Source-current candidate checks accept the exact reconstructed base body for
+existing proposals, or its exact complete optional addition, with equal provenance.
+Creation touches only a missing candidate; existing bodies never get rewritten.
+Stale source gates run before either format comparison. Existing read expiry,
+correction and forgetting remain. Runtime/input-size implications and real model
+quality require candidate-specific validation rather than a template-only claim.
+
+## Deduplicated scoped-query declaration — local candidate, 2026-11-07
+
+Advertise the existing memory_search operation once for literal filtering and
+null-text listing. The identical memory_list schema is omitted, but its typed
+parser/read/recovery path stays. Only field-free global/internal scope variants
+share an enum of actually offered values; selected-ID branches stay separate.
+Briefing descriptions reuse the complete ordinary source policy supplied by the
+same Actor branch. No result representation, history/body, provider continuation,
+budget or authority change; the experimental table layout was not adopted.
+
+## Consolidated ordinary source guidance — local candidate, 2026-11-07
+
+Ordinary non-reading/non-sharing/non-briefing turns with a current briefing scope
+append one conversation policy organized by workflow/evidence/time/memory/style.
+The exact scope and per-request reply clock remain separately serialized. It
+replaces repeated static guidance, not source facts, memory management policy,
+tool schemas, provider continuation or any budget/authorization gate. Internal
+tool-free extraction/comparison still use the unchanged SOURCE_INTERPRETATION
+and activity policy. This is Lain-owned request construction, not Worker context
+management. Actual-provider cumulative-limit and full lifecycle acceptance must
+be established on the rebuilt candidate, not inferred from instruction size.
+
+## Concise report and explicit generated-note view — local, 2026-11-07
+
+The private final selection accepts an optional detailed boolean, default false.
+An eligible source-only request also advertises a private briefing_answer final-
+output function. Its sole structured call normalizes into the same selection
+envelope before final rendering; it creates no Kernel action or function-result
+round trip. Mixed calls, reused call identities and malformed/unknown references
+reject without executing another call. It is not advertised outside eligible reads
+and is deliberately absent from the executable Tool enum. Existing text envelopes
+remain supported. This follows an actual valid selection rejected as unknown tool,
+whose extra completion exceeded the unchanged cumulative token ceiling.
+Concise rendering keeps checked source excerpts/clocks, human item numbers and
+scope, while generated report notes remain available through explicit expansion.
+Original-message selections still require actual Inspect receipts. Equal complete
+citation objects from the same manifest/source/record/positive revision may share
+one quoted body with a current-reply item pointer; distinct identities, versions
+or excerpts remain separate. No extra I/O or persistence is introduced.
+Compact frames deduplicate only equal manifest/run/query state and retain any
+known page continuation; final combined/detailed output still checks12KiB.
+Ordinary chat and mixed memory/Work behavior remain unchanged. Native/actual-model
+acceptance and deployment are pending; see DAILY_BRIEFING.
+
+## Source-only final presentation — locally validated candidate, 2026-11-07
+
+An ordinary turn containing only Executed briefing preparation/read/original
+actions receives a private final-selection contract after a read. Existing model
+requests/tools/budgets remain; no verifier model or retry is added. Its response
+contract lists only actually renderable item/original/empty-page references from
+this turn. The catalog reuses final reference/freshness checks and contains no
+source body; citation excerpts do not advertise unread originals as selectable.
+It adds no archive reads or authority. Its response
+preview stays held and intermediate free prose is not committed as an answer.
+At final completion, handles are checked against this turn's real receipts and
+rendered before the existing freshness/secret/publication path. A refresh notice
+fences older matching report/original/empty-page choices until read again; explicit
+historical reads remain possible under current grants. Rejection preserves returned
+usage and ends without publishing raw JSON/prose or replaying any action.
+Reading/sharing/extraction activities and mixed Work/memory actions are excluded.
+Native Windows targeted checks, isolated briefing/memory workflows and one actual
+three-question synthetic-source run pass; two earlier actual failures remain.
+This does not establish concise prose, the actual original/memory tail, real QQ
+sources, Linux or production acceptance. See DAILY_BRIEFING_ACCEPTANCE.
+
+## Topic-to-original read — deployed at schema040, 2026-11-06
+
+Within a still-authorized manifest, briefing_read.query filters at most256 processed
+items before the existing4-item/12KiB output bounds. It reads no additional source
+body or model. Original-number cursors, matching quotation indices and explicit
+non-absence semantics allow a later briefing_inspect to read one exact source.
+Default latest first-page refresh still returns its content-free notice when
+needed. Common secret/disclosure/publication fences apply even to empty matches.
+Old unfiltered API/client reads remain; persisted query arguments require the40
+reader gate. Actual Windows synthetic-source/model/terminal lookup and reconnect
+pass. Native Linux candidate/build,30 maintenance guards and10 isolated fault
+cases pass; the original database is now40 with public/client/backup acceptance.
+After40 migration, failure cannot automatically select an incompatible39 reader.
+Source grants and real-source acceptance remain pending. See ADR041.
+
+## Extraction clocks and default latest-read notice — deployed repair, 2026-11-06
+
+After current/fingerprint-checked page admission, extraction requests receive
+per-record Kernel-formatted clocks and explicit original-versus-receipt basis,
+plus local day bounds. Raw records/fingerprints and persisted results remain;
+receipt fallback cannot anchor sender-relative dates. No schema/wire change.
+
+A default latest first-page Actor read compares the existing bounded yesterday
+selection with the still-authorized historical snapshot. Changed inputs/meaningful
+coverage yield only a refresh_required notice. No work or model is started by
+that read; a separate briefing_yesterday tool call owns finite coordination.
+Common source dependency capture/publication checks remain. Explicit snapshot IDs
+and later cursor pages keep their historical meanings; unavailable old bodies
+are still denied. Today-only arrivals do not require new processing. Native
+regressions reproduce the late-read gap before repair. Final actual-model synthetic
+refresh/original/reviewed save/correct/forget/reconnect passes with39calls, after
+retained earlier failures. Native Linux61briefing/25Actor,19 maintenance guards,
+8 actual isolated fault cases and same39 public/backup acceptance pass. The
+original identity/database/reader remain; no real source is enabled. General
+wording and one-turn original lookup reliability remain qualified limitations.
+
+## Yesterday-query refresh and exact preparation — 2026-11-06, deployed repair
+
+A fresh ordinary request rechecks the existing bounded archive selection before
+reusing same-day work. Relevant late arrivals, versions, omission state or known
+coverage change yield a new immutable manifest. Observation/cursor churn or only
+today/unselected-source arrivals do not restart yesterday processing. Imports do
+not schedule automatic reprocessing; this remains request-driven and finite.
+
+The existing Executing action records a closed `briefing_prepared` result before
+returning the selected manifest. New manifest and receipt commit together, so
+same-action observation cannot retarget a reused request after later input. The
+receipt contains only Lain IDs/revision; normal Actor.update reloads the current
+turn and replaces it with real run status. It neither completes the action nor
+relaxes source checks. Existing startup recovery marks unfinished work Unknown,
+without executing a prepared action/provider request again. Source changes still
+withdraw old bodies; metadata recovery is not authority. No new background loop
+or protocol/schema change. Native Windows/isolated and Linux program-upgrade
+acceptance now pass with the original39 database and installed reader preserved.
+Real-source briefing/selected-memory acceptance remains pending.
+
+## Source configuration frontend lifecycle — 2026-11-06, local increment
+
+N/E/S confirm one existing owner operation, independently of Actor/source disclosure.
+Prepared UI fields are local input only. Sync invalidation withdraws old config and
+review gates, rereads source/reader state and may restore only same-identity unsent
+fields; no mutation is resumed. Late reads after explicit close are discarded.
+Pending writes retain their original payload; only GET observation recovers them.
+Absence is not non-execution. Historical matching scope is not request attribution
+or current authority; explicit local tracking abandonment does not cancel a request.
+The existing finite HTTP reader timer and durable usage/cursor rules still apply.
+
+
+## Reconciliation phase — 2026-11-06, local schema039
+
+After the last extraction batch, the existing run enters Reconciling. A compact
+full index proposes at most one earlier candidate per item. Each proposed pair
+runs one independent tool-free accounted Actor request over complete stored items
+and exact citation evidence. At most256 additional calls share the original
+run deadline. No endless polling/model planning loop is introduced. Waiting uses
+existing Actor events and a bounded foreground timeout. Restart/stop/late replies
+cannot relaunch a job or commit its late relation result. Failed/partial relation
+processing retains original report items with an explicit non-application status.
+
+Known group selection refusals are normal replies with no admitted candidate or
+action. QQ marks them Reply, clears waiting and uses ordinary newest-input,
+memory/source and publication checks before send; the fixed text grants no
+exception to those gates. Original effect receipts remain independently durable.
+
+
+## Reviewed correction and history invalidation — 2026-11-06
+
+Metadata-only management remains possible in a fresh turn after old source
+withdrawal. A reviewed correction copies only the exact current-user quotation,
+not old source/model text. New memory, retired predecessor, candidate acceptance,
+FTS/suppression, originating-turn version dependency and operation receipt share
+one SQLite transaction. Failed effects roll back everything; exact retries read
+committed metadata. Forget/supersede/expiry invalidates that dependency and
+withdraws the correction quotation from ordinary/model history. Raw User audit
+is not erased; receipt projection remains independently available. Existing
+maintenance handles finite expiry without another polling loop or Actor.
+
+
+## Finite day coordination — 2026-11-05, local schema035
+
+One durable run owns at most 64 sequential briefing batches and 20 minutes within
+manifest expiry. Subscribe-before-read Actor events drive progress; no model
+polling or new Worker scheduler is added. HTTP cancellation/frontend exit does
+not cancel accepted work. Shutdown/reopen marks unfinished coordination Unknown;
+exact recovery never restarts it. Prepared input must recheck run admission at
+the actual inference ledger transition. Late completions cannot extend a stopped
+report. Normal chat waits at most eight seconds, reports actual progress, and
+reads completed items/originals through its own versioned disclosure lineage.
+Selected-memory writes and production deployment remain separate. See
+[briefing contract](DAILY_BRIEFING.md).
+
+## Briefing Actor batches — 2026-11-05, local schema034
+
+Explicit owner processing launches one existing Actor activity for a manifest
+page, independently of the HTTP caller. Input is complete, bounded source text,
+never a forged human message; tool definitions, private context and Worker state
+are unavailable. The shared inference ledger reserves/attempts/records returned
+usage with reason Briefing. Source versions are rechecked before provider access
+and publication. Validation and final body/result/state share one transaction;
+failure cannot leave a rejected Assistant body in restore/SSE. Kernel shutdown
+uses existing interruption and recovery; Unknown requests keep their reservation
+and cannot be restarted by repeating the page identity. No whole-day background
+runner or private delivery behavior is introduced yet.
+
+## Daily evidence preparation — 2026-11-05
+
+Preparation is a synchronous bounded Kernel operation under the existing storage
+lock. Exact request receipts keep the original day after restart or midnight;
+historical metadata recovery grants no current body access. Each page rechecks
+the active conversation/source revisions, upstream freshness, retention and all
+selected record versions. Source changes fail closed instead of silently
+rebuilding a different manifest. Additive schema033 tables use existing revision
+and deadline invalidation; they create no scheduler, Actor turn, model invocation,
+collector or semantic-memory write. Model processing remains a following increment.
+
+## Startup and invalidation protocol — 2026-11-05
+
+The owner bootstrap is one Kernel-locked bounded projection. Persisted changes
+advance its revision transactionally; the storage guard wakes watch subscribers
+on committed changes. Source deadlines end a finite lease even without a write.
+The stream subscribes before comparison and sends content-free invalidation,
+requiring resnapshot rather than replaying effects. Terminal startup and manual
+Chat refresh use this protocol and rebuild history. Automatic subscription,
+connection generations, bounded private metadata cache and conservative monotonic
+leases are implemented. Native and actual HTTPS terminal checks cover recovery,
+source correction/forget, all-page withdrawal and reopening; two unique server
+facts prove post-fault rendering rather than a retained connected label. See
+[CLIENT_SYNC](CLIENT_SYNC.md) and [cloud continuity](CLOUD_CONTINUITY.md).
+
+## Memory context and source freshness — 2026-11-04
+
+Context selection and receipts commit together. Active turns cannot silently
+change selection, but device/project revocation, mapping change and source edits
+still invalidate the next disclosure/publication. Generic Actor memory reads
+persist version dependencies under Kernel serialization before returning data.
+Model input propagates only current compatible historical lineage; admission,
+generated-result commit and memory review recheck it. Source-influenced previews
+are held. Invalid evidence stops publication without replaying effects; denial
+and interruption keep their existing cleanup paths. Administrative audit reads
+are distinct from model context. [Contract](adr/034-contextual-semantic-memory.md).
+
+## Project decision recovery — 2026-11-04
+
+Project creation/change/assignment serializes with Kernel storage. Each mutation
+and its original receipt commit in one transaction. Exact retries return that
+historical receipt even after a later decision; changed payload, target or action
+under the same RequestId conflicts. Admission checks fresh project/device and
+mapping revisions, independently of report availability. Unbinding retains its
+revision so an old revision-zero assignment cannot reappear. This registry starts
+no background inference, sync loop or Worker. [Contract](CLOUD_CONTINUITY.md).
+
+## Terminal chat configuration checks — 2026-11-04
+
+The client independently reads existing diagnostics at startup and explicit Chat
+refresh, with a three-second bound and at most one refresh check in flight.
+Allowlisted Actor status is ephemeral presentation state, separate from Kernel
+transport, provider access, actual Actor turns and Worker availability. Known
+missing/invalid configuration blocks a new local chat submit while preserving
+input. Unknown diagnostics do not invent configuration readiness or remove any
+server-side checks. Pending uncertain requests retain their original identity
+regardless of later configuration; refresh never resubmits them automatically.
+
+## W4 permission stages and cancellation recovery — 2026-11-03
+
+After fresh cloud/native scope checks, the device writes its existing durable
+decision fence before replying once to the backend. That fence proves receipt
+only. A matching native Resolved approval supplies reported application; pending,
+responding, expired or unknown states cannot become Applied from turn completion.
+No pre-RPC report round trip or replay authority is added. Terminal cancellation
+checks the exact reviewed revision before POST, reads facts after uncertainty
+and only explicitly retries that original revision. Closing/navigation never
+stops work. [Contract](DEVICE_WORK.md), [acceptance](W4_ACCEPTANCE.md).
+
+## W4c idle continuation and receipt order — 2026-11-03
+
+Native continuation verifies protected parent intent/submission and the actual
+latest mapped idle turn before child acceptance/launch. Only that proof permits
+an original session binding before a new child's launch fence; unexplained roots
+and uncertain submissions still fail closed. Child fences remain independent.
+The terminal retains exact uncertain cloud requests, never replays native RPC,
+and keeps newer matching snapshots over late historical queue acknowledgements.
+Worker drafts and reread scope are independent from Lain chat. [ADR033](adr/033-same-device-session-continuation.md).
+
+## W4b remote observation and action recovery — 2026-11-03
+
+The terminal independently observes Actor, local notices and conversation-bound
+device snapshots. Device notifications/finite expiry checks trigger safe current
+reads only. An uncertain remote permission POST retains its exact request;
+receipt reads and an explicit identical retry remain distinct from device-side
+backend application. No automatic native mutation replay or background model
+inference is introduced. See [DEVICE_WORK.md](DEVICE_WORK.md).
+
+## W4a frontend lifetime — 2026-11-02
+
+The conversational terminal owns ephemeral input, cached views and bounded read
+streams only. Entering a Worker detail releases the outer input stream/raw-mode
+guard; returning clears the reused native alternate buffer and reconstructs the
+conversation without cancelling work. Drafts survive in-process navigation, not
+process loss. Page generations reject late responses; departing a loading page
+must not block subsequent chat recovery. Snapshot reads can restart observation
+of the same unchanged Actor revision after disconnect, without replaying a POST.
+See [terminal contract](TERMINAL_DESIGN.md).
+
+## W3b effect and service lifecycle — 2026-11-02
+
+The explicit native host owns Worker processes independently of chat/work clients.
+It claims launch/submission/response before RPC, reconciles only bound original
+sessions/turns, and never replays a claimed unmapped task or uncertain decision.
+Revocation/cancel/deadline/changed policy/network-loss cutoff stop new effects and
+request owned cancellation. Only an observed terminal event proves cancellation;
+kill/interrupt acknowledgement retains uncertainty. Reconnected result retries
+perform no Worker effects. Recovered status may lack provider transcript content,
+so result history is marked incomplete. Exact budgets and crash windows are in
+[DEVICE_HOST.md](DEVICE_HOST.md).
+
+## W3a permission receipt lifecycle — 2026-11-02
+
+Owner decisions validate current pending scope and active, unexpired, uncancelled
+Running command authority under the same storage transaction. Receipt insertion,
+revision and change publication are atomic. Exact retry recovers the original
+receipt after resolution without claiming it was applied. A native host must
+recheck current authority and its durable response fence before any backend
+mutation; Responding/Unknown cannot be replayed. No such host starts in W3a. See
+[DEVICE_EXECUTION.md](DEVICE_EXECUTION.md).
+
+## W2b durable command transport — 2026-11-02
+
+Server restart preserves accepted/running device work; disconnect never resets
+it to queued. Device events and change publication commit atomically. Exact event
+replay returns its original receipt. Device revoke and unfinished-command
+invalidation share one transaction. Bounded change waits subscribe before reading,
+then recheck authority/storage after notification, lag, timeout or shutdown.
+Cancellation requests do not prove a process stopped. Late observations consume
+original sequence without restarting work. W3a adds decision receipts above;
+W3b still owns actual native effects, local execution reconciliation and Worker
+approval application. See [ADR 028](adr/028-durable-device-commands.md).
+
 ## Private media preparation — 2026-10-28
 
 Ingress commits input/order and pending media atomically before external reads.

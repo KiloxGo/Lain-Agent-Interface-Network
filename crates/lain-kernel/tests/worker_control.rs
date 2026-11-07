@@ -10,6 +10,72 @@ use tokio::sync::broadcast;
 const TOKEN: &str = "fixture-owner-token-0123456789abcdef";
 
 #[tokio::test]
+async fn command_output_burst_retains_final_output_completion_and_later_approval() {
+    let (dir, kernel, workers) = setup().await;
+    let mut events = kernel.subscribe();
+    let session = workers
+        .create(dir.path().to_owned(), SessionOptions::default())
+        .await
+        .unwrap();
+    let turn = workers
+        .prompt(session.id(), "command-output-burst".into())
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let state = kernel
+                .turns(session.id())
+                .unwrap()
+                .into_iter()
+                .find(|t| t.id == turn.id)
+                .unwrap()
+                .state;
+            if state.is_terminal() {
+                assert_eq!(
+                    state,
+                    TurnState::Completed,
+                    "command output burst disconnected the worker"
+                );
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let history = kernel
+        .history_before(session.id(), i64::MAX as u64, None, 200)
+        .unwrap();
+    assert!(history.events.iter().any(|e| matches!(&e.kind, EventKind::CommandCompleted {output,exit_code:Some(0),..} if output=="FINAL READ OUTPUT 你好")));
+    assert!(history.events.iter().any(|e| matches!(&e.kind, EventKind::AssistantMessageCompleted {text} if text=="FINAL SUMMARY 你好")));
+    assert!(
+        !history
+            .events
+            .iter()
+            .any(|e| matches!(e.kind, EventKind::BackendDisconnected { .. }))
+    );
+    // The same native session must still deliver authority-bearing requests.
+    let next = workers
+        .prompt(session.id(), "approve".into())
+        .await
+        .unwrap();
+    let event = wait(&mut events, |e| matches!(&e.kind, EventKind::ApprovalRequested {approval} if approval.turn_id==Some(next.id))).await;
+    let EventKind::ApprovalRequested { approval } = event.kind else {
+        unreachable!()
+    };
+    workers
+        .decide(session.id(), approval.id, ApprovalDecision::Deny)
+        .await
+        .unwrap();
+    wait(
+        &mut events,
+        |e| matches!(&e.kind, EventKind::TurnCompleted {turn} if turn.id==next.id),
+    )
+    .await;
+    workers.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn idle_detach_lazy_attachment_approval_and_shutdown_are_separate_from_work() {
     let (dir, kernel, workers) = setup_with_timeout(Duration::from_millis(60)).await;
     let mut events = kernel.subscribe();

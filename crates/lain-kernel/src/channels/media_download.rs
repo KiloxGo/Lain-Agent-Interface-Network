@@ -75,21 +75,31 @@ async fn fetch_pinned(url: Url, addresses: &[SocketAddr]) -> Result<Vec<u8>, Med
     }
     Ok(bytes)
 }
+fn public_addresses(
+    addresses: impl IntoIterator<Item = SocketAddr>,
+) -> Result<Vec<SocketAddr>, MediaFailure> {
+    // QQ CDNs can legitimately return many A and AAAA records. Validate every
+    // retained answer before pinning; never truncate away a non-public answer.
+    const MAX_DNS_ADDRESSES: usize = 64;
+    let addresses: Vec<_> = addresses.into_iter().take(MAX_DNS_ADDRESSES + 1).collect();
+    if addresses.is_empty()
+        || addresses.len() > MAX_DNS_ADDRESSES
+        || addresses.iter().any(|a| !crate::reading::public_ip(a.ip()))
+    {
+        return Err(MediaFailure::UnsafeLocation);
+    }
+    Ok(addresses)
+}
+
 pub(super) async fn download(raw: &str) -> Result<Vec<u8>, MediaFailure> {
     tokio::time::timeout(Duration::from_secs(15), async {
         let url = media_url(raw)?;
         let host = url.host_str().ok_or(MediaFailure::UnsafeLocation)?;
-        let addresses: Vec<_> = tokio::net::lookup_host((host, 443))
-            .await
-            .map_err(|_| MediaFailure::SourceUnavailable)?
-            .take(17)
-            .collect();
-        if addresses.is_empty()
-            || addresses.len() > 16
-            || addresses.iter().any(|a| !crate::reading::public_ip(a.ip()))
-        {
-            return Err(MediaFailure::UnsafeLocation);
-        }
+        let addresses = public_addresses(
+            tokio::net::lookup_host((host, 443))
+                .await
+                .map_err(|_| MediaFailure::SourceUnavailable)?,
+        )?;
         fetch_pinned(url, &addresses).await
     })
     .await
@@ -99,6 +109,31 @@ pub(super) async fn download(raw: &str) -> Result<Vec<u8>, MediaFailure> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn normal_dual_stack_cdn_answers_remain_public_pinned_and_bounded() {
+        // A real QQ CDN lookup on the cloud host returned 16 A + 9 AAAA
+        // records. Synthetic public addresses reproduce that answer shape.
+        let mut addresses: Vec<SocketAddr> = (1..=16)
+            .map(|i| SocketAddr::from(([14, 17, 85, i], 443)))
+            .collect();
+        addresses.extend((1..=9).map(|i| {
+            format!("[240e:97c:2f:3003::{i:x}]:443")
+                .parse::<SocketAddr>()
+                .unwrap()
+        }));
+        assert_eq!(public_addresses(addresses.clone()).unwrap(), addresses);
+        addresses.push("127.0.0.1:443".parse().unwrap());
+        assert_eq!(
+            public_addresses(addresses),
+            Err(MediaFailure::UnsafeLocation)
+        );
+        assert_eq!(public_addresses([]), Err(MediaFailure::UnsafeLocation));
+        let overflow = (1..=65).map(|i| SocketAddr::from(([14, 17, 85, i], 443)));
+        assert_eq!(
+            public_addresses(overflow),
+            Err(MediaFailure::UnsafeLocation)
+        );
+    }
     #[tokio::test]
     async fn pinned_http_contract_bounds_body_and_rejects_redirects_and_encoded_bodies() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};

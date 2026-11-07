@@ -1,5 +1,429 @@
 # Lain Memory
 
+## Evidence-bound selected-memory recall — local candidate, 2026-11-07
+
+After successful read-only ordinary Actor lookups of active BriefingSelection or
+ConversationCorrection records in the current conversation, final output selects
+ephemeral short read references. Each is bound by the Kernel to the actual
+completed read, memory identity and revision; only current offered strings are
+declared as finite choices. Save/provenance action IDs, raw memory IDs and the
+earlier ambiguous ID-tuple form cannot substitute for a read choice. References
+are not persisted or reusable navigation pointers; full receipts keep real IDs.
+Kernel quotes the complete saved text
+and labels source/model notes separately from the user's reviewed correction.
+Generated uncertainty in a saved body remains attributed text, not proof of an
+older notice or the user's participation. Existing memories, candidates, reviews,
+provenance, deadlines and their original source dependencies are unchanged.
+
+The private memory_answer final function or text envelope is presentation, not
+an executable Tool, source read, semantic write or new authority. Invalid prose,
+unknown references, duplicate records and oversized complete output reject
+before speech publication; returned usage remains recorded, without hidden reads,
+extra model retries or operation replay. Normal current-memory/disclosure checks
+continue to own publication and reconnect withdrawal.
+
+Query/filter/page coverage comes from each actual read. An empty filtered page
+is not historical or scope-wide absence. Ordinary recall preserves today/tomorrow
+wording. Requested details can show the typed stored UTC deadline and optional
+checked Kernel message-capture clock, separately labelled; neither becomes
+platform send time, event date or user timezone. Missing optional clocks are not
+guessed. Complete rendered output is bounded to12KiB, never silently clipped.
+
+Other memory origins/scopes, mixed Worker/source actions, mutations, background
+activities and ordinary no-tool personality chat retain their existing paths.
+Management-only inspection without a successful body read stays outside this
+view. Eligible empty current-conversation pages can report their limited lookup.
+This is not a general truth guarantee; actual usability, platform and deployment
+acceptance are separate.
+
+Windows25f414a0a0d8/d47 has65Actor/105briefing overlapping filtered checks, final
+fmt/strict/build and48native memory fixture requests through both audiences.
+R1streaming test gap and finite-choice/Markdown regressions are repaired, R3static
+clear. Actual E4run fails08recall on a copied save-action UUID (correct rejection);
+finite read choices replace that ambiguity. Changed25actual run fails earlier on
+a one-character source UUID typo in reconciliation (5requests/22124tokens), never
+offers memory_answer. Current actual full-memory tail remains unverified; ce43old
+evidence is not promoted. No Linux/deploy/real-source activation; see acceptance.
+
+
+## Checked source wording in reviewed selections — local candidate, 2026-11-07
+
+New briefing-selection drafts may append a complete source-wording section after
+the existing full generated draft and group suffix have passed their bounds.
+Only selected item/group citations enter it, not uncited influencing messages or
+entire archive records. Each retains source label, typed text origin and its own
+occurrence-versus-receipt clock. These are checked quotation fragments, not full
+messages or independently verified facts; knowledge projections may contain model
+descriptions and are not labelled sender words. No new source read/grant is added.
+
+Append only when the whole section fits the existing4096-byte body limit. Otherwise
+retain the complete old draft without partial quotations, truncating conditions or
+narrowing groups. The saved text exactly matches review; no translation/model call
+is added. Expiry, conversation scope, unverified provenance and later source/
+correction/forget suppression remain. Existing pending/accepted candidates retain
+their original body: validation accepts only the exact current reconstructed base
+format or its exact checked-wording addition with identical provenance and current
+source gates. It does not strip arbitrary text to make a candidate acceptable.
+
+No schema/entity or existing-memory rewrite. Native43briefing/48memory fixture
+requests pass, including forced-English notes/Chinese literal hits in both audiences.
+The initial QQ assertion gap is retained and repaired with4regression tests.
+Current Windowsce43c91b30b1/d47/medium completes18actual foreground steps:
+47requests/358040reported tokens, max28224; exact reviewed save and literal领取
+hit consumed by the provider are checked. Current actual notes are Chinese;
+forced-English protection comes from separate native/Rust cases, not translation.
+Correction/forget/restart pass, but free-form recall still overstates unresolved
+references/query coverage and capture-date meaning. No general prose acceptance,
+Linux build, deployment or real-source activation. See DAILY_BRIEFING_ACCEPTANCE.
+
+## One model-facing scoped query — local candidate, 2026-11-07
+
+The Actor advertises memory_search for both bounded listing (text=null) and a
+single literal-substring filter. memory_list used the identical MemoryQuery,
+read implementation and scoped gate; it remains a typed/persisted compatibility
+alias, not a second advertised schema. CLI/HTTP listing, old receipts and current
+memory evidence are unchanged. Current instructions name the canonical query.
+This grants no new scope, write authority or automatic recall.
+
+Global/internal field-free scope variants can share a kind enum containing only
+the offered members. Conversation/device/workspace/project ID branches stay
+exact and separate, never cross-product enums. The legacy explicit path branch
+remains only under the existing no-selected-device rule. Nullable kind spelling
+changes only its schema representation, not accepted kinds/null. Current Windows
+candidate completes the full actual-provider synthetic-source memory lifecycle;
+7canonical query attempts include one refused quoted-status argument before valid
+recovery. Scope/expiry/review and old-alias compatibility remain. English saved
+content can miss Chinese literal filters; current recall can over-explain capture
+clock conversion. These quality gaps and Linux/deployment/real-source acceptance
+are not closed by the functional run. See DAILY_BRIEFING_ACCEPTANCE.
+
+## Correction message capture clock — deployed, 2026-11-06
+
+After an ordinary scoped/current Actor memory read, the same Kernel lock may
+resolve a ConversationCorrection's exact persisted turn/message identity. Only
+one matching completed User message in that conversation, containing the exact
+saved replacement, supplies optional `statement_capture` metadata. Background
+reading/briefing/sharing requests are not user statements. This adds only the
+message identity, capture milliseconds and formatted UTC, never audit text or
+predecessor/source bodies. Missing or mismatched identity leaves the clock null;
+storage errors keep their context. The readable record remains unchanged.
+
+The basis is `kernel_conversation_message_capture`, with
+`original_sender_time_available=false`. It is not a platform send/occurrence
+clock, review/storage time, expiry or event date. Channel processing may be
+delayed. It supplies no user timezone or automatic today/tomorrow conversion;
+when asked about clocks or date interpretation, disclose the basis and remaining
+uncertainty rather than using storage time as corroboration. Ordinary corrected-
+content recall leads with the current words and conditions, retaining relative
+wording without volunteering clock anomalies. A past hour alone does not make
+the speaker's day ambiguous. Unrepresentable formatted clocks remain null.
+
+No persisted format, schema, scope, expiry, channel collection or authorization
+changes. The annotation shares the existing16KiB optional whole-result fallback.
+Management-only inspection of unreadable selections gains no body or capture
+lookup. Native gated tests exercise delayed review across UTC midnight, all three
+body-read tools, mismatched audit identities and foreign-conversation denial.
+Sourcef65a3f48d94b is public-accepted through same40 maintenance on the original
+database. Native Linux66memory/37Actor filters overlap; public/installed-client/
+backup checks pass. Actual Windows synthetic-source/model evidence confirms the
+independent User correction remains readable after original-source forgetting;
+generated replies remain verbose and can omit requested details. Real-source
+acceptance remains pending. See DAILY_BRIEFING_ACCEPTANCE.
+
+## Selected source versus user correction — deployed, 2026-11-06
+
+The optional checked `selection_validity` view also labels each returned record's
+typed content origin: `unverified_source_selection` or `verbatim_user_correction`.
+The latter is the exact reviewed user replacement, not a quotation from or an
+edit to a source notice. Source selections remain unverified model/source reports;
+review does not make them user preferences, commitments or independently verified
+facts. Neither origin establishes an earlier notice that was never obtained.
+
+Relative words belong to each statement's own speaker and time. A correction's
+"today" must not be attributed to an original notice's "tomorrow". Storage and
+expiry clocks are not statement/event clocks; absent a checked statement-time
+anchor, preserve the attribution and disclose that date limitation. This adds no
+date parser or guessed calendar, changes no record/authority, and uses the same
+optional16KiB projection fallback. Model prose still needs actual verification;
+this annotation cannot guarantee factual correctness.
+
+## Selected-memory deadlines versus visibility — deployed, 2026-11-06
+
+Checked Actor memory list/search/inspect can supplement BriefingSelection and
+ConversationCorrection results with `selection_validity`: exact stored expiry
+milliseconds and a human-readable UTC clock, plus the distinction between
+conversation visibility and frontend lifetime. Closing/reopening a frontend does
+not itself expire, forget or extend a memory. Original-source withdrawal can make
+a source selection unreadable sooner. A reviewed User correction is independently
+attributed and does not inherit that old source-body dependency; current audience
+authorization and the inherited finite deadline still apply. This describes the
+existing read behavior, not new authority. A deadline is not proof of readability.
+UTC expiry is not an event date or an assumed user timezone. Unrepresentable
+clocks remain null, never wrapped or guessed.
+
+Only already checked returned records supply this metadata. Original memory
+content/provenance/scope/expiry are unchanged, and ordinary memory kinds or empty
+pages receive no selected-deadline note. Text labels cannot invent typed origin.
+Supplementary metadata is optional at the existing16KiB tool bound: when it cannot
+fit, keep the complete original result rather than clip evidence or make a
+previously valid read overflow. Existing final bounds/redaction remain enforced.
+This checked read projection is deployed through same40 maintenance; it changes
+no grant, schema or TTL. Native Linux/public/client/backup evidence is recorded in
+DAILY_BRIEFING_ACCEPTANCE; real-source consent remains pending.
+
+## Focused actual exact-item lifecycle — 2026-11-06
+
+On the unchanged accepted source, an actual-provider/native Windows TUI scenario
+passes reviewed source-backed save, restart recall, exact user correction, current
+replacement recall, reviewed forget and restart. Scope/expiry persist; selected
+source remains UnverifiedSelection, user correction Explicit without independent
+verification.21actual requests/156198reported tokens; all synthetic data. Captured
+model inputs bind exact current User identity: the replacement body enters only
+after current retrieval, and both known old/new body markers are absent after
+forget/reconnect. Actual records, receipts,404and empty current list agree.
+
+The earlier invented500/501story is not reproduced in this exact-item case; its
+old broader-context failures stay retained. No new code/policy/deployment or real
+QQ/source authority. Prose is still qualified, and Sources0/pending consent keep
+full personal-source acceptance open. See DAILY_BRIEFING_ACCEPTANCE and external
+lain-memory-fidelity-2026-11-06/acceptance.md.
+
+## Selected-memory review clarity — 2026-11-06, Windows client installed
+
+The existing shared `desk`/`chat` review now puts the actual saved/replacement
+content before source/identity details. It separates the one selected-record
+effect, conversation-only visibility, original/inherited expiry, conditional
+input-dependent unavailability and independent archive/audit retention. Forget
+review also shows original expiry and metadata status, without rereading or
+restoring the old body. Enabled metadata is explicitly not proof of readability.
+The text does not invent an exact affected count: other input-dependent records
+can stop being recalled, while only the selected record is deleted/superseded.
+Full user quotation, fixed draft/identity validation and all-page confirmation
+remain unchanged. No wire/schema/policy or source-sharing change is made.
+
+Five relevant native Windows tests, strict client checks/format/build and the
+isolated native terminal/simulated QQ save-correct-forget/reconnect flow pass.
+The latter accounts48 fixture model requests, with no real model/QQ invocation;
+it checks both audiences, cross-batch selection and source withdrawal. Its driver
+visits actual rendered review pages until the existing decision gate opens and
+checks content/effect boundaries, replacing the fixed five-page assumption.
+The candidate and installed client pass read-only actual cloud CLI checks; the
+installed ConPTY client restores its old test conversation and browses empty
+Sources/returns/exits. Current cloud reader is configured, but Kernel sources
+remain0 and real-source consent/QQ product acceptance are still pending. The
+server and its data are not changed by this presentation update. External
+evidence: `lain-memory-review-2026-11-06/`.
+
+## Related-group recall interpretation — 2026-11-06, deployed follow-up
+
+Actor memory list/search/inspect now add `briefing_recall_semantics` for records
+whose checked provenance contains a BriefingSelection reconciliation reference.
+It names only grouped records in the returned page and distinguishes historical
+extraction-page limitations from the current related memory. It also explains how
+stored source occurrence dates/offsets support unambiguous relative days; receipt
+time alone does not establish them. These are fixed interpretation notes, not
+new source facts, independent verification or a new permission.
+
+The notes are computed after the existing scoped/source-current read and its
+dependency capture. Reviewed record text and provenance are unchanged, including
+old batch uncertainty. Exact-item selections and other memory kinds receive no
+group interpretation; a matching phrase inside untrusted content cannot assign
+it. Cross-conversation, forgotten or withdrawn records retain their ordinary
+read/publication fences. No schema change, extra source retrieval or model call
+is introduced by this projection. Actor policy asks for the actual arrangement
+first with concise source/uncertainty notes instead of storage narration.
+
+The follow-up is deployed on the original cloud39 identity/database; the unchanged
+installed client reconnects. Windows35 targeted tests/strict checks/format/build
+pass. Linux35 briefing and22 Actor/archive-Actor tests, the recorded style-only
+check exception and build pass; public verification binds the compiled policy
+revision and new boot. Initial actual-model readback remains partial: it resolved dates
+but still recited obsolete processing limits. Final focused recall over a
+deterministic synthetic saved group makes2 actual requests and passes narrow
+readback, preserving uncertainty and nonparticipation without reciting that old
+limit. This does not establish general naturalness or live QQ acceptance. Evidence
+and deployment boundary are recorded in the current ROADMAP/DEVLOG checkpoint.
+
+## Checked related-group selection — 2026-11-06, local schema039
+
+RememberBriefing now has explicit include_related (legacy/default false). True
+selects the actual completed related group; false preserves one immutable original
+item. Fixed drafts retain separate reported corrections/conflicts, source clocks,
+uncertainty and nonparticipation. Review shows actual member numbers and the draft.
+Oversized or not-yet-reconciled groups return a known no-write notice, not an
+Unknown mutation or a silently narrower selection.
+
+BriefingMemoryEvidence keeps its primary extraction inputs and optionally holds a
+BriefingMemoryReconciliation reference: actual index Actor ID, final job fingerprint
+and sorted member numbers. Full discovery/judgment source versions remain in the
+immutable manifest/jobs. All influencing records/grants bound current access and
+expiry, including uncited nonmember discovery inputs. Forgetting suppresses the
+actual members' extraction inputs; unrelated source archives remain intact.
+Legacy exact-item selections keep their original scope and semantics. Source
+reports still have UnverifiedSelection authority after action approval.
+
+Original batch uncertainty is labelled as such; a batch's missing-original remark
+must not be promoted to a claim the current related report lacks that original.
+No standing memory grant, cross-conversation sharing or private-trial extension.
+
+
+## Reviewed user correction — 2026-11-06, local schema038
+
+The same metadata-inspect/change path now accepts `correct` as well as `forget`.
+Correction creates an existing MemoryCandidate whose entire body is an exact
+quotation from the current real user message. Both terminal entries display the
+complete user message, separately labelled excerpt, actual replacement and finite
+expiry before approval. ConversationCorrection provenance names the message,
+review action and exact predecessor revision; Explicit means user-stated, never
+independently verified source truth. Visibility and original expiry are inherited.
+
+Acceptance, predecessor supersession/body scrubbing, FTS update, old source-input
+suppression, content-free replacement-ID receipt and fixed acknowledgement share
+one transaction. Generic candidate acceptance cannot bypass it. A fresh metadata
+management turn can correct a withdrawn source selection without copying its old
+body. Earlier stale body dependencies remain invalid. A changed, disabled or
+expired target cannot be corrected into an active record. Restart recovers actual
+operation receipts; expiry prunes correction records/candidate bodies too.
+The correction-creation Actor context depends on its new record version: after
+forget/supersede/expiry, the original quoted User body is withheld from normal
+and model histories. Raw immutable audit is retained, never silently rewritten.
+Without this dependency an actual-model run repeated a forgotten arrangement
+from earlier User text; a failing regression reproduced it before the repair.
+
+Local final native TUI/simulated QQ and actual DeepSeek synthetic-input paths
+pass (30 fixture calls;17 actual calls,112,518 reported tokens,43.25s). Final
+memory63 tests pass after the quote-lineage repair; full334/client152/wire8 are
+the prior implementation checkpoint. No production upgrade. See [ADR039](adr/039-reviewed-conversation-memory-management.md).
+
+
+## Reviewed forgetting of conversation selections — 2026-11-06, local schema037
+
+An actual saved conversation-local briefing selection can now be explicitly
+forgotten through normal chat. `memory_selection_inspect` exposes only exact
+management metadata, including when source bodies have been withdrawn.
+`memory_selection_change` currently supports only Forget: it requires that
+same-turn inspection/revision and an exact quotation from a real current User
+MessageId. Both terminal entries show checked scope/target/user intent and require
+independent action review. No private IncomingId, channel identity or candidate
+is fabricated for deletion. Correction remains unimplemented.
+
+Existing semantic deletion, FTS removal, candidate scrubbing and source-input
+suppression share one transaction with the content-free effect and fixed Actor
+acknowledgement. Earlier read dependencies stay invalidated. HTTP/TUI restoration
+can retain `memory_change_receipts` without restoring their old bodies or replaying
+the operation. The original archives/audit keep their separate retention. Current
+batch-input suppression can also withhold other selections depending on those
+same inputs; it is not fine-grained claim-level forgetting.
+
+Core lifecycle and actual Actor/terminal review tests pass. Native Windows
+terminal/simulated QQ exercises save/recall, source withdrawal, reviewed forget,
+actual deletion, empty recall and restart. Actual DeepSeek over synthetic inputs
+passes the same selected path; no live QQ source or personal instance upgrade.
+See [ADR039](adr/039-reviewed-conversation-memory-management.md).
+
+## Reviewed daily-briefing selection — 2026-11-05, local schema036
+
+An independently authorized conversation can propose `briefing_remember` for one
+actual numbered item. The Kernel derives a fixed episodic draft from the saved
+item, including uncertainty and nonparticipation language. Both `lain desk` and
+retained `lain chat` display the checked draft, conversation-only visibility,
+source-input count and finite UTC expiry before explicit action approval. A read
+grant or conversational assent does not approve the write. Existing candidate,
+record and FTS stores are reused; no standing memory grant is enabled.
+
+`MemoryScope::Conversation` names the real cloud conversation. Its exact ID is
+offered in memory retrieval schemas; another conversation does not inherit it.
+Selected records retain UnverifiedSelection authority, actual review time and
+all up-to-four extraction input versions, including uncited records. Recall is
+gated by the original read/source epochs, retention, upstream freshness and
+per-conversation suppression. Generic proposals cannot launder recalled source
+selections into longer-lived or broader memory.
+
+Source change withdraws generated bodies and pending drafts. A stale pending
+selection can be approved, declined or cancelled only into a closed no-write
+source notice. Forgetting a related selection suppresses reuse of those inputs.
+Candidate persistence wakes the existing retention maintainer before approval;
+expired candidate/semantic bodies are cleared without a later inspection.
+
+`ActorSnapshot.reviewed_memory_receipts` separately reconstructs accepted saves
+from committed candidates, even when the action acknowledgement was interrupted.
+It retains only actual IDs, conversation and review time. This metadata survives
+body withdrawal, deletion and reconnect; it grants no disclosure or replay and
+does not claim delivery, current memory availability or independent truth.
+
+The normal Actor save/recall path and lifecycle regressions pass locally. Native
+Windows terminal/simulated QQ acceptance passes with independent audiences and
+18 accounted fixture requests. Actual DeepSeek also saves and recalls one
+source-bearing selection over four synthetic inputs (nine requests, 54,226
+reported tokens, 30.88 seconds); restart and source withdrawal pass. These are
+not live-source QQ or general naturalness acceptance. Natural reviewed correction/forget tools,
+cross-batch reconciliation, live source choice and production upgrade remain
+unfinished. See [ADR038](adr/038-reviewed-briefing-memory.md).
+
+## Selected scope tool definitions — 2026-11-05
+
+The Actor's memory search/list/inspect/propose schemas now reflect the same
+Kernel-selected scopes used by retrieval. Device/workspace/project branches
+contain exact current IDs; another conversation does not inherit them. A selected
+remote context offers no daemon-local path branch. Without such selection the
+existing explicit legacy Workspace contract remains. These schemas describe
+capabilities, never grant access: fresh Kernel context, source-lineage and review
+checks still govern every operation. This repairs a gap where scope descriptors
+were present in input but strict tool schemas admitted only the old scopes.
+Native Windows Kernel280 and Actor/reliability17 tests pass, as do 328 selected
+native Linux tests (two existing manual/live ignored on each Kernel run). Targeted
+Windows Clippy/format and scoped independent review pass. Seven isolated actual
+HTTPS memory cases now pass on the candidate, checking complete strict tool
+schemas, exact model retrieval, project-only sharing, independent active-source
+forget/correction, scrolled/reopened terminal withholding, cache exclusion,
+deadline SSE and revocation. The candidate's running executable hash is checked;
+the identical executable is now deployed in the backed-up same-schema maintenance
+release, preserving cloud identity, database and private configuration. The twelve
+HTTPS Worker cases were rerun on that executable. Schema32 alone does not prove
+the tool definitions in a running binary include this fix; the acceptance binds
+the source manifest, actual process hash and exact model requests.
+
+## Private lineage and safe publication — 2026-11-04
+
+Schema031 tracks cumulative private-source snapshots and exact original incoming
+fingerprints alongside contextual semantic-memory dependencies. Private influence
+survives refresh; generic proposals cannot promote it. Complete model-input
+replacement retires excluded speech/actions from publication and future model
+history while retaining raw audit. Final completion, HTTP restore/retry, consumed
+SSE snapshots and QQ prewrite check current sources. Unavailable content has an
+explicit restricted projection; exact committed effects retain metadata only.
+See [ADR034](adr/034-contextual-semantic-memory.md#private-evidence-and-publication-schema031)
+for bounds, legacy quarantine and exceptions. At this increment live terminal
+invalidation and startup synchronization were still separate. The later schema032
+and [cloud acceptance](CLOUD_ACCEPTANCE.md) supply those checks; real QQ/model
+experience remains separate.
+
+## Contextual semantic memory — 2026-11-04
+
+Schema030 adds Project/Device/DeviceWorkspace scopes without cross-host path
+canonicalization. An explicit owner-selected conversation context supplies exact
+device/workspace/project authority to generic Actor retrieval. Returned source
+versions persist before disclosure and constrain later input, proposals and
+publication. Scope changes and withdrawn sources remove affected generated
+history; derived records retain dependency checks. New origin is separate from
+visibility, while legacy missing origin remains unknown and stored bytes are
+preserved. Untracked legacy generated memory remains owner-inspectable but is
+not model evidence. Existing candidate review and channel source/grant checks
+continue. [Contract and limits](adr/034-contextual-semantic-memory.md); native
+core acceptance passes on Windows and Linux. Later schema031 and schema032
+increments supply channel lineage and client/cache integration; see
+[cloud acceptance](CLOUD_ACCEPTANCE.md) for the combined evidence and limits.
+
+## Cloud continuity foundation — 2026-11-04
+
+Schema029 adds a separately owned project identity and explicit device/workspace
+mapping registry. This avoids using cross-host paths to identify projects, but
+did not by itself change MemoryScope or enable project recall. Existing Workspace
+memory keeps its daemon-host meaning and is never promoted or merged by this
+migration. Later increments above implement origin/visibility separation, trusted
+Actor context and cache/history invalidation in
+[the cloud continuity stage](CLOUD_CONTINUITY.md).
+
 ## W1f selected archive interpretations — 2026-10-28
 
 An independent default-off ArchiveMemoryGrant permits one cautious selection per
@@ -664,8 +1088,11 @@ Lain's personal continuity and worker supervision are equally important.
 `MemoryRecord` carries selected content, kind, scope, provenance, status, revision,
 recorded/updated timestamps, explicit owner acceptance time and optional
 `superseded_by`. Kinds are Episodic, ProjectKnowledge, Preference and Reflection.
-Scopes are Global, Workspace(canonical daemon-host directory) and Internal.
-ProjectKnowledge requires Workspace; Reflection requires Internal. These limits
+The Phase 7.1 scopes were Global, Workspace(canonical daemon-host directory) and
+Internal, with separately implemented Channel grant paths. Schema030 adds stable
+Project, Device and DeviceWorkspace scopes and Kernel-owned conversation context;
+see [the current contract](adr/034-contextual-semantic-memory.md). ProjectKnowledge
+accepts Workspace, Project or DeviceWorkspace; Reflection requires Internal. These limits
 leave personality evolution and rich relationship modeling for later work.
 
 | Source | Authority | Confirmation meaning |
@@ -748,8 +1175,18 @@ records); cursors advance only over returned rows. Actor reads allow at most ten
 records and only Active status. This is deterministic retrieval, not relevance
 or semantic ranking. Very short searches may scan the selected scope.
 
-Actor memory tools are `memory.search`, `memory.list`, `memory.inspect` and
-`memory.propose`. Retrieved records carry `untrusted_memory_evidence` and their
+Actor tool schemas explicitly describe this literal match. Read receipts include
+the exact query and `query_semantics` (`literal_substring`, `filtered_page_only`).
+An empty filtered page is not evidence that the scope is empty or a prior save
+failed. When wording is unknown, the Actor can request a bounded listing with
+null text in the same offered scope; it must not silently broaden scope. An
+accepted ordinary proposal with a `memory_id` proves an atomic save at review
+time, while present visibility still requires a fresh lookup. A later inference
+failure does not undo completed memory operations.
+
+Advertised Actor memory tools are `memory.search`, `memory.inspect` and
+`memory.propose`; `memory.search` also lists with null text. `memory.list` remains
+a typed compatibility alias for old operations. Retrieved records carry `untrusted_memory_evidence` and their
 actual provenance. Nothing is injected automatically into every system prompt.
 Old preferences do not override the current owner request, persona, tool registry,
 policy or confirmations. All work mutations still require ordinary approval;

@@ -5,7 +5,7 @@ use lain_wire::{DeviceId, devices::*};
 use rusqlite::{Connection, OptionalExtension};
 use subtle::ConstantTimeEq;
 
-fn device(db: &Connection, id: DeviceId) -> Result<Device> {
+pub(super) fn device(db: &Connection, id: DeviceId) -> Result<Device> {
     let d: Device = decode(
         db.query_row(
             "SELECT snapshot FROM devices WHERE id=?1",
@@ -41,7 +41,7 @@ fn device(db: &Connection, id: DeviceId) -> Result<Device> {
     );
     Ok(d)
 }
-fn safe(value: &impl serde::Serialize) -> Result<()> {
+pub(super) fn safe(value: &impl serde::Serialize) -> Result<()> {
     crate::profiles::check_sensitive(value).map_err(|_| ControlError::InvalidInput)?;
     let json = serde_json::to_string(value)?;
     ensure!(
@@ -54,7 +54,7 @@ fn safe(value: &impl serde::Serialize) -> Result<()> {
     );
     Ok(())
 }
-fn authorized(
+pub(super) fn authorized(
     db: &Connection,
     id: DeviceId,
     fingerprint: &str,
@@ -188,6 +188,7 @@ impl Store {
                 (id.to_string(), serde_json::to_string(&d)?),
             )?;
         }
+        super::device_commands::maintain(&tx, id, now_ms()?)?;
         let result = snapshot(&tx, id, now_ms()?)?;
         tx.commit()?;
         Ok(result)

@@ -6,6 +6,24 @@ use lain_wire::source::{InspectSource, SetSourceGrant, SourceWindow};
 mod archive_recall;
 
 #[test]
+fn group_rejection_uses_normal_private_reply_delivery_checks() {
+    let (_dir, mut s, b, batch, mut t) = setup("请把整组消息记住。");
+    t.complete_group_rejection("整组关联尚未完成，尚未保存。")
+        .unwrap();
+    s.save_actor_turn(&mut t, false).unwrap();
+    s.channel_finish(batch.id, &t).unwrap();
+    let d = s.channel_claim_delivery(b.id).unwrap().unwrap();
+    assert!(
+        ordinary_delivery(&s.connection, &d).unwrap(),
+        "a fixed no-write notice must use the normal private reply prewrite gates"
+    );
+    assert!(delivery_current(&s.connection, &d).unwrap());
+    receive(&mut s, &b, "先别回复刚才那条，重新看这个请求。");
+    assert!(!delivery_current(&s.connection, &d).unwrap());
+    assert!(!s.channel_may_send(&d).unwrap());
+}
+
+#[test]
 fn knowledge_freshness_lease_invalidates_private_disclosure_without_a_record_revision_change() {
     use lain_wire::archives::*;
     let (_dir, mut s, b, _batch, mut t) = setup("上次的资料？");
@@ -113,6 +131,7 @@ fn setup(text: &str) -> (tempfile::TempDir, Store, Binding, Batch, ActorTurn) {
         .unwrap();
     let mut t = ActorTurn {
         reading_activity: None,
+        briefing_activity: None,
         sharing_activity: None,
         id: ActorTurnId::new(),
         conversation_id: b.conversation_id,
@@ -147,6 +166,434 @@ fn receive(s: &mut Store, b: &Binding, text: &str) -> Incoming {
         },
     )
     .unwrap()
+}
+
+fn bridge_record(s: &mut Store, b: &Binding, t: &mut ActorTurn) -> MemoryRecord {
+    s.set_memory_grant(
+        b.id,
+        SetMemoryGrant {
+            enabled: true,
+            expected_revision: 0,
+            expires_at_ms: None,
+        },
+    )
+    .unwrap();
+    t.channel_memory = s
+        .channel_memory_context(b.id, BatchId(t.request_id))
+        .unwrap();
+    s.save_actor_turn(t, false).unwrap();
+    let r = s
+        .add_memory(&AddMemory {
+            request_id: lain_wire::RequestId::new(),
+            draft: MemoryDraft {
+                content: "synthetic-private-bridge-marker".into(),
+                kind: MemoryKind::Episodic,
+                scope: MemoryScope::Channel { channel_id: b.id },
+            },
+        })
+        .unwrap();
+    let evidence = s.private_memory_context(t.id, &r.id.to_string()).unwrap();
+    assert!(
+        evidence
+            .to_string()
+            .contains("synthetic-private-bridge-marker")
+    );
+    *t = s.actor_turn(t.id).unwrap();
+    r
+}
+fn bridge_next(s: &mut Store, previous: &ActorTurn, channel: bool) -> ActorTurn {
+    let mut t = previous.clone();
+    t.id = ActorTurnId::new();
+    t.request_id = uuid::Uuid::new_v4();
+    t.sequence = 0;
+    t.revision = 0;
+    t.state = TurnState::Running;
+    t.model_requests = 0;
+    t.actions.clear();
+    t.messages.clear();
+    if channel {
+        s.channel_finish(BatchId(previous.request_id), previous)
+            .unwrap();
+        let b = s
+            .channel_binding(previous.private_chat.as_ref().unwrap().channel_id)
+            .unwrap();
+        let input = receive(s, &b, "next synthetic question");
+        let batch = s
+            .channel_next_batch(b.id, input.received_at_ms + MAX_MERGE_MS)
+            .unwrap()
+            .unwrap();
+        t.request_id = batch.id.0;
+        t.private_chat = Some(s.private_chat_context(b.id, batch.id).unwrap());
+        t.channel_memory = s.channel_memory_context(b.id, batch.id).unwrap();
+    } else {
+        t.private_chat = None;
+        t.channel_memory = None;
+        t.channel_source = None;
+    }
+    t.message(MessageRole::User, "next synthetic question".into())
+        .unwrap();
+    s.save_actor_turn(&mut t, true).unwrap();
+    t
+}
+#[test]
+fn bridge_private_recall_cannot_be_promoted_by_a_generic_candidate_even_after_refresh() {
+    let (_dir, mut s, b, _batch, mut t) = setup("私有偏好");
+    bridge_record(&mut s, &b, &mut t);
+    t.private_chat.as_mut().unwrap().memory_versions.clear();
+    s.save_actor_turn(&mut t, false).unwrap();
+    t.actions.push(Action {
+        id: ActionId::new(),
+        call_id: "widen".into(),
+        state: ActionState::Proposed,
+        tool: Tool::MemoryPropose(ProposeMemory {
+            draft: MemoryDraft {
+                content: "private derived fact".into(),
+                kind: MemoryKind::Episodic,
+                scope: MemoryScope::Global,
+            },
+        }),
+        result: None,
+    });
+    t.state = TurnState::PendingConfirmation;
+    assert!(s.save_actor_turn(&mut t, false).is_err());
+}
+#[test]
+fn bridge_inherited_channel_evidence_keeps_its_grant_through_the_next_turn() {
+    let (_dir, mut s, b, _batch, mut old) = setup("channel question");
+    bridge_record(&mut s, &b, &mut old);
+    old.message(MessageRole::Assistant, "private inherited answer".into())
+        .unwrap();
+    old.state = TurnState::Completed;
+    s.save_actor_turn(&mut old, false).unwrap();
+    let next = bridge_next(&mut s, &old, true);
+    let history = s
+        .memory_context_history(next.id, s.actor_recent(b.conversation_id).unwrap())
+        .unwrap();
+    assert!(history.iter().any(|t| {
+        t.messages
+            .iter()
+            .any(|m| m.content == "private inherited answer")
+    }));
+    s.set_memory_grant(
+        b.id,
+        SetMemoryGrant {
+            enabled: false,
+            expected_revision: 1,
+            expires_at_ms: None,
+        },
+    )
+    .unwrap();
+    drop(s);
+    let s = Store::open(&_dir.path().join("chat.db")).unwrap();
+    assert!(s.check_actor_memory(next.id).is_err());
+}
+#[test]
+fn bridge_an_ordinary_entry_cannot_reuse_a_channel_conversations_private_history() {
+    let (_dir, mut s, b, _batch, mut old) = setup("private original channel input");
+    bridge_record(&mut s, &b, &mut old);
+    old.message(MessageRole::Assistant, "private channel response".into())
+        .unwrap();
+    old.state = TurnState::Completed;
+    s.save_actor_turn(&mut old, false).unwrap();
+    let next = bridge_next(&mut s, &old, false);
+    let history = s
+        .memory_context_history(next.id, s.actor_recent(b.conversation_id).unwrap())
+        .unwrap();
+    let old = history.iter().find(|t| t.id == old.id).unwrap();
+    assert!(old.messages.is_empty() && old.actions.is_empty());
+}
+#[test]
+fn bridge_suppressed_original_input_cannot_revive_without_any_memory_version() {
+    let (_dir, mut s, b, _batch, mut old) = setup("forgotten source marker");
+    old.message(MessageRole::Assistant, "source-derived old reply".into())
+        .unwrap();
+    old.state = TurnState::Completed;
+    s.save_actor_turn(&mut old, false).unwrap();
+    let original = s.channel_snapshot(b.id).unwrap().incoming[0].id;
+    s.connection
+        .execute(
+            "INSERT INTO channel_memory_suppressions VALUES(?1,?2)",
+            (b.id.to_string(), original.to_string()),
+        )
+        .unwrap();
+    let next = bridge_next(&mut s, &old, true);
+    let history = s
+        .memory_context_history(next.id, s.actor_recent(b.conversation_id).unwrap())
+        .unwrap();
+    let old = history.iter().find(|t| t.id == old.id).unwrap();
+    assert!(old.messages.is_empty() && old.actions.is_empty());
+}
+#[test]
+fn bridge_missing_raw_source_invalidates_an_already_assembled_history() {
+    let (_dir, mut s, b, _batch, mut old) = setup("retained raw source");
+    old.message(MessageRole::Assistant, "raw-derived reply".into())
+        .unwrap();
+    old.state = TurnState::Completed;
+    s.save_actor_turn(&mut old, false).unwrap();
+    let original = s.channel_snapshot(b.id).unwrap().incoming[0].id;
+    let next = bridge_next(&mut s, &old, true);
+    s.memory_context_history(next.id, s.actor_recent(b.conversation_id).unwrap())
+        .unwrap();
+    s.connection
+        .execute(
+            "DELETE FROM channel_incoming WHERE id=?1",
+            [original.to_string()],
+        )
+        .unwrap();
+    assert!(s.check_actor_memory(next.id).is_err());
+}
+#[test]
+fn bridge_a_full_input_rebuild_discards_stale_history_without_erasing_its_private_influence() {
+    let (_dir, mut s, b, _batch, mut old) = setup("source question");
+    let record = bridge_record(&mut s, &b, &mut old);
+    old.message(MessageRole::Assistant, "withdrawn historical answer".into())
+        .unwrap();
+    old.state = TurnState::Completed;
+    s.save_actor_turn(&mut old, false).unwrap();
+    let mut next = bridge_next(&mut s, &old, true);
+    s.memory_context_history(next.id, s.actor_recent(b.conversation_id).unwrap())
+        .unwrap();
+    s.delete_memory(record.id, record.revision).unwrap();
+    let rebuilt = s
+        .memory_context_history(next.id, s.actor_recent(b.conversation_id).unwrap())
+        .unwrap();
+    assert!(
+        rebuilt
+            .iter()
+            .find(|t| t.id == old.id)
+            .unwrap()
+            .messages
+            .is_empty()
+    );
+    s.check_actor_memory(next.id).unwrap();
+    next.state = TurnState::PendingConfirmation;
+    next.actions.push(Action {
+        id: ActionId::new(),
+        call_id: "widen-after-rebuild".into(),
+        state: ActionState::Proposed,
+        result: None,
+        tool: Tool::MemoryPropose(ProposeMemory {
+            draft: MemoryDraft {
+                content: "derived old private fact".into(),
+                kind: MemoryKind::Episodic,
+                scope: MemoryScope::Global,
+            },
+        }),
+    });
+    assert!(s.save_actor_turn(&mut next, false).is_err());
+}
+#[test]
+fn bridge_partial_source_deletion_or_rewrite_cannot_hide_behind_remaining_batch_inputs() {
+    for mode in ["before", "after", "rewrite"] {
+        let (_dir, mut s, b, _batch, mut old) = setup("first raw private source");
+        let original = s.channel_snapshot(b.id).unwrap().incoming[0].id;
+        let extra = receive(&mut s, &b, "second retained input");
+        s.connection.execute("UPDATE channel_incoming SET state='batched',snapshot=json_set(snapshot,'$.state','batched','$.batch_id',?2) WHERE id=?1", (extra.id.to_string(),old.request_id.to_string())).unwrap();
+        let through: i64 = s
+            .connection
+            .query_row(
+                "SELECT sequence FROM channel_incoming WHERE id=?1",
+                [extra.id.to_string()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        old.private_chat.as_mut().unwrap().input_through_sequence = through.try_into().unwrap();
+        old.message(MessageRole::User, extra.input.text).unwrap();
+        old.message(MessageRole::Assistant, "reply based on both inputs".into())
+            .unwrap();
+        old.state = TurnState::Completed;
+        s.save_actor_turn(&mut old, false).unwrap();
+        let next = bridge_next(&mut s, &old, true);
+        if mode != "before" {
+            s.memory_context_history(next.id, s.actor_recent(b.conversation_id).unwrap())
+                .unwrap();
+        }
+        if mode == "rewrite" {
+            s.connection.execute("UPDATE channel_incoming SET snapshot=json_set(snapshot,'$.input.text','corrected raw source') WHERE id=?1", [original.to_string()]).unwrap();
+        } else {
+            s.connection
+                .execute(
+                    "DELETE FROM channel_incoming WHERE id=?1",
+                    [original.to_string()],
+                )
+                .unwrap();
+        }
+        if mode == "before" {
+            let history = s
+                .memory_context_history(next.id, s.actor_recent(b.conversation_id).unwrap())
+                .unwrap();
+            assert!(
+                history
+                    .iter()
+                    .find(|t| t.id == old.id)
+                    .unwrap()
+                    .messages
+                    .is_empty()
+            );
+        } else {
+            assert!(s.check_actor_memory(next.id).is_err());
+        }
+    }
+}
+#[test]
+fn bridge_reviewed_global_facts_and_their_derivatives_keep_the_original_source_lifetime() {
+    fn accept(s: &mut Store, t: &mut ActorTurn, content: &str) -> MemoryRecord {
+        let id = ActionId::new();
+        t.actions.push(Action {
+            id,
+            call_id: id.to_string(),
+            state: ActionState::Proposed,
+            result: None,
+            tool: Tool::MemoryPropose(ProposeMemory {
+                draft: MemoryDraft {
+                    content: content.into(),
+                    kind: MemoryKind::Episodic,
+                    scope: MemoryScope::Global,
+                },
+            }),
+        });
+        t.state = TurnState::PendingConfirmation;
+        s.save_actor_turn(t, false).unwrap();
+        let accepted = s
+            .review_candidate(CandidateId(id.0), true, Some(id))
+            .unwrap();
+        t.actions.last_mut().unwrap().state = ActionState::Executed;
+        t.actions.last_mut().unwrap().result = Some(json!(accepted));
+        t.state = TurnState::Completed;
+        s.save_actor_turn(t, false).unwrap();
+        s.memory(accepted.memory_id.unwrap()).unwrap()
+    }
+    let (_dir, mut s, b, _batch, mut t) = setup("explicit current-user fact for review");
+    let original = s.channel_snapshot(b.id).unwrap().incoming[0].id;
+    let first = accept(&mut s, &mut t, "reviewed current-user fact");
+    let mut next = bridge_next(&mut s, &t, false);
+    s.actor_memory_inspect(next.id, first.id, &MemoryScope::Global)
+        .unwrap();
+    let second = accept(&mut s, &mut next, "derived from reviewed fact");
+    assert!(s.memory(first.id).is_ok() && s.memory(second.id).is_ok());
+    s.connection.execute("UPDATE channel_incoming SET state='expired',snapshot=json_set(snapshot,'$.state','expired') WHERE id=?1", [original.to_string()]).unwrap();
+    assert!(s.memory(first.id).is_err());
+    assert!(s.memory(second.id).is_err());
+}
+#[test]
+fn bridge_a_later_private_recall_does_not_drop_an_earlier_disclosed_source() {
+    let (_dir, mut s, b, _batch, mut t) = setup("read two private facts");
+    let a = bridge_record(&mut s, &b, &mut t);
+    let other = s
+        .add_memory(&AddMemory {
+            request_id: lain_wire::RequestId::new(),
+            draft: MemoryDraft {
+                content: "second private record".into(),
+                kind: MemoryKind::Episodic,
+                scope: MemoryScope::Channel { channel_id: b.id },
+            },
+        })
+        .unwrap();
+    s.private_memory_context(t.id, &other.id.to_string())
+        .unwrap();
+    assert_eq!(
+        s.actor_turn(t.id)
+            .unwrap()
+            .private_chat
+            .unwrap()
+            .memory_versions[0]
+            .memory_id,
+        other.id
+    );
+    s.delete_memory(a.id, a.revision).unwrap();
+    assert!(s.check_actor_memory(t.id).is_err());
+}
+#[test]
+fn bridge_delivery_rechecks_inherited_private_sources_at_claim_and_before_send() {
+    for prewrite in [false, true] {
+        let (_dir, mut s, b, _batch, mut old) = setup("lemon");
+        let record = bridge_record(&mut s, &b, &mut old);
+        old.message(MessageRole::Assistant, "old private answer".into())
+            .unwrap();
+        old.state = TurnState::Completed;
+        old.private_chat.as_mut().unwrap().decision = ChatDecision::Reply;
+        s.save_actor_turn(&mut old, false).unwrap();
+        let mut next = bridge_next(&mut s, &old, true);
+        s.memory_context_history(next.id, s.actor_recent(next.conversation_id).unwrap())
+            .unwrap();
+        let batch = BatchId(next.request_id);
+        next.message(
+            MessageRole::Assistant,
+            "answer influenced by old source".into(),
+        )
+        .unwrap();
+        next.state = TurnState::Completed;
+        next.private_chat.as_mut().unwrap().decision = ChatDecision::Reply;
+        s.save_actor_turn(&mut next, false).unwrap();
+        s.channel_link(batch, &next).unwrap();
+        s.channel_finish(batch, &next).unwrap();
+        let claimed = prewrite.then(|| s.channel_claim_delivery(b.id).unwrap().unwrap());
+        s.delete_memory(record.id, record.revision).unwrap();
+        if let Some(d) = claimed {
+            assert!(!s.channel_may_send(&d).unwrap());
+        } else {
+            assert!(s.channel_claim_delivery(b.id).unwrap().is_none());
+        }
+    }
+}
+
+#[test]
+fn bridge_full_input_replacement_never_republishes_discarded_audit_speech() {
+    let (_dir, mut s, b, _batch, mut t) = setup("lemon");
+    let record = bridge_record(&mut s, &b, &mut t);
+    t.message(MessageRole::Assistant, "discarded-audit-marker".into())
+        .unwrap();
+    s.save_actor_turn(&mut t, false).unwrap();
+    let supplement = receive(
+        &mut s,
+        &b,
+        "new question without old private interpretation",
+    );
+    assert!(matches!(
+        s.private_chat_refresh(t.id, supplement.received_at_ms + MAX_MERGE_MS)
+            .unwrap(),
+        ChatRefresh::Updated
+    ));
+    let mut history = s.actor_recent(t.conversation_id).unwrap();
+    // Exact full-input replacement performed by Actor::model_context(true).
+    for item in &mut history {
+        if item.id == t.id {
+            item.messages.retain(|m| m.role == MessageRole::User);
+            item.actions.clear();
+        }
+    }
+    s.memory_context_history(t.id, history).unwrap();
+    s.delete_memory(record.id, record.revision).unwrap();
+    let view = s.actor_view(t.id).unwrap();
+    assert!(
+        view.availability.is_none(),
+        "the new input no longer uses the discarded source"
+    );
+    assert!(
+        !serde_json::to_string(&view)
+            .unwrap()
+            .contains("discarded-audit-marker")
+    );
+    assert!(
+        serde_json::to_string(&s.actor_turn(t.id).unwrap())
+            .unwrap()
+            .contains("discarded-audit-marker")
+    );
+    t = s.actor_turn(t.id).unwrap();
+    t.message(MessageRole::Assistant, "fresh reply".into())
+        .unwrap();
+    t.state = TurnState::Completed;
+    t.private_chat.as_mut().unwrap().decision = ChatDecision::Reply;
+    s.save_actor_turn(&mut t, false).unwrap();
+    let next = bridge_next(&mut s, &t, true);
+    let history = s
+        .memory_context_history(next.id, s.actor_recent(next.conversation_id).unwrap())
+        .unwrap();
+    assert!(
+        !serde_json::to_string(&history)
+            .unwrap()
+            .contains("discarded-audit-marker")
+    );
 }
 fn action(s: &mut Store, t: &mut ActorTurn, tool: Tool) -> ActionId {
     let id = ActionId::new();
@@ -502,7 +949,7 @@ fn schema_ten_upgrade_adds_only_the_input_index_and_preserves_old_actor_snapshot
         )
         .unwrap();
     s.connection
-        .execute_batch("DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP INDEX channel_incoming_batch; PRAGMA user_version=10;")
+        .execute_batch("DROP TABLE actor_memory_contexts; DROP TABLE memory_context_requests; DROP TABLE conversation_memory_contexts; DROP TABLE project_requests; DROP TABLE project_workspaces; DROP TABLE projects; DROP TABLE device_work_continuations; DROP TABLE device_work_links; DROP TABLE device_approval_decisions; DROP TABLE device_executions; DROP TABLE device_command_changes; DROP TABLE device_command_events; DROP TABLE device_commands; DROP TABLE channel_media_frames; DROP TABLE channel_media; DROP TABLE device_reports; DROP TABLE devices; DROP TABLE archive_memory_suppressions; DROP TABLE archive_memory_grants; DROP TABLE knowledge_sync; DROP TABLE knowledge_records; DROP TABLE knowledge_sources; DROP TABLE archive_recall_reads; DROP TABLE archive_recall_grants; DROP TABLE archive_reads; DROP TABLE archive_edits; DROP TABLE archive_records; DROP TABLE archive_grants; DROP TABLE archive_sources; DROP TABLE inference_requests; DROP TABLE inference_decisions; DROP TABLE inference_budgets; DROP TABLE share_reads; DROP TABLE share_model_requests; DROP TABLE share_jobs; DROP TABLE share_deliveries; DROP TABLE share_candidates; DROP TABLE channel_attention; DROP TABLE share_grants; DROP TABLE sharing_runtime; DROP TABLE reading_source_decisions; DROP TABLE experience_edits; DROP TABLE reading_source_suppressions; DROP TABLE experience_reads; DROP TABLE reading_model_requests; DROP TABLE reading_jobs; DROP TABLE reading_experiences; DROP TABLE reading_withdrawals; DROP TABLE reading_results; DROP TABLE reading_activities; DROP TABLE reading_grants; DROP INDEX channel_incoming_batch; DROP TABLE briefing_relations; DROP TABLE conversation_memory_effects; DROP TABLE briefing_memory_suppressions; DROP TABLE briefing_disclosures; DROP TABLE briefing_runs; DROP TABLE briefing_batches; DROP TABLE briefing_manifests; DROP TABLE briefing_grants; PRAGMA user_version=10;")
         .unwrap();
     drop(s);
     let s = Store::open(&dir.path().join("chat.db")).unwrap();

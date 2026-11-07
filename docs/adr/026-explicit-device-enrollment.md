@@ -2,6 +2,12 @@
 
 Date: 2026-10-28. Status: accepted W2a implementation contract; locally validated.
 
+## W2b additive extension — 2026-11-02
+
+[ADR 028](028-durable-device-commands.md) extends the same principal with its own
+command/receipt/change routes. This adds no Worker, Actor or administrator access.
+The W2a-only capability statements below describe the original increment.
+
 ## Scope
 
 W2a establishes a revocable device identity and reported inventory. It creates no

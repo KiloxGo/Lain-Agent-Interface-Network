@@ -1,5 +1,49 @@
 # Agent Backend Integration
 
+## Command-output transport fix — 2026-11-05
+
+The Codex transport absorbs only identified command output progress notifications
+before the bounded lifecycle queue; final aggregated command output and all
+authority-bearing events retain their normal path. This prevents a fast shell's
+temporary chunks from disconnecting a Worker while retaining fail-closed handling
+of real lifecycle overflow. Fixed closure reasons preserve diagnostic context
+without logging provider data. The first real turn remains uncertain and is not
+automatically replayed. See [the exact transport contract](backends/CODEX.md#command-output-burst-recovery--2026-11-05).
+
+## Explicit installed Codex alpha contract — 2026-11-05
+
+Managed execution now accepts exactly 0.160.0 and 0.166.0-alpha.5.1; unknown
+adjacent alphas remain rejected. For the latter, the installed offline schema's
+13 consumed request/response/notification field and enum groups were checked,
+and native isolated probes pass initialization, empty thread start/fork and
+same-ID resume, plus both existing Rust adapter profile-injection and unused
+thread-persistence probes. No inference or personal login was used. Existing
+structured fixture lifecycle/permission checks remain distinct from a new real
+provider task. This is not semver-range compatibility or paid-run acceptance.
+Diagnostics add `supported_versions`; `supported_version` retains the original
+baseline for older clients. The human CLI prefers the full explicit list.
+
+## W4 original-session interaction and permission facts — 2026-11-03
+
+Remote follow-up reuses the original protected native Supervisor/provider binding
+with a distinct new turn; running steering is not implied. Explicit task-cancel
+UI reuses the scoped command API and native effect fences, not screen parsing.
+Device permission reports distinguish durable receipt from the matching
+Supervisor approval being resolved; completion/transport acknowledgement alone
+is insufficient. No uncertain decision/submission is replayed. See
+[device work](DEVICE_WORK.md), [permission evidence](DEVICE_EXECUTION.md) and
+[W4 gates](W4_ACCEPTANCE.md). No additional backend or real-provider acceptance.
+
+## W3b device reuse of managed Codex — 2026-11-02
+
+The explicit native device service uses the existing managed-control Supervisor,
+structured transport and 0.160.0 version gate; it adds no second planning/tool
+loop. Deterministic Lain session/turn metadata and device-owned durable fences
+prevent replacement sessions after uncertainty. Device/owner credentials remain
+outside backend requests and are included in completed-output redaction. Actual
+provider lifecycle and native platform acceptance retain their separate scope.
+See [ADR 030](adr/030-native-device-worker-service.md) and [DEVICE_HOST.md](DEVICE_HOST.md).
+
 ## W1b explicit visible-history reader — 2026-10-27
 
 One authenticated `archive read` command can read a bounded page from a registered

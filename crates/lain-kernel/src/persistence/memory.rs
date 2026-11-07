@@ -41,10 +41,17 @@ pub(super) fn read_memory(db: &rusqlite::Connection, id: MemoryId) -> Result<Mem
         super::archive_memory::current(db, &record, now_ms()?)?,
         ControlError::Unavailable
     );
+    ensure!(
+        super::memory_context::derived_current(db, &record)?,
+        ControlError::Unavailable
+    );
     crate::memory::validate(&record.draft, &record.provenance)?;
     Ok(record)
 }
-fn read_candidate(db: &rusqlite::Connection, id: CandidateId) -> Result<MemoryCandidate> {
+pub(super) fn read_candidate(
+    db: &rusqlite::Connection,
+    id: CandidateId,
+) -> Result<MemoryCandidate> {
     let candidate: MemoryCandidate = decode(
         db.query_row(
             "SELECT snapshot FROM lain_memory_candidates WHERE id=?1",
@@ -64,6 +71,7 @@ pub(super) fn insert_memory(
     provenance: MemoryProvenance,
 ) -> Result<MemoryRecord> {
     crate::memory::validate(&draft, &provenance)?;
+    super::memory_context::scope_exists(tx, &draft.scope)?;
     let time = now_ms()?;
     let owner_confirmed_at_ms = if matches!(
         provenance.source,
@@ -76,6 +84,7 @@ pub(super) fn insert_memory(
     let record = MemoryRecord {
         id: MemoryId::new(),
         draft,
+        origin: Some(super::memory_context::origin(tx, &provenance.source)?),
         provenance,
         status: MemoryStatus::Active,
         superseded_by: None,
@@ -97,7 +106,11 @@ fn write_candidate(tx: &Transaction<'_>, candidate: &MemoryCandidate) -> Result<
     )?;
     Ok(())
 }
-fn review(tx: &Transaction<'_>, id: CandidateId, accept: bool) -> Result<MemoryCandidate> {
+pub(super) fn review(
+    tx: &Transaction<'_>,
+    id: CandidateId,
+    accept: bool,
+) -> Result<MemoryCandidate> {
     let mut candidate = read_candidate(tx, id)?;
     let desired = if accept {
         CandidateStatus::Accepted
@@ -106,9 +119,23 @@ fn review(tx: &Transaction<'_>, id: CandidateId, accept: bool) -> Result<MemoryC
     };
     if candidate.status != CandidateStatus::Candidate {
         ensure!(candidate.status == desired, ControlError::Conflict);
-        return Ok(candidate);
+        return super::briefing_memory::project_candidate(tx, candidate);
     }
     if accept {
+        super::briefing_memory::candidate_current(tx, &candidate)?;
+        super::memory_selection::candidate_current(tx, &candidate)?;
+        if let MemorySource::LainGenerated { actor_turn_id, .. } = candidate.provenance.source {
+            let raw: String = tx.query_row(
+                "SELECT snapshot FROM lain_actor_turns WHERE id=?1",
+                [actor_turn_id.to_string()],
+                |r| r.get(0),
+            )?;
+            super::memory_context::candidate_allowed(
+                tx,
+                &super::decode_actor(&raw)?,
+                &candidate.draft,
+            )?;
+        }
         candidate.memory_id =
             Some(insert_memory(tx, candidate.draft.clone(), candidate.provenance.clone())?.id);
     }
@@ -117,6 +144,72 @@ fn review(tx: &Transaction<'_>, id: CandidateId, accept: bool) -> Result<MemoryC
     write_candidate(tx, &candidate)?;
     Ok(candidate)
 }
+pub(super) fn delete_memory_tx(tx: &Transaction<'_>, id: MemoryId, revision: u64) -> Result<()> {
+    // Deletion remains possible even if a rotated credential now matches text
+    // that was not recognizable as sensitive when originally stored.
+    let record = read_memory_snapshot(tx, id)?;
+    ensure!(record.revision == revision, ControlError::Conflict);
+    super::private_memory::suppress(tx, &record)?;
+    super::briefing_memory::suppress(tx, &record)?;
+    tx.execute("DELETE FROM lain_memories WHERE id=?1", [id.to_string()])?;
+    scrub_candidates(tx, id, "[deleted]")?;
+    Ok(())
+}
+pub(super) fn supersede_selection_tx(
+    tx: &Transaction<'_>,
+    id: MemoryId,
+    revision: u64,
+    replacement: MemoryId,
+) -> Result<()> {
+    let mut old = read_memory_snapshot(tx, id)?;
+    let new = read_memory_snapshot(tx, replacement)?;
+    ensure!(
+        old.revision == revision
+            && old.status == MemoryStatus::Active
+            && new.status == MemoryStatus::Active
+            && old.id != new.id
+            && old.draft.scope == new.draft.scope,
+        ControlError::Conflict
+    );
+    super::briefing_memory::suppress(tx, &old)?;
+    old.status = MemoryStatus::Superseded;
+    old.superseded_by = Some(replacement);
+    old.revision = old
+        .revision
+        .checked_add(1)
+        .context("memory revision exhausted")?;
+    old.updated_at_ms = now_ms()?;
+    old.draft.content = "[superseded by reviewed correction]".into();
+    old.validate().map_err(anyhow::Error::msg)?;
+    tx.execute(
+        "UPDATE lain_memories SET status=?2,content=?3,snapshot=?4 WHERE id=?1",
+        params![
+            id.to_string(),
+            key(&old.status)?,
+            old.draft.content,
+            key(&old)?
+        ],
+    )?;
+    scrub_candidates(tx, id, "[superseded by reviewed correction]")
+}
+fn scrub_candidates(tx: &Transaction<'_>, id: MemoryId, placeholder: &str) -> Result<()> {
+    // Remove the semantic candidate copy too. Original Actor/operational audit
+    // remains under its own retention; deletion is not secure disk erasure.
+    let mut stmt = tx.prepare("SELECT snapshot FROM lain_memory_candidates")?;
+    let candidates = stmt
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    drop(stmt);
+    for value in candidates {
+        let mut c: MemoryCandidate = decode(value)?;
+        if c.memory_id == Some(id) {
+            c.draft.content = placeholder.into();
+            write_candidate(tx, &c)?;
+        }
+    }
+    Ok(())
+}
+
 impl Store {
     pub fn memory(&self, id: MemoryId) -> Result<MemoryRecord> {
         read_memory(&self.connection, id)
@@ -204,6 +297,9 @@ impl Store {
             if !super::archive_memory::current(&self.connection, &record, now_ms()?)? {
                 continue;
             }
+            if !super::memory_context::derived_current(&self.connection, &record)? {
+                continue;
+            }
             crate::memory::validate(&record.draft, &record.provenance)?;
             ensure!(
                 record.draft.scope == q.scope
@@ -259,31 +355,15 @@ impl Store {
     }
     pub fn delete_memory(&mut self, id: MemoryId, revision: u64) -> Result<()> {
         let tx = self.connection.transaction()?;
-        // Deletion remains possible even if a rotated credential now matches text
-        // that was not recognizable as sensitive when originally stored.
-        let record = read_memory_snapshot(&tx, id)?;
-        ensure!(record.revision == revision, ControlError::Conflict);
-        super::private_memory::suppress(&tx, &record)?;
-        tx.execute("DELETE FROM lain_memories WHERE id=?1", [id.to_string()])?;
-        // Remove the semantic candidate copy too. Original Actor/operational audit
-        // remains under its own retention; deletion is not secure disk erasure.
-        let mut stmt = tx.prepare("SELECT snapshot FROM lain_memory_candidates")?;
-        let candidates = stmt
-            .query_map([], |r| r.get::<_, String>(0))?
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-        drop(stmt);
-        for value in candidates {
-            let mut c: MemoryCandidate = decode(value)?;
-            if c.memory_id == Some(id) {
-                c.draft.content = "[deleted]".into();
-                write_candidate(&tx, &c)?;
-            }
-        }
+        delete_memory_tx(&tx, id, revision)?;
         tx.commit()?;
         Ok(())
     }
     pub fn candidate(&self, id: CandidateId) -> Result<MemoryCandidate> {
-        read_candidate(&self.connection, id)
+        super::briefing_memory::project_candidate(
+            &self.connection,
+            read_candidate(&self.connection, id)?,
+        )
     }
     pub fn candidates(&self, after: u64, limit: u16) -> Result<serde_json::Value> {
         ensure!(
@@ -304,7 +384,10 @@ impl Store {
             }
             let candidate: MemoryCandidate = decode(v)?;
             candidate.validate().map_err(anyhow::Error::msg)?;
-            records.push(candidate);
+            records.push(super::briefing_memory::project_candidate(
+                &self.connection,
+                candidate,
+            )?);
             cursor = n.try_into()?;
         }
         Ok(serde_json::json!({"candidates":records,"next_cursor":cursor,"has_more":more}))
@@ -355,6 +438,10 @@ impl Store {
         let candidate = MemoryCandidate {
             id,
             draft,
+            origin: Some(super::memory_context::origin(
+                &self.connection,
+                &provenance.source,
+            )?),
             provenance,
             status: CandidateStatus::Candidate,
             memory_id: None,
@@ -379,12 +466,61 @@ impl Store {
             read_candidate(&tx, id)?.actor_action == actor,
             ControlError::Conflict
         );
+        // Correction must also retire its exact predecessor and record the effect.
+        // Only selection_change owns that atomic transaction.
+        ensure!(
+            !accept
+                || !matches!(
+                    read_candidate(&tx, id)?.provenance.source,
+                    MemorySource::ConversationCorrection { .. }
+                ),
+            ControlError::InvalidInput
+        );
         let result = review(&tx, id, accept)?;
         tx.commit()?;
         Ok(result)
     }
     pub(super) fn sync_memory_candidates(tx: &Transaction<'_>, turn: &ActorTurn) -> Result<()> {
         for action in &turn.actions {
+            if let Tool::MemorySelectionChange(q) = &action.tool
+                && q.operation == MemoryOperation::Correct
+            {
+                let id = CandidateId(action.id.0);
+                if action.state == ActionState::Proposed {
+                    let exists = tx.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM lain_memory_candidates WHERE id=?1)",
+                        [id.to_string()],
+                        |r| r.get::<_, bool>(0),
+                    )?;
+                    if !exists {
+                        let c = super::memory_selection::proposal(tx, turn, action.id, q)?
+                            .replacement
+                            .ok_or(ControlError::Conflict)?;
+                        tx.execute("INSERT INTO lain_memory_candidates(id,actor_action,snapshot) VALUES(?1,?2,?3)",params![id.to_string(),action.id.to_string(),key(&c)?])?;
+                    }
+                } else if action.state == ActionState::Rejected {
+                    review(tx, id, false)?;
+                }
+                continue;
+            }
+            if let Tool::BriefingRemember(q) = &action.tool {
+                let id = CandidateId(action.id.0);
+                if action.state == ActionState::Proposed {
+                    let exists = tx.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM lain_memory_candidates WHERE id=?1)",
+                        [id.to_string()],
+                        |r| r.get::<_, bool>(0),
+                    )?;
+                    if !exists {
+                        let c = super::briefing_memory::prepare(tx, turn, action.id, q)?;
+                        super::briefing_memory::capture(tx, turn, action.id, q.briefing_id)?;
+                        tx.execute("INSERT INTO lain_memory_candidates(id,actor_action,snapshot) VALUES(?1,?2,?3)",params![id.to_string(),action.id.to_string(),key(&c)?])?;
+                    }
+                } else if action.state == ActionState::Rejected {
+                    review(tx, id, false)?;
+                }
+                continue;
+            }
             let Tool::MemoryPropose(args) = &action.tool else {
                 continue;
             };
@@ -401,9 +537,11 @@ impl Store {
                     authority: MemoryAuthority::Inferred,
                 };
                 crate::memory::validate(&draft, &provenance)?;
+                super::memory_context::candidate_allowed(tx, turn, &draft)?;
                 let c = MemoryCandidate {
                     id,
                     draft,
+                    origin: Some(super::memory_context::origin(tx, &provenance.source)?),
                     provenance,
                     status: CandidateStatus::Candidate,
                     memory_id: None,
@@ -545,6 +683,7 @@ mod tests {
             id: CandidateId::new(),
             draft: record.draft.clone(),
             provenance: record.provenance.clone(),
+            origin: record.origin.clone(),
             status: CandidateStatus::Candidate,
             memory_id: None,
             created_at_ms: now_ms().unwrap(),

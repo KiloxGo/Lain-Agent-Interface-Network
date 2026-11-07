@@ -1,0 +1,36 @@
+# Optional, separately authorized QQ transport. Run alongside the cloud Kernel.
+# Set NAPCAT_IMAGE to the inspected official image's immutable @sha256 digest.
+name: lain-qq
+services:
+  napcat:
+    image: ${NAPCAT_IMAGE:?set an inspected immutable image digest}
+    container_name: lain-napcat
+    hostname: lain-qq
+    restart: unless-stopped
+    environment:
+      MODE: ws
+      NAPCAT_UID: ${NAPCAT_UID:?set the dedicated service uid}
+      NAPCAT_GID: ${NAPCAT_GID:?set the dedicated service gid}
+      ACCOUNT: ${NAPCAT_ACCOUNT:?set the expected Lain QQ account}
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:6099:6099"
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - ${NAPCAT_STATE:?set the private state root}/qq:/app/.config/QQ
+      - ${NAPCAT_STATE:?set the private state root}/config:/app/napcat/config
+      - ${NAPCAT_STATE:?set the private state root}/plugins:/app/napcat/plugins
+    mem_limit: 1536m
+    memswap_limit: 1536m
+    cpus: 1.5
+    pids_limit: 512
+    shm_size: 256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - NET_RAW
+    ulimits:
+      core: 0
+    logging:
+      # Upstream prints auth-bearing URLs before per-account log settings load.
+      driver: none

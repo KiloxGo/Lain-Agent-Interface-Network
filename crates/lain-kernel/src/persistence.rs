@@ -18,11 +18,33 @@ mod archive_memory_tests;
 mod archive_reads;
 mod archive_recall;
 mod archives;
+mod briefing;
+mod briefing_conversation;
+mod briefing_memory;
+pub(crate) mod briefing_model;
+#[cfg(test)]
+mod briefing_refresh_tests;
+pub(crate) mod briefing_relations;
+mod briefing_run;
+#[cfg(test)]
+mod briefing_tests;
 pub(crate) mod channel_media;
 #[cfg(test)]
 mod channel_media_tests;
 mod channels;
+mod client_sync;
 mod delegation;
+mod device_commands;
+#[cfg(test)]
+mod device_commands_tests;
+#[cfg(test)]
+mod device_execution_tests;
+mod device_followup;
+#[cfg(test)]
+mod device_followup_tests;
+mod device_work;
+#[cfg(test)]
+mod device_work_tests;
 mod devices;
 #[cfg(test)]
 mod devices_tests;
@@ -31,13 +53,28 @@ mod inference;
 mod knowledge;
 mod knowledge_sync;
 mod memory;
+mod memory_context;
+#[cfg(test)]
+mod memory_context_tests;
+mod memory_selection;
 pub(crate) mod private_chat;
 mod private_memory;
+mod projects;
+#[cfg(test)]
+mod projects_tests;
 mod reading;
 mod share_recall;
 mod sharing;
 mod sources;
-pub(crate) const SCHEMA_VERSION: u32 = 24;
+pub(crate) const SCHEMA_VERSION: u32 = 40;
+/// Only closed source-notice and committed memory-effect constructors may
+/// acknowledge operations without republishing invalidated evidence.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ActorCommit {
+    Normal,
+    SourceNotice,
+    MemoryEffectNotice,
+}
 
 #[derive(Debug, thiserror::Error)]
 #[error("device authentication denied")]
@@ -221,6 +258,66 @@ impl Store {
         }
         if version < 24 {
             transaction.execute_batch(include_str!("../migrations/024_conversation_media.sql"))?;
+        }
+        if version < 25 {
+            transaction.execute_batch(include_str!("../migrations/025_device_commands.sql"))?;
+        }
+        if version < 26 {
+            transaction.execute_batch(include_str!("../migrations/026_device_execution.sql"))?;
+        }
+        if version < 27 {
+            transaction.execute_batch(include_str!(
+                "../migrations/027_device_work_conversations.sql"
+            ))?;
+        }
+        if version < 28 {
+            transaction
+                .execute_batch(include_str!("../migrations/028_device_continuations.sql"))?;
+        }
+        if version < 29 {
+            transaction.execute_batch(include_str!("../migrations/029_projects.sql"))?;
+        }
+        if version < 30 {
+            transaction.execute_batch(include_str!("../migrations/030_memory_context.sql"))?;
+        }
+        if version < 31 {
+            transaction
+                .execute_batch(include_str!("../migrations/031_private_memory_lineage.sql"))?;
+        }
+        if version < 32 {
+            transaction.execute_batch(include_str!("../migrations/032_client_sync.sql"))?;
+            client_sync::install(&transaction)?;
+        }
+        if version < 33 {
+            transaction.execute_batch(include_str!("../migrations/033_daily_briefing.sql"))?;
+            client_sync::install(&transaction)?;
+        }
+        if version < 34 {
+            transaction.execute_batch(include_str!("../migrations/034_briefing_model.sql"))?;
+            client_sync::install(&transaction)?;
+        }
+        if version < 35 {
+            transaction
+                .execute_batch(include_str!("../migrations/035_briefing_conversation.sql"))?;
+            client_sync::install(&transaction)?;
+        }
+        if version < 36 {
+            transaction.execute_batch(include_str!("../migrations/036_briefing_memory.sql"))?;
+            client_sync::install(&transaction)?;
+        }
+        if version < 37 {
+            transaction.execute_batch(include_str!("../migrations/037_memory_selection.sql"))?;
+            client_sync::install(&transaction)?;
+        }
+        if version < 38 {
+            transaction.execute_batch(include_str!("../migrations/038_memory_correction.sql"))?;
+        }
+        if version < 39 {
+            transaction.execute_batch(include_str!("../migrations/039_briefing_relations.sql"))?;
+            client_sync::install(&transaction)?;
+        }
+        if version < 40 {
+            transaction.execute_batch(include_str!("../migrations/040_briefing_lookup.sql"))?;
         }
         transaction.commit().context("commit schema migration")?;
         connection.execute_batch(
@@ -696,9 +793,19 @@ impl Store {
         turn: &mut crate::actor::domain::ActorTurn,
         create: bool,
     ) -> Result<()> {
+        Self::save_actor_with_commit(tx, turn, create, ActorCommit::Normal)
+    }
+    fn save_actor_with_commit(
+        tx: &rusqlite::Transaction,
+        turn: &mut crate::actor::domain::ActorTurn,
+        create: bool,
+        commit: ActorCommit,
+    ) -> Result<()> {
         turn.validate()?;
         inference::sync_actor(tx, turn, create)?;
         experiences::sync_actor(tx, turn)?;
+        briefing_model::sync_actor(tx, turn)?;
+        briefing_conversation::sync_actor(tx, turn, commit)?;
         sharing::sync_actor(tx, turn)?;
         turn.revision = turn
             .revision
@@ -708,6 +815,7 @@ impl Store {
             tx.execute("INSERT INTO lain_actor_turns(id, conversation_id, request_id, snapshot) VALUES (?1, ?2, ?3, '{}')", (turn.id.to_string(),turn.conversation_id.to_string(),turn.request_id.to_string()))?;
             turn.sequence = tx.last_insert_rowid().try_into()?;
         }
+        memory_context::sync_actor(tx, turn, create, commit)?;
         ensure!(
             tx.execute(
                 "UPDATE lain_actor_turns SET snapshot = ?2 WHERE id = ?1",
@@ -838,6 +946,7 @@ mod actor_record_tests {
     fn legacy_message_metadata_migrates_but_current_invalid_records_fail_closed() {
         let mut turn = ActorTurn {
             reading_activity: None,
+            briefing_activity: None,
             sharing_activity: None,
             id: ActorTurnId::new(),
             conversation_id: ConversationId::new(),

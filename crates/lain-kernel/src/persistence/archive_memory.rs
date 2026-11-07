@@ -83,6 +83,9 @@ pub(super) fn suppress(db: &Connection, r: &MemoryRecord) -> Result<()> {
     Ok(())
 }
 pub(super) fn current(db: &Connection, r: &MemoryRecord, now: u64) -> Result<bool> {
+    if !super::briefing_memory::current(db, r, now)? {
+        return Ok(false);
+    }
     let MemorySource::ArchiveSelection { evidence: e } = &r.provenance.source else {
         return Ok(true);
     };

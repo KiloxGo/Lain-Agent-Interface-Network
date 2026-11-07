@@ -1,8 +1,18 @@
 mod archives;
+mod briefing;
 mod channels;
+mod client_sync;
+#[cfg(test)]
+mod client_sync_tests;
+mod device_commands;
+mod device_work;
 mod devices;
 mod inference;
 mod memory;
+mod memory_context;
+#[cfg(test)]
+mod project_tests;
+mod projects;
 mod reading;
 mod sharing;
 
@@ -82,12 +92,17 @@ pub fn actor_router(
     let device_routes = devices::agent_routes(state.clone());
     Router::new()
         .merge(devices::owner_routes())
+        .merge(device_work::routes())
         .merge(memory::routes())
+        .merge(projects::routes())
+        .merge(memory_context::routes())
+        .merge(client_sync::routes())
         .merge(channels::routes())
         .merge(reading::routes())
         .merge(sharing::routes())
         .merge(inference::routes())
         .merge(archives::routes())
+        .merge(briefing::routes())
         .route(
             "/health",
             get(|| async { Json(serde_json::json!({"status": "ok", "service":"lain-kernel", "version":env!("CARGO_PKG_VERSION")})) }),
@@ -705,9 +720,9 @@ async fn conversation(
     State(kernel): State<Arc<Kernel>>,
     Path(id): Path<crate::actor::domain::ConversationId>,
     Query(query): Query<ConversationQuery>,
-) -> Result<Json<crate::actor::domain::ConversationPage>, ApiError> {
+) -> Result<Json<serde_json::Value>, ApiError> {
     blocking(&kernel, move |k| {
-        if query.recent == Some(true) {
+        let page = if query.recent == Some(true) {
             if query.after.is_some() || query.limit.is_some() {
                 return Err(ControlError::InvalidInput.into());
             }
@@ -715,10 +730,18 @@ async fn conversation(
             page.turns = k.actor_recent(id)?;
             page.next_cursor = page.turns.last().map(|t| t.sequence).unwrap_or(0);
             page.has_more = false;
-            Ok(page)
+            page
         } else {
-            k.actor_page(id, query.after.unwrap_or(0), query.limit.unwrap_or(20))
-        }
+            k.actor_page(id, query.after.unwrap_or(0), query.limit.unwrap_or(20))?
+        };
+        let turns = page
+            .turns
+            .iter()
+            .map(|t| k.actor_view(t.id))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let mut view = serde_json::to_value(page)?;
+        view["turns"] = serde_json::to_value(turns)?;
+        Ok(view)
     })
     .await
     .map(Json)
@@ -876,19 +899,22 @@ async fn actor_submit(
     State(state): State<ApiState>,
     Path(id): Path<crate::actor::domain::ConversationId>,
     Json(input): Json<ActorInput>,
-) -> Result<(StatusCode, Json<crate::actor::domain::ActorTurn>), ApiError> {
-    state
+) -> Result<(StatusCode, Json<lain_wire::ActorSnapshot>), ApiError> {
+    let turn = state
         .actor
         .submit(id, input.request_id, input.text)
         .await
-        .map(|turn| (StatusCode::ACCEPTED, Json(turn)))
+        .map_err(control_error)?;
+    blocking(&state.kernel, move |k| k.actor_view(turn.id))
+        .await
+        .map(|view| (StatusCode::ACCEPTED, Json(view)))
         .map_err(control_error)
 }
 async fn actor_turn(
     State(kernel): State<Arc<Kernel>>,
     Path(id): Path<crate::actor::domain::ActorTurnId>,
-) -> Result<Json<crate::actor::domain::ActorTurn>, ApiError> {
-    blocking(&kernel, move |k| k.actor_turn(id))
+) -> Result<Json<lain_wire::ActorSnapshot>, ApiError> {
+    blocking(&kernel, move |k| k.actor_view(id))
         .await
         .map(Json)
         .map_err(control_error)
@@ -905,10 +931,13 @@ async fn actor_decide(
         crate::actor::domain::ActionId,
     )>,
     Json(input): Json<ActorDecision>,
-) -> Result<Json<crate::actor::domain::ActorTurn>, ApiError> {
+) -> Result<Json<lain_wire::ActorSnapshot>, ApiError> {
     state
         .actor
         .decide(id, action, input.approve)
+        .await
+        .map_err(control_error)?;
+    blocking(&state.kernel, move |k| k.actor_view(id))
         .await
         .map(Json)
         .map_err(control_error)
@@ -916,10 +945,9 @@ async fn actor_decide(
 async fn actor_cancel(
     State(state): State<ApiState>,
     Path(id): Path<crate::actor::domain::ActorTurnId>,
-) -> Result<Json<crate::actor::domain::ActorTurn>, ApiError> {
-    state
-        .actor
-        .cancel(id)
+) -> Result<Json<lain_wire::ActorSnapshot>, ApiError> {
+    state.actor.cancel(id).await.map_err(control_error)?;
+    blocking(&state.kernel, move |k| k.actor_view(id))
         .await
         .map(Json)
         .map_err(control_error)
@@ -930,13 +958,15 @@ async fn actor_events(
 ) -> Result<impl IntoResponse, ApiError> {
     // Subscribe before reading a snapshot; revisions discard overlapping earlier events.
     let mut events = state.actor.subscribe();
-    let initial = blocking(&state.kernel, move |k| k.actor_turn(id))
+    let initial = blocking(&state.kernel, move |k| k.actor_view(id))
         .await
         .map_err(control_error)?;
     let mut shutdown = state.kernel.subscribe_shutdown();
-    let (sender, receiver) = tokio::sync::mpsc::channel::<Result<SseEvent, Infallible>>(16);
+    let (sender, receiver) = tokio::sync::mpsc::channel::<ActorDelivery>(16);
+    let delivery_kernel = state.kernel.clone();
     tokio::spawn(async move {
-        use crate::actor::{Observation, domain::TurnState};
+        use crate::actor::Observation;
+        use lain_wire::ActorTurnState as TurnState;
         let mut revision = initial.revision;
         let finished = initial.state != TurnState::Running;
         let mut committed: std::collections::BTreeSet<_> =
@@ -947,15 +977,7 @@ async fn actor_events(
         } else {
             state.actor.preview_checkpoint(id)
         };
-        if sender
-            .send(Ok(SseEvent::default()
-                .event("turn")
-                .json_data(initial)
-                .unwrap()))
-            .await
-            .is_err()
-            || finished
-        {
+        if sender.send(ActorDelivery::Turn).await.is_err() || finished {
             return;
         }
         if let Some(checkpoint) = checkpoint
@@ -963,10 +985,7 @@ async fn actor_events(
         {
             previews.insert(checkpoint.preview_id, checkpoint.sequence);
             if sender
-                .send(Ok(SseEvent::default()
-                    .event("preview")
-                    .json_data(checkpoint)
-                    .unwrap()))
+                .send(ActorDelivery::Preview(checkpoint))
                 .await
                 .is_err()
             {
@@ -980,7 +999,7 @@ async fn actor_events(
                 value=events.recv()=>match value {
                     Ok(event)=>event,
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_))=>{
-                        let _=sender.send(Ok(SseEvent::default().event("resync_required").data("reconnect to the same turn"))).await;
+                        let _=sender.send(ActorDelivery::Resync).await;
                         break;
                     },
                     Err(_)=>break,
@@ -991,10 +1010,7 @@ async fn actor_events(
                     revision = turn.revision;
                     committed.extend(turn.messages.iter().map(|m| m.id));
                     let finished = turn.state != TurnState::Running;
-                    (
-                        SseEvent::default().event("turn").json_data(turn).unwrap(),
-                        finished,
-                    )
+                    (ActorDelivery::Turn, finished)
                 }
                 Observation::Preview(preview)
                     if preview.turn_id == id && !committed.contains(&preview.message_id) =>
@@ -1006,24 +1022,74 @@ async fn actor_events(
                         continue;
                     }
                     previews.insert(preview.preview_id, preview.sequence);
-                    (
-                        SseEvent::default()
-                            .event("preview")
-                            .json_data(preview)
-                            .unwrap(),
-                        false,
-                    )
+                    (ActorDelivery::Preview(preview), false)
                 }
                 _ => continue,
             };
-            tokio::select! {_=shutdown.changed()=>break,_=sender.closed()=>break,result=sender.send(Ok(event))=>if result.is_err(){break;}}
+            tokio::select! {_=shutdown.changed()=>break,_=sender.closed()=>break,result=sender.send(event)=>if result.is_err(){break;}}
             if finished {
                 break;
             }
         }
     });
-    Ok(
-        Sse::new(tokio_stream::wrappers::ReceiverStream::new(receiver))
-            .keep_alive(KeepAlive::default()),
-    )
+    // Queue wakeups rather than serialized bodies: even an initial/terminal
+    // snapshot must be revalidated when the HTTP body is actually consumed.
+    let stream = futures_util::stream::unfold(
+        (receiver, delivery_kernel),
+        move |(mut receiver, kernel)| async move {
+            while let Some(delivery) = receiver.recv().await {
+                if let Some(event) = actor_delivery(&kernel, id, delivery).await {
+                    return Some((Ok::<_, Infallible>(event), (receiver, kernel)));
+                }
+            }
+            None
+        },
+    );
+    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
+}
+enum ActorDelivery {
+    Turn,
+    Preview(lain_wire::PreviewEvent),
+    Resync,
+}
+async fn actor_delivery(
+    kernel: &Arc<Kernel>,
+    id: crate::actor::domain::ActorTurnId,
+    delivery: ActorDelivery,
+) -> Option<SseEvent> {
+    match delivery {
+        ActorDelivery::Turn => match blocking(kernel, move |k| k.actor_view(id)).await {
+            Ok(view) => Some(
+                SseEvent::default()
+                    .event("turn")
+                    .json_data(view)
+                    .expect("serializable Actor view"),
+            ),
+            Err(_) => Some(
+                SseEvent::default()
+                    .event("resync_required")
+                    .data("reconnect to the same turn"),
+            ),
+        },
+        ActorDelivery::Preview(preview) => {
+            let permitted =
+                blocking(kernel, move |k| {
+                    Ok(k.actor_view(id)?.availability.is_none()
+                        && !k.actor_memory_requires_hold(id)?)
+                })
+                .await
+                .unwrap_or(false);
+            permitted.then(|| {
+                SseEvent::default()
+                    .event("preview")
+                    .json_data(preview)
+                    .expect("serializable preview")
+            })
+        }
+        ActorDelivery::Resync => Some(
+            SseEvent::default()
+                .event("resync_required")
+                .data("reconnect to the same turn"),
+        ),
+    }
 }

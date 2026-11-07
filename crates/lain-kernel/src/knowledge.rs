@@ -20,6 +20,20 @@ pub(crate) struct Config {
     pub secret_ref: SecretRef,
 }
 impl Config {
+    pub(crate) fn status() -> KnowledgeReaderStatus {
+        match Self::load() {
+            Ok(c) => KnowledgeReaderStatus {
+                configured: true,
+                credentials_available: resolve_secret(&c.secret_ref).is_ok(),
+                revision: Some(c.revision()),
+            },
+            Err(_) => KnowledgeReaderStatus {
+                configured: false,
+                credentials_available: false,
+                revision: None,
+            },
+        }
+    }
     pub(crate) fn load() -> Result<Self> {
         let path = std::env::var_os("LAIN_KNOWLEDGE_CONFIG").ok_or(ControlError::Unavailable)?;
         let f = std::fs::File::open(path).map_err(|_| ControlError::Unavailable)?;
@@ -99,11 +113,30 @@ pub(crate) struct Page {
     pub next_after: u64,
     pub has_more: bool,
     pub items: Vec<Change>,
+    #[serde(default)]
+    pub coverage: Option<ArchiveCoverage>,
 }
 #[derive(Deserialize)]
 pub(crate) struct Change {
     pub sequence: u64,
     pub message: Message,
+}
+#[derive(Deserialize, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub(crate) enum Segment {
+    Reply {
+        reference: String,
+    },
+    // Text/images have separate bounded fields. Do not carry other segment bodies.
+    #[serde(other)]
+    Other,
+}
+fn no_reply_segments(segments: &Option<Vec<Segment>>) -> bool {
+    segments.as_ref().is_none_or(|segments| {
+        !segments
+            .iter()
+            .any(|segment| matches!(segment, Segment::Reply { .. }))
+    })
 }
 #[derive(Deserialize, Serialize)]
 pub(crate) struct Message {
@@ -118,6 +151,8 @@ pub(crate) struct Message {
     pub revision: u64,
     pub text: Option<String>,
     pub images: Vec<Value>,
+    #[serde(default, skip_serializing_if = "no_reply_segments")]
+    pub segments: Option<Vec<Segment>>,
 }
 impl Page {
     pub(crate) fn validate(
@@ -141,6 +176,7 @@ impl Page {
         };
         ensure!(
             self.schema_version == 1
+                && self.coverage.as_ref().is_none_or(ArchiveCoverage::valid)
                 && self.store_id == c.store_id
                 && self.source.id == id
                 && self.source.account == *account
@@ -179,6 +215,17 @@ impl Page {
                         .into_iter()
                         .all(|n| n <= i64::MAX as u64)
                     && m.images.len() <= 8
+                    && m.segments.as_ref().is_none_or(|segments| {
+                        segments.len() <= 128
+                            && segments.iter().all(|segment| match segment {
+                                Segment::Reply { reference } => {
+                                    !reference.trim().is_empty()
+                                        && reference.len() <= 80
+                                        && !reference.chars().any(char::is_control)
+                                }
+                                Segment::Other => true,
+                            })
+                    })
                     && matches!(
                         m.state.as_str(),
                         "active" | "recalled" | "forgotten" | "revoked" | "expired"
@@ -187,7 +234,9 @@ impl Page {
             );
             if m.state != "active" {
                 ensure!(
-                    m.text.is_none() && m.images.is_empty(),
+                    m.text.is_none()
+                        && m.images.is_empty()
+                        && m.segments.as_ref().is_none_or(Vec::is_empty),
                     ControlError::InvalidInput
                 );
             }
@@ -229,9 +278,21 @@ fn excerpt(text: &str, max: usize) -> Value {
 }
 pub(crate) fn projection(m: &Message) -> Result<String> {
     let images=m.images.iter().take(2).map(|i|json!({"asset_id":i["id"],"state":i["state"],"description_origin":i["description"].as_str().map(|_|"external_model_inference_not_sender_words"),"description":i["description"].as_str().map(|s|excerpt(s,512)),"model":i["model"],"prompt_revision":i["prompt_revision"],"processing_policy":"first_frame_resized_at_most_1280x1280_not_full_animation_or_verified_ocr"})).collect::<Vec<_>>();
-    let text = serde_json::to_string(
-        &json!({"report_kind":"qq_observed_projection","participation":"observation_only","native_message_id":m.external_id,"upstream_record_id":m.id,"source_id":m.source_id,"images":images,"omitted_images":m.images.len().saturating_sub(2),"original_message_text":m.text.as_deref().map(|s|excerpt(s,2048)),"image_bytes":"retained_only_in_independent_source_service"}),
-    )?;
+    let mut value = json!({"report_kind":"qq_observed_projection","participation":"observation_only","native_message_id":m.external_id,"upstream_record_id":m.id,"source_id":m.source_id,"images":images,"omitted_images":m.images.len().saturating_sub(2),"original_message_text":m.text.as_deref().map(|s|excerpt(s,2048)),"image_bytes":"retained_only_in_independent_source_service"});
+    let mut total = 0;
+    let mut markers = vec![];
+    for (index, segment) in m.segments.as_deref().unwrap_or_default().iter().enumerate() {
+        if let Segment::Reply { reference } = segment {
+            total += 1;
+            if markers.len() < 4 {
+                markers.push(json!({"native_reference_id":reference,"segment_index":index,"resolved_target":null}));
+            }
+        }
+    }
+    if total > 0 {
+        value["reply_references"] = json!({"observed_markers":markers,"omitted_references":total-markers.len(),"lookup_scope":"current_source_only","target_resolution":"not_attempted","target_chronology":"unknown_without_verified_target_clock","basis":"observed_reply_segment_not_verified_target_or_relation","target_content":"not_loaded_by_reference"});
+    }
+    let text = serde_json::to_string(&value)?;
     archives::validate_text(&text)?;
     Ok(text)
 }
