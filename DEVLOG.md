@@ -1,5 +1,14 @@
 # L.A.I.N. Development Log
 
+## 2026-11-08 — Deployed, and the group is readable from QQ
+
+The span-briefing release went to the cloud as a program-only cutover, and the user
+then confirmed enabling the collected group in the Kernel. The source, import, sync and
+briefing grants are separate finite decisions, recorded in CLOUD_OPERATIONS. Sync read
+the retained backlog at once. The Windows client was rebuilt from the same commit
+because older clients cannot decode the new tool call. A span question in QQ is the
+next acceptance step.
+
 ## 2026-11-07 — Briefings for any time span, at group volume
 
 The user wants a chosen span of messages summarized on request, not every message

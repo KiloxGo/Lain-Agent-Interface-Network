@@ -5,10 +5,11 @@
 Done: real-provider run of the daily loop on synthetic messages, plainer default
 replies (see docs/DAILY_BRIEFING_ACCEPTANCE.md), and Linux validation, backup and
 deployment of that version to the cloud (see docs/CLOUD_OPERATIONS.md), and
-collection of one selected QQ group. Sustainable sync (ADR 042) is implemented
-locally. Next, in order: (1) test briefings at real group volume on synthetic data;
-(2) deploy, then accept on the real source; (3) more natural answers than quoted
-lists.
+collection of one selected QQ group. Sustainable sync (ADR 042), span briefings and
+the group-volume test on synthetic data are done. On 2026-11-08 they were deployed,
+and the group is now enabled in the Kernel with a briefing grant on the QQ
+conversation. Next, in order: (1) accept a span question asked in QQ on the real
+source; (2) more natural answers than quoted lists.
 Public release follows the demo: it still needs a license and a decision on author
 emails in Git history.
 

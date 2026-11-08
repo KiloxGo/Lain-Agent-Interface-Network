@@ -1,5 +1,31 @@
 # Cloud operations and upgrade boundary
 
+## 2026-11-08 — Span briefings and the group enabled in the Kernel
+
+Source `844ae7d77198` (Git `8b01b4b`) is public-accepted as a same-schema40,
+program-only update over `4ce5612b3708`; operation `516d31f4`, binary
+`b97370447371`. The database inode, instance identity, four private configurations,
+reader and backup units are unchanged. Native Linux: 466 Kernel library, 11
+foundation and 5 profile tests, Clippy and a release build pass, with 30 guards, 3
+copy mutations and 8 isolated fault cases. Public checks, the installed client and a
+post-upgrade backup with restore check pass; 7 archives retained. Future maintenance
+must fence this binary as the previous runtime.
+
+Release checks that assert zero Kernel sources (preflight, final inventory, phrase
+verification) must change for the next release, because the user then confirmed
+enabling the collected group:
+
+- source registered; import grant with 7-day text retention, at most 100000 records
+  and expiry 2026-12-09 (the 31-day maximum);
+- knowledge sync every 15 minutes, 32 changes per read, at most 5000 requests, same
+  expiry; the first reads took the retained backlog;
+- briefing grant on the private QQ conversation over that source, +08:00, at most
+  4096 records per briefing, ending after 30 days (the maximum).
+
+These are finite: renewing them before expiry needs another explicit decision. The
+Windows client was updated to the same commit, keeping the earlier connection file
+as a backup. A span question asked in QQ is not yet accepted.
+
 ## 2026-11-07 — Daily loop release on the original database
 
 Source `4ce5612b3708` (Git `227bc89`) is public-accepted as a same-schema40,
@@ -32,10 +58,8 @@ same NapCat as the private channel, so one account serves both. The group is
 enabled in the knowledge service with 30-day retention and image understanding off;
 new messages only, no history backfill. To stop: `docker stop` the observer, and
 disable the source in the knowledge service to clear what it holds. Kernel sources
-are still 0: briefings cannot read this group until the sync limit below is solved.
-
-Sync stays off in production until the sustainable sync rules in
-[ADR 042](adr/042-sustainable-knowledge-sync.md) are deployed.
+were still 0 at this point, and sync stayed off until the rules in
+[ADR 042](adr/042-sustainable-knowledge-sync.md) were deployed (see 2026-11-08 above).
 
 ## 2026-11-07 — Current medium profile on the same b9a program
 
